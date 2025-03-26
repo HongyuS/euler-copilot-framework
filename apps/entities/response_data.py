@@ -441,7 +441,7 @@ class PutFlowReq(BaseModel):
     """创建/修改流拓扑结构"""
 
     flow: FlowItem
-    focus_point: PositionItem = Field(alias="focusPoint")
+    focus_point: PositionItem = Field(alias="focusPoint", default=PositionItem())
 
 
 class FlowStructurePutMsg(BaseModel):
