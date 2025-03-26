@@ -83,5 +83,5 @@ class FlowItem(BaseModel):
     edges: list[EdgeItem] = Field(default=[])
     created_at: Optional[float] = Field(alias="createdAt", default=0)
     connectivity: bool = Field(default=False,description="图的开始节点和结束节点是否联通，并且除结束节点都有出边")
-    focus_point: PositionItem = Field(alias="focusPoint")
+    focus_point: PositionItem = Field(alias="focusPoint", default=PositionItem())
     debug: bool = Field(default=False)
