@@ -16,20 +16,13 @@ from apps.entities.enum_var import (
 from apps.entities.flow_topology import PositionItem
 
 
-class StepPos(BaseModel):
-    """节点在画布上的位置"""
-
-    x: float = Field(description="节点在画布上的X坐标")
-    y: float = Field(description="节点在画布上的Y坐标")
-
-
 class Edge(BaseModel):
     """Flow中Edge的数据"""
 
     id: str = Field(description="边的ID")
     edge_from: str = Field(description="边的来源节点ID")
     edge_to: str = Field(description="边的目标节点ID")
-    edge_type: Optional[EdgeType] = Field(description="边的类型",default = EdgeType.NORMAL)
+    edge_type: Optional[EdgeType] = Field(description="边的类型", default=EdgeType.NORMAL)
 
 
 class Step(BaseModel):
@@ -39,7 +32,7 @@ class Step(BaseModel):
     type: str = Field(description="Step的类型")
     name: str = Field(description="Step的名称")
     description: str = Field(description="Step的描述")
-    pos: StepPos = Field(description="Step在画布上的位置", default=StepPos(x=0, y=0))
+    pos: PositionItem = Field(description="Step在画布上的位置", default=PositionItem(x=0, y=0))
     params: dict[str, Any] = Field(description="用户手动指定的Node参数", default={})
 
 
@@ -58,6 +51,8 @@ class Flow(BaseModel):
     on_error: FlowError = FlowError(use_llm=True)
     steps: dict[str, Step] = Field(description="节点列表", default={})
     edges: list[Edge] = Field(description="边列表", default=[])
+    connectivity: bool = Field(default=False, description="图的开始节点和结束节点是否联通，并且除结束节点都有出边")
+    focus_point: Optional[PositionItem] = Field(description="当前焦点节点", default=PositionItem(x=0, y=0))
     debug: bool = Field(description="是否经过调试", default=False)
 
 
@@ -130,7 +125,6 @@ class AppFlow(BaseModel):
     description: str
     enabled: bool = Field(description="是否启用", default=True)
     path: str = Field(description="Flow的路径")
-    focus_point: PositionItem = Field(description="Flow的视觉焦点", default=PositionItem(x=0, y=0))
     debug: bool = Field(description="调试是否成功", default=False)
 
 

@@ -10,7 +10,7 @@ from anyio import Path
 from pymongo import ASCENDING
 
 from apps.common.config import config
-from apps.constants import APP_DIR
+from apps.constants import APP_DIR, FLOW_DIR
 from apps.entities.collection import User
 from apps.entities.enum_var import EdgeType, PermissionType
 from apps.entities.flow import Edge, Flow, Step, StepPos
@@ -53,11 +53,11 @@ class FlowManager:
                 return False
             match_conditions = [
                 {"author": user_sub},
-                {"permissions.type": PermissionType.PUBLIC.value},
+                {"permission.type": PermissionType.PUBLIC.value},
                 {
                     "$and": [
-                        {"permissions.type": PermissionType.PROTECTED.value},
-                        {"permissions.users": user_sub},
+                        {"permission.type": PermissionType.PROTECTED.value},
+                        {"permission.users": user_sub},
                     ],
                 },
             ]
@@ -69,7 +69,7 @@ class FlowManager:
             }
 
             result = await service_collection.count_documents(query)
-            return result > 0
+            return (result > 0)
         except Exception:
             logger.exception("[FlowManager] 验证用户对服务的访问权限失败")
             return False
@@ -128,18 +128,19 @@ class FlowManager:
                 return None
             # 获取用户收藏的服务列表
             fav_services = user.fav_services
+            logger.error(f'[FlowManager] 用户 {user_sub} 收藏的服务列表: {fav_services}')
             match_conditions = [
                 {"author": user_sub},
                 {
                     "$and": [
-                        {"permissions.type": PermissionType.PUBLIC.value},
+                        {"permission.type": PermissionType.PUBLIC.value},
                         {"_id": {"$in": fav_services}},
                     ],
                 },
                 {
                     "$and": [
-                        {"permissions.type": PermissionType.PROTECTED.value},
-                        {"permissions.users": {"$in": [user_sub]}},
+                        {"permission.type": PermissionType.PROTECTED.value},
+                        {"permission.users": {"$in": [user_sub]}},
                         {"_id": {"$in": fav_services}},
                     ],
                 },
@@ -231,78 +232,124 @@ class FlowManager:
         except Exception:
             logger.exception("[FlowManager] 获取流失败")
             return None
+
         try:
-            if flow_record:
-                flow_config = await FlowLoader().load(app_id, flow_id)
-                if not flow_config:
-                    logger.error("[FlowManager] 获取流配置失败")
-                    return None
-                focus_point = flow_record["focus_point"]
-                flow_item = FlowItem(
-                    flowId=flow_id,
-                    name=flow_config.name,
-                    description=flow_config.description,
+            flow_config = await FlowLoader().load(app_id, flow_id)
+            if not flow_config:
+                logger.error("[FlowManager] 获取流配置失败")
+                return None
+            focus_point = flow_record["focus_point"]
+            flow_item = FlowItem(
+                flowId=flow_id,
+                name=flow_config.name,
+                description=flow_config.description,
+                enable=True,
+                editable=True,
+                nodes=[],
+                edges=[],
+                focusPoint=focus_point,
+                connectivity=flow_config.connectivity,
+                debug=flow_config.debug,
+            )
+            for node_id, node_config in flow_config.steps.items():
+                if node_config.node not in ("Empty"):
+                    input_parameters = node_config.params
+                    _, output_parameters = await NodeManager.get_node_params(node_config.node)
+                else:
+                    input_parameters, output_parameters = {}, {}
+                parameters = {
+                    "input_parameters": input_parameters,
+                    "output_parameters": output_parameters
+                }
+                node_item = NodeItem(
+                    stepId=node_id,
+                    nodeId=node_config.node,
+                    name=node_config.name,
+                    description=node_config.description,
                     enable=True,
                     editable=True,
-                    nodes=[],
-                    edges=[],
-                    debug=flow_config.debug,
+                    callId=node_config.type,
+                    parameters=parameters,
+                    position=PositionItem(
+                        x=node_config.pos.x, y=node_config.pos.y),
                 )
-                for node_id, node_config in flow_config.steps.items():
-                    if node_config.node not in ("Empty"):
-                        input_parameters = node_config.params
-                        _, output_parameters = await NodeManager.get_node_params(node_config.node)
-                    else:
-                        input_parameters, output_parameters = {},{}
-                    parameters = {
-                        "input_parameters": input_parameters,
-                        "output_parameters": output_parameters
-                    }
-                    node_item = NodeItem(
-                        stepId=node_id,
-                        nodeId=node_config.node,
-                        name=node_config.name,
-                        description=node_config.description,
-                        enable=True,
-                        editable=True,
-                        callId=node_config.type,
-                        parameters=parameters,
-                        position=PositionItem(
-                            x=node_config.pos.x, y=node_config.pos.y),
-                    )
-                    flow_item.nodes.append(node_item)
+                flow_item.nodes.append(node_item)
 
-                for edge_config in flow_config.edges:
-                    edge_from = edge_config.edge_from
-                    branch_id = ""
-                    tmp_list = edge_config.edge_from.split(".")
-                    if len(tmp_list) == 0 or len(tmp_list) > 2:
-                        logger.error("[FlowManager] Flow中边的格式错误")
-                        continue
-                    if len(tmp_list) == 2:
-                        edge_from = tmp_list[0]
-                        branch_id = tmp_list[1]
-                    flow_item.edges.append(
-                        EdgeItem(
-                            edgeId=edge_config.id,
-                            sourceNode=edge_from,
-                            targetNode=edge_config.edge_to,
-                            type=edge_config.edge_type.value if edge_config.edge_type else EdgeType.NORMAL.value,
-                            branchId=branch_id,
-                        ),
-                    )
-                return (flow_item, focus_point)
-            return None
+            for edge_config in flow_config.edges:
+                edge_from = edge_config.edge_from
+                branch_id = ""
+                tmp_list = edge_config.edge_from.split(".")
+                if len(tmp_list) == 0 or len(tmp_list) > 2:
+                    logger.error("[FlowManager] Flow中边的格式错误")
+                    continue
+                if len(tmp_list) == 2:
+                    edge_from = tmp_list[0]
+                    branch_id = tmp_list[1]
+                flow_item.edges.append(
+                    EdgeItem(
+                        edgeId=edge_config.id,
+                        sourceNode=edge_from,
+                        targetNode=edge_config.edge_to,
+                        type=edge_config.edge_type.value if edge_config.edge_type else EdgeType.NORMAL.value,
+                        branchId=branch_id,
+                    ),
+                )
+            return flow_item
         except Exception:
             logger.exception("[FlowManager] 获取流失败")
             return None
 
     @staticmethod
+    async def is_flow_config_equal(flow_config_1: Flow, flow_config_2: Flow):
+        if flow_config_1.description != flow_config_2.description:
+            return False
+        if len(flow_config_1.steps) != len(flow_config_2.steps):
+            return False
+        if len(flow_config_1.edges) != len(flow_config_2.edges):
+            return False
+        step_dict_set_1 = set()
+        for step in flow_config_1.steps:
+            step_dict = {
+                "node": step.node,
+                "type": step.type,
+                "description": step.description,
+                "params": step.params,
+            }
+            step_dict_set_1.add(step_dict)
+        step_dict_set_2 = set()
+        for step in flow_config_2.steps:
+            step_dict = {
+                "node": step.node,
+                "type": step.type,
+                "description": step.description,
+                "params": step.params,
+            }
+            step_dict_set_2.add(step_dict)
+        if step_dict_set_1 != step_dict_set_2:
+            return False
+        edge_dict_set_1 = set()
+        for edge in flow_config_1.edges:
+            edge_dict = {
+                "from": edge.edge_from,
+                "to": edge.edge_to,
+            }
+            edge_dict_set_1.add(edge_dict)
+        edge_dict_set_2 = set()
+        for edge in flow_config_2.edges:
+            edge_dict = {
+                "from": edge.edge_from,
+                "to": edge.edge_to,
+            }
+            edge_dict_set_2.add(edge_dict)
+        if edge_dict_set_1 != edge_dict_set_2:
+            return False
+        return True
+
+    @staticmethod
     async def put_flow_by_app_and_flow_id(
         app_id: str,
         flow_id: str,
-        flow_item: FlowItem,
-        focus_point: PositionItem,
+        flow_item: FlowItem
     ) -> Optional[FlowItem]:
         """存储/更新flow的数据库数据和配置文件
 
@@ -317,16 +364,6 @@ class FlowManager:
             if app_record is None:
                 logger.error("[FlowManager] 应用 %s 不存在", app_id)
                 return None
-            cursor = app_collection.find(
-                {"_id": app_id, "flows._id": flow_id},
-                {"flows.$": 1},
-            )
-            app_records = await cursor.to_list(length=1)
-            flow_record = None
-            if len(app_records) != 0:
-                app_record = app_records[0]
-                if "flows" in app_record and len(app_record["flows"]) != 0:
-                    flow_record = app_record["flows"][0]
         except Exception:
             logger.exception("[FlowManager] 获取流失败")
             return None
@@ -336,6 +373,8 @@ class FlowManager:
                 description=flow_item.description,
                 steps={},
                 edges=[],
+                focus_point=flow_item.focus_point,
+                connectivity=flow_item.connectivity,
                 debug=False,
             )
             for node_item in flow_item.nodes:
@@ -344,8 +383,7 @@ class FlowManager:
                     node=node_item.node_id,
                     name=node_item.name,
                     description=node_item.description,
-                    pos=StepPos(x=node_item.position.x,
-                                y=node_item.position.y),
+                    pos=node_item.position,
                     params=node_item.parameters.get("input_parameters", {}),
                 )
             for edge_item in flow_item.edges:
@@ -360,39 +398,9 @@ class FlowManager:
                 )
                 flow_config.edges.append(edge_config)
             flow_loader = FlowLoader()
-            old_flow = await flow_loader.load(app_id, flow_id)
-            # 比较old_flow和flow_config的内容除了node.pos以外是否相同
-            # TODO: clean_code, 提取成函数
-            debuged = False
-            if type(old_flow) is Flow:
-                debuged = old_flow.debug
-                if debuged is True:
-                    debuged = True
-                    if len(flow_config.steps) != len(old_flow.steps):
-                        debuged = False
-                    if len(flow_config.edges) != len(old_flow.edges):
-                        debuged = False
-                    for _id, step in flow_config.steps.items():
-                        if _id not in old_flow.steps:
-                            debuged = False
-                        else:
-                            old_flow.steps[_id].pos = step.pos
-                            old_flow.steps[_id].description = step.description
-                            old_flow.steps[_id].name = step.name
-                            old_flow.steps[_id].type = step.type
-                            if old_flow.steps[_id] != step:
-                                debuged = False
-                    for _id in flow_config.edges:
-                        if _id not in old_flow.edges:
-                            debuged = False
-            flow_config.debug = debuged
+            old_flow_config = await flow_loader.load(app_id, flow_id)
+            flow_config.debug = await FlowManager.is_flow_config_equal(old_flow_config, flow_config)
             await flow_loader.save(app_id, flow_id, flow_config)
-            flow_config = await flow_loader.load(app_id, flow_id)
-            app_loader = AppLoader()
-            file_checker = FileChecker()
-            app_path = Path(config["SEMANTICS_DIR"]) / APP_DIR / app_id
-            await file_checker.diff_one(app_path)
-            await app_loader.load(app_id, file_checker.hashes[f"{APP_DIR}/{app_id}"])
             return flow_item
         except Exception:
             logger.exception("[FlowManager] 存储/更新流失败")
@@ -407,13 +415,14 @@ class FlowManager:
         :return: 流的id
         """
         try:
+
+            app_collection = MongoDB.get_collection("app")
+            key = f"{FLOW_DIR}/{flow_id}.yaml"
+            await app_collection.update_one({"_id": app_id}, {"$unset": {f"hashes.{key}": ""}})
+            await app_collection.update_one({"_id": app_id}, {"$pull": {"flows": {"id": flow_id}}})
+
             result = await FlowLoader().delete(app_id, flow_id)
-            # 修改app内flow信息
-            app_loader = AppLoader()
-            file_checker = FileChecker()
-            app_path = Path(config["SEMANTICS_DIR"]) / APP_DIR / app_id
-            await file_checker.diff_one(app_path)
-            await app_loader.load(app_id, file_checker.hashes[f"{APP_DIR}/{app_id}"])
+
             if result is None:
                 logger.error("[FlowManager] 删除流失败")
                 return None
@@ -438,11 +447,6 @@ class FlowManager:
                 return False
             flow.debug = debug
             await flow_loader.save(app_id=app_id, flow_id=flow_id, flow=flow)
-            app_loader = AppLoader()
-            file_checker = FileChecker()
-            app_path = Path(config["SEMANTICS_DIR"]) / APP_DIR / app_id
-            await file_checker.diff_one(app_path)
-            await app_loader.load(app_id, file_checker.hashes[f"{APP_DIR}/{app_id}"])
             return True
         except Exception:
             logger.exception("[FlowManager] 更新流debug状态失败")

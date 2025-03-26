@@ -17,6 +17,15 @@ class AppPoolVector(Base):
     embedding = Column(Vector(1024), nullable=False)
 
 
+class FlowPoolVector(Base):
+    """App向量信息"""
+
+    __tablename__ = "flow_vector"
+    id = Column(String(length=100), primary_key=True, nullable=False, unique=True)
+    app_id = Column(String(length=100), nullable=False)
+    embedding = Column(Vector(1024), nullable=False)
+
+
 class ServicePoolVector(Base):
     """Service向量信息"""
 
