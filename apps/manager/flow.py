@@ -6,14 +6,12 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 import logging
 from typing import Optional
 
-from anyio import Path
 from pymongo import ASCENDING
 
-from apps.common.config import config
-from apps.constants import APP_DIR, FLOW_DIR
+from apps.constants import FLOW_DIR
 from apps.entities.collection import User
 from apps.entities.enum_var import EdgeType, PermissionType
-from apps.entities.flow import Edge, Flow, Step, StepPos
+from apps.entities.flow import Edge, Flow, Step
 from apps.entities.flow_topology import (
     EdgeItem,
     FlowItem,
@@ -24,8 +22,6 @@ from apps.entities.flow_topology import (
 )
 from apps.manager.node import NodeManager
 from apps.models.mongo import MongoDB
-from apps.scheduler.pool.check import FileChecker
-from apps.scheduler.pool.loader.app import AppLoader
 from apps.scheduler.pool.loader.flow import FlowLoader
 from apps.utils.flow import generate_from_schema
 
@@ -294,13 +290,13 @@ class FlowManager:
                         branchId=branch_id,
                     ),
                 )
-            return flow_item
+            return flow_item, focus_point
         except Exception:
             logger.exception("[FlowManager] 获取流失败")
             return None
 
     @staticmethod
-    async def is_flow_config_equal(flow_config_1: Flow, flow_config_2: Flow):
+    async def is_flow_config_equal(flow_config_1: Flow, flow_config_2: Flow) -> bool:
         if flow_config_1.description != flow_config_2.description:
             return False
         if len(flow_config_1.steps) != len(flow_config_2.steps):
@@ -308,7 +304,7 @@ class FlowManager:
         if len(flow_config_1.edges) != len(flow_config_2.edges):
             return False
         step_dict_set_1 = set()
-        for step in flow_config_1.steps:
+        for step in flow_config_1.steps.values():
             step_dict = {
                 "node": step.node,
                 "type": step.type,
@@ -317,7 +313,7 @@ class FlowManager:
             }
             step_dict_set_1.add(step_dict)
         step_dict_set_2 = set()
-        for step in flow_config_2.steps:
+        for step in flow_config_2.steps.values():
             step_dict = {
                 "node": step.node,
                 "type": step.type,
@@ -341,9 +337,7 @@ class FlowManager:
                 "to": edge.edge_to,
             }
             edge_dict_set_2.add(edge_dict)
-        if edge_dict_set_1 != edge_dict_set_2:
-            return False
-        return True
+        return edge_dict_set_1 == edge_dict_set_2
 
     @staticmethod
     async def put_flow_by_app_and_flow_id(
@@ -399,7 +393,12 @@ class FlowManager:
                 flow_config.edges.append(edge_config)
             flow_loader = FlowLoader()
             old_flow_config = await flow_loader.load(app_id, flow_id)
-            flow_config.debug = await FlowManager.is_flow_config_equal(old_flow_config, flow_config)
+            if old_flow_config is None:
+                error_msg = f"[FlowManager] 流 {flow_id} 不存在"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+            else:
+                flow_config.debug = await FlowManager.is_flow_config_equal(old_flow_config, flow_config)
             await flow_loader.save(app_id, flow_id, flow_config)
             return flow_item
         except Exception:
