@@ -4,27 +4,25 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
 
 import logging
+from hashlib import sha256
 from typing import Any, Optional
-
 
 import aiofiles
 import yaml
 from anyio import Path
 from fastapi.encoders import jsonable_encoder
-from hashlib import sha256
-
 from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert
-from apps.entities.vector import FlowPoolVector
 
 from apps.common.config import config
 from apps.constants import APP_DIR, FLOW_DIR
 from apps.entities.enum_var import EdgeType
 from apps.entities.flow import AppFlow, Flow
+from apps.entities.vector import FlowPoolVector
 from apps.manager.node import NodeManager
+from apps.models.mongo import MongoDB
 from apps.models.postgres import PostgreSQL
 from apps.scheduler.util import yaml_str_presenter
-from apps.models.mongo import MongoDB
 
 logger = logging.getLogger("ray")
 
@@ -133,9 +131,9 @@ class FlowLoader:
                     name=flow_config.name,
                     description=flow_config.description,
                     enabled=True,
-                    path=flow_path,
+                    path=str(flow_path),
                     debug=flow_config.debug,
-                )
+                ),
             )
             return Flow.model_validate(flow_yaml)
         except Exception:
@@ -193,9 +191,9 @@ class FlowLoader:
                 name=flow.name,
                 description=flow.description,
                 enabled=True,
-                path=flow_path,
+                path=str(flow_path),
                 debug=flow.debug,
-            )
+            ),
         )
 
     async def delete(self, app_id: str, flow_id: str) -> bool:
@@ -217,11 +215,10 @@ class FlowLoader:
                 logger.exception("[FlowLoader] PostgreSQL删除flow失败")
             await session.aclose()
             return True
-        else:
-            logger.warning("[FlowLoader] 工作流文件不存在或不是文件：%s", flow_path)
-            return True
+        logger.warning("[FlowLoader] 工作流文件不存在或不是文件：%s", flow_path)
+        return True
 
-    async def _update_db(self, app_id, metadata: AppFlow) -> None:
+    async def _update_db(self, app_id: str, metadata: AppFlow) -> None:
         """更新数据库"""
         try:
             app_collection = MongoDB.get_collection("app")
@@ -230,16 +227,16 @@ class FlowLoader:
             await app_collection.update_one(
                 {
                     "_id": app_id,
-                    "flows.id": AppFlow.id
+                    "flows.id": AppFlow.id,
                 },
                 {
-                    "$set": jsonable_encoder(metadata)
-                }
+                    "$set": jsonable_encoder(metadata),
+                },
             )
             flow_path = Path(config["SEMANTICS_DIR"]) / APP_DIR / app_id / FLOW_DIR / f"{metadata.id}.yaml"
             key = f"{FLOW_DIR}/{metadata.id}.yaml"
-            async with aiofiles.open(flow_path, encoding="utf-8") as f:
-                new_hash = sha256(await f.read_bytes()).hexdigest()
+            async with aiofiles.open(flow_path, "rb") as f:
+                new_hash = sha256(await f.read()).hexdigest()
             await app_collection.update_one({"_id": app_id}, {"$set": {f"hashes.{key}": new_hash}})
         except Exception:
             logger.exception("[FlowLoader] 更新 MongoDB 失败")
