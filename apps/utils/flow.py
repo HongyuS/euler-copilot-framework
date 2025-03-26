@@ -18,7 +18,7 @@ class FlowService:
     async def remove_excess_structure_from_flow(flow_item: FlowItem) -> FlowItem:
         """移除流程图中的多余结构"""
         node_to_branches = {}
-        branch_illegal_chars="."
+        branch_illegal_chars = "."
 
         for node in flow_item.nodes:
             node_to_branches[node.step_id] = set()
@@ -120,7 +120,7 @@ class FlowService:
 
     @staticmethod
     async def _validate_node_degrees(start_id: str, end_id: str,
-                                   in_deg: dict[str, int], out_deg: dict[str, int]) -> None:
+                                     in_deg: dict[str, int], out_deg: dict[str, int]) -> None:
         """验证起始和终止节点的入度和出度；当起始节点入度不为0或终止节点出度不为0时抛出异常"""
         if start_id in in_deg and in_deg[start_id] != 0:
             err = f"[FlowService] 起始节点{start_id}的入度不为0"
@@ -146,31 +146,60 @@ class FlowService:
     @staticmethod
     async def validate_flow_connectivity(flow_item: FlowItem) -> None:
         id_of_start_node = None
-        step_id_set=set()
-        node_edge_dict={}
+        id_of_end_node = None
+        node_out_edge_dict = {}
+        node_in_edge_dict = {}
         for node in flow_item.nodes:
             if node.call_id == NodeType.START.value:
                 id_of_start_node = node.step_id
+            if node.call_id == NodeType.END.value:
+                id_of_end_node = node.step_id
         for edge in flow_item.edges:
-            if edge.source_node not in node_edge_dict:
-                node_edge_dict[edge.source_node] = []
-            node_edge_dict[edge.target_node].append(edge.target_node)
-        node_q=queue.Queue()
+            if edge.source_node not in node_out_edge_dict:
+                node_out_edge_dict[edge.source_node] = []
+            if edge.target_node not in node_in_edge_dict:
+                node_out_edge_dict[edge.target_node] = []
+
+            node_out_edge_dict[edge.source_node].append(edge.target_node)
+            node_in_edge_dict[edge.target_node].append(edge.source_node)
+        node_q = queue.Queue()
         node_q.put(id_of_start_node)
-        node_reached_cnt=0
+        node_reached_cnt = 0
+        step_id_set = set()
         step_id_set.add(id_of_start_node)
-        while len(node_q)>0:
-            step_id=node_q.get()
-            node_reached_cnt+=1
-            if step_id in node_edge_dict:
-                for target_node in node_edge_dict[step_id]:
+        while len(node_q) > 0:
+            step_id = node_q.get()
+            node_reached_cnt += 1
+            if step_id != id_of_end_node and step_id not in node_out_edge_dict:
+                return False
+            if step_id in node_out_edge_dict:
+                for target_node in node_out_edge_dict[step_id]:
                     if target_node not in step_id_set:
                         step_id_set.add(target_node)
                         node_q.put(target_node)
-        if node_reached_cnt!=len(flow_item.nodes):
-            err = "[FlowService] 流程图存在孤立子图"
-            logger.error(err)
-            raise Exception(err)
+            if step_id in node_in_edge_dict:
+                for source_node in node_in_edge_dict[step_id]:
+                    if source_node not in step_id_set:
+                        step_id_set.add(source_node)
+                        node_q.put(source_node)
+        node_q = queue.Queue()
+        node_q.put(id_of_start_node)
+        step_id_set = set()
+        step_id_set.add(id_of_start_node)
+        while len(node_q) > 0:
+            step_id = node_q.get()
+            node_reached_cnt -= 1
+            if step_id in node_out_edge_dict:
+                for target_node in node_out_edge_dict[step_id]:
+                    if target_node not in step_id_set:
+                        step_id_set.add(target_node)
+                        node_q.put(target_node)
+        if id_of_end_node not in step_id_set:
+            return False
+        if node_reached_cnt != 0:
+            return False
+        return True
+
 
 def generate_from_schema(schema: dict) -> dict:
     """根据 JSON Schema 生成示例 JSON 数据。
@@ -206,7 +235,6 @@ def generate_from_schema(schema: dict) -> dict:
 
         # 处理其他类型或未定义类型
         return None
-
 
     # 生成示例数据
     return _generate_example(schema)

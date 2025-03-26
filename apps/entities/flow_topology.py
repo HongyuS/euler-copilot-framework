@@ -52,7 +52,7 @@ class NodeItem(BaseModel):
     service_id: str = Field(alias="serviceId", default="")
     node_id: str = Field(alias="nodeId", default="")
     name: str = Field(default="")
-    call_id: str = Field(alias="callId",default="Empty")
+    call_id: str = Field(alias="callId", default="Empty")
     description: str = Field(default="")
     enable: bool = Field(default=True)
     parameters: dict[str, Any] = Field(default={})
@@ -64,7 +64,7 @@ class NodeItem(BaseModel):
 class EdgeItem(BaseModel):
     """请求/响应中的边变量类"""
 
-    edge_id: str = Field(alias="edgeId") 
+    edge_id: str = Field(alias="edgeId")
     source_node: str = Field(alias="sourceNode")
     target_node: str = Field(alias="targetNode")
     type: str = Field(default=EdgeType.NORMAL.value)
@@ -82,4 +82,6 @@ class FlowItem(BaseModel):
     nodes: list[NodeItem] = Field(default=[])
     edges: list[EdgeItem] = Field(default=[])
     created_at: Optional[float] = Field(alias="createdAt", default=0)
+    connectivity: bool = Field(default=False,description="图的开始节点和结束节点是否联通，并且除结束节点都有出边")
+    focus_point: PositionItem = Field(alias="focusPoint")
     debug: bool = Field(default=False)

@@ -6,18 +6,28 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 import logging
 from typing import Any, Optional
 
+
 import aiofiles
 import yaml
 from anyio import Path
+from fastapi.encoders import jsonable_encoder
+from hashlib import sha256
+
+from sqlalchemy import delete
+from sqlalchemy.dialects.postgresql import insert
+from apps.entities.vector import FlowPoolVector
 
 from apps.common.config import config
 from apps.constants import APP_DIR, FLOW_DIR
 from apps.entities.enum_var import EdgeType
-from apps.entities.flow import Flow
+from apps.entities.flow import AppFlow, Flow
 from apps.manager.node import NodeManager
+from apps.models.postgres import PostgreSQL
 from apps.scheduler.util import yaml_str_presenter
+from apps.models.mongo import MongoDB
 
 logger = logging.getLogger("ray")
+
 
 class FlowLoader:
     """工作流加载器"""
@@ -30,7 +40,6 @@ class FlowLoader:
         except Exception:
             logger.exception("[FlowLoader] 加载YAML文件失败：%s", flow_path)
             return {}
-
 
     async def _validate_basic_fields(self, flow_yaml: dict[str, Any], flow_path: Path) -> dict[str, Any]:
         """验证工作流基本字段"""
@@ -48,7 +57,6 @@ class FlowLoader:
 
         return flow_yaml
 
-
     async def _process_edges(self, flow_yaml: dict[str, Any], flow_id: str, app_id: str) -> dict[str, Any]:
         """处理工作流边的转换"""
         logger.info("[FlowLoader] 解析工作流 %s 应用 %s 的边...", flow_id, app_id)
@@ -65,7 +73,6 @@ class FlowLoader:
             return {}
         else:
             return flow_yaml
-
 
     async def _process_steps(self, flow_yaml: dict[str, Any], flow_id: str, app_id: str) -> dict[str, Any]:
         """处理工作流步骤的转换"""
@@ -92,7 +99,6 @@ class FlowLoader:
                 )
         return flow_yaml
 
-
     async def load(self, app_id: str, flow_id: str) -> Optional[Flow]:
         """从文件系统中加载【单个】工作流"""
         logger.info("[FlowLoader] 加载工作流 %s 应用 %s...", flow_id, app_id)
@@ -118,14 +124,23 @@ class FlowLoader:
                 flow_yaml = await processor(flow_yaml)
                 if not flow_yaml:
                     return None
-
-            # 验证并转换为Flow对象
-            logger.info("[FlowLoader] 验证工作流 %s 应用 %s", flow_id, app_id)
+            flow_config = Flow.model_validate(flow_yaml)
+            await self._update_db(
+                app_id,
+                AppFlow
+                (
+                    id=flow_id,
+                    name=flow_config.name,
+                    description=flow_config.description,
+                    enabled=True,
+                    path=flow_path,
+                    debug=flow_config.debug,
+                )
+            )
             return Flow.model_validate(flow_yaml)
         except Exception:
             logger.exception("[FlowLoader] 工作流 %s 应用 %s 格式不合法", flow_id, app_id)
             return None
-
 
     async def save(self, app_id: str, flow_id: str, flow: Flow) -> None:
         """保存工作流"""
@@ -159,6 +174,7 @@ class FlowLoader:
                 }
                 for edge in flow.edges
             ],
+            "connectivity": flow.connectivity,
             "debug": flow.debug,
         }
 
@@ -169,6 +185,18 @@ class FlowLoader:
                 allow_unicode=True,
                 sort_keys=False,
             ))
+        await self._update_db(
+            app_id,
+            AppFlow
+            (
+                id=flow_id,
+                name=flow.name,
+                description=flow.description,
+                enabled=True,
+                path=flow_path,
+                debug=flow.debug,
+            )
+        )
 
     async def delete(self, app_id: str, flow_id: str) -> bool:
         """删除指定工作流文件"""
@@ -178,11 +206,59 @@ class FlowLoader:
             try:
                 await flow_path.unlink()
                 logger.info("[FlowLoader] 成功删除工作流文件：%s", flow_path)
-            except OSError:
+            except Exception:
                 logger.exception("[FlowLoader] 删除工作流文件失败：%s", flow_path)
                 return False
-            else:
-                return True
+            session = await PostgreSQL.get_session()
+            try:
+                await session.execute(delete(FlowPoolVector).where(FlowPoolVector.id == flow_id))
+                await session.commit()
+            except Exception:
+                logger.exception("[FlowLoader] PostgreSQL删除flow失败")
+            await session.aclose()
+            return True
         else:
             logger.warning("[FlowLoader] 工作流文件不存在或不是文件：%s", flow_path)
             return True
+
+    async def _update_db(self, app_id, metadata: AppFlow) -> None:
+        """更新数据库"""
+        try:
+            app_collection = MongoDB.get_collection("app")
+
+            # 执行更新操作
+            await app_collection.update_one(
+                {
+                    "_id": app_id,
+                    "flows.id": AppFlow.id
+                },
+                {
+                    "$set": jsonable_encoder(metadata)
+                }
+            )
+            flow_path = Path(config["SEMANTICS_DIR"]) / APP_DIR / app_id / FLOW_DIR / f"{metadata.id}.yaml"
+            key = f"{FLOW_DIR}/{metadata.id}.yaml"
+            async with aiofiles.open(flow_path, encoding="utf-8") as f:
+                new_hash = sha256(await f.read_bytes()).hexdigest()
+            await app_collection.update_one({"_id": app_id}, {"$set": {f"hashes.{key}": new_hash}})
+        except Exception:
+            logger.exception("[FlowLoader] 更新 MongoDB 失败")
+
+        # 向量化所有数据并保存
+        session = await PostgreSQL.get_session()
+        service_embedding = await PostgreSQL.get_embedding([metadata.description])
+        insert_stmt = (
+            insert(FlowPoolVector)
+            .values(
+                id=metadata.id,
+                app_id=app_id,
+                embedding=service_embedding[0],
+            )
+            .on_conflict_do_update(
+                index_elements=["id"],
+                set_={"embedding": service_embedding[0]},
+            )
+        )
+        await session.execute(insert_stmt)
+        await session.commit()
+        await session.aclose()

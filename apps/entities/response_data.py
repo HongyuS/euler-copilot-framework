@@ -429,7 +429,6 @@ class FlowStructureGetMsg(BaseModel):
     """GET /api/flow result"""
 
     flow: FlowItem = Field(default=FlowItem())
-    focus_point: PositionItem = Field(default=PositionItem())
 
 
 class FlowStructureGetRsp(ResponseData):

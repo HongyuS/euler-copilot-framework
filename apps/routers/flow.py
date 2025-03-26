@@ -66,7 +66,6 @@ async def get_services(
 })
 async def get_node_metadatas(
     user_sub: Annotated[str, Depends(get_user)],
-    service_id: Annotated[str, Query(alias="serviceId")],
     node_metadata_id: Annotated[str, Query(alias="NodeMetadataId")],
 ):
     """获取节点元数据的详细信息"""
@@ -117,7 +116,7 @@ async def get_flow(
     return JSONResponse(status_code=status.HTTP_200_OK, content=FlowStructureGetRsp(
         code=status.HTTP_200_OK,
         message="应用下流程获取成功",
-        result=FlowStructureGetMsg(flow=result[0], focus_point=result[1]),
+        result=FlowStructureGetMsg(flow=result),
     ).model_dump(exclude_none=True, by_alias=True))
 
 
@@ -132,7 +131,6 @@ async def put_flow(  # noqa: ANN201
     app_id: Annotated[str, Query(alias="appId")],
     flow_id: Annotated[str, Query(alias="flowId")],
     put_body: Annotated[PutFlowReq, Body(...)],
-    topology_check: Annotated[Optional[bool], Query(alias="topologyCheck")] = True,
 ):
     """修改流拓扑结构"""
     if not await AppManager.validate_app_belong_to_user(user_sub, app_id):
@@ -141,18 +139,17 @@ async def put_flow(  # noqa: ANN201
             message="用户没有权限访问该流",
             result=FlowStructurePutMsg(),
         ).model_dump(exclude_none=True, by_alias=True))
-    put_body.flow=await FlowService.remove_excess_structure_from_flow(put_body.flow)
-    if topology_check:
-        await FlowService.validate_flow_connectivity(put_body.flow)
+    put_body.flow = await FlowService.remove_excess_structure_from_flow(put_body.flow)
     await FlowService.validate_flow_illegal(put_body.flow)
-    result = await FlowManager.put_flow_by_app_and_flow_id(app_id, flow_id, put_body.flow, put_body.focus_point)
+    put_body.flow.connectivity = await FlowService.validate_flow_connectivity(put_body.flow)
+    result = await FlowManager.put_flow_by_app_and_flow_id(app_id, flow_id, put_body.flow)
     if result is None:
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=FlowStructurePutRsp(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message="应用下流更新失败",
             result=FlowStructurePutMsg(),
         ).model_dump(exclude_none=True, by_alias=True))
-    flow=await FlowManager.get_flow_by_app_and_flow_id(app_id, flow_id)
+    flow = await FlowManager.get_flow_by_app_and_flow_id(app_id, flow_id)
     if flow is None:
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=FlowStructurePutRsp(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
