@@ -227,7 +227,11 @@ class FlowLoader:
             await app_collection.update_one(
                 {
                     "_id": app_id,
-                    "flows.id": AppFlow.id,
+                    "flows": {
+                        "$elemMatch": {
+                            "id": metadata.id,
+                        },
+                    },
                 },
                 {
                     "$set": jsonable_encoder(metadata),
