@@ -3,7 +3,6 @@
 Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
 import logging
-import queue
 
 from apps.entities.enum_var import NodeType
 from apps.entities.flow_topology import EdgeItem, FlowItem, NodeItem
@@ -145,60 +144,48 @@ class FlowService:
 
     @staticmethod
     async def validate_flow_connectivity(flow_item: FlowItem) -> bool:
-        id_of_start_node = None
-        id_of_end_node = None
-        node_out_edge_dict = {}
-        node_in_edge_dict = {}
+        """验证流程图的连通性
+
+        检查:
+        1. 是否所有节点都能从起始节点到达
+        2. 是否能从起始节点到达终止节点
+        3. 是否存在非终止节点没有出边
+        """
+        # 找到起始和终止节点
+        start_id = None
+        end_id = None
         for node in flow_item.nodes:
             if node.call_id == NodeType.START.value:
-                id_of_start_node = node.step_id
+                start_id = node.step_id
             if node.call_id == NodeType.END.value:
-                id_of_end_node = node.step_id
-        for edge in flow_item.edges:
-            if edge.source_node not in node_out_edge_dict:
-                node_out_edge_dict[edge.source_node] = []
-            if edge.target_node not in node_in_edge_dict:
-                node_out_edge_dict[edge.target_node] = []
+                end_id = node.step_id
 
-            node_out_edge_dict[edge.source_node].append(edge.target_node)
-            node_in_edge_dict[edge.target_node].append(edge.source_node)
-        node_q = queue.Queue()
-        node_q.put(id_of_start_node)
-        node_reached_cnt = 0
-        step_id_set = set()
-        step_id_set.add(id_of_start_node)
-        while len(node_q) > 0:
-            step_id = node_q.get()
-            node_reached_cnt += 1
-            if step_id != id_of_end_node and step_id not in node_out_edge_dict:
+        # 构建邻接表
+        adj = {}
+        for edge in flow_item.edges:
+            if edge.source_node not in adj:
+                adj[edge.source_node] = []
+            adj[edge.source_node].append(edge.target_node)
+
+        # BFS遍历检查连通性
+        vis = {start_id}
+        q = [start_id]  # 使用list替代queue.Queue
+
+        while q:  # 使用while q替代while not q.empty()
+            cur = q.pop(0)  # 使用pop(0)替代q.get()
+            # 检查非终止节点是否有出边
+            if cur != end_id and cur not in adj:
                 return False
-            if step_id in node_out_edge_dict:
-                for target_node in node_out_edge_dict[step_id]:
-                    if target_node not in step_id_set:
-                        step_id_set.add(target_node)
-                        node_q.put(target_node)
-            if step_id in node_in_edge_dict:
-                for source_node in node_in_edge_dict[step_id]:
-                    if source_node not in step_id_set:
-                        step_id_set.add(source_node)
-                        node_q.put(source_node)
-        node_q = queue.Queue()
-        node_q.put(id_of_start_node)
-        step_id_set = set()
-        step_id_set.add(id_of_start_node)
-        while len(node_q) > 0:
-            step_id = node_q.get()
-            node_reached_cnt -= 1
-            if step_id in node_out_edge_dict:
-                for target_node in node_out_edge_dict[step_id]:
-                    if target_node not in step_id_set:
-                        step_id_set.add(target_node)
-                        node_q.put(target_node)
-        if id_of_end_node not in step_id_set:
-            return False
-        if node_reached_cnt != 0:
-            return False
-        return True
+
+            # 遍历所有出边
+            if cur in adj:
+                for nxt in adj[cur]:
+                    if nxt not in vis:
+                        vis.add(nxt)
+                        q.append(nxt)  # 使用append替代q.put()
+
+        # 检查是否能到达终止节点
+        return end_id in vis
 
 
 def generate_from_schema(schema: dict) -> dict:

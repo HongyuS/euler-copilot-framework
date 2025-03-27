@@ -297,47 +297,44 @@ class FlowManager:
 
     @staticmethod
     async def is_flow_config_equal(flow_config_1: Flow, flow_config_2: Flow) -> bool:
+        # 基本属性比较
         if flow_config_1.description != flow_config_2.description:
             return False
         if len(flow_config_1.steps) != len(flow_config_2.steps):
             return False
         if len(flow_config_1.edges) != len(flow_config_2.edges):
             return False
-        step_dict_set_1 = set()
+
+        # 将steps转换为列表并排序
+        step_list_1 = []
         for step in flow_config_1.steps.values():
-            step_dict = {
-                "node": step.node,
-                "type": step.type,
-                "description": step.description,
-                "params": step.params,
-            }
-            step_dict_set_1.add(step_dict)
-        step_dict_set_2 = set()
+            step_tuple = (
+                step.node,
+                step.type,
+                step.description,
+                tuple(sorted((k, str(v)) for k, v in step.params.items())),
+            )
+            step_list_1.append(step_tuple)
+
+        step_list_2 = []
         for step in flow_config_2.steps.values():
-            step_dict = {
-                "node": step.node,
-                "type": step.type,
-                "description": step.description,
-                "params": step.params,
-            }
-            step_dict_set_2.add(step_dict)
-        if step_dict_set_1 != step_dict_set_2:
+            step_tuple = (
+                step.node,
+                step.type,
+                step.description,
+                tuple(sorted((k, str(v)) for k, v in step.params.items())),
+            )
+            step_list_2.append(step_tuple)
+
+        # 排序后比较
+        if sorted(step_list_1) != sorted(step_list_2):
             return False
-        edge_dict_set_1 = set()
-        for edge in flow_config_1.edges:
-            edge_dict = {
-                "from": edge.edge_from,
-                "to": edge.edge_to,
-            }
-            edge_dict_set_1.add(edge_dict)
-        edge_dict_set_2 = set()
-        for edge in flow_config_2.edges:
-            edge_dict = {
-                "from": edge.edge_from,
-                "to": edge.edge_to,
-            }
-            edge_dict_set_2.add(edge_dict)
-        return edge_dict_set_1 == edge_dict_set_2
+
+        # 将edges转换为列表并排序
+        edge_list_1 = [(edge.edge_from, edge.edge_to) for edge in flow_config_1.edges]
+        edge_list_2 = [(edge.edge_from, edge.edge_to) for edge in flow_config_2.edges]
+
+        return sorted(edge_list_1) == sorted(edge_list_2)
 
     @staticmethod
     async def put_flow_by_app_and_flow_id(
