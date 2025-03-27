@@ -238,10 +238,13 @@ class FlowLoader:
                 },
             )
             flow_path = Path(config["SEMANTICS_DIR"]) / APP_DIR / app_id / FLOW_DIR / f"{metadata.id}.yaml"
-            key = f"{FLOW_DIR}/{metadata.id}.yaml"
             async with aiofiles.open(flow_path, "rb") as f:
                 new_hash = sha256(await f.read()).hexdigest()
-            await app_collection.update_one({"_id": app_id}, {"$set": {f"hashes.{key}": new_hash}})
+            key = f"hashes.{FLOW_DIR}/{metadata.id}.yaml"
+            await app_collection.update_one(
+                {"_id": app_id},
+                [{"$setField": {"field": key, "input": "$$ROOT", "value": new_hash}}],
+            )
         except Exception:
             logger.exception("[FlowLoader] 更新 MongoDB 失败")
 
