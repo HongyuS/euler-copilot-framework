@@ -25,7 +25,7 @@ logger = logging.getLogger("ray")
 async def get_docs(user_sub: str, post_body: RequestData) -> tuple[Union[list[RecordDocument], list[Document]], list[str]]:
     """获取当前问答可供关联的文档"""
     doc_ids = []
-    
+
     docs = await DocumentManager.get_used_docs_by_record_group(user_sub, post_body.group_id)
     if not docs:
         # 是新提问
@@ -90,12 +90,12 @@ async def get_context(user_sub: str, post_body: RequestData, n: int) -> tuple[st
 
 async def generate_facts(task: TaskBlock, question: str) -> list[str]:
     """生成Facts"""
-    message = {
-        "question": question,
-        "answer": task.record.content.answer,
-    }
+    message = [
+        {"role": "user", "content": question},
+        {"role": "assistant", "content": task.record.content.answer},
+    ]
 
-    return await Facts().generate(task.record.task_id, message=message)
+    return await Facts().generate(task.record.task_id, conversation=message)
 
 
 async def save_data(task_id: str, user_sub: str, post_body: RequestData, used_docs: list[str]) -> None:
