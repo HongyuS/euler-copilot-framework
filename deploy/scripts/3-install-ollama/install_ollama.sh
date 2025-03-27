@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -euo pipefail
 
 # 定义颜色代码
@@ -15,6 +16,7 @@ OS_ID=""
 ARCH=""
 OLLAMA_BIN_PATH="/usr/local/bin/ollama"
 SERVICE_FILE="/etc/systemd/system/ollama.service"
+LOCAL_TGZ="ollama-linux-${ARCH}.tgz"
 
 # 带时间戳的输出函数
 log() {
@@ -50,6 +52,7 @@ detect_os() {
     armv7l)  ARCH="armv7" ;;
     *)       log "ERROR" "不支持的架构: $ARCH"; exit 1 ;;
   esac
+  LOCAL_TGZ="ollama-linux-${ARCH}.tgz"  # 更新本地文件名
   log "INFO" "系统架构: $ARCH"
 }
 
@@ -112,10 +115,16 @@ install_ollama() {
   # 确保目标目录存在
   mkdir -p "${OLLAMA_BIN_PATH%/*}"
 
-  log "INFO" "下载安装包: $install_url"
-  if ! wget --show-progress -q -O "$tmp_file" "$install_url"; then
-    log "ERROR" "下载失败，请检查：\n1.网络连接\n2.URL有效性: $install_url"
-    exit 1
+  # 检查当前目录是否有本地安装包
+  if [ -f "./$LOCAL_TGZ" ]; then
+    log "INFO" "发现本地安装包: ./$LOCAL_TGZ，将使用本地文件安装"
+    cp "./$LOCAL_TGZ" "$tmp_file"
+  else
+    log "INFO" "下载安装包: $install_url"
+    if ! wget --show-progress -q -O "$tmp_file" "$install_url"; then
+      log "ERROR" "下载失败，请检查：\n1.网络连接\n2.URL有效性: $install_url"
+      exit 1
+    fi
   fi
 
   # 验证压缩包完整性
@@ -126,7 +135,7 @@ install_ollama() {
 
   # 创建临时解压目录
   mkdir -p "$extract_dir"
-  
+
   log "INFO" "解压文件到临时目录..."
   if ! tar -xzf "$tmp_file" -C "$extract_dir"; then
     log "ERROR" "解压失败，可能原因：\n1.文件损坏\n2.磁盘空间不足\n3.权限问题"
@@ -135,7 +144,7 @@ install_ollama() {
 
   # 查找可执行文件（处理可能的子目录结构）
   local extracted_bin=$(find "$extract_dir" -type f -name ollama -executable -print -quit)
-  
+
   if [ -z "$extracted_bin" ]; then
     log "ERROR" "在压缩包中未找到可执行文件，压缩包结构可能已变更"
     log "DEBUG" "压缩包内容列表："
@@ -147,22 +156,22 @@ install_ollama() {
 
   log "INFO" "移动文件到系统目录: $OLLAMA_BIN_PATH"
   mv -f "$extracted_bin" "$OLLAMA_BIN_PATH"
-  
+
   # 权限设置
   chmod +x "$OLLAMA_BIN_PATH"
   rm -rf "$tmp_file" "$extract_dir"
-  
+
   if [ ! -x "$OLLAMA_BIN_PATH" ]; then
     log "ERROR" "安装后验证失败：可执行文件不存在"
     exit 1
   fi
-  
+
   log "SUCCESS" "Ollama核心安装完成，版本: $($OLLAMA_BIN_PATH --version || echo '未知')"
 }
 
 fix_user() {
   log "INFO" "步骤4/8: 修复用户配置..."
-  
+
   # 终止所有使用ollama用户的进程
   if pgrep -u ollama >/dev/null; then
     log "WARNING" "发现正在运行的ollama进程，正在终止..."
@@ -182,7 +191,7 @@ fix_user() {
       random_pass=$(openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 16)
       usermod -p "$(openssl passwd -1 "$random_pass")" ollama
     fi
-    
+
     # 删除用户及其主目录
     if ! userdel -r ollama; then
       log "WARNING" "无法删除ollama用户，尝试强制删除..."
@@ -207,7 +216,7 @@ fix_user() {
   # 创建系统用户
   if ! useradd -r -g ollama -d /var/lib/ollama -s /bin/false ollama; then
     log "ERROR" "用户创建失败，尝试手动创建..."
-    
+
     # 如果组不存在则创建
     if ! $existing_group; then
       if ! groupadd -r ollama; then
@@ -215,7 +224,7 @@ fix_user() {
         exit 1
       fi
     fi
-    
+
     # 再次尝试创建用户
     if ! useradd -r -g ollama -d /var/lib/ollama -s /bin/false ollama; then
       log "ERROR" "手动创建用户失败，请检查以下内容："
@@ -271,19 +280,19 @@ EOF
 # 重启服务
 restart_service() {
   log "INFO" "步骤6/8: 重启服务..."
-  
+
   # 确保服务停止
   systemctl stop ollama || true
-  
+
   # 确保运行时目录存在
   mkdir -p /run/ollama
   chown ollama:ollama /run/ollama
   chmod 755 /run/ollama
-  
+
   # 启动服务
   systemctl start ollama
   systemctl enable ollama
-  
+
   log "SUCCESS" "服务重启完成"
 }
 
