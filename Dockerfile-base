@@ -8,7 +8,10 @@ RUN sed -i 's|repo.openeuler.org|mirrors.nju.edu.cn/openeuler|g' /etc/yum.repos.
     yum install -y python3 python3-pip shadow-utils findutils &&\
     groupadd -g 1001 eulercopilot && useradd -u 1001 -g eulercopilot eulercopilot &&\
     yum clean all
-
+COPY --chown=1001:1001 openGauss-sqlalchemy.tar.gz .
+RUN  tar -xvf openGauss-sqlalchemy.tar.gz && \
+    cd openGauss-sqlalchemy && \
+    python3 setup.py install
 USER eulercopilot
 
 COPY --chown=1001:1001 requirements.txt .
