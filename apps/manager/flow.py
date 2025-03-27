@@ -200,7 +200,7 @@ class FlowManager:
             return None
 
     @staticmethod
-    async def get_flow_by_app_and_flow_id(app_id: str, flow_id: str) -> Optional[tuple[FlowItem, PositionItem]]:
+    async def get_flow_by_app_and_flow_id(app_id: str, flow_id: str) -> Optional[FlowItem]:
         """通过appId flowId获取flow config的路径和focus，并通过flow config的路径获取flow config，并将其转换为flow item。
 
         :param app_id: 应用的id
@@ -290,7 +290,7 @@ class FlowManager:
                         branchId=branch_id,
                     ),
                 )
-            return flow_item, focus_point
+            return flow_item
         except Exception:
             logger.exception("[FlowManager] 获取流失败")
             return None

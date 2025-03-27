@@ -144,7 +144,7 @@ class FlowService:
         await FlowService._validate_node_degrees(start_id, end_id, in_deg, out_deg)
 
     @staticmethod
-    async def validate_flow_connectivity(flow_item: FlowItem) -> None:
+    async def validate_flow_connectivity(flow_item: FlowItem) -> bool:
         id_of_start_node = None
         id_of_end_node = None
         node_out_edge_dict = {}
