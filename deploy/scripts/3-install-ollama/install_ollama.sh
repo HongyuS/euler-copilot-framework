@@ -1,14 +1,11 @@
 #!/bin/bash
 
-set -euo pipefail
-
-# 定义颜色代码
-RED='\e[31m'
-GREEN='\e[32m'
-YELLOW='\e[33m'
-BLUE='\e[34m'
 MAGENTA='\e[35m'
 CYAN='\e[36m'
+BLUE='\e[34m'
+GREEN='\e[32m'
+YELLOW='\e[33m'
+RED='\e[31m'
 RESET='\e[0m'
 
 # 初始化全局变量
@@ -16,6 +13,7 @@ OS_ID=""
 ARCH=""
 OLLAMA_BIN_PATH="/usr/local/bin/ollama"
 SERVICE_FILE="/etc/systemd/system/ollama.service"
+LOCAL_DIR="/home/eulercopilot/models"
 LOCAL_TGZ="ollama-linux-${ARCH}.tgz"
 
 # 带时间戳的输出函数
@@ -31,6 +29,22 @@ log() {
     *) color=${RESET} ;;
   esac
   echo -e "${color}[$(date '+%Y-%m-%d %H:%M:%S')] $level: $*${RESET}"
+}
+
+# 网络连接检查
+check_network() {
+  local install_url=$(get_ollama_url)
+  local domain=$(echo "$install_url" | awk -F/ '{print $3}')
+  local test_url="http://$domain"
+  
+  log "INFO" "检查网络连接 ($domain)..."
+  if curl --silent --head --fail --connect-timeout 5 --max-time 10 "$test_url" >/dev/null 2>&1; then
+    log "INFO" "网络连接正常"
+    return 0
+  else
+    log "WARNING" "无法连接互联网"
+    return 1
+  fi
 }
 
 # 操作系统检测
@@ -52,7 +66,7 @@ detect_os() {
     armv7l)  ARCH="armv7" ;;
     *)       log "ERROR" "不支持的架构: $ARCH"; exit 1 ;;
   esac
-  LOCAL_TGZ="ollama-linux-${ARCH}.tgz"  # 更新本地文件名
+  LOCAL_TGZ="ollama-linux-${ARCH}.tgz"
   log "INFO" "系统架构: $ARCH"
 }
 
@@ -115,14 +129,21 @@ install_ollama() {
   # 确保目标目录存在
   mkdir -p "${OLLAMA_BIN_PATH%/*}"
 
-  # 检查当前目录是否有本地安装包
-  if [ -f "./$LOCAL_TGZ" ]; then
-    log "INFO" "发现本地安装包: ./$LOCAL_TGZ，将使用本地文件安装"
-    cp "./$LOCAL_TGZ" "$tmp_file"
-  else
-    log "INFO" "下载安装包: $install_url"
+  # 网络检测与安装策略选择
+  if check_network; then
+    log "INFO" "准备在线下载安装包: $install_url"
     if ! wget --show-progress -q -O "$tmp_file" "$install_url"; then
       log "ERROR" "下载失败，请检查：\n1.网络连接\n2.URL有效性: $install_url"
+      exit 1
+    fi
+  else
+    log "INFO" "准备离线安装Ollama"
+    if [ -f "$LOCAL_DIR/$LOCAL_TGZ" ]; then
+      log "INFO" "本地安装包: $LOCAL_DIR/$LOCAL_TGZ"
+      cp "$LOCAL_DIR/$LOCAL_TGZ" "$tmp_file"
+    else
+      log "ERROR" "无网络连接且未找到本地安装包"
+      log "INFO"  "请提前将ollama的安装包$LOCAL_TGZ下载至$LOCAL_DIR"
       exit 1
     fi
   fi
@@ -142,11 +163,11 @@ install_ollama() {
     exit 1
   fi
 
-  # 查找可执行文件（处理可能的子目录结构）
+  # 查找可执行文件
   local extracted_bin=$(find "$extract_dir" -type f -name ollama -executable -print -quit)
 
   if [ -z "$extracted_bin" ]; then
-    log "ERROR" "在压缩包中未找到可执行文件，压缩包结构可能已变更"
+    log "ERROR" "在压缩包中未找到可执行文件"
     log "DEBUG" "压缩包内容列表："
     tar -tzf "$tmp_file" | while read -r line; do
       log "DEBUG" "-> $line"
@@ -215,7 +236,7 @@ fix_user() {
 
   # 创建系统用户
   if ! useradd -r -g ollama -d /var/lib/ollama -s /bin/false ollama; then
-    log "ERROR" "用户创建失败，尝试手动创建..."
+    log "INFO" "用户创建失败，尝试手动创建..."
 
     # 如果组不存在则创建
     if ! $existing_group; then
