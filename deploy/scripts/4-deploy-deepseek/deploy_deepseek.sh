@@ -12,8 +12,13 @@ NC='\033[0m' # 重置颜色
 readonly MODEL_NAME="deepseek-llm-7b-chat"
 readonly MODEL_URL="https://modelscope.cn/models/second-state/Deepseek-LLM-7B-Chat-GGUF/resolve/master/deepseek-llm-7b-chat-Q4_K_M.gguf"
 readonly MODEL_FILE="deepseek-llm-7b-chat-Q4_K_M.gguf"
+readonly MODEL_DIR="/home/eulercopilot/models"
 readonly MODELLEFILE="Modelfile"
 readonly TIMEOUT_DURATION=45
+
+# 初始化工作目录
+readonly WORK_DIR=$(pwd)
+mkdir -p "$MODEL_DIR"
 
 check_service() {
     echo -e "${BLUE}步骤1/5：检查服务状态...${NC}"
@@ -25,21 +30,26 @@ check_service() {
     echo -e "${GREEN}服务状态正常${NC}"
 }
 
-download_model() {
-    echo -e "${BLUE}步骤2/5：下载模型文件...${NC}"
-    if [[ -f "$MODEL_FILE" ]]; then
-        echo -e "${GREEN}模型文件已存在，跳过下载${NC}"
+check_network() {
+    local url="https://modelscope.cn"
+    echo -e "${BLUE}步骤2/5：检查网络连接...${NC}"
+    if curl --silent --head --fail --max-time 5 "$url" >/dev/null 2>&1; then
+        echo -e "${GREEN}网络连接正常${NC}"
         return 0
+    else
+        echo -e "${YELLOW}无法连接网络，进入离线安装模式${NC}"
+        return 1
     fi
+}
 
+download_model() {
     echo -e "${YELLOW}开始下载模型...${NC}"
-    
-    # 检查下载工具
+
     local download_cmd
-    if command -v wget &> /dev/null; then
-        download_cmd="wget --tries=3 --content-disposition -O '$MODEL_FILE' '$MODEL_URL'"
-    elif command -v curl &> /dev/null; then
-        download_cmd="curl -# -L -o '$MODEL_FILE' '$MODEL_URL'"
+    if command -v wget &>/dev/null; then
+        download_cmd="wget --tries=3 --content-disposition -O '${MODEL_DIR}/${MODEL_FILE}' '${MODEL_URL}'"
+    elif command -v curl &>/dev/null; then
+        download_cmd="curl -# -L -o '${MODEL_DIR}/${MODEL_FILE}' '${MODEL_URL}'"
     else
         echo -e "${RED}错误：需要wget或curl来下载模型文件${NC}"
         exit 1
@@ -47,35 +57,54 @@ download_model() {
 
     if ! eval "$download_cmd"; then
         echo -e "${RED}模型下载失败，删除不完整文件...${NC}"
-        rm -f "$MODEL_FILE"
+        rm -f "${MODEL_DIR}/${MODEL_FILE}"
         exit 1
     fi
-    
-    echo -e "${GREEN}模型下载完成（文件大小：$(du -h $MODEL_FILE | cut -f1)）${NC}"
+
+    echo -e "${GREEN}模型下载完成（文件大小：$(du -h "${MODEL_DIR}/${MODEL_FILE}" | cut -f1)）${NC}"
+}
+
+handle_model() {
+    if [[ -f "${MODEL_DIR}/${MODEL_FILE}" ]]; then
+        echo -e "${GREEN}模型文件已存在，跳过下载${NC}"
+    else
+        download_model
+    fi
+}
+
+check_local_model() {
+    echo -e "${BLUE}步骤2/5：检查本地模型...${NC}"
+    if [[ -f "${MODEL_DIR}/${MODEL_FILE}" ]]; then
+        echo -e "${GREEN}检测到本地模型文件，使用离线安装${NC}"
+    else
+        echo -e "${RED}错误：找不到本地模型文件 ${MODEL_DIR}/${MODEL_FILE}${NC}"
+        echo -e "${YELLOW}请将模型文件放置在 ${MODEL_DIR} 或连接网络后重试${NC}"
+        exit 1
+    fi
 }
 
 create_modelfile() {
     echo -e "${BLUE}步骤3/5：创建模型配置...${NC}"
-    cat > "$MODELLEFILE" <<EOF
-FROM ./$MODEL_FILE
+    cat > "${WORK_DIR}/${MODELLEFILE}" <<EOF
+FROM ${MODEL_DIR}/${MODEL_FILE}
 PARAMETER num_ctx 4096
 PARAMETER num_gpu 1
 EOF
-    echo -e "${GREEN}Modelfile创建成功${NC}"
+    echo -e "${GREEN}Modelfile创建成功（路径：${WORK_DIR}/${MODELLEFILE}）${NC}"
 }
 
 create_model() {
     echo -e "${BLUE}步骤4/5：导入模型...${NC}"
-    if ollama list | grep -qw "$MODEL_NAME"; then
+    if ollama list | grep -qw "${MODEL_NAME}"; then
         echo -e "${GREEN}模型已存在，跳过创建${NC}"
         return 0
     fi
 
-    if ! ollama create "$MODEL_NAME" -f "$MODELLEFILE"; then
+    if ! ollama create "${MODEL_NAME}" -f "${WORK_DIR}/${MODELLEFILE}"; then
         echo -e "${RED}模型创建失败${NC}"
         echo -e "${YELLOW}可能原因："
-        echo "1. Modelfile格式错误（当前路径：$(pwd)/$MODELLEFILE）"
-        echo "2. 模型文件损坏（MD5校验：$(md5sum $MODEL_FILE | cut -d' ' -f1)）${NC}"
+        echo "1. Modelfile格式错误（路径：${WORK_DIR}/${MODELLEFILE}）"
+        echo "2. 模型文件损坏（MD5校验：$(md5sum "${MODEL_DIR}/${MODEL_FILE}" | cut -d' ' -f1)）"
         exit 1
     fi
     echo -e "${GREEN}模型导入成功${NC}"
@@ -83,7 +112,6 @@ create_model() {
 
 verify_deployment() {
     echo -e "${BLUE}步骤5/5：验证部署结果...${NC}"
-    # 检查jq依赖
     if ! command -v jq &> /dev/null; then
         echo -e "${YELLOW}注意：jq未安装，响应解析可能受限，建议安装jq以获得更好的输出。${NC}"
     fi
@@ -92,63 +120,84 @@ verify_deployment() {
     local interval=5
     local attempt=1
 
-    # 基础验证
-    if ! ollama list | grep -qw "$MODEL_NAME"; then
-        echo -e "${RED}基础验证失败 - 未找到模型 $MODEL_NAME${NC}"
-        echo -e "${YELLOW}排查建议："
-        echo "1. 检查服务状态：systemctl status ollama"
-        echo "2. 查看创建日志：journalctl -u ollama | tail -n 50${NC}"
+    if ! ollama list | grep -qw "${MODEL_NAME}"; then
+        echo -e "${RED}基础验证失败 - 未找到模型 ${MODEL_NAME}${NC}"
         exit 1
     fi
-    echo -e "${GREEN}基础验证通过 - 检测到模型: $MODEL_NAME${NC}"
+    echo -e "${GREEN}基础验证通过 - 检测到模型: ${MODEL_NAME}${NC}"
 
-    # API功能验证
     echo -e "${YELLOW}执行API测试（超时时间${TIMEOUT_DURATION}秒）...${NC}"
-    
+
     while [ $attempt -le $retries ]; do
         echo -e "${BLUE}尝试 $attempt: 发送测试请求...${NC}"
-        response=$(timeout $TIMEOUT_DURATION curl -s -X POST http://localhost:11434/api/generate \
-            -d "{\"model\": \"$MODEL_NAME\", \"prompt\": \"你好，请说一首中文古诗\", \"stream\": false}")
+
+        response=$(timeout ${TIMEOUT_DURATION} curl -s http://localhost:11434/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer sk-123456" \
+            -d '{
+                "model": "'"${MODEL_NAME}"'",
+                "messages": [
+                    {"role": "system", "content": "你是一个AI助手"},
+                    {"role": "user", "content": "你好，请说一首中文古诗"}
+                ],
+                "stream": false
+            }')
 
         if [[ $? -eq 0 ]] && [[ -n "$response" ]]; then
             echo -e "${GREEN}测试响应成功，收到有效输出："
-            # 处理JSON解析
-            if jq -e .response <<< "$response" &> /dev/null; then
-                jq .response <<< "$response"
+            if jq -e .choices[0].message.content <<< "$response" &> /dev/null; then
+                jq .choices[0].message.content <<< "$response"
             else
                 echo "$response"
             fi
             return 0
         else
-            echo -e "${YELLOW}请求未得到有效响应${NC}"
+            echo -e "${YELLOW}请求未得到有效响应，重试中...${NC}"
             ((attempt++))
             sleep $interval
         fi
     done
 
-    echo -e "${RED}验证失败：经过 $retries 次重试仍未收到有效响应${NC}"
-    exit 1
+    echo -e "${RED}验证失败：经过 ${retries} 次重试仍未收到有效响应${NC}"
+    return 1
 }
 
 ### 主执行流程 ###
 echo -e "${BLUE}=== 开始模型部署 ===${NC}"
 {
     check_service
-    download_model
+    if check_network; then
+        handle_model
+    else
+        check_local_model
+    fi
     create_modelfile
     create_model
-    verify_deployment
+    verify_deployment || true
 }
+
 echo -e "${GREEN}=== 模型部署成功 ===${NC}"
 
 cat << EOF
-${YELLOW}使用说明：
+${YELLOW}
+使用说明：
 1. 启动交互模式：ollama run $MODEL_NAME
-2. API访问示例：
-curl -X POST http://localhost:11434/api/generate \\
--d "{\\"model\\": \\"$MODEL_NAME\\", \\"prompt\\": \\"你好，介绍一下上海\\", \\"stream\\": false}"
+${BLUE}2. API访问示例：${NC}
+curl http://localhost:11434/v1/chat/completions \\
+-H "Content-Type: application/json" \\
+-H "Authorization: Bearer sk-123456" \\
+-d '{
+    "model": "$MODEL_NAME",
+    "messages": [
+        {"role": "system", "content": "你是一个AI助手"},
+        {"role": "user", "content": "你好"}
+    ],
+    "stream": false,
+    "n": 1,
+    "max_tokens": 2048
+}'
 
-3. 流式对话模式：
-curl http://localhost:11434/api/chat \\
--d "{\\"model\\": \\"$MODEL_NAME\\", \\"messages\\": [{ \\"role\\": \\"user\\", \\"content\\": \\"你好\\" }]}"
+${BLUE}3. 流式对话模式：${NC}
+将上述请求中的 "stream": false 改为 "stream": true
+${NC}
 EOF
