@@ -51,7 +51,7 @@ handle_model() {
             echo -e "${YELLOW}检测到本地模型文件 ${model_path}${NC}"
             return 0
         else
-            echo -e "${RED}[ERROR] 找不到本地模型文件,请手动下载 bge-m3 模型,并保存至$MODEL_DIR${NC}"
+            echo -e "${RED}[ERROR] 找不到本地模型文件${NC}"
             ls -l "$MODEL_DIR"/*.gguf 2>/dev/null || echo "目录内容：$(ls -l $MODEL_DIR)"
             exit 1
         fi
@@ -60,23 +60,46 @@ handle_model() {
     # 在线模式处理
     echo -e "${YELLOW}开始在线下载模型...${NC}"
 
-    local download_cmd
-    if command -v wget &>/dev/null; then
-        download_cmd="wget --tries=3 --content-disposition -O '${MODEL_DIR}/${MODEL_FILE}' '${MODEL_URL}'"
-    elif command -v curl &>/dev/null; then
-        download_cmd="curl -# -L -o '${MODEL_DIR}/${MODEL_FILE}' '${MODEL_URL}'"
+    # 创建临时文件记录wget输出
+    local wget_output=$(mktemp)
+    
+    # 执行下载并显示动态进度条
+    (
+        wget --tries=3 --content-disposition -O "$model_path" "$MODEL_URL" --progress=dot:binary 2>&1 | \
+        while IFS= read -r line; do
+            # 提取百分比
+            if [[ "$line" =~ ([0-9]{1,3})% ]]; then
+                local percent=${BASH_REMATCH[1]}
+                # 计算进度条长度（基于终端宽度-20）
+                local cols=$(tput cols)
+                local bar_width=$((cols - 20))
+                local filled=$((percent * bar_width / 100))
+                local empty=$((bar_width - filled))
+                
+                # 构建进度条
+                local progress_bar=$(printf "%${filled}s" | tr ' ' '=')
+                local remaining_bar=$(printf "%${empty}s" | tr ' ' ' ')
+                
+                # 显示进度（使用回车覆盖）
+                printf "\r[%s%s] %3d%%" "$progress_bar" "$remaining_bar" "$percent"
+            fi
+        done
+        echo  # 换行
+    ) | tee "$wget_output"
+    
+    # 检查下载结果
+    if grep -q "100%" "$wget_output"; then
+        echo -e "${GREEN}[SUCCESS] 模型下载完成（文件大小：$(du -h "$model_path" | awk '{print $1}')）${NC}"
+        rm -f "$wget_output"
     else
-        echo -e "${RED}错误：需要wget或curl来下载模型文件${NC}"
+        echo -e "${RED}[ERROR] 模型下载失败${NC}"
+        echo -e "${YELLOW}可能原因："
+        echo "1. URL已失效（当前URL: $MODEL_URL）"
+        echo "2. 网络连接问题"
+        echo -e "3. 磁盘空间不足（当前剩余：$(df -h ${MODEL_DIR} | awk 'NR==2 {print $4}')）${NC}"
+        rm -f "$wget_output"
         exit 1
     fi
-
-    if ! eval "$download_cmd"; then
-        echo -e "${RED}模型下载失败，删除不完整文件...${NC}"
-        rm -f "${MODEL_DIR}/${MODEL_FILE}"
-        exit 1
-    fi
-
-    echo -e "${GREEN}模型下载完成（文件大小：$(du -h "${MODEL_DIR}/${MODEL_FILE}" | cut -f1)）${NC}"
 }
 
 create_modelfile() {
