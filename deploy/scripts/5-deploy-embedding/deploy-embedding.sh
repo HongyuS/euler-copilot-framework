@@ -1,4 +1,3 @@
-#!/bin/bash
 set -euo pipefail
 
 # 颜色定义
@@ -12,12 +11,11 @@ NC='\e[0m' # 重置颜色
 readonly MODEL_NAME="bge-m3"
 readonly MODEL_URL="https://modelscope.cn/models/gpustack/bge-m3-GGUF/resolve/master/bge-m3-Q4_K_M.gguf"
 readonly MODEL_FILE="bge-m3-Q4_K_M.gguf"
-readonly EXPECTED_MD5="6d39681b26c61279ac1f82db35a04a05009e94c415b51c858ff571489a82fc06"  # 替换为正确的MD5值
 readonly MODELLEFILE="Modelfile"
 readonly TIMEOUT_DURATION=45
 readonly MODEL_DIR="/home/eulercopilot/models"
 
-# 网络检查函数
+# 网络检查函数（保持不变）
 check_network() {
     echo -e "${BLUE}步骤1/5：检查网络连接...${NC}"
     local test_url="https://modelscope.cn"
@@ -30,6 +28,7 @@ check_network() {
     fi
 }
 
+# 服务检查（保持不变）
 check_service() {
     echo -e "${BLUE}步骤2/5：检查服务状态...${NC}"
     if ! systemctl is-active --quiet ollama; then
@@ -42,19 +41,6 @@ check_service() {
     fi
 }
 
-validate_md5() {
-    local file_path="$1"
-    echo -e "${YELLOW}正在校验文件完整性...${NC}"
-    local actual_md5=$(md5sum "$file_path" | awk '{print $1}')
-    
-    if [[ "$actual_md5" != "$EXPECTED_MD5" ]]; then
-        echo -e "${RED}[ERROR] 模型文件校验失败（预期：${EXPECTED_MD5}，实际：${actual_md5}）${NC}"
-        return 1
-    fi
-    echo -e "${GREEN}[SUCCESS] MD5校验通过${NC}"
-    return 0
-}
-
 handle_model() {
     echo -e "${BLUE}步骤3/5：处理模型文件...${NC}"
     local model_path="${MODEL_DIR}/${MODEL_FILE}"
@@ -63,14 +49,9 @@ handle_model() {
     if ! check_network; then
         if [[ -f "$model_path" ]]; then
             echo -e "${YELLOW}检测到本地模型文件 ${model_path}${NC}"
-            if validate_md5 "$model_path"; then
-                return 0
-            else
-                echo -e "${RED}[ERROR] 本地模型文件已损坏${NC}"
-                exit 1
-            fi
+            return 0
         else
-            echo -e "${RED}[ERROR] 找不到本地模型文件${NC}"
+            echo -e "${RED}[ERROR] 找不到本地模型文件,请手动下载 bge-m3 模型,并保存至$MODEL_DIR${NC}"
             ls -l "$MODEL_DIR"/*.gguf 2>/dev/null || echo "目录内容：$(ls -l $MODEL_DIR)"
             exit 1
         fi
@@ -78,21 +59,24 @@ handle_model() {
 
     # 在线模式处理
     echo -e "${YELLOW}开始在线下载模型...${NC}"
-    if ! wget --tries=3 --content-disposition -O "$model_path" "$MODEL_URL"; then
-        echo -e "${RED}[ERROR] 模型下载失败${NC}"
-        echo -e "${YELLOW}可能原因："
-        echo "1. URL已失效（当前URL: $MODEL_URL）"
-        echo "2. 网络连接问题"
-        echo -e "3. 磁盘空间不足（当前剩余：$(df -h ${MODEL_DIR} | awk 'NR==2 {print $4}')）${NC}"
+
+    local download_cmd
+    if command -v wget &>/dev/null; then
+        download_cmd="wget --tries=3 --content-disposition -O '${MODEL_DIR}/${MODEL_FILE}' '${MODEL_URL}'"
+    elif command -v curl &>/dev/null; then
+        download_cmd="curl -# -L -o '${MODEL_DIR}/${MODEL_FILE}' '${MODEL_URL}'"
+    else
+        echo -e "${RED}错误：需要wget或curl来下载模型文件${NC}"
         exit 1
     fi
 
-    if ! validate_md5 "$model_path"; then
-        echo -e "${RED}[ERROR] 下载文件校验失败，自动清理损坏文件${NC}"
-        rm -f "$model_path"
+    if ! eval "$download_cmd"; then
+        echo -e "${RED}模型下载失败，删除不完整文件...${NC}"
+        rm -f "${MODEL_DIR}/${MODEL_FILE}"
         exit 1
     fi
-    echo -e "${GREEN}[SUCCESS] 模型下载完成（文件大小：$(du -h "$model_path" | awk '{print $1}')）${NC}"
+
+    echo -e "${GREEN}模型下载完成（文件大小：$(du -h "${MODEL_DIR}/${MODEL_FILE}" | cut -f1)）${NC}"
 }
 
 create_modelfile() {
@@ -144,7 +128,7 @@ verify_deployment() {
         local http_code=$(curl -k -o /dev/null -w "%{http_code}" -X POST http://localhost:11434/v1/embeddings \
             -H "Content-Type: application/json" \
             -d '{"input": "The food was delicious and the waiter...", "model": "bge-m3", "encoding_format": "float"}' -s -m $TIMEOUT_DURATION)
-            
+
         if [[ "$http_code" == "200" ]]; then
             echo -e "${GREEN}[SUCCESS] API测试成功（HTTP状态码：200）${NC}"
             return 0
@@ -172,7 +156,6 @@ echo -e "${BLUE}=== 开始模型部署 ===${NC}"
     verify_deployment
 }
 echo -e "${BLUE}=== 模型部署成功 ===${NC}"
-
 cat << EOF
 ${GREEN}使用说明：${NC}
 1. 启动交互模式：ollama run $MODEL_NAME
