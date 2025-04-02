@@ -3,6 +3,18 @@
 GITHUB_MIRROR="https://gh-proxy.com"
 ARCH=$(uname -m)
 TOOLS_DIR="/home/eulercopilot/tools"
+eulercopilot_version=0.9.5
+
+SCRIPT_PATH="$(
+  cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1
+  pwd
+)/$(basename "${BASH_SOURCE[0]}")"
+
+IMPORT_SCRIPT="$(
+  canonical_path=$(readlink -f "$SCRIPT_PATH" 2>/dev/null || echo "$SCRIPT_PATH")
+  dirname "$(dirname "$canonical_path")"
+)"
+
 
 # 函数：显示帮助信息
 function help {
@@ -115,11 +127,10 @@ install_basic_tools() {
     return 0
 }
 
-# 安装k3s逻辑
 function install_k3s {
     local version="${1:-v1.30.2+k3s1}"
     local use_mirror="$2"
-    
+
     # 自动补全v前缀
     if [[ $version != v* ]]; then
         version="v$version"
@@ -187,7 +198,6 @@ function install_k3s {
             chmod +x "$local_install_script"
             if INSTALL_K3S_SKIP_DOWNLOAD=true "$local_install_script"; then
                 echo -e "\033[32m[Success] K3s安装完成\033[0m"
-                return 0
             else
                 echo -e "\033[31m[Error] 本地安装失败\033[0m"
                 return 1
@@ -329,6 +339,13 @@ function main {
         install_k3s "$k3s_version" "$use_mirror" || exit 1
     else
         echo -e "[Info] K3s 已经安装，跳过安装步骤"
+    fi
+     # 优先检查网络
+    if check_network; then
+        echo -e "\033[32m[Info] 在线环境，跳过镜像导入\033[0m"
+    else
+	echo -e "\033[33m[Info] 离线环境，开始导入本地镜像，请确保本地目录已存在所有镜像文件\033[0m"
+	bash "$IMPORT_SCRIPT/9-other-script/import_images.sh" -v "$eulercopilot_version"
     fi
 
     # 安装Helm（如果尚未安装）

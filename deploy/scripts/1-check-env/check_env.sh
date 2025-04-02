@@ -195,6 +195,9 @@ function check_firewall {
 
 function prepare_offline {
     echo -e "${COLOR_INFO}[Info] 准备离线部署环境..."
+    mkdir -p /home/eulercopilot/images
+    mkdir -p /home/eulercopilot/tools
+    mkdir -p /home/eulercopilot/models
     echo -e "1. 请确保已上传离线安装镜像至/home/eulercopilot/images"
     echo -e "2. 请确认本地软件仓库已配置"
     echo -e "3. 所有工具包提前下载到本地目录/home/eulercopilot/tools"

@@ -1,4 +1,3 @@
-#!/bin/bash
 set -euo pipefail
 
 # 颜色定义
@@ -16,7 +15,7 @@ readonly MODELLEFILE="Modelfile"
 readonly TIMEOUT_DURATION=45
 readonly MODEL_DIR="/home/eulercopilot/models"
 
-# 网络检查函数
+# 网络检查函数（保持不变）
 check_network() {
     echo -e "${BLUE}步骤1/5：检查网络连接...${NC}"
     local test_url="https://modelscope.cn"
@@ -29,6 +28,7 @@ check_network() {
     fi
 }
 
+# 服务检查（保持不变）
 check_service() {
     echo -e "${BLUE}步骤2/5：检查服务状态...${NC}"
     if ! systemctl is-active --quiet ollama; then
@@ -43,29 +43,62 @@ check_service() {
 
 handle_model() {
     echo -e "${BLUE}步骤3/5：处理模型文件...${NC}"
-    
-    # 在线模式处理
-    if check_network; then
-        echo -e "${YELLOW}开始在线下载模型...${NC}"
-        if ! wget --tries=3 --content-disposition -O "${MODEL_DIR}/${MODEL_FILE}" "$MODEL_URL"; then
-            echo -e "${RED}[ERROR] 模型下载失败${NC}"
-            echo -e "${YELLOW}可能原因："
-            echo "1. URL已失效（当前URL: $MODEL_URL）"
-            echo "2. 网络连接问题"
-            echo -e "3. 磁盘空间不足（当前剩余：$(df -h ${MODEL_DIR} | awk 'NR==2 {print $4}')）${NC}"
-            exit 1
-        fi
-        echo -e "${GREEN}[SUCCESS] 模型下载完成（文件大小：$(du -h ${MODEL_DIR}/${MODEL_FILE} | awk '{print $1}')）${NC}"
+    local model_path="${MODEL_DIR}/${MODEL_FILE}"
+
     # 离线模式处理
-    else
-        if [[ -f "${MODEL_DIR}/${MODEL_FILE}" ]]; then
-            echo -e "${YELLOW}检测到本地已有模型文件 ${MODEL_DIR}/${MODEL_FILE}${NC}"
+    if ! check_network; then
+        if [[ -f "$model_path" ]]; then
+            echo -e "${YELLOW}检测到本地模型文件 ${model_path}${NC}"
+            return 0
         else
             echo -e "${RED}[ERROR] 找不到本地模型文件${NC}"
-            echo -e "${YELLOW}请检查以下路径："
-            ls -l "${MODEL_DIR}/${MODEL_FILE}" 2>/dev/null || echo "文件不存在"
+            ls -l "$MODEL_DIR"/*.gguf 2>/dev/null || echo "目录内容：$(ls -l $MODEL_DIR)"
             exit 1
         fi
+    fi
+
+    # 在线模式处理
+    echo -e "${YELLOW}开始在线下载模型...${NC}"
+
+    # 创建临时文件记录wget输出
+    local wget_output=$(mktemp)
+    
+    # 执行下载并显示动态进度条
+    (
+        wget --tries=3 --content-disposition -O "$model_path" "$MODEL_URL" --progress=dot:binary 2>&1 | \
+        while IFS= read -r line; do
+            # 提取百分比
+            if [[ "$line" =~ ([0-9]{1,3})% ]]; then
+                local percent=${BASH_REMATCH[1]}
+                # 计算进度条长度（基于终端宽度-20）
+                local cols=$(tput cols)
+                local bar_width=$((cols - 20))
+                local filled=$((percent * bar_width / 100))
+                local empty=$((bar_width - filled))
+                
+                # 构建进度条
+                local progress_bar=$(printf "%${filled}s" | tr ' ' '=')
+                local remaining_bar=$(printf "%${empty}s" | tr ' ' ' ')
+                
+                # 显示进度（使用回车覆盖）
+                printf "\r[%s%s] %3d%%" "$progress_bar" "$remaining_bar" "$percent"
+            fi
+        done
+        echo  # 换行
+    ) | tee "$wget_output"
+    
+    # 检查下载结果
+    if grep -q "100%" "$wget_output"; then
+        echo -e "${GREEN}[SUCCESS] 模型下载完成（文件大小：$(du -h "$model_path" | awk '{print $1}')）${NC}"
+        rm -f "$wget_output"
+    else
+        echo -e "${RED}[ERROR] 模型下载失败${NC}"
+        echo -e "${YELLOW}可能原因："
+        echo "1. URL已失效（当前URL: $MODEL_URL）"
+        echo "2. 网络连接问题"
+        echo -e "3. 磁盘空间不足（当前剩余：$(df -h ${MODEL_DIR} | awk 'NR==2 {print $4}')）${NC}"
+        rm -f "$wget_output"
+        exit 1
     fi
 }
 
@@ -101,9 +134,7 @@ verify_deployment() {
     local retries=3
     local wait_seconds=15
     local test_output=$(mktemp)
-    local MAX_ATTEMPTS=5
-    local INTERVAL=3
-    local ATTEMPT=1
+    local INTERVAL=5
 
     # 基础验证
     if ! ollama list | grep -q "${MODEL_NAME}"; then
@@ -113,43 +144,41 @@ verify_deployment() {
         echo -e "2. 查看创建日志：journalctl -u ollama | tail -n 50${NC}"
         exit 1
     fi
-    echo -e "${GREEN}[SUCCESS] 基础验证通过 - 检测到模型: ${MODEL_NAME}${NC}"
 
     # 增强验证：通过API获取嵌入向量
-    echo -e "${YELLOW}执行API测试（超时时间${TIMEOUT_DURATION}秒）...${NC}"
-
-    while [ $ATTEMPT -le $retries ]; do
-        echo -e "${YELLOW}尝试 $ATTEMPT: 发送请求...${NC}"
-
-        RESPONSE=$(curl -k -X POST http://localhost:11434/v1/embeddings \
+    echo -e "${YELLOW}执行API测试（最多尝试${retries}次）...${NC}"
+    for ((i=1; i<=retries; i++)); do
+        local http_code=$(curl -k -o /dev/null -w "%{http_code}" -X POST http://localhost:11434/v1/embeddings \
             -H "Content-Type: application/json" \
-            -d '{"input": "The food was delicious and the waiter...", "model": "bge-m3", "encoding_format": "float"}' -s)
+            -d '{"input": "The food was delicious and the waiter...", "model": "bge-m3", "encoding_format": "float"}' -s -m $TIMEOUT_DURATION)
 
-        if [[ -n "$RESPONSE" ]]; then
-            echo -e "${GREEN}[SUCCESS] API测试响应正常${NC}"
+        if [[ "$http_code" == "200" ]]; then
+            echo -e "${GREEN}[SUCCESS] API测试成功（HTTP状态码：200）${NC}"
             return 0
         else
-            echo -e "${YELLOW}[WARNING] 第${ATTEMPT}次尝试未收到响应${NC}"
-            ((ATTEMPT++))
+            echo -e "${YELLOW}[WARNING] 第${i}次尝试失败（HTTP状态码：${http_code}）${NC}"
             sleep $INTERVAL
         fi
     done
 
-    echo -e "${RED}[ERROR] 已达到最大尝试次数（${retries}），仍未收到响应${NC}"
-    return 1
+    echo -e "${RED}[ERROR] API测试失败，已达到最大尝试次数${NC}"
+    echo -e "${YELLOW}可能原因："
+    echo "1. 模型未正确加载"
+    echo "2. 服务响应超时（当前超时设置：${TIMEOUT_DURATION}秒）"
+    echo -e "3. 系统资源不足（检查GPU内存使用情况）${NC}"
+    exit 1
 }
 
 ### 主执行流程 ###
 echo -e "${BLUE}=== 开始模型部署 ===${NC}"
 {
-    check_service       # 先检查服务状态
-    handle_model        # 处理模型文件
-    create_modelfile    # 创建配置文件
-    create_model        # 创建模型
-    verify_deployment   # 验证部署
+    check_service
+    handle_model
+    create_modelfile
+    create_model
+    verify_deployment
 }
 echo -e "${BLUE}=== 模型部署成功 ===${NC}"
-
 cat << EOF
 ${GREEN}使用说明：${NC}
 1. 启动交互模式：ollama run $MODEL_NAME
