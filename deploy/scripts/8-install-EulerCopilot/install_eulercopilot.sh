@@ -157,24 +157,43 @@ get_client_info_manual() {
     echo -e "${GREEN}使用配置："
     echo "Client ID: $client_id"
     echo "Client Secret: $client_secret"
-
 }
 
-# 检查语义接口是否存在
 check_directories() {
     echo -e "${BLUE}检查语义接口目录是否存在...${NC}" >&2
+
+    # 定义父目录和子目录列表
+    local PLUGINS_DIR="/home/eulercopilot/semantics"
+    local SUB_DIRS=("app" "service" "call")
+
+    # 检查并创建父目录
     if [ -d "${PLUGINS_DIR}" ]; then
         echo -e "${GREEN}目录已存在：${PLUGINS_DIR}${NC}" >&2
     else
         if mkdir -p "${PLUGINS_DIR}"; then
             echo -e "${GREEN}目录已创建：${PLUGINS_DIR}${NC}" >&2
-	    mkdir -p "${PLUGINS_DIR}"/app "${PLUGINS_DIR}"/service "${PLUGINS_DIR}"/call
-	    chown -R 1001:1001 ${PLUGINS_DIR}/*
+            chown 1001:1001 "${PLUGINS_DIR}"  # 设置父目录所有者
         else
             echo -e "${RED}错误：无法创建目录 ${PLUGINS_DIR}${NC}" >&2
             exit 1
         fi
     fi
+
+    # 遍历检查子目录
+    for sub_dir in "${SUB_DIRS[@]}"; do
+        local target_dir="${PLUGINS_DIR}/${sub_dir}"
+        if [ -d "${target_dir}" ]; then
+            echo -e "${GREEN}目录已存在：${target_dir}${NC}" >&2
+        else
+            if mkdir -p "${target_dir}"; then
+                echo -e "${GREEN}目录已创建：${target_dir}${NC}" >&2
+                chown 1001:1001 "${target_dir}"  # 设置子目录所有者
+            else
+                echo -e "${RED}错误：无法创建目录 ${target_dir}${NC}" >&2
+                exit 1
+            fi
+        fi
+    done
 }
 
 uninstall_eulercopilot() {
