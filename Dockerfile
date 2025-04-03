@@ -6,10 +6,9 @@ RUN sed -i 's/umask 002/umask 027/g' /etc/bashrc && \
     yum remove -y gdb-gdbserver
 
 USER eulercopilot
-COPY --chown=1001:1001 --chmod=550 ./ /euler-copilot-frame/
+COPY --chown=1001:1001 --chmod=550 ./ /app/
 
-WORKDIR /euler-copilot-frame
-ENV PYTHONPATH=/euler-copilot-frame
-ENV TIKTOKEN_CACHE_DIR=/euler-copilot-frame/assets/tiktoken
+ENV PYTHONPATH=/app
+ENV TIKTOKEN_CACHE_DIR=/app/assets/tiktoken
 
-CMD ["bash", "-c", "python3 apps/main.py"]
+CMD ["uv", "run", "--no-sync", "--no-dev", "apps/main.py"]

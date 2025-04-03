@@ -12,3 +12,4 @@ apps/utils/init
 apps/embedding
 logs
 .git-credentials
+.ruff_cache/

@@ -1,7 +1,9 @@
-"""Secret Injector
+"""
+Secret Injector
 
 Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+
 from pathlib import Path
 
 import yaml
