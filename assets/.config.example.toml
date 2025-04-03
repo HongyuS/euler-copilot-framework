@@ -1,64 +1,65 @@
 [deploy]
 mode = 'local'
 cookie = 'domain'
+data_dir = '/app/data'
 
 [login]
 provider = 'authhub'
-
 [login.settings]
-app_id = '1234567890'
-app_secret = '1234567890'
-
-[service]
-rag_service = ''
-
-[embedding]
-type = 'openai'
-endpoint = ''
-api_key = ''
-model = 'bge-m3'
+host = ''
+host_inner = ''
+login_api = 'https://www.eulercopilot.local/api/auth/login'
+app_id = ''
+app_secret = ''
 
 [fastapi]
-domain = 'http://127.0.0.1:8001'
-jwt_key = '1234567890'
+domain = 'www.eulercopilot.local'
+session_ttl = 30
+csrf = false
 
 [security]
 half_key1 = ''
 half_key2 = ''
 half_key3 = ''
+jwt_key = ''
+
+[embedding]
+type = 'openai'
+endpoint = 'https://api.openai.com/v1'
+api_key = ''
+model = 'bge-m3'
+
+[rag]
+rag_service = ''
 
 [mongodb]
-host = '127.0.0.1'
+host = ''
 port = 27017
-user = '1234567890'
-password = '1234567890'
-database = '1234567890'
+user = 'euler_copilot'
+password = ''
+database = 'euler_copilot'
 
 [minio]
-endpoint = '127.0.0.1:9001'
-access_key = '1234567890'
-secret_key = '1234567890'
+endpoint = ''
+access_key = 'minioadmin'
+secret_key = ''
 secure = false
 
 [llm]
-llm_key = '1234567890'
-llm_url = 'http://127.0.0.1:8001'
-llm_model = 'gpt-3.5-turbo'
-llm_max_tokens = 1000
-llm_temperature = 0.5
+endpoint = 'https://api.openai.com/v1'
+key = ''
+model = 'gpt-4o-mini'
+max_tokens = 8192
+temperature = 0.7
 
-[scheduler]
-scheduler_backend = 'openai'
-scheduler_model = 'gpt-3.5-turbo'
-scheduler_url = 'http://127.0.0.1:8001'
-scheduler_api_key = '1234567890'
-scheduler_max_tokens = 1000
-scheduler_temperature = 0.5
+[function_call]
+backend = 'ollama'
+endpoint = 'http://localhost:11434'
+model = 'llama3.1:8b'
+api_key = ''
+max_tokens = 8192
+temperature = 0.7
 
-[detect]
-detect_type = 'openai'
-detect_url = 'http://127.0.0.1:8001'
-detect_api_key = '1234567890'
-detect_model = 'gpt-3.5-turbo'
-detect_max_tokens = 1000
-detect_temperature = 0.5
+[check]
+enable = false
+words_list = ""
