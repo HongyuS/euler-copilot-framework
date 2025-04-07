@@ -1,11 +1,12 @@
-"""OpenAPI文档相关操作
+"""
+OpenAPI文档相关操作
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 from collections.abc import Sequence
 from copy import deepcopy
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -50,7 +51,7 @@ def _dereference_refs_helper(
     obj: Any,
     full_schema: dict[str, Any],
     skip_keys: Sequence[str],
-    processed_refs: Optional[set[str]] = None,
+    processed_refs: set[str] | None = None,
 ) -> Any:
     """递归地将OpenAPI中的$ref替换为实际的schema"""
     if processed_refs is None:
@@ -84,7 +85,7 @@ def _dereference_refs_helper(
 def _infer_skip_keys(
     obj: Any,
     full_schema: dict,
-    processed_refs: Optional[set[str]] = None,
+    processed_refs: set[str] | None = None,
 ) -> list[str]:
     """推断需要跳过的OpenAPI文档中的键"""
     if processed_refs is None:
@@ -111,7 +112,7 @@ def _infer_skip_keys(
 def dereference_refs(
     schema_obj: dict,
     *,
-    full_schema: Optional[dict] = None,
+    full_schema: dict | None = None,
 ) -> dict:
     """将OpenAPI中的$ref替换为实际的schema"""
     full_schema = full_schema or schema_obj
