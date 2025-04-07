@@ -1,8 +1,10 @@
-"""FastAPI Flow拓扑结构展示API
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
-from typing import Annotated, Optional
+FastAPI Flow拓扑结构展示API
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Query, status
 from fastapi.responses import JSONResponse
@@ -10,7 +12,6 @@ from fastapi.responses import JSONResponse
 from apps.dependency import get_user
 from apps.dependency.csrf import verify_csrf_token
 from apps.dependency.user import verify_user
-from apps.entities.flow_topology import NodeItem
 from apps.entities.request_data import PutFlowReq
 from apps.entities.response_data import (
     FlowStructureDeleteMsg,
@@ -19,14 +20,13 @@ from apps.entities.response_data import (
     FlowStructureGetRsp,
     FlowStructurePutMsg,
     FlowStructurePutRsp,
-    NodeMetaDataRsp,
     NodeServiceListMsg,
     NodeServiceListRsp,
     ResponseData,
 )
 from apps.manager.application import AppManager
 from apps.manager.flow import FlowManager
-from apps.utils.flow import FlowService
+from apps.service.flow import FlowService
 
 router = APIRouter(
     prefix="/api/flow",
@@ -38,12 +38,13 @@ router = APIRouter(
 )
 
 
-@router.get("/service", response_model=NodeServiceListRsp, responses={
+@router.get("/service", responses={
+    status.HTTP_200_OK: {"model": NodeServiceListRsp},
     status.HTTP_404_NOT_FOUND: {"model": ResponseData},
 })
 async def get_services(
     user_sub: Annotated[str, Depends(get_user)],
-):
+) -> NodeServiceListRsp:
     """获取用户可访问的节点元数据所在服务的信息"""
     services = await FlowManager.get_service_by_user_id(user_sub)
     if services is None:
@@ -96,9 +97,9 @@ async def get_services(
 })
 async def get_flow(
         user_sub: Annotated[str, Depends(get_user)],
-        app_id: str = Query(..., alias="appId"),
-        flow_id: str = Query(..., alias="flowId")
-):
+        app_id: Annotated[str, Query(alias="appId")],
+        flow_id: Annotated[str, Query(alias="flowId")],
+) -> JSONResponse:
     """获取流拓扑结构"""
     if not await AppManager.validate_user_app_access(user_sub, app_id):
         return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content=FlowStructureGetRsp(
@@ -126,12 +127,12 @@ async def get_flow(
     status.HTTP_404_NOT_FOUND: {"model": ResponseData},
     status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": ResponseData},
 })
-async def put_flow(  # noqa: ANN201
+async def put_flow(
     user_sub: Annotated[str, Depends(get_user)],
     app_id: Annotated[str, Query(alias="appId")],
     flow_id: Annotated[str, Query(alias="flowId")],
     put_body: Annotated[PutFlowReq, Body(...)],
-):
+) -> JSONResponse:
     """修改流拓扑结构"""
     if not await AppManager.validate_app_belong_to_user(user_sub, app_id):
         return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content=FlowStructurePutRsp(
@@ -166,11 +167,11 @@ async def put_flow(  # noqa: ANN201
 @router.delete("", response_model=FlowStructureDeleteRsp, responses={
     status.HTTP_404_NOT_FOUND: {"model": ResponseData},
 })
-async def delete_flow(  # noqa: ANN201
+async def delete_flow(
     user_sub: Annotated[str, Depends(get_user)],
     app_id: Annotated[str, Query(alias="appId")],
     flow_id: Annotated[str, Query(alias="flowId")],
-):
+) -> JSONResponse:
     """删除流拓扑结构"""
     if not await AppManager.validate_app_belong_to_user(user_sub, app_id):
         return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content=FlowStructureDeleteRsp(

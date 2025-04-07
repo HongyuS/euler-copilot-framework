@@ -1,11 +1,12 @@
-"""FastAPI：对话相关接口
+"""
+FastAPI：对话相关接口
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 import logging
 from datetime import datetime
-from typing import Annotated, Optional
+from typing import Annotated
 
 import pytz
 from fastapi import APIRouter, Depends, Query, Request, status
@@ -41,15 +42,16 @@ router = APIRouter(
         Depends(verify_user),
     ],
 )
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 async def create_new_conversation(
     user_sub: str,
     conv_list: list[Conversation],
     app_id: str = "",
+    *,
     debug: bool = False,
-) -> Optional[Conversation]:
+) -> Conversation | None:
     """判断并创建新对话"""
     create_new = False
     if debug:
@@ -140,14 +142,15 @@ async def get_conversation_list(user_sub: Annotated[str, Depends(get_user)]) -> 
 @router.post("", dependencies=[Depends(verify_csrf_token)], response_model=AddConversationRsp)
 async def add_conversation(
     user_sub: Annotated[str, Depends(get_user)],
-    appId: Optional[str] = None,
-    debug: Optional[bool] = None,
+    app_id: Annotated[str, Query(..., alias="appId")] = "",
+    *,
+    debug: Annotated[bool, Query()] = False,
 ) -> JSONResponse:
     """手动创建新对话"""
     conversations = await ConversationManager.get_conversation_by_user_sub(user_sub)
     # 尝试创建新对话
     try:
-        app_id = appId if appId else ""
+        app_id = app_id if app_id else ""
         debug = debug if debug is not None else False
         new_conv = await create_new_conversation(user_sub, conversations, app_id=app_id, debug=debug)
     except RuntimeError as e:
@@ -182,12 +185,12 @@ async def add_conversation(
 @router.put("", response_model=UpdateConversationRsp, dependencies=[Depends(verify_csrf_token)])
 async def update_conversation(
     post_body: ModifyConversationData,
-    conversationId: Annotated[str, Query()],
+    conversation_id: Annotated[str, Query(..., alias="conversationId")],
     user_sub: Annotated[str, Depends(get_user)],
 ) -> JSONResponse:
     """更新特定Conversation的数据"""
     # 判断Conversation是否合法
-    conv = await ConversationManager.get_conversation_by_conversation_id(user_sub, conversationId)
+    conv = await ConversationManager.get_conversation_by_conversation_id(user_sub, conversation_id)
     if not conv or conv.user_sub != user_sub:
         logger.error("[Conversation] conversation_id 不存在")
         return JSONResponse(
@@ -202,7 +205,7 @@ async def update_conversation(
     # 更新Conversation数据
     change_status = await ConversationManager.update_conversation_by_conversation_id(
         user_sub,
-        conversationId,
+        conversation_id,
         {
             "title": post_body.title,
         },
