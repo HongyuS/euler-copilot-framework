@@ -1,20 +1,19 @@
-"""文件检查器；检查文件是否存在、Hash是否发生变化；生成更新列表和删除列表
+"""
+文件检查器；检查文件是否存在、Hash是否发生变化；生成更新列表和删除列表
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 import logging
 from hashlib import sha256
-from typing import Optional
 
 from anyio import Path
 
-from apps.common.config import config
-from apps.constants import APP_DIR, SERVICE_DIR
+from apps.common.config import Config
 from apps.entities.enum_var import MetadataType
 from apps.models.mongo import MongoDB
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class FileChecker:
@@ -23,7 +22,7 @@ class FileChecker:
     def __init__(self) -> None:
         """初始化文件检查器"""
         self.hashes = {}
-        self._dir_path = Path(config["SEMANTICS_DIR"])
+        self._dir_path = Path(Config().get_config().deploy.data_dir) / "semantics"
 
     async def check_one(self, path: Path) -> dict[str, str]:
         """检查单个App/Service文件是否有变动"""
@@ -45,10 +44,10 @@ class FileChecker:
         return hashes
 
 
-    async def diff_one(self, path: Path, previous_hashes: Optional[dict[str, str]] = None) -> bool:
+    async def diff_one(self, path: Path, previous_hashes: dict[str, str] | None = None) -> bool:
         """检查文件是否发生变化"""
         self._resource_path = path
-        path_diff = self._resource_path.relative_to(config["SEMANTICS_DIR"])
+        path_diff = self._resource_path.relative_to(self._dir_path)
         self.hashes[path_diff.as_posix()] = await self.check_one(path)
         return self.hashes[path_diff.as_posix()] != previous_hashes
 
@@ -57,10 +56,10 @@ class FileChecker:
         """生成更新列表和删除列表"""
         if check_type == MetadataType.APP:
             collection = MongoDB.get_collection("app")
-            self._dir_path = Path(config["SEMANTICS_DIR"]) / APP_DIR
+            self._dir_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "app"
         elif check_type == MetadataType.SERVICE:
             collection = MongoDB.get_collection("service")
-            self._dir_path = Path(config["SEMANTICS_DIR"]) / SERVICE_DIR
+            self._dir_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "service"
 
         changed_list = []
         deleted_list = []
@@ -83,6 +82,7 @@ class FileChecker:
             if await self.diff_one(Path(self._dir_path / list_item["_id"]), list_item.get("hashes", None)):
                 changed_list.append(list_item["_id"])
 
+        logger.info("[FileChecker] 文件变动: %s；文件删除: %s", changed_list, deleted_list)
         # 遍历目录
         item_names = [item["_id"] for item in items]
         async for service_folder in self._dir_path.iterdir():

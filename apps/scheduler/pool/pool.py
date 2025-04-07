@@ -1,16 +1,16 @@
-"""资源池，包含语义接口、应用等的载入和保存
+"""
+资源池，包含语义接口、应用等的载入和保存
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 import importlib
 import logging
-from typing import Any, Optional
+from typing import Any
 
-import ray
 from anyio import Path
 
-from apps.common.config import config
-from apps.constants import APP_DIR, CALL_DIR, SERVICE_DIR
+from apps.common.config import Config
+from apps.common.singleton import SingletonMeta
 from apps.entities.enum_var import MetadataType
 from apps.entities.flow import Flow
 from apps.entities.pool import AppFlow, CallPool
@@ -23,26 +23,25 @@ from apps.scheduler.pool.loader import (
     ServiceLoader,
 )
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
-@ray.remote
-class Pool:
+class Pool(metaclass=SingletonMeta):
     """资源池"""
 
     @staticmethod
     async def check_dir() -> None:
         """检查文件夹是否存在"""
-        root_dir = config["SEMANTICS_DIR"] + "/"
-        if not await Path(root_dir + APP_DIR).exists():
-            logger.warning("[Pool] App目录%s不存在，创建中", root_dir + APP_DIR)
-            await Path(root_dir + APP_DIR).mkdir(parents=True, exist_ok=True)
-        if not await Path(root_dir + SERVICE_DIR).exists():
-            logger.warning("[Pool] Service目录%s不存在，创建中", root_dir + SERVICE_DIR)
-            await Path(root_dir + SERVICE_DIR).mkdir(parents=True, exist_ok=True)
-        if not await Path(root_dir + CALL_DIR).exists():
-            logger.warning("[Pool] Call目录%s不存在，创建中", root_dir + CALL_DIR)
-            await Path(root_dir + CALL_DIR).mkdir(parents=True, exist_ok=True)
+        root_dir = Config().get_config().deploy.data_dir.rstrip("/") + "/semantics/"
+        if not await Path(root_dir + "app").exists():
+            logger.warning("[Pool] App目录%s不存在，创建中", root_dir + "app")
+            await Path(root_dir + "app").mkdir(parents=True, exist_ok=True)
+        if not await Path(root_dir + "service").exists():
+            logger.warning("[Pool] Service目录%s不存在，创建中", root_dir + "service")
+            await Path(root_dir + "service").mkdir(parents=True, exist_ok=True)
+        if not await Path(root_dir + "call").exists():
+            logger.warning("[Pool] Call目录%s不存在，创建中", root_dir + "call")
+            await Path(root_dir + "call").mkdir(parents=True, exist_ok=True)
 
 
     async def init(self) -> None:
@@ -71,7 +70,7 @@ class Pool:
 
         # 批量加载
         for service in changed_service:
-            hash_key = Path(SERVICE_DIR + "/" + service).as_posix()
+            hash_key = Path("service/" + service).as_posix()
             if hash_key in checker.hashes:
                 await service_loader.load(service, checker.hashes[hash_key])
 
@@ -88,15 +87,9 @@ class Pool:
 
         # 批量加载App
         for app in changed_app:
-            hash_key = Path(APP_DIR + "/" + app).as_posix()
+            hash_key = Path("app/" + app).as_posix()
             if hash_key in checker.hashes:
                 await app_loader.load(app, checker.hashes[hash_key])
-
-
-    # TODO: 使用统一的保存入口
-    async def save(self, *, is_deletion: bool = False) -> None:
-        """保存【单个】资源"""
-        pass
 
 
     async def get_flow_metadata(self, app_id: str) -> list[AppFlow]:
@@ -109,13 +102,14 @@ class Pool:
                 return []
             for flow in flow_list["flows"]:
                 flow_metadata_list += [AppFlow.model_validate(flow)]
-            return flow_metadata_list
         except Exception:
             logger.exception("[Pool] 获取App %s 的Flow列表失败", app_id)
             return []
+        else:
+            return flow_metadata_list
 
 
-    async def get_flow(self, app_id: str, flow_id: str) -> Optional[Flow]:
+    async def get_flow(self, app_id: str, flow_id: str) -> Flow | None:
         """从文件系统中获取单个Flow的全部数据"""
         logger.info("[Pool] 获取工作流 %s", flow_id)
         flow_loader = FlowLoader()

@@ -1,10 +1,12 @@
-"""JSON Schema转为正则表达式
+"""
+JSON Schema转为正则表达式
 
 来源：https://github.com/dottxt-ai/outlines/blob/main/outlines/fsm/json_schema.py
 """
+
 import json
 import re
-from typing import Any, Optional, Union
+from typing import Any
 
 from jsonschema.protocols import Validator
 from pydantic import BaseModel
@@ -30,7 +32,9 @@ type_to_regex = {
     "null": NULL,
 }
 
-DATE_TIME = r'"(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(\.[0-9]{3})?(Z)?"'
+DATE_TIME = (
+    r'"(-?(?:[1-9][0-9]*)?[0-9]{4})-(1[0-2]|0[1-9])-(3[01]|0[1-9]|[12][0-9])T(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(\.[0-9]{3})?(Z)?"'
+)
 DATE = r'"(?:\d{4})-(?:0[1-9]|1[0-2])-(?:0[1-9]|[1-2][0-9]|3[0-1])"'
 TIME = r'"(2[0-3]|[01][0-9]):([0-5][0-9]):([0-5][0-9])(\\.[0-9]+)?(Z)?"'
 UUID = r'"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"'
@@ -43,7 +47,7 @@ format_to_regex = {
 }
 
 
-def build_regex_from_schema(schema: str, whitespace_pattern: Optional[str] = None) -> str:
+def build_regex_from_schema(schema: str, whitespace_pattern: str | None = None) -> str:
     """将JSON Schema转换为正则表达式"""
     schema_dict: dict[str, Any] = json.loads(schema)
     Validator.check_schema(schema_dict)
@@ -58,10 +62,10 @@ def build_regex_from_schema(schema: str, whitespace_pattern: Optional[str] = Non
     resolver = registry.resolver()
 
     content = schema_resource.contents
-    return to_regex(resolver, content, whitespace_pattern)
+    return to_regex(resolver, content, whitespace_pattern)  # type: ignore[arg-type]
 
 
-def convert_json_schema_to_str(json_schema: Union[dict, str, type[BaseModel]]) -> str:
+def convert_json_schema_to_str(json_schema: dict | str | type[BaseModel]) -> str:
     """将JSON Schema转换为字符串"""
     if isinstance(json_schema, dict):
         schema_str = json.dumps(json_schema)
@@ -73,7 +77,7 @@ def convert_json_schema_to_str(json_schema: Union[dict, str, type[BaseModel]]) -
     return schema_str
 
 
-def _get_num_items_pattern(min_items: int, max_items: Optional[int]) -> Optional[str]:
+def _get_num_items_pattern(min_items: int, max_items: int | None) -> str | None:
     """用于数组和对象的辅助函数"""
     min_items = int(min_items or 0)
     if max_items is None:
@@ -86,7 +90,9 @@ def _get_num_items_pattern(min_items: int, max_items: Optional[int]) -> Optional
 
 
 def validate_quantifiers(
-    min_bound: Optional[str], max_bound: Optional[str], start_offset: int = 0,
+    min_bound: str | None,
+    max_bound: str | None,
+    start_offset: int = 0,
 ) -> tuple[str, str]:
     """确保数字的边界有效。边界用于正则表达式中的量化器"""
     min_bound = "" if min_bound is None else str(int(min_bound) - start_offset)
@@ -98,7 +104,9 @@ def validate_quantifiers(
 
 
 def to_regex(  # noqa: C901, PLR0911, PLR0912, PLR0915
-    resolver: Resolver, instance: dict, whitespace_pattern: Optional[str] = None,
+    resolver: Resolver,
+    instance: dict,
+    whitespace_pattern: str | None = None,
 ) -> str:
     """将 JSON Schema 实例转换为对应的正则表达式"""
     # set whitespace pattern
@@ -168,26 +176,20 @@ def to_regex(  # noqa: C901, PLR0911, PLR0912, PLR0915
     # To validate against allOf, the given data must be valid against all of the
     # given subschemas.
     if "allOf" in instance:
-        subregexes = [
-            to_regex(resolver, t, whitespace_pattern) for t in instance["allOf"]
-        ]
+        subregexes = [to_regex(resolver, t, whitespace_pattern) for t in instance["allOf"]]
         subregexes_str = [f"{subregex}" for subregex in subregexes]
         return rf"({''.join(subregexes_str)})"
 
     # To validate against `anyOf`, the given data must be valid against
     # any (one or more) of the given subschemas.
     if "anyOf" in instance:
-        subregexes = [
-            to_regex(resolver, t, whitespace_pattern) for t in instance["anyOf"]
-        ]
+        subregexes = [to_regex(resolver, t, whitespace_pattern) for t in instance["anyOf"]]
         return rf"({'|'.join(subregexes)})"
 
     # To validate against oneOf, the given data must be valid against exactly
     # one of the given subschemas.
     if "oneOf" in instance:
-        subregexes = [
-            to_regex(resolver, t, whitespace_pattern) for t in instance["oneOf"]
-        ]
+        subregexes = [to_regex(resolver, t, whitespace_pattern) for t in instance["oneOf"]]
 
         xor_patterns = [f"(?:{subregex})" for subregex in subregexes]
 
@@ -195,9 +197,7 @@ def to_regex(  # noqa: C901, PLR0911, PLR0912, PLR0915
 
     # Create pattern for tuples, per JSON Schema spec, `prefixItems` determines types at each idx
     if "prefixItems" in instance:
-        element_patterns = [
-            to_regex(resolver, t, whitespace_pattern) for t in instance["prefixItems"]
-        ]
+        element_patterns = [to_regex(resolver, t, whitespace_pattern) for t in instance["prefixItems"]]
         comma_split_pattern = rf"{whitespace_pattern},{whitespace_pattern}"
         tuple_inner = comma_split_pattern.join(element_patterns)
         return rf"\[{whitespace_pattern}{tuple_inner}{whitespace_pattern}\]"
@@ -284,10 +284,12 @@ def to_regex(  # noqa: C901, PLR0911, PLR0912, PLR0915
                     start_offset=1,
                 )
                 min_digits_fraction, max_digits_fraction = validate_quantifiers(
-                    instance.get("minDigitsFraction"), instance.get("maxDigitsFraction"),
+                    instance.get("minDigitsFraction"),
+                    instance.get("maxDigitsFraction"),
                 )
                 min_digits_exponent, max_digits_exponent = validate_quantifiers(
-                    instance.get("minDigitsExponent"), instance.get("maxDigitsExponent"),
+                    instance.get("minDigitsExponent"),
+                    instance.get("maxDigitsExponent"),
                 )
                 integers_quantifier = (
                     f"{{{min_digits_integer},{max_digits_integer}}}"
@@ -304,20 +306,27 @@ def to_regex(  # noqa: C901, PLR0911, PLR0912, PLR0915
                     if min_digits_exponent or max_digits_exponent
                     else "+"
                 )
-                return rf"((-)?(0|[1-9][0-9]{integers_quantifier}))(\.[0-9]{fraction_quantifier})?([eE][+-][0-9]{exponent_quantifier})?"
+                return (
+                    rf"((-)?(0|[1-9][0-9]{integers_quantifier}))"
+                    rf"(\.[0-9]{fraction_quantifier})?"
+                    rf"([eE][+-][0-9]{exponent_quantifier})?"
+                )
             return type_to_regex["number"]
 
         if instance_type == "integer":
             if "minDigits" in instance or "maxDigits" in instance:
                 min_digits, max_digits = validate_quantifiers(
-                    instance.get("minDigits"), instance.get("maxDigits"), start_offset=1,
+                    instance.get("minDigits"),
+                    instance.get("maxDigits"),
+                    start_offset=1,
                 )
                 return rf"(-)?(0|[1-9][0-9]{{{min_digits},{max_digits}}})"
             return type_to_regex["integer"]
 
         if instance_type == "array":
             num_repeats = _get_num_items_pattern(
-                instance["minItems"], instance["maxItems"],
+                instance["minItems"],
+                instance["maxItems"],
             )
             if num_repeats is None:
                 return rf"\[{whitespace_pattern}\]"
@@ -326,7 +335,10 @@ def to_regex(  # noqa: C901, PLR0911, PLR0912, PLR0915
 
             if "items" in instance:
                 items_regex = to_regex(resolver, instance["items"], whitespace_pattern)
-                return rf"\[{whitespace_pattern}(({items_regex})(,{whitespace_pattern}({items_regex})){num_repeats}){allow_empty}{whitespace_pattern}\]"
+                return (
+                    rf"\[{whitespace_pattern}(({items_regex})"
+                    rf",{whitespace_pattern}({items_regex})){num_repeats}){allow_empty}{whitespace_pattern}\]"
+                )
 
             # Here we need to make the choice to exclude generating list of objects
             # if the specification of the object is not given, even though a JSON
@@ -343,10 +355,11 @@ def to_regex(  # noqa: C901, PLR0911, PLR0912, PLR0915
                 legal_types.append({"type": "object", "depth": depth - 1})
                 legal_types.append({"type": "array", "depth": depth - 1})
 
-            regexes = [
-                to_regex(resolver, t, whitespace_pattern) for t in legal_types
-            ]
-            return rf"\[{whitespace_pattern}({'|'.join(regexes)})(,{whitespace_pattern}({'|'.join(regexes)})){num_repeats}{allow_empty}{whitespace_pattern}\]"
+            regexes = [to_regex(resolver, t, whitespace_pattern) for t in legal_types]
+            return (
+                rf"\[{whitespace_pattern}({'|'.join(regexes)})"
+                rf",{whitespace_pattern}({'|'.join(regexes)})){num_repeats}{allow_empty}{whitespace_pattern}\]"
+            )
 
         if instance_type == "object":
             # pattern for json object with values defined by instance["additionalProperties"]
@@ -384,23 +397,17 @@ def to_regex(  # noqa: C901, PLR0911, PLR0912, PLR0915
                 additional_properties = {"anyOf": legal_types}
 
             value_pattern = to_regex(
-                resolver, additional_properties, whitespace_pattern,
+                resolver,
+                additional_properties,
+                whitespace_pattern,
             )
-            key_value_pattern = (
-                f"{STRING}{whitespace_pattern}:{whitespace_pattern}{value_pattern}"
+            key_value_pattern = f"{STRING}{whitespace_pattern}:{whitespace_pattern}{value_pattern}"
+            key_value_successor_pattern = f"{whitespace_pattern},{whitespace_pattern}{key_value_pattern}"
+            multiple_key_value_pattern = (
+                f"({key_value_pattern}({key_value_successor_pattern}){num_repeats}){allow_empty}"
             )
-            key_value_successor_pattern = (
-                f"{whitespace_pattern},{whitespace_pattern}{key_value_pattern}"
-            )
-            multiple_key_value_pattern = f"({key_value_pattern}({key_value_successor_pattern}){num_repeats}){allow_empty}"
 
-            return (
-                r"\{"
-                + whitespace_pattern
-                + multiple_key_value_pattern
-                + whitespace_pattern
-                + r"\}"
-            )
+            return r"\{" + whitespace_pattern + multiple_key_value_pattern + whitespace_pattern + r"\}"
 
         if instance_type == "boolean":
             return type_to_regex["boolean"]
@@ -412,17 +419,11 @@ def to_regex(  # noqa: C901, PLR0911, PLR0912, PLR0915
             # Here we need to make the choice to exclude generating an object
             # if the specification of the object is not give, even though a JSON
             # object that contains an object here would be valid under the specification.
-            regexes = [
-                to_regex(resolver, {"type": t}, whitespace_pattern)
-                for t in instance_type
-                if t != "object"
-            ]
+            regexes = [to_regex(resolver, {"type": t}, whitespace_pattern) for t in instance_type if t != "object"]
             return rf"({'|'.join(regexes)})"
 
     # 以上都没有匹配到，则抛出错误
-    err = (
-        f"""Could not translate the instance {instance} to a
+    err = f"""Could not translate the instance {instance} to a
     regular expression. Make sure it is valid to the JSON Schema specification. If
     it is, please open an issue on the Outlines repository"""
-    )
     raise NotImplementedError(err)

@@ -1,6 +1,7 @@
-"""App加载器
+"""
+App加载器
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 import logging
@@ -8,32 +9,28 @@ import shutil
 
 from anyio import Path
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import delete
-from sqlalchemy.dialects.postgresql import insert
 
-from apps.common.config import config
-from apps.constants import APP_DIR, FLOW_DIR
+from apps.common.config import Config
 from apps.entities.flow import AppFlow, AppMetadata, MetadataType, Permission
 from apps.entities.pool import AppPool
-from apps.entities.vector import AppPoolVector
 from apps.models.mongo import MongoDB
-from apps.models.postgres import PostgreSQL
 from apps.scheduler.pool.check import FileChecker
 from apps.scheduler.pool.loader.flow import FlowLoader
 from apps.scheduler.pool.loader.metadata import MetadataLoader
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class AppLoader:
     """应用加载器"""
 
     async def load(self, app_id: str, hashes: dict[str, str]) -> None:
-        """从文件系统中加载应用
+        """
+        从文件系统中加载应用
 
         :param app_id: 应用 ID
         """
-        app_path = Path(config["SEMANTICS_DIR"]) / APP_DIR / app_id
+        app_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / app_id
         metadata_path = app_path / "metadata.yaml"
         metadata = await MetadataLoader().load_one(metadata_path)
         if not metadata:
@@ -46,7 +43,7 @@ class AppLoader:
             raise TypeError(err)
 
         # 加载工作流
-        flow_path = app_path / FLOW_DIR
+        flow_path = app_path / "flow"
         flow_loader = FlowLoader()
 
         flow_ids = [app_flow.id for app_flow in metadata.flows]
@@ -80,13 +77,14 @@ class AppLoader:
 
 
     async def save(self, metadata: AppMetadata, app_id: str) -> None:
-        """保存应用
+        """
+        保存应用
 
         :param metadata: 应用元数据
         :param app_id: 应用 ID
         """
         # 创建文件夹
-        app_path = Path(config["SEMANTICS_DIR"]) / APP_DIR / app_id
+        app_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / app_id
         if not await app_path.exists():
             await app_path.mkdir(parents=True, exist_ok=True)
         # 保存元数据
@@ -94,11 +92,12 @@ class AppLoader:
         # 重新载入
         file_checker = FileChecker()
         await file_checker.diff_one(app_path)
-        await self.load(app_id, file_checker.hashes[f"{APP_DIR}/{app_id}"])
+        await self.load(app_id, file_checker.hashes[f"app/{app_id}"])
 
 
     async def delete(self, app_id: str, *, is_reload: bool = False) -> None:
-        """删除App，并更新数据库
+        """
+        删除App，并更新数据库
 
         :param app_id: 应用 ID
         """
@@ -119,17 +118,8 @@ class AppLoader:
         except Exception:
             logger.exception("[AppLoader] MongoDB删除App失败")
 
-        session = await PostgreSQL.get_session()
-        try:
-            await session.execute(delete(AppPoolVector).where(AppPoolVector.id == app_id))
-            await session.commit()
-        except Exception:
-            logger.exception("[AppLoader] PostgreSQL删除App失败")
-
-        await session.aclose()
-
         if not is_reload:
-            app_path = Path(config["SEMANTICS_DIR"]) / APP_DIR / app_id
+            app_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / app_id
             if await app_path.exists():
                 shutil.rmtree(str(app_path), ignore_errors=True)
 
@@ -167,21 +157,3 @@ class AppLoader:
             )
         except Exception:
             logger.exception("[AppLoader] 更新 MongoDB 失败")
-
-        # 向量化所有数据并保存
-        session = await PostgreSQL.get_session()
-        service_embedding = await PostgreSQL.get_embedding([metadata.description])
-        insert_stmt = (
-            insert(AppPoolVector)
-            .values(
-                id=metadata.id,
-                embedding=service_embedding[0],
-            )
-            .on_conflict_do_update(
-                index_elements=["id"],
-                set_={"embedding": service_embedding[0]},
-            )
-        )
-        await session.execute(insert_stmt)
-        await session.commit()
-        await session.aclose()

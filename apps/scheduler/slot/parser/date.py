@@ -1,7 +1,9 @@
-"""日期解析器
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+日期解析器
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import logging
 from datetime import datetime
 from typing import Any
@@ -12,7 +14,7 @@ from jsonschema import TypeChecker
 
 from apps.entities.enum_var import SlotType
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class SlotDateParser:
@@ -24,7 +26,8 @@ class SlotDateParser:
 
     @classmethod
     def convert(cls, data: str, **kwargs) -> tuple[str, str]:  # noqa: ANN003
-        """将日期字符串转换为日期对象
+        """
+        将日期字符串转换为日期对象
 
         返回的格式：(开始时间, 结束时间)
         """
@@ -59,6 +62,7 @@ class SlotDateParser:
         try:
             parse_time(instance)
         except Exception:
+            logger.exception("[Slot] Date解析失败: %s", instance)
             return False
 
         return True
