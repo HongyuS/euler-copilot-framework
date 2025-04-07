@@ -1,6 +1,6 @@
 copy:
-  - from: /config/.env
-    to: /config-rw/.env
+  - from: /config/config.toml
+    to: /config-rw/config.toml
     mode:
       uid: 1001
       gid: 1001

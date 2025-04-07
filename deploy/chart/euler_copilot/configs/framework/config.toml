@@ -1,0 +1,65 @@
+[deploy]
+mode = 'local'
+cookie = 'domain'
+data_dir = '/app/data'
+
+[login]
+provider = 'authhub'
+[login.settings]
+host = 'https://{{ default "authhub.eulercopilot.local" .Values.domain.authhub }}'
+host_inner = 'http://authhub-backend-service.{{ .Release.Namespace }}.svc.cluster.local:11120'
+login_api = 'https://{{ default "www.eulercopilot.local" .Values.domain.euler_copilot }}/api/auth/login'
+app_id = '${clientId}'
+app_secret = '${clientSecret}'
+
+[fastapi]
+domain = '{{ default "www.eulercopilot.local" .Values.domain.euler_copilot }}'
+session_ttl = 30
+csrf = false
+
+[security]
+half_key1 = '${halfKey1}'
+half_key2 = '${halfKey2}'
+half_key3 = '${halfKey3}'
+jwt_key = '${jwtKey}'
+
+[embedding]
+type = '{{ default "openai" .Values.models.embedding.type }}'
+endpoint = '{{ .Values.models.embedding.endpoint }}'
+api_key = '{{ .Values.models.embedding.key }}'
+model = '{{ default "bge-m3" .Values.models.embedding.model }}'
+
+[rag]
+rag_service = 'http://rag-service.{{ .Release.Namespace }}.svc.cluster.local:9988'
+
+[mongodb]
+host = 'mongo-db.{{ .Release.Namespace }}.svc.cluster.local'
+port = 27017
+user = 'euler_copilot'
+password = '${mongo-password}'
+database = 'euler_copilot'
+
+[minio]
+endpoint = 'minio-service.{{ .Release.Namespace }}.svc.cluster.local:9000'
+access_key = 'minioadmin'
+secret_key = '${minio-password}'
+secure = false
+
+[llm]
+endpoint = '{{ .Values.models.answer.endpoint }}'
+key = '{{ .Values.models.answer.key }}'
+model = '{{ .Values.models.answer.name }}'
+max_tokens = {{ default 8192 .Values.models.answer.maxTokens }}
+temperature = {{ default 0.7 .Values.models.answer.temperature }}
+
+[function_call]
+backend = '{{ default "ollama" .Values.models.functionCall.backend }}'
+endpoint = '{{ .Values.models.functionCall.endpoint }}'
+model = '{{ .Values.models.functionCall.model }}'
+api_key = '{{ .Values.models.functionCall.key }}'
+max_tokens = {{ default .Values.models.answer.maxTokens .Values.models.functionCall.maxTokens }}
+temperature = {{ default 0.7 .Values.models.functionCall.temperature }}
+
+[check]
+enable = false
+words_list = ""
