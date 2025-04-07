@@ -1,15 +1,17 @@
-"""Record数据结构
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
-from typing import Any, Literal, Optional
+Record数据结构
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+import uuid
+from datetime import UTC, datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 from apps.entities.collection import (
     Document,
-    RecordContent,
-    RecordMetadata,
 )
 from apps.entities.enum_var import StepStatus
 
@@ -46,6 +48,24 @@ class RecordFlow(BaseModel):
     steps: list[RecordFlowStep]
 
 
+class RecordContent(BaseModel):
+    """Record表子项：Record加密前的数据结构"""
+
+    question: str
+    answer: str
+    data: dict[str, Any] = {}
+    facts: list[str] = Field(description="[运行后修改]与Record关联的事实信息", default=[])
+
+
+class RecordMetadata(BaseModel):
+    """Record表子项：Record的元信息"""
+
+    input_tokens: int = Field(default=0, alias="inputTokens")
+    output_tokens: int = Field(default=0, alias="outputTokens")
+    time_cost: float = Field(default=0, alias="timeCost")
+    feature: dict[str, Any] = {}
+
+
 class RecordData(BaseModel):
     """GET /api/record/{conversation_id} Result内元素数据结构"""
 
@@ -54,7 +74,51 @@ class RecordData(BaseModel):
     conversation_id: str = Field(alias="conversationId")
     task_id: str = Field(alias="taskId")
     document: list[RecordDocument] = []
-    flow: Optional[RecordFlow] = None
+    flow: RecordFlow | None = None
     content: RecordContent
     metadata: RecordMetadata
     created_at: float = Field(alias="createdAt")
+
+
+class RecordGroupDocument(BaseModel):
+    """RecordGroup关联的文件"""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
+    associated: Literal["question", "answer"]
+
+
+class RecordComment(BaseModel):
+    """Record表子项：Record的评论信息"""
+
+    is_liked: bool
+    feedback_type: list[str]
+    feedback_link: str
+    feedback_content: str
+    feedback_time: float = Field(default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3))
+
+
+class Record(RecordData):
+    """问答，用于保存在MongoDB中"""
+
+    user_sub: str
+    key: dict[str, Any] = {}
+    content: str
+    flow: list[str] = Field(default=[])
+
+
+class RecordGroup(BaseModel):
+    """
+    问答组
+
+    多次重新生成的问答都是一个问答组
+    Collection: record_group
+    外键：record_group - document
+    """
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
+    user_sub: str
+    records: list[Record] = []
+    docs: list[RecordGroupDocument] = []    # 问题不变，所用到的文档不变
+    conversation_id: str
+    task_id: str
+    created_at: float = Field(default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3))
