@@ -1,17 +1,19 @@
-"""对话 Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+对话 Manager
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import logging
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from apps.entities.collection import Conversation
 from apps.manager.task import TaskManager
 from apps.models.mongo import MongoDB
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class ConversationManager:
@@ -22,13 +24,16 @@ class ConversationManager:
         """根据用户ID获取对话列表，按时间由近到远排序"""
         try:
             conv_collection = MongoDB.get_collection("conversation")
-            return [Conversation(**conv) async for conv in conv_collection.find({"user_sub": user_sub,"debug": False}).sort({"created_at": 1})]
+            return [
+                Conversation(**conv)
+                async for conv in conv_collection.find({"user_sub": user_sub, "debug": False}).sort({"created_at": 1})
+            ]
         except Exception:
             logger.exception("[ConversationManager] 通过用户ID获取对话失败")
         return []
 
     @staticmethod
-    async def get_conversation_by_conversation_id(user_sub: str, conversation_id: str) -> Optional[Conversation]:
+    async def get_conversation_by_conversation_id(user_sub: str, conversation_id: str) -> Conversation | None:
         """通过ConversationID查询对话信息"""
         try:
             conv_collection = MongoDB.get_collection("conversation")
@@ -41,7 +46,7 @@ class ConversationManager:
             return None
 
     @staticmethod
-    async def add_conversation_by_user_sub(user_sub: str, app_id: str, *, debug: bool) -> Optional[Conversation]:
+    async def add_conversation_by_user_sub(user_sub: str, app_id: str, *, debug: bool) -> Conversation | None:
         """通过用户ID新建对话"""
         conversation_id = str(uuid.uuid4())
         conv = Conversation(
@@ -59,9 +64,11 @@ class ConversationManager:
                     "$push": {"conversations": conversation_id},
                 }
                 if app_id:
-                # 非调试模式下更新应用使用情况
+                    # 非调试模式下更新应用使用情况
                     if not debug:
-                        update_data["$set"] = {f"app_usage.{app_id}.last_used": round(datetime.now(timezone.utc).timestamp(), 3)}
+                        update_data["$set"] = {
+                            f"app_usage.{app_id}.last_used": round(datetime.now(UTC).timestamp(), 3),
+                        }
                         update_data["$inc"] = {f"app_usage.{app_id}.count": 1}
                     await user_collection.update_one(
                         {"_id": user_sub},
@@ -83,10 +90,11 @@ class ConversationManager:
                 {"_id": conversation_id, "user_sub": user_sub},
                 {"$set": data},
             )
-            return result.modified_count > 0
         except Exception:
             logger.exception("[ConversationManager] 更新对话失败")
             return False
+        else:
+            return result.modified_count > 0
 
     @staticmethod
     async def delete_conversation_by_conversation_id(user_sub: str, conversation_id: str) -> bool:
@@ -96,15 +104,20 @@ class ConversationManager:
         record_group_collection = MongoDB.get_collection("record_group")
         try:
             async with MongoDB.get_session() as session, await session.start_transaction():
-                conversation_data = await conv_collection.find_one_and_delete({"_id": conversation_id, "user_sub": user_sub}, session=session)
+                conversation_data = await conv_collection.find_one_and_delete(
+                    {"_id": conversation_id, "user_sub": user_sub}, session=session,
+                )
                 if not conversation_data:
                     return False
 
-                await user_collection.update_one({"_id": user_sub}, {"$pull": {"conversations": conversation_id}}, session=session)
+                await user_collection.update_one(
+                    {"_id": user_sub}, {"$pull": {"conversations": conversation_id}}, session=session,
+                )
                 await record_group_collection.delete_many({"conversation_id": conversation_id}, session=session)
                 await session.commit_transaction()
-            await TaskManager.delete_tasks_by_conversation_id(conversation_id)
-            return True
         except Exception:
             logger.exception("[ConversationManager] 删除对话失败")
             return False
+        else:
+            await TaskManager.delete_tasks_by_conversation_id(conversation_id)
+            return True
