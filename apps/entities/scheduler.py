@@ -1,33 +1,34 @@
-"""插件、工作流、步骤相关数据结构定义
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+插件、工作流、步骤相关数据结构定义
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 from typing import Any
 
 from pydantic import BaseModel, Field
 
+from apps.entities.enum_var import CallOutputType
 from apps.entities.task import FlowStepHistory
 
 
 class CallVars(BaseModel):
-    """所有Call都需要接受的参数。包含用户输入、上下文信息、Step的输出记录等
-
-    这一部分的参数由Executor填充，用户无法修改
-    """
+    """由Executor填充的变量，即“系统变量”"""
 
     summary: str = Field(description="上下文信息")
     user_sub: str = Field(description="用户ID")
     question: str = Field(description="改写后的用户输入")
-    history: dict[str, FlowStepHistory] = Field(description="Executor中历史工具的结构化数据", default=[])
+    history: dict[str, FlowStepHistory] = Field(description="Executor中历史工具的结构化数据", default={})
     task_id: str = Field(description="任务ID")
     flow_id: str = Field(description="Flow ID")
     session_id: str = Field(description="当前用户的Session ID")
+    service_id: str = Field(description="语义接口ID")
 
 
 class ExecutorBackground(BaseModel):
     """Executor的背景信息"""
 
-    conversation: str = Field(description="当前Executor的背景信息")
+    conversation: list[dict[str, str]] = Field(description="对话记录")
     facts: list[str] = Field(description="当前Executor的背景信息")
 
 
@@ -38,3 +39,10 @@ class CallError(Exception):
         """获取Call错误中的数据"""
         self.message = message
         self.data = data
+
+
+class CallOutputChunk(BaseModel):
+    """Call的输出"""
+
+    type: CallOutputType = Field(description="输出类型")
+    content: str | dict[str, Any] = Field(description="输出内容")
