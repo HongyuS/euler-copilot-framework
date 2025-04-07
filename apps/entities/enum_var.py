@@ -1,6 +1,7 @@
-"""枚举类型
+"""
+枚举类型
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 from enum import Enum
@@ -32,22 +33,13 @@ class DocumentStatus(str, Enum):
     FAILED = "failed"
 
 
-class FlowOutputType(str, Enum):
-    """Flow输出类型"""
-
-    CODE = "code"
-    CHART = "chart"
-    URL = "url"
-    SCHEMA = "schema"
-    NONE = "none"
-
-
 class EventType(str, Enum):
     """事件类型"""
 
     HEARTBEAT = "heartbeat"
     INIT = "init"
     TEXT_ADD = "text.add"
+    GRAPH = "graph"
     DOCUMENT_ADD = "document.add"
     SUGGEST = "suggest"
     FLOW_START = "flow.start"
@@ -72,7 +64,8 @@ class MetadataType(str, Enum):
 
 
 class EdgeType(str, Enum):
-    """边类型
+    """
+    边类型
 
     注：此处为临时定义，待扩展
     """
@@ -82,7 +75,8 @@ class EdgeType(str, Enum):
 
 
 class NodeType(str, Enum):
-    """节点类型
+    """
+    节点类型
 
     注：此处为临时定义，待扩展
     """
@@ -134,3 +128,10 @@ class ContentType(str, Enum):
     JSON = "application/json"
     FORM_URLENCODED = "application/x-www-form-urlencoded"
     MULTIPART_FORM_DATA = "multipart/form-data"
+
+
+class CallOutputType(str, Enum):
+    """Call输出类型"""
+
+    TEXT = "text"
+    DATA = "data"
