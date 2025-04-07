@@ -1,30 +1,27 @@
-"""加载配置文件夹的Service部分
+"""
+加载配置文件夹的Service部分
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
-import asyncio
 import logging
 import shutil
 
-import ray
 from anyio import Path
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import delete
-from sqlalchemy.dialects.postgresql import insert
 
-from apps.common.config import config
-from apps.constants import SERVICE_DIR
+from apps.common.config import Config
 from apps.entities.flow import Permission, ServiceMetadata
 from apps.entities.pool import NodePool, ServicePool
 from apps.entities.vector import NodePoolVector, ServicePoolVector
+from apps.llm.embedding import Embedding
+from apps.models.lance import LanceDB
 from apps.models.mongo import MongoDB
-from apps.models.postgres import PostgreSQL
 from apps.scheduler.pool.check import FileChecker
 from apps.scheduler.pool.loader.metadata import MetadataLoader, MetadataType
 from apps.scheduler.pool.loader.openapi import OpenAPILoader
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class ServiceLoader:
@@ -32,7 +29,7 @@ class ServiceLoader:
 
     async def load(self, service_id: str, hashes: dict[str, str]) -> None:
         """加载单个Service"""
-        service_path = Path(config["SEMANTICS_DIR"]) / SERVICE_DIR / service_id
+        service_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id
         # 载入元数据
         metadata = await MetadataLoader().load_one(service_path / "metadata.yaml")
         if not isinstance(metadata, ServiceMetadata):
@@ -42,18 +39,15 @@ class ServiceLoader:
         metadata.hashes = hashes
 
         # 载入OpenAPI文档，获取Node列表
-        openapi_loader = OpenAPILoader.remote()
         try:
-            nodes = [
-                openapi_loader.load_one.remote(service_id, yaml_path, metadata)  # type: ignore[arg-type]
-                async for yaml_path in (service_path / "openapi").rglob("*.yaml")
-            ]
+            nodes = []
+            async for yaml_path in (service_path / "openapi").rglob("*.yaml"):
+                nodes.extend(await OpenAPILoader().load_one(service_id, yaml_path, metadata))
         except Exception:
             logger.exception("[ServiceLoader] 服务 %s 文件损坏", service_id)
             return
         try:
-            data = await asyncio.gather(*nodes)
-            nodes = data[0]
+            nodes = [node for sublist in nodes for node in sublist]
         except Exception:
             logger.exception("[ServiceLoader] 服务 %s 获取Node列表失败", service_id)
             return
@@ -63,7 +57,7 @@ class ServiceLoader:
 
     async def save(self, service_id: str, metadata: ServiceMetadata, data: dict) -> None:
         """在文件系统上保存Service，并更新数据库"""
-        service_path = Path(config["SEMANTICS_DIR"]) / SERVICE_DIR / service_id
+        service_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id
         # 创建文件夹
         if not await service_path.exists():
             await service_path.mkdir(parents=True, exist_ok=True)
@@ -73,14 +67,11 @@ class ServiceLoader:
         # 保存元数据
         await MetadataLoader().save_one(MetadataType.SERVICE, metadata, service_id)
         # 保存 OpenAPI 文档
-        openapi_loader = OpenAPILoader.remote()
-        await openapi_loader.save_one.remote(openapi_path, data)  # type: ignore[arg-type]
-        ray.kill(openapi_loader)
+        await OpenAPILoader().save_one(openapi_path, data)
         # 重新载入
         file_checker = FileChecker()
         await file_checker.diff_one(service_path)
-        await self.load(service_id, file_checker.hashes[f"{SERVICE_DIR}/{service_id}"])
-
+        await self.load(service_id, file_checker.hashes[f"service/{service_id}"])
 
     async def delete(self, service_id: str, *, is_reload: bool = False) -> None:
         """删除Service，并更新数据库"""
@@ -92,20 +83,21 @@ class ServiceLoader:
         except Exception:
             logger.exception("[ServiceLoader] 删除Service失败")
 
-        session = await PostgreSQL.get_session()
         try:
-            await session.execute(delete(ServicePoolVector).where(ServicePoolVector.id == service_id))
-            await session.execute(delete(NodePoolVector).where(NodePoolVector.id == service_id))
-            await session.commit()
+            # 获取 LanceDB 表
+            service_table = await LanceDB().get_table("service")
+            node_table = await LanceDB().get_table("node")
+
+            # 删除数据
+            await service_table.delete(f"id = '{service_id}'")
+            await node_table.delete(f"id = '{service_id}'")
         except Exception:
             logger.exception("[ServiceLoader] 删除数据库失败")
 
         if not is_reload:
-            path = Path(config["SEMANTICS_DIR"]) / SERVICE_DIR / service_id
+            path = Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id
             if await path.exists():
                 shutil.rmtree(path)
-
-        await session.aclose()
 
     async def _update_db(self, nodes: list[NodePool], metadata: ServiceMetadata) -> None:
         """更新数据库"""
@@ -144,39 +136,35 @@ class ServiceLoader:
             raise RuntimeError(err) from e
 
         # 向量化所有数据并保存
-        session = await PostgreSQL.get_session()
-        service_embedding = await PostgreSQL.get_embedding([metadata.description])
-        insert_stmt = (
-            insert(ServicePoolVector)
-            .values(
+        service_table = await LanceDB().get_table("service")
+        node_table = await LanceDB().get_table("node")
+
+        # 删除重复的ID
+        await service_table.delete(f"id = '{metadata.id}'")
+        await node_table.delete(f"service_id = '{metadata.id}'")
+
+        # 进行向量化，更新LanceDB
+        service_vecs = await Embedding.get_embedding([metadata.description])
+        service_vector_data = [
+            ServicePoolVector(
                 id=metadata.id,
-                embedding=service_embedding[0],
-            )
-            .on_conflict_do_update(
-                index_elements=["id"],
-                set_={"embedding": service_embedding[0]},
-            )
-        )
-        await session.execute(insert_stmt)
+                embedding=service_vecs[0],
+            ),
+        ]
+        await service_table.add(service_vector_data)
 
         node_descriptions = []
         for node in nodes:
             node_descriptions += [node.description]
 
-        node_vecs = await PostgreSQL.get_embedding(node_descriptions)
-        for i, data in enumerate(node_vecs):
-            insert_stmt = (
-                insert(NodePoolVector)
-                .values(
+        node_vecs = await Embedding.get_embedding(node_descriptions)
+        node_vector_data = []
+        for i, vec in enumerate(node_vecs):
+            node_vector_data.append(
+                NodePoolVector(
                     id=nodes[i].id,
-                    embedding=data,
-                )
-                .on_conflict_do_update(
-                    index_elements=["id"],
-                    set_={"embedding": data},
-                )
+                    service_id=metadata.id,
+                    embedding=vec,
+                ),
             )
-            await session.execute(insert_stmt)
-
-        await session.commit()
-        await session.aclose()
+        await node_table.add(node_vector_data)
