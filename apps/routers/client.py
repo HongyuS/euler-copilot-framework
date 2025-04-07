@@ -1,8 +1,10 @@
-"""FastAPI Shell端对接相关接口
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
-from typing import Annotated, Optional
+FastAPI Shell端对接相关接口
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
@@ -26,13 +28,13 @@ router = APIRouter(
 @router.post("/session", response_model=PostClientSessionRsp, responses={
     status.HTTP_400_BAD_REQUEST: {"model": ResponseData},
 })
-async def get_session_id(  # noqa: ANN201
+async def get_session_id(
     request: HTTPConnection,
     post_body: ClientSessionData,
     user_sub: Annotated[str, Depends(get_user_by_api_key)],
-):
+) -> JSONResponse:
     """获取客户端会话ID"""
-    session_id: Optional[str] = post_body.session_id
+    session_id: str | None = post_body.session_id
     if not request.client:
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content=ResponseData(
             code=status.HTTP_400_BAD_REQUEST,
@@ -44,9 +46,7 @@ async def get_session_id(  # noqa: ANN201
             code=status.HTTP_200_OK,
             message="gen new session id success",
             result={
-                "session_id": await SessionManager.create_session(request.client.host, extra_keys={
-                    "user_sub": user_sub,
-                }),
+                "session_id": await SessionManager.create_session(request.client.host, user_sub),
             },
         ).model_dump(exclude_none=True, by_alias=True))
     return JSONResponse(status_code=status.HTTP_200_OK, content=PostClientSessionRsp(
