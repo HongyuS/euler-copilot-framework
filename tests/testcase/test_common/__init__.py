@@ -1,4 +1,5 @@
-"""UT: /apps/common
+"""
+UT: /apps/common
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """

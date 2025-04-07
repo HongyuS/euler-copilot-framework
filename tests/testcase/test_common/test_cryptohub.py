@@ -1,79 +1,58 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+"""
+UT: /apps/common
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
 
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from apps.common.cryptohub import CryptoHub
 
 
 class TestCryptoHub(unittest.TestCase):
+    """CryptoHub类的测试用例"""
 
-    def setUp(self):
-        self.test_dir = "test_dir"
-        self.test_config_name = "test_config"
+    def setUp(self) -> None:
+        """测试前的准备工作"""
         self.test_plain_text = "test_plain_text"
-        self.test_encrypted_plaintext = "test_encrypted_plaintext"
-        self.test_config_dir = "test_config_dir"
-        self.test_config_deletion_flag = False
 
-    def test_generate_str_from_sha256(self):
-        result = CryptoHub.generate_str_from_sha256(self.test_plain_text)
-        self.assertIsInstance(result, str)
+    def test_generate_str_from_sha256(self) -> None:
+        """测试SHA256哈希生成"""
+        # 测试正常输入
+        result = CryptoHub.generate_str_from_sha256("hello")
+        expected = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        assert result == expected
 
-    def test_generate_key_config(self):
-        with patch('os.mkdir'), patch('os.path.join'), patch('os.getcwd') as mock_getcwd:
-            mock_getcwd.return_value = self.test_dir
-            result, config_dir = CryptoHub.generate_key_config(self.test_config_name, self.test_plain_text)
-            self.assertIsInstance(result, str)
-            self.assertIsInstance(config_dir, str)
+        # 测试空字符串
+        empty_result = CryptoHub.generate_str_from_sha256("")
+        empty_expected = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        assert empty_result == empty_expected
 
-    def test_decrypt_with_config(self):
-        with patch('os.path.join') as mock_join, patch('os.path.dirname') as mock_dirname:
-            mock_join.return_value = self.test_config_dir
-            mock_dirname.return_value = self.test_dir
-            result = CryptoHub.decrypt_with_config(self.test_config_dir, self.test_encrypted_plaintext,
-                                                   self.test_config_deletion_flag)
-            self.assertIsInstance(result, str)
+    def test_decrypt_with_config(self) -> None:
+        """测试配置解密"""
+        # 准备测试数据
+        encrypted_data = "test_cipher_text"
+        config_dict = {
+            CryptoHub.generate_str_from_sha256("encrypted_work_key"): "work_key",
+            CryptoHub.generate_str_from_sha256("encrypted_work_key_iv"): "work_key_iv",
+            CryptoHub.generate_str_from_sha256("encrypted_iv"): "iv",
+            CryptoHub.generate_str_from_sha256("half_key1"): "half_key",
+        }
+        test_input = [encrypted_data, config_dict]
 
-    def test_generate_key_config_from_file(self):
-        with patch('os.listdir') as mock_listdir, patch('os.path.join') as mock_join, patch(
-                'os.path.basename') as mock_basename:
-            mock_listdir.return_value = ['file1.json']
-            mock_join.return_value = self.test_dir
-            mock_basename.return_value = "test_config_name.json"
-            CryptoHub.generate_key_config_from_file(self.test_dir)
-
-    def test_query_plaintext_by_config_name(self):
-        with patch('json.load') as mock_load, patch('os.path.join') as mock_join, patch(
-                'os.path.dirname') as mock_dirname:
-            mock_load.return_value = {
-                CryptoHub.generate_str_from_sha256(self.test_config_name): {
-                    CryptoHub.generate_str_from_sha256('encrypted_plaintext'): self.test_encrypted_plaintext,
-                    CryptoHub.generate_str_from_sha256('key_config_dir'): self.test_config_dir,
-                    CryptoHub.generate_str_from_sha256('config_deletion_flag'): self.test_config_deletion_flag
-                }
-            }
-            mock_join.return_value = self.test_dir
-            mock_dirname.return_value = self.test_dir
-            result = CryptoHub.query_plaintext_by_config_name(self.test_config_name)
-            self.assertIsInstance(result, str)
-
-    def test_add_plaintext_to_env(self):
-        with patch('os.path.join') as mock_join, patch('os.path.dirname') as mock_dirname, patch(
-                'os.open') as mock_open, patch('os.fdopen') as mock_fdopen, patch('json.load') as mock_load:
-            mock_join.return_value = self.test_dir
-            mock_dirname.return_value = self.test_dir
-            mock_open.return_value = 1
-            mock_fdopen.return_value = MagicMock(spec=open)
-            mock_load.return_value = {
-                CryptoHub.generate_str_from_sha256(self.test_config_name): {
-                    CryptoHub.generate_str_from_sha256('encrypted_plaintext'): self.test_encrypted_plaintext,
-                    CryptoHub.generate_str_from_sha256('key_config_dir'): self.test_config_dir,
-                    CryptoHub.generate_str_from_sha256('config_deletion_flag'): self.test_config_deletion_flag
-                }
-            }
-            CryptoHub.add_plaintext_to_env(self.test_dir)
+        # Mock Security.decrypt
+        with patch("apps.common.security.Security.decrypt") as mock_decrypt:
+            mock_decrypt.return_value = "decrypted_text"
+            result = CryptoHub.decrypt_with_config(test_input)
+            assert result == "decrypted_text"
+            mock_decrypt.assert_called_once_with(encrypted_data, {
+                "encrypted_work_key": "work_key",
+                "encrypted_work_key_iv": "work_key_iv",
+                "encrypted_iv": "iv",
+                "half_key1": "half_key",
+            })
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

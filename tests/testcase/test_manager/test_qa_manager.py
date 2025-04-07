@@ -1,9 +1,10 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 
 import logging
 import unittest
 from unittest.mock import patch, MagicMock
-from apps.manager.record import RecordManager, Record, MysqlDB
+from apps.entities.record import Record
+from apps.manager.record import RecordManager, MysqlDB
 
 
 class TestQaManager(unittest.TestCase):
