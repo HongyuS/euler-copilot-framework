@@ -1,16 +1,17 @@
-"""元数据加载器
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+元数据加载器
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import logging
-from typing import Any, Optional, Union
+from typing import Any
 
 import yaml
 from anyio import Path
 from fastapi.encoders import jsonable_encoder
 
-from apps.common.config import config
-from apps.constants import APP_DIR, SERVICE_DIR
+from apps.common.config import Config
 from apps.entities.enum_var import MetadataType
 from apps.entities.flow import (
     AppMetadata,
@@ -18,13 +19,13 @@ from apps.entities.flow import (
 )
 from apps.scheduler.util import yaml_str_presenter
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class MetadataLoader:
     """元数据加载器"""
 
-    async def load_one(self, file_path: Path) -> Optional[Union[AppMetadata, ServiceMetadata]]:
+    async def load_one(self, file_path: Path) -> AppMetadata | ServiceMetadata | None:
         """加载单个元数据"""
         # 检查yaml格式
         try:
@@ -65,11 +66,10 @@ class MetadataLoader:
 
         return metadata
 
-
     async def save_one(
         self,
         metadata_type: MetadataType,
-        metadata: Union[dict[str, Any], AppMetadata, ServiceMetadata],
+        metadata: dict[str, Any] | AppMetadata | ServiceMetadata,
         resource_id: str,
     ) -> None:
         """保存单个元数据"""
@@ -80,9 +80,13 @@ class MetadataLoader:
 
         # 检查资源路径
         if metadata_type == MetadataType.APP.value:
-            resource_path = Path(config["SEMANTICS_DIR"]) / APP_DIR / resource_id / "metadata.yaml"
+            resource_path = (
+                Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / resource_id / "metadata.yaml"
+            )
         elif metadata_type == MetadataType.SERVICE.value:
-            resource_path = Path(config["SEMANTICS_DIR"]) / SERVICE_DIR / resource_id / "metadata.yaml"
+            resource_path = (
+                Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / resource_id / "metadata.yaml"
+            )
         else:
             err = f"[MetadataLoader] metadata_type类型错误: {metadata_type}"
             logger.error(err)
@@ -92,7 +96,7 @@ class MetadataLoader:
         if isinstance(metadata, dict):
             try:
                 # 检查类型匹配
-                metadata_class: type[Union[AppMetadata, ServiceMetadata]] = class_dict[metadata_type]
+                metadata_class: type[AppMetadata | ServiceMetadata] = class_dict[metadata_type]
                 data = metadata_class(**metadata)
             except Exception as e:
                 err = "[MetadataLoader] metadata.yaml格式错误"
