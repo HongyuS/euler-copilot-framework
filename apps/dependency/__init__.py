@@ -1,6 +1,7 @@
-"""FastAPI 依赖注入模块
+"""
+FastAPI 依赖注入模块
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 from apps.dependency.csrf import verify_csrf_token
