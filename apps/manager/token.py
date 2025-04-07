@@ -1,18 +1,23 @@
-"""Token Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+Token Manager
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import logging
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 import aiohttp
 from fastapi import status
 
-from apps.common.config import config
+from apps.common.config import Config
+from apps.common.oidc import oidc_provider
+from apps.constants import OIDC_ACCESS_TOKEN_EXPIRE_TIME
+from apps.entities.config import OIDCConfig
 from apps.manager.session import SessionManager
-from apps.models.redis import RedisConnectionPool
+from apps.models.mongo import MongoDB
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class TokenManager:
@@ -25,11 +30,14 @@ class TokenManager:
         if not user_sub:
             err = "用户不存在！"
             raise ValueError(err)
-        async with RedisConnectionPool.get_redis_connection().pipeline(transaction=True) as pipe:
-            pipe.get(f"{user_sub}_token_{plugin_name}")
-            result = await pipe.execute()
-        if result[0] is not None:
-            return result[0].decode()
+
+        collection = MongoDB().get_collection("session")
+        token_data = await collection.find_one({
+            "_id": f"{plugin_name}_token_{user_sub}",
+        })
+
+        if token_data:
+            return token_data["token"]
 
         token = await TokenManager.generate_plugin_token(
             plugin_name,
@@ -44,67 +52,101 @@ class TokenManager:
         return token
 
     @staticmethod
+    def _get_login_config() -> OIDCConfig:
+        """获取并验证登录配置"""
+        login_config = Config().get_config().login.settings
+        if not isinstance(login_config, OIDCConfig):
+            err = "Authhub OIDC配置错误"
+            raise TypeError(err)
+        return login_config
+
+    @staticmethod
     async def generate_plugin_token(
         plugin_name: str,
         session_id: str,
         user_sub: str,
         access_token_url: str,
         expire_time: int,
-    ) -> Optional[str]:
+    ) -> str | None:
         """生成插件Token"""
-        async with RedisConnectionPool.get_redis_connection().pipeline(transaction=True) as pipe:
-            pipe.get(f"{user_sub}_oidc_access_token")
-            pipe.get(f"{user_sub}_oidc_refresh_token")
-            result = await pipe.execute()
-        if result[0]:
-            oidc_access_token = result[0]
-        elif result[1]:
-            # access token 过期的时候，重新获取
-            url = config["OIDC_REFRESH_TOKEN_URL"]
-            async with aiohttp.ClientSession() as session:
-                response = await session.post(
-                    url=url,
-                    json={
-                        "refresh_token": result[1].decode(),
-                        "client_id": config["OIDC_APP_ID"],
-                    },
-                )
-                ret = await response.json()
-                if response.status != status.HTTP_200_OK:
-                    logger.error("[TokenManager] 获取OIDC Access token 失败: %s", ret)
-                    return None
-                oidc_access_token = ret["data"]["access_token"]
-                pipe.set(f"{user_sub}_oidc_access_token", oidc_access_token, int(config["OIDC_ACCESS_TOKEN_EXPIRE_TIME"]) * 60)
-                await pipe.execute()
+        collection = MongoDB().get_collection("session")
+
+        # 获取OIDC token
+        oidc_token = await collection.find_one({
+            "_id": f"access_token_{user_sub}",
+        })
+
+        if oidc_token:
+            oidc_access_token = oidc_token["token"]
         else:
-            await SessionManager.delete_session(session_id)
-            err = "Refresh token均过期，需要重新登录"
-            raise RuntimeError(err)
+            # 检查是否有refresh token
+            refresh_token = await collection.find_one({
+                "_id": f"refresh_token_{user_sub}",
+            })
+
+            if refresh_token:
+                # access token 过期的时候，重新获取
+                oidc_config = TokenManager._get_login_config()
+                try:
+                    token_info = await oidc_provider.get_oidc_token(refresh_token["token_value"])
+                    oidc_access_token = token_info["access_token"]
+
+                    # 更新OIDC token
+                    await collection.update_one(
+                        {"_id": f"access_token_{user_sub}"},
+                        {"$set": {
+                            "token": oidc_access_token,
+                            "expired_at": datetime.now(UTC) + timedelta(minutes=OIDC_ACCESS_TOKEN_EXPIRE_TIME),
+                        }},
+                        upsert=True,
+                    )
+                    await collection.create_index("expired_at", expireAfterSeconds=0)
+                except Exception:
+                    logger.exception("[TokenManager] 获取OIDC Access token 失败")
+                    return None
+            else:
+                await SessionManager.delete_session(session_id)
+                err = "Refresh token均过期，需要重新登录"
+                raise RuntimeError(err)
 
         async with aiohttp.ClientSession() as session:
             response = await session.post(
                 url=access_token_url,
                 json={
-                    "client_id": config["OIDC_APP_ID"],
-                    "access_token": oidc_access_token.decode(),
+                    "client_id": oidc_config.app_id,
+                    "access_token": oidc_access_token,
                 },
             )
             ret = await response.json()
             if response.status != status.HTTP_200_OK:
                 logger.error("[TokenManager] 获取 %s 插件所需的token失败", plugin_name)
                 return None
-            async with RedisConnectionPool.get_redis_connection().pipeline(transaction=True) as pipe:
-                pipe.set(f"{plugin_name}_{user_sub}_token", ret["data"]["access_token"], int(expire_time) * 60)
-                await pipe.execute()
-            return ret["data"]["access_token"]
+
+            # 保存插件token
+            await collection.update_one(
+                {
+                    "_id": f"{plugin_name}_token_{user_sub}",
+                },
+                {"$set": {
+                    "token": ret["access_token"],
+                    "expired_at": datetime.now(UTC) + timedelta(minutes=expire_time),
+                }},
+                upsert=True,
+            )
+
+            # 创建TTL索引
+            await collection.create_index("expired_at", expireAfterSeconds=0)
+            return ret["access_token"]
 
     @staticmethod
     async def delete_plugin_token(user_sub: str) -> None:
         """删除插件token"""
-        async with RedisConnectionPool.get_redis_connection().pipeline(transaction=True) as pipe:
-            # 删除 oidc related token
-            pipe.delete(f"{user_sub}_oidc_access_token")
-            pipe.delete(f"{user_sub}_oidc_refresh_token")
-            pipe.delete(f"aops_{user_sub}_token")
-            await pipe.execute()
-
+        collection = MongoDB().get_collection("token")
+        await collection.delete_many({
+            "user_sub": user_sub,
+            "$or": [
+                {"token_type": "oidc"},
+                {"token_type": "oidc_refresh"},
+                {"token_type": "plugin"},
+            ],
+        })
