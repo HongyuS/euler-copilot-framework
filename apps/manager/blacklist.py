@@ -1,20 +1,21 @@
-"""黑名单相关操作
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+黑名单相关操作
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import logging
 import re
 
 from apps.common.security import Security
 from apps.entities.collection import (
     Blacklist,
-    Record,
-    RecordContent,
     User,
 )
+from apps.entities.record import Record, RecordContent
 from apps.models.mongo import MongoDB
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class QuestionBlacklistManager:
@@ -25,20 +26,26 @@ class QuestionBlacklistManager:
         """给定问题，查找问题是否在黑名单里"""
         try:
             blacklist_collection = MongoDB.get_collection("blacklist")
-            result = await blacklist_collection.find_one({"question": {"$regex": f"/{re.escape(input_question)}/i"}, "is_audited": True}, {"_id": 1})
+            result = await blacklist_collection.find_one(
+                {"question": {"$regex": f"/{re.escape(input_question)}/i"}, "is_audited": True}, {"_id": 1},
+            )
             if result:
                 # 用户输入的问题中包含黑名单问题的一部分，故拉黑
                 logger.info("[QuestionBlacklistManager] 问题在黑名单中")
                 return False
-            return True
         except Exception:
             # 访问数据库异常
             logger.exception("[QuestionBlacklistManager] 检查问题黑名单失败")
             return False
+        else:
+            return True
 
     @staticmethod
-    async def change_blacklisted_questions(blacklist_id: str, question: str, answer: str, *, is_deletion: bool = False) -> bool:
-        """删除或修改已在黑名单里的问题
+    async def change_blacklisted_questions(
+        blacklist_id: str, question: str, answer: str, *, is_deletion: bool = False,
+    ) -> bool:
+        """
+        删除或修改已在黑名单里的问题
 
         is_deletion标识是否为删除操作
         """
@@ -51,22 +58,27 @@ class QuestionBlacklistManager:
                 return True
 
             # 修改
-            await blacklist_collection.find_one_and_update({"_id": blacklist_id}, {"$set": {"question": question, "answer": answer}})
+            await blacklist_collection.find_one_and_update(
+                {"_id": blacklist_id}, {"$set": {"question": question, "answer": answer}},
+            )
             logger.info("[QuestionBlacklistManager] 问题在黑名单中修改")
-            return True
-
         except Exception:
             # 数据库操作异常
             logger.exception("[QuestionBlacklistManager] 修改问题黑名单失败")
             # 放弃执行后续操作
             return False
+        else:
+            return True
 
     @staticmethod
     async def get_blacklisted_questions(limit: int, offset: int, *, is_audited: bool) -> list[Blacklist]:
         """分页式获取目前所有的问题（待审核或已拉黑）黑名单"""
         try:
             blacklist_collection = MongoDB.get_collection("blacklist")
-            return [Blacklist.model_validate(item) async for item in blacklist_collection.find({"is_audited": is_audited}).skip(offset).limit(limit)]
+            return [
+                Blacklist.model_validate(item)
+                async for item in blacklist_collection.find({"is_audited": is_audited}).skip(offset).limit(limit)
+            ]
         except Exception:
             logger.exception("[QuestionBlacklistManager] 查询问题黑名单失败")
             # 异常
@@ -82,7 +94,11 @@ class UserBlacklistManager:
         try:
             user_collection = MongoDB.get_collection("user")
             return [
-                user["_id"] async for user in user_collection.find({"credit": {"$lte": 0}}, {"_id": 1}).sort({"_id": 1}).skip(offset).limit(limit)
+                user["_id"]
+                async for user in user_collection.find({"credit": {"$lte": 0}}, {"_id": 1})
+                .sort({"_id": 1})
+                .skip(offset)
+                .limit(limit)
             ]
         except Exception:
             logger.exception("[UserBlacklistManager] 查询用户黑名单失败")
@@ -93,13 +109,16 @@ class UserBlacklistManager:
         """检测某用户是否已被拉黑"""
         try:
             user_collection = MongoDB.get_collection("user")
-            result = await user_collection.find_one({"user_sub": user_sub, "credit": {"$lte": 0}, "is_whitelisted": False}, {"_id": 1})
+            result = await user_collection.find_one(
+                {"user_sub": user_sub, "credit": {"$lte": 0}, "is_whitelisted": False}, {"_id": 1},
+            )
+        except Exception:
+            logger.exception("[UserBlacklistManager] 检查用户黑名单失败")
+            return False
+        else:
             if result is not None:
                 logger.info("[UserBlacklistManager] 用户在黑名单中")
                 return True
-            return False
-        except Exception:
-            logger.exception("[UserBlacklistManager] 检查用户黑名单失败")
             return False
 
     @staticmethod
@@ -137,11 +156,12 @@ class UserBlacklistManager:
 
             # 更新用户信用分
             await user_collection.update_one({"user_sub": user_sub}, {"$set": {"credit": new_credit}})
-            return True
         except Exception:
             # 数据库错误
             logger.exception("[UserBlacklistManager] 修改用户黑名单失败")
             return False
+        else:
+            return True
 
 
 class AbuseManager:
@@ -153,12 +173,14 @@ class AbuseManager:
         try:
             # 判断record_id是否合法
             record_group_collection = MongoDB.get_collection("record_group")
-            record = await record_group_collection.aggregate([
-                {"$match": {"user_sub": user_sub}},
-                {"$unwind": "$records"},
-                {"$match": {"records._id": record_id}},
-                {"$limit": 1},
-            ])
+            record = await record_group_collection.aggregate(
+                [
+                    {"$match": {"user_sub": user_sub}},
+                    {"$unwind": "$records"},
+                    {"$match": {"records._id": record_id}},
+                    {"$limit": 1},
+                ],
+            )
 
             record = await record.to_list(length=1)
             if not record:
@@ -167,7 +189,7 @@ class AbuseManager:
 
             # 获得Record明文内容
             record = Record.model_validate(record[0]["records"])
-            record_data = Security.decrypt(record.data, record.key)
+            record_data = Security.decrypt(record.content, record.key)
             record_data = RecordContent.model_validate_json(record_data)
 
             # 检查该条目类似内容是否已被举报过
@@ -188,10 +210,11 @@ class AbuseManager:
             )
 
             await blacklist_collection.insert_one(new_blacklist.model_dump(by_alias=True))
-            return True
         except Exception:
             logger.exception("[AbuseManager] 修改用户举报失败")
             return False
+        else:
+            return True
 
     @staticmethod
     async def audit_abuse_report(question_id: str, *, is_deletion: bool = False) -> bool:
@@ -205,7 +228,8 @@ class AbuseManager:
                 {"_id": question_id, "is_audited": False},
                 {"$set": {"is_audited": True}},
             )
-            return True
         except Exception:
             logger.exception("[AbuseManager] 审核用户举报失败")
             return False
+        else:
+            return True

@@ -1,12 +1,13 @@
-"""应用中心 Manager
+"""
+应用中心 Manager
 
 Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 """
 
 import logging
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from apps.entities.appcenter import AppCenterCardItem, AppData
 from apps.entities.collection import User
@@ -18,7 +19,7 @@ from apps.manager.flow import FlowManager
 from apps.models.mongo import MongoDB
 from apps.scheduler.pool.loader.app import AppLoader
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 class AppCenterManager:
     """应用中心管理器"""
@@ -27,11 +28,12 @@ class AppCenterManager:
     async def fetch_all_apps(
         user_sub: str,
         search_type: SearchType,
-        keyword: Optional[str],
+        keyword: str | None,
         page: int,
         page_size: int,
     ) -> tuple[list[AppCenterCardItem], int]:
-        """获取所有应用列表
+        """
+        获取所有应用列表
 
         :param user_sub: 用户唯一标识
         :param search_type: 搜索类型
@@ -77,11 +79,12 @@ class AppCenterManager:
     async def fetch_user_apps(
         user_sub: str,
         search_type: SearchType,
-        keyword: Optional[str],
+        keyword: str | None,
         page: int,
         page_size: int,
     ) -> tuple[list[AppCenterCardItem], int]:
-        """获取用户应用列表
+        """
+        获取用户应用列表
 
         :param user_sub: 用户唯一标识
         :param search_type: 搜索类型
@@ -124,11 +127,12 @@ class AppCenterManager:
     async def fetch_favorite_apps(
         user_sub: str,
         search_type: SearchType,
-        keyword: Optional[str],
+        keyword: str | None,
         page: int,
         page_size: int,
     ) -> tuple[list[AppCenterCardItem], int]:
-        """获取用户收藏的应用列表
+        """
+        获取用户收藏的应用列表
 
         :param user_sub: 用户唯一标识
         :param search_type: 搜索类型
@@ -172,7 +176,8 @@ class AppCenterManager:
 
     @staticmethod
     async def fetch_app_data_by_id(app_id: str) -> AppPool:
-        """根据应用ID获取应用元数据
+        """
+        根据应用ID获取应用元数据
 
         :param app_id: 应用ID
         :return: 应用元数据
@@ -186,7 +191,8 @@ class AppCenterManager:
 
     @staticmethod
     async def create_app(user_sub: str, data: AppData) -> str:
-        """创建应用
+        """
+        创建应用
 
         :param user_sub: 用户唯一标识
         :param data: 应用数据
@@ -215,7 +221,8 @@ class AppCenterManager:
 
     @staticmethod
     async def update_app(user_sub: str, app_id: str, data: AppData) -> None:
-        """更新应用
+        """
+        更新应用
 
         :param user_sub: 用户唯一标识
         :param app_id: 应用唯一标识
@@ -252,7 +259,8 @@ class AppCenterManager:
 
     @staticmethod
     async def publish_app(app_id: str, user_sub: str) -> None:
-        """发布应用
+        """
+        发布应用
 
         :param app_id: 应用唯一标识
         :param user_sub: 用户唯一标识
@@ -289,7 +297,8 @@ class AppCenterManager:
 
     @staticmethod
     async def modify_favorite_app(app_id: str, user_sub: str, *, favorited: bool) -> None:
-        """修改收藏状态
+        """
+        修改收藏状态
 
         :param app_id: 应用唯一标识
         :param user_sub: 用户唯一标识
@@ -325,7 +334,8 @@ class AppCenterManager:
 
     @staticmethod
     async def delete_app(app_id: str, user_sub: str) -> None:
-        """删除应用
+        """
+        删除应用
 
         :param app_id: 应用唯一标识
         :param user_sub: 用户唯一标识
@@ -347,7 +357,8 @@ class AppCenterManager:
 
     @staticmethod
     async def get_recently_used_apps(count: int, user_sub: str) -> RecentAppList:
-        """获取用户最近使用的应用列表
+        """
+        获取用户最近使用的应用列表
 
         :param count: 应用数量
         :param user_sub: 用户唯一标识
@@ -377,15 +388,18 @@ class AppCenterManager:
 
     @staticmethod
     async def update_recent_app(user_sub: str, app_id: str) -> bool:
-        """更新用户的最近使用应用列表
+        """
+        更新用户的最近使用应用列表
 
         :param user_sub: 用户唯一标识
         :param app_id: 应用唯一标识
         :return: 更新是否成功
         """
+        if not app_id:
+            return True
         try:
             user_collection = MongoDB.get_collection("user")
-            current_time = round(datetime.now(tz=timezone.utc).timestamp(), 3)
+            current_time = round(datetime.now(UTC).timestamp(), 3)
             result = await user_collection.update_one(
                 {"_id": user_sub},  # 查询条件
                 {
@@ -402,14 +416,15 @@ class AppCenterManager:
                 logger.info("[AppCenterManager] 更新用户最近使用应用: %s", user_sub)
                 return True
             logger.warning("[AppCenterManager] 用户 %s 没有更新", user_sub)
-            return False
         except Exception:
             logger.exception("[AppCenterManager] 更新用户最近使用应用失败")
-            return False
+
+        return False
 
     @staticmethod
-    async def get_default_flow_id(app_id: str) -> Optional[str]:
-        """获取默认工作流ID
+    async def get_default_flow_id(app_id: str) -> str | None:
+        """
+        获取默认工作流ID
 
         :param app_id: 应用ID
         :return: 默认工作流ID
@@ -468,10 +483,11 @@ class AppCenterManager:
                 .to_list(length=page_size)
             )
             apps = [AppPool.model_validate(doc) for doc in db_data]
-            return apps, total_apps
         except Exception:
             logger.exception("[AppCenterManager] 根据过滤条件搜索应用失败")
-        return [], -1
+            return [], -1
+        else:
+            return apps, total_apps
 
     @staticmethod
     async def _get_favorite_app_ids_by_user(user_sub: str) -> list[str]:
@@ -479,7 +495,8 @@ class AppCenterManager:
         try:
             user_collection = MongoDB.get_collection("user")
             user_data = User.model_validate(await user_collection.find_one({"_id": user_sub}))
-            return user_data.fav_apps
         except Exception:
             logger.exception("[AppCenterManager] 获取用户收藏应用ID失败")
-        return []
+            return []
+        else:
+            return user_data.fav_apps

@@ -1,13 +1,15 @@
-"""应用管理器
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+应用管理器
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import logging
 
 from apps.entities.enum_var import PermissionType
 from apps.models.mongo import MongoDB
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class AppManager:
@@ -15,7 +17,8 @@ class AppManager:
 
     @staticmethod
     async def validate_user_app_access(user_sub: str, app_id: str) -> bool:
-        """验证用户对应用的访问权限
+        """
+        验证用户对应用的访问权限
 
         :param user_sub: 用户唯一标识符
         :param app_id: 应用id
@@ -38,14 +41,16 @@ class AppManager:
             }
 
             result = await app_collection.find_one(query)
-            return (result is not None)
         except Exception:
             logger.exception("[AppManager] 验证用户应用访问失败")
             return False
+        else:
+            return result is not None
 
     @staticmethod
     async def validate_app_belong_to_user(user_sub: str, app_id: str) -> bool:
-        """验证用户对应用的属权
+        """
+        验证用户对应用的属权
 
         :param user_sub: 用户唯一标识符
         :param app_id: 应用id
@@ -59,7 +64,8 @@ class AppManager:
             }
 
             result = await app_collection.find_one(query)
-            return (result is not None)
         except Exception:
             logger.exception("[AppManager] 验证应用属于用户失败")
             return False
+        else:
+            return result is not None
