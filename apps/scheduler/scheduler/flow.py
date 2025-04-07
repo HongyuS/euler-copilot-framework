@@ -1,18 +1,18 @@
-"""Scheduler中，关于Flow的逻辑
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+Scheduler中，关于Flow的逻辑
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import logging
-from typing import Optional
 
-import ray
-
-from apps.constants import RAG_ANSWER_PROMPT
 from apps.entities.flow import Flow, FlowError, Step
-from apps.entities.task import RequestDataApp
+from apps.entities.request_data import RequestDataApp
 from apps.llm.patterns import Select
+from apps.scheduler.call.llm.schema import RAG_ANSWER_PROMPT
+from apps.scheduler.pool.pool import Pool
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class PredifinedRAGFlow(Flow):
@@ -63,7 +63,7 @@ class PredifinedRAGFlow(Flow):
 class FlowChooser:
     """Flow选择器"""
 
-    def __init__(self, task_id: str, question: str, user_selected: Optional[RequestDataApp] = None) -> None:
+    def __init__(self, task_id: str, question: str, user_selected: RequestDataApp | None = None) -> None:
         """初始化Flow选择器"""
         self._task_id = task_id
         self._question = question
@@ -72,12 +72,11 @@ class FlowChooser:
 
     async def get_top_flow(self) -> str:
         """获取Top1 Flow"""
-        pool = ray.get_actor("pool")
         # 获取所选应用的所有Flow
         if not self._user_selected or not self._user_selected.app_id:
             return "KnowledgeBase"
 
-        flow_list = await pool.get_flow_metadata.remote(self._user_selected.app_id)
+        flow_list = await Pool().get_flow_metadata(self._user_selected.app_id)
         if not flow_list:
             return "KnowledgeBase"
 
@@ -89,8 +88,9 @@ class FlowChooser:
         return await Select().generate(self._task_id, question=self._question, choices=choices)
 
 
-    async def choose_flow(self) -> Optional[RequestDataApp]:
-        """依据用户的输入和选择，构造对应的Flow。
+    async def choose_flow(self) -> RequestDataApp | None:
+        """
+        依据用户的输入和选择，构造对应的Flow。
 
         - 当用户没有选择任何app时，直接进行智能问答
         - 当用户选择了特定的app时，在plugin内挑选最适合的flow
