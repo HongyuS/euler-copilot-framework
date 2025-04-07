@@ -1,9 +1,9 @@
 """用于计算Token消耗量"""
-import ray
+
+from apps.common.singleton import SingletonMeta
 
 
-@ray.remote
-class TokenCalculator:
+class TokenCalculator(metaclass=SingletonMeta):
     """用于计算Token消耗量"""
 
     def __init__(self) -> None:
