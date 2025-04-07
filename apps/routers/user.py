@@ -1,3 +1,8 @@
+"""
+用户相关接口
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
 
 from typing import Annotated
 
@@ -40,4 +45,3 @@ async def chat(
         message="用户数据详细信息获取成功",
         result=UserGetMsp(userInfoList=user_info_list),
     ).model_dump(exclude_none=True, by_alias=True))
-

@@ -1,4 +1,5 @@
-"""User用户信息数据结构
+"""
+User用户信息数据结构
 
 Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 """

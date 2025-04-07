@@ -1,10 +1,11 @@
-"""FastAPI 语义接口中心相关路由
+"""
+FastAPI 语义接口中心相关路由
 
 Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 """
 
 import logging
-from typing import Annotated, Optional, Union
+from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Path, Query, status
 from fastapi.responses import JSONResponse
@@ -28,7 +29,7 @@ from apps.entities.response_data import (
 )
 from apps.manager.service import ServiceCenterManager
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/api/service",
     tags=["service-center"],
@@ -36,14 +37,14 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=Union[GetServiceListRsp, ResponseData])
+@router.get("", response_model=GetServiceListRsp | ResponseData)
 async def get_service_list(  # noqa: PLR0913
     user_sub: Annotated[str, Depends(get_user)],
     *,
     my_service: Annotated[bool, Query(..., alias="createdByMe", description="筛选我创建的")] = False,
     my_fav: Annotated[bool, Query(..., alias="favorited", description="筛选我收藏的")] = False,
     search_type: Annotated[SearchType, Query(..., alias="searchType", description="搜索类型")] = SearchType.ALL,
-    keyword: Annotated[Optional[str], Query(..., alias="keyword", description="搜索关键字")] = None,
+    keyword: Annotated[str | None, Query(..., alias="keyword", description="搜索关键字")] = None,
     page: Annotated[int, Query(..., alias="page", ge=1, description="页码")] = 1,
     page_size: Annotated[int, Query(..., alias="pageSize", ge=1, le=100, description="每页数量")] = 16,
 ) -> JSONResponse:

@@ -1,20 +1,18 @@
-"""FastAPI API Key相关路由
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
-from typing import Annotated, Optional
+FastAPI API Key相关路由
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.csrf import verify_csrf_token
 from apps.dependency.user import get_user, verify_user
-from apps.entities.response_data import (
-    GetAuthKeyRsp,
-    PostAuthKeyMsg,
-    PostAuthKeyRsp,
-    ResponseData,
-)
+from apps.entities.api_key import GetAuthKeyRsp, PostAuthKeyMsg, PostAuthKeyRsp
+from apps.entities.response_data import ResponseData
 from apps.manager.api_key import ApiKeyManager
 
 router = APIRouter(
@@ -25,7 +23,7 @@ router = APIRouter(
 
 
 @router.get("", response_model=GetAuthKeyRsp)
-async def check_api_key_existence(user_sub: Annotated[str, Depends(get_user)]):  # noqa: ANN201
+async def check_api_key_existence(user_sub: Annotated[str, Depends(get_user)]) -> JSONResponse:
     """检查API密钥是否存在"""
     exists: bool = await ApiKeyManager.api_key_exists(user_sub)
     return JSONResponse(status_code=status.HTTP_200_OK, content=ResponseData(
@@ -40,13 +38,13 @@ async def check_api_key_existence(user_sub: Annotated[str, Depends(get_user)]): 
 @router.post("", dependencies=[Depends(verify_csrf_token)], responses={
     400: {"model": ResponseData},
 }, response_model=PostAuthKeyRsp)
-async def manage_api_key(action: str, user_sub: Annotated[str, Depends(get_user)]):  # noqa: ANN201
+async def manage_api_key(action: str, user_sub: Annotated[str, Depends(get_user)]) -> JSONResponse:
     """管理用户的API密钥"""
     action = action.lower()
     if action == "create":
-        api_key: Optional[str] = await ApiKeyManager.generate_api_key(user_sub)
+        api_key: str | None = await ApiKeyManager.generate_api_key(user_sub)
     elif action == "update":
-        api_key: Optional[str] = await ApiKeyManager.update_api_key(user_sub)
+        api_key: str | None = await ApiKeyManager.update_api_key(user_sub)
     elif action == "delete":
         success: bool = await ApiKeyManager.delete_api_key(user_sub)
         if success:

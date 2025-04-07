@@ -1,8 +1,8 @@
-"""应用中心相关 API 基础数据结构定义
+"""
+应用中心相关 API 基础数据结构定义
 
 Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 """
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -29,7 +29,7 @@ class AppPermissionData(BaseModel):
         alias="visibility",
         description="可见性（public/private/protected）",
     )
-    users: Optional[list[str]] = Field(
+    users: list[str] | None = Field(
         None,
         alias="authorizedUsers",
         description="附加人员名单（如果可见性为部分人可见）",
