@@ -1,5 +1,9 @@
 """问题改写"""
+
+from typing import Any, ClassVar
+
 from apps.llm.patterns.core import CorePattern
+from apps.llm.patterns.json_gen import Json
 from apps.llm.reasoning import ReasoningLLM
 
 
@@ -11,14 +15,23 @@ class QuestionRewrite(CorePattern):
           <instruction>
             根据上面的对话，推断用户的实际意图并补全用户的提问内容。
             要求：
-              1. 请使用JSON格式输出，参考下面给出的样例；输出不要包含XML标签，不要包含任何解释说明；
+              1. 请使用JSON格式输出，参考下面给出的样例；不要包含任何XML标签，不要包含任何解释说明；
               2. 若用户当前提问内容与对话上文不相关，或你认为用户的提问内容已足够完整，请直接输出用户的提问内容。
               3. 补全内容必须精准、恰当，不要编造任何内容。
+
+              输出格式样例：
+              {{
+                "question": "补全后的问题"
+              }}
           </instruction>
 
           <example>
             <input>openEuler的特点？</input>
-            <output>openEuler相较于其他操作系统，其特点是什么？</output>
+            <output>
+              {{
+                "question": "openEuler相较于其他操作系统，其特点是什么？"
+              }}
+            </output>
           </example>
         </instructions>
 
@@ -26,6 +39,18 @@ class QuestionRewrite(CorePattern):
         <output>
     """
     """用户提示词"""
+
+    slot_schema: ClassVar[dict[str, Any]] = {
+        "type": "object",
+        "properties": {
+            "question": {
+                "type": "string",
+                "description": "补全后的问题",
+            },
+        },
+        "required": ["question"],
+    }
+    """最终输出的JSON Schema"""
 
     async def generate(self, task_id: str, **kwargs) -> str:  # noqa: ANN003
         """问题补全与重写"""
@@ -40,4 +65,9 @@ class QuestionRewrite(CorePattern):
         async for chunk in ReasoningLLM().call(task_id, messages, streaming=False):
             result += chunk
 
-        return result.strip().strip("\n").removesuffix("</output>")
+        messages += [{"role": "assistant", "content": result}]
+        question_dict = await Json().generate("", conversation=messages, spec=self.slot_schema)
+
+        if not question_dict or "question" not in question_dict or not question_dict["question"]:
+            return question
+        return question_dict["question"]
