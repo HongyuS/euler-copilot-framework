@@ -1,13 +1,17 @@
-"""使用大模型生成Executor的思考内容
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
-from typing import Any, Optional
+使用大模型生成Executor的思考内容
 
-from apps.entities.scheduler import ExecutorBackground
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+from typing import TYPE_CHECKING, Any
+
 from apps.llm.patterns.core import CorePattern
 from apps.llm.reasoning import ReasoningLLM
 from apps.llm.snippet import convert_context_to_prompt, facts_to_prompt
+
+if TYPE_CHECKING:
+    from apps.entities.scheduler import ExecutorBackground
 
 
 class ExecutorThought(CorePattern):
@@ -46,7 +50,7 @@ class ExecutorThought(CorePattern):
     """
     """用户提示词"""
 
-    def __init__(self, system_prompt: Optional[str] = None, user_prompt: Optional[str] = None) -> None:
+    def __init__(self, system_prompt: str | None = None, user_prompt: str | None = None) -> None:
         """处理Prompt"""
         super().__init__(system_prompt, user_prompt)
 
@@ -105,7 +109,7 @@ class ExecutorSummary(CorePattern):
     """
     """用户提示词"""
 
-    def __init__(self, system_prompt: Optional[str] = None, user_prompt: Optional[str] = None) -> None:
+    def __init__(self, system_prompt: str | None = None, user_prompt: str | None = None) -> None:
         """初始化Background模式"""
         super().__init__(system_prompt, user_prompt)
 

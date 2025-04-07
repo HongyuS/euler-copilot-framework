@@ -1,8 +1,10 @@
-"""LLM Pattern: 从问答中提取领域信息
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
-from typing import Any, ClassVar, Optional
+LLM Pattern: 从问答中提取领域信息
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+from typing import Any, ClassVar
 
 from apps.llm.patterns.core import CorePattern
 from apps.llm.patterns.json_gen import Json
@@ -54,7 +56,7 @@ class Domain(CorePattern):
     }
     """最终输出的JSON Schema"""
 
-    def __init__(self, system_prompt: Optional[str] = None, user_prompt: Optional[str] = None) -> None:
+    def __init__(self, system_prompt: str | None = None, user_prompt: str | None = None) -> None:
         """初始化Reflect模式"""
         super().__init__(system_prompt, user_prompt)
 
