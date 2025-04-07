@@ -1,19 +1,21 @@
-"""使用大模型多轮投票，选择最优选项
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+使用大模型多轮投票，选择最优选项
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import asyncio
 import json
 import logging
 from collections import Counter
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar
 
 from apps.llm.patterns.core import CorePattern
 from apps.llm.patterns.json_gen import Json
 from apps.llm.reasoning import ReasoningLLM
 from apps.llm.snippet import choices_to_prompt
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class Select(CorePattern):
@@ -44,8 +46,10 @@ class Select(CorePattern):
                 </input>
 
                 <reasoning>
-                    API 工具可以通过 API 来获取外部数据，而天气信息可能就存储在外部数据中，由于用户说明中明确提到了天气 API 的使用，因此应该优先使用 API 工具。\
-                    SQL 工具用于从数据库中获取信息，考虑到天气数据的可变性和动态性，不太可能存储在数据库中，因此 SQL 工具的优先级相对较低，\
+                    API 工具可以通过 API 来获取外部数据，而天气信息可能就存储在外部数据中，由于用户说明中明确提到了 \
+                    天气 API 的使用，因此应该优先使用 API 工具。\
+                    SQL 工具用于从数据库中获取信息，考虑到天气数据的可变性和动态性，不太可能存储在数据库中，因此 \
+                    SQL 工具的优先级相对较低，\
                     最佳选择似乎是“API：请求特定 API，获取返回的 JSON 数据”。
                 </reasoning>
 
@@ -70,7 +74,6 @@ class Select(CorePattern):
     """
     """用户提示词"""
 
-
     slot_schema: ClassVar[dict[str, Any]] = {
         "type": "object",
         "properties": {
@@ -83,10 +86,9 @@ class Select(CorePattern):
     }
     """最终输出的JSON Schema"""
 
-    def __init__(self, system_prompt: Optional[str] = None, user_prompt: Optional[str] = None) -> None:
+    def __init__(self, system_prompt: str | None = None, user_prompt: str | None = None) -> None:
         """初始化Prompt"""
         super().__init__(system_prompt, user_prompt)
-
 
     async def _generate_single_attempt(self, task_id: str, user_input: str, choice_list: list[str]) -> str:
         """使用ReasoningLLM进行单次尝试"""
@@ -107,7 +109,6 @@ class Select(CorePattern):
         messages += [{"role": "assistant", "content": result}]
         function_result = await Json().generate("", conversation=messages, spec=schema)
         return function_result["choice"]
-
 
     async def generate(self, task_id: str, **kwargs) -> str:  # noqa: ANN003
         """使用大模型做出选择"""

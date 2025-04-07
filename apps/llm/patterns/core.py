@@ -1,10 +1,12 @@
-"""基础大模型范式抽象类
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+基础大模型范式抽象类
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 from abc import ABC, abstractmethod
 from textwrap import dedent
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar
 
 
 class CorePattern(ABC):
@@ -17,8 +19,9 @@ class CorePattern(ABC):
     slot_schema: ClassVar[dict[str, Any]] = {}
     """输出格式的JSON Schema"""
 
-    def __init__(self, system_prompt: Optional[str] = None, user_prompt: Optional[str] = None) -> None:
-        """检查是否已经自定义了Prompt；有的话就用自定义的；同时对Prompt进行空格清除
+    def __init__(self, system_prompt: str | None = None, user_prompt: str | None = None) -> None:
+        """
+        检查是否已经自定义了Prompt；有的话就用自定义的；同时对Prompt进行空格清除
 
         :param system_prompt: 系统提示词，f-string格式
         :param user_prompt: 用户提示词，f-string格式

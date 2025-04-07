@@ -1,5 +1,5 @@
 """事实提取"""
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar
 
 from apps.llm.patterns.core import CorePattern
 from apps.llm.patterns.json_gen import Json
@@ -71,7 +71,7 @@ class Facts(CorePattern):
     """最终输出的JSON Schema"""
 
 
-    def __init__(self, system_prompt: Optional[str] = None, user_prompt: Optional[str] = None) -> None:
+    def __init__(self, system_prompt: str | None = None, user_prompt: str | None = None) -> None:
         """初始化Prompt"""
         super().__init__(system_prompt, user_prompt)
 

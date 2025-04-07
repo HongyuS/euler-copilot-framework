@@ -1,13 +1,13 @@
-"""OpenAPI文档载入器
+"""
+OpenAPI文档载入器
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 import logging
 from hashlib import shake_128
 from typing import Any
 
-import ray
 import yaml
 from anyio import Path
 
@@ -21,10 +21,9 @@ from apps.scheduler.openapi import (
 )
 from apps.scheduler.util import yaml_str_presenter
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
-@ray.remote
 class OpenAPILoader:
     """OpenAPI文档载入器"""
 

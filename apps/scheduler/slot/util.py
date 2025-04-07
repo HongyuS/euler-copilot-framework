@@ -1,10 +1,15 @@
-"""JSON处理函数
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+JSON处理函数
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+import logging
 from typing import Any
 
 import jsonpath
+
+logger = logging.getLogger(__name__)
 
 
 def escape_path(key: str) -> str:
@@ -22,6 +27,7 @@ def patch_json(operation_list: list[dict[str, Any]]) -> dict[str, Any]:
         try:
             jsonpath.patch.apply([current_operation], json_data)
         except Exception:
+            logger.exception("[Slot] 无法应用 JSON patch 操作: %s", current_operation)
             operation_list.append(current_operation)
             path_list = current_operation["path"].split("/")
             path_list.pop()
@@ -31,6 +37,7 @@ def patch_json(operation_list: list[dict[str, Any]]) -> dict[str, Any]:
                     jsonpath.resolve(path, json_data)
                     continue
                 except Exception:
+                    logger.exception("[Slot] 无法解析 JSON path: %s", path)
                     new_operation = {"op": "add", "path": path, "value": {}}
                     operation_list.append(new_operation)
 

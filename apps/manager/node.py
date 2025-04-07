@@ -1,15 +1,15 @@
 """Node管理器"""
 import logging
-from typing import Any
-
-import ray
-from pydantic import BaseModel
+from typing import TYPE_CHECKING, Any
 
 from apps.entities.node import APINode
 from apps.entities.pool import NodePool
 from apps.models.mongo import MongoDB
 
-logger = logging.getLogger("ray")
+if TYPE_CHECKING:
+    from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 NODE_TYPE_MAP = {
     "API": APINode,
 }
@@ -26,6 +26,24 @@ class NodeManager:
             err = f"[NodeManager] Node call_id {node_id} not found."
             raise ValueError(err)
         return node["call_id"]
+
+
+    @staticmethod
+    async def get_node(node_id: str) -> NodePool:
+        """获取Node的类型"""
+        node_collection = MongoDB().get_collection("node")
+        node = await node_collection.find_one({"_id": node_id})
+        if not node:
+            err = f"[NodeManager] Node type {node_id} not found."
+            raise ValueError(err)
+
+        try:
+            node = NodePool.model_validate(node)
+        except Exception as e:
+            err = f"[NodeManager] Node {node_id} 验证失败"
+            logger.exception(err)
+            raise ValueError(err) from e
+        return node
 
 
     @staticmethod
@@ -66,6 +84,8 @@ class NodeManager:
     @staticmethod
     async def get_node_params(node_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
         """获取Node数据"""
+        from apps.scheduler.pool.pool import Pool
+
         # 查找Node信息
         logger.info("[NodeManager] 获取节点 %s", node_id)
         node_collection = MongoDB().get_collection("node")
@@ -86,8 +106,7 @@ class NodeManager:
 
         # 查找Call信息
         logger.info("[NodeManager] 获取Call %s", call_id)
-        pool = ray.get_actor("pool")
-        call_class: type[BaseModel] = await pool.get_call.remote(call_id)
+        call_class: type[BaseModel] = await Pool().get_call(call_id)
         if not call_class:
             err = f"[NodeManager] Call {call_id} 不存在"
             logger.error(err)
@@ -96,5 +115,5 @@ class NodeManager:
         # 返回参数Schema
         return (
             NodeManager.merge_params_schema(call_class.model_json_schema(), node_data.known_params or {}),
-            call_class.ret_type.model_json_schema(), # type: ignore[attr-defined]
+            call_class.output_type.model_json_schema(), # type: ignore[attr-defined]
         )
