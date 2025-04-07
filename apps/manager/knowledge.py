@@ -1,13 +1,14 @@
-"""用户资产库管理
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+用户资产库管理
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import logging
-from typing import Optional
 
 from apps.models.mongo import MongoDB
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class KnowledgeBaseManager:
@@ -23,13 +24,14 @@ class KnowledgeBaseManager:
                 logger.error("[KnowledgeBaseManager] 修改知识库ID失败: 用户不存在")
                 return False
             await user_collection.update_one({"_id": user_sub}, {"$set": {"kb_id": kb_id}})
-            return True
         except Exception:
             logger.exception("[KnowledgeBaseManager] 修改知识库ID失败")
             return False
+        else:
+            return True
 
     @staticmethod
-    async def get_kb_id(user_sub: str) -> Optional[str]:
+    async def get_kb_id(user_sub: str) -> str | None:
         """获取当前用户的知识库ID"""
         user_collection = MongoDB.get_collection("user")
         try:

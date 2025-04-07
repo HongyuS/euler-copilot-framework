@@ -1,33 +1,33 @@
-"""语义接口中心 Manager
+"""
+语义接口中心 Manager
 
 Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 """
 
 import logging
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 from anyio import Path
 from jsonschema import ValidationError
 
-from apps.common.config import config
-from apps.constants import SERVICE_DIR
+from apps.common.config import Config
 from apps.entities.collection import User
 from apps.entities.enum_var import SearchType
-from apps.entities.file_type import OpenAPI
 from apps.entities.flow import (
     Permission,
     PermissionType,
     ServiceApiConfig,
     ServiceMetadata,
 )
+from apps.entities.openapi import OpenAPI
 from apps.entities.pool import NodePool, ServicePool
 from apps.entities.response_data import ServiceApiData, ServiceCardItem
 from apps.models.mongo import MongoDB
 from apps.scheduler.pool.loader.service import ServiceLoader
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class ServiceCenterManager:
@@ -37,7 +37,7 @@ class ServiceCenterManager:
     async def fetch_all_services(
         user_sub: str,
         search_type: SearchType,
-        keyword: Optional[str],
+        keyword: str | None,
         page: int,
         page_size: int,
     ) -> tuple[list[ServiceCardItem], int]:
@@ -62,7 +62,7 @@ class ServiceCenterManager:
     async def fetch_user_services(
         user_sub: str,
         search_type: SearchType,
-        keyword: Optional[str],
+        keyword: str | None,
         page: int,
         page_size: int,
     ) -> tuple[list[ServiceCardItem], int]:
@@ -88,7 +88,7 @@ class ServiceCenterManager:
     async def fetch_favorite_services(
         user_sub: str,
         search_type: SearchType,
-        keyword: Optional[str],
+        keyword: str | None,
         page: int,
         page_size: int,
     ) -> tuple[list[ServiceCardItem], int]:
@@ -223,8 +223,10 @@ class ServiceCenterManager:
         if service_pool_store.author != user_sub:
             msg = "Permission denied"
             raise PermissionError(msg)
-        service_path = Path(config["SEMANTICS_DIR"]) / SERVICE_DIR / service_id / "openapi" / "api.yaml"
-        async with await Path(service_path).open() as f:
+        service_path = (
+            Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id / "openapi" / "api.yaml"
+        )
+        async with await service_path.open() as f:
             service_data = yaml.safe_load(await f.read())
         return service_pool_store.name, service_data
 
