@@ -1,50 +1,37 @@
-"""向量数据库数据结构；数据将存储在PostgreSQL中
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
-from pgvector.sqlalchemy import Vector
-from sqlalchemy import Column, String
-from sqlalchemy.ext.declarative import declarative_base
+向量数据库数据结构；数据将存储在PostgreSQL中
 
-Base = declarative_base()
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+from lancedb.pydantic import LanceModel, Vector
 
 
-class AppPoolVector(Base):
+class FlowPoolVector(LanceModel):
     """App向量信息"""
 
-    __tablename__ = "app_vector"
-    id = Column(String(length=100), primary_key=True, nullable=False, unique=True)
-    embedding = Column(Vector(1024), nullable=False)
+    id: str
+    app_id: str
+    embedding: Vector(dim=1024)  # type: ignore[call-arg]
 
 
-class FlowPoolVector(Base):
-    """App向量信息"""
-
-    __tablename__ = "flow_vector"
-    id = Column(String(length=100), primary_key=True, nullable=False, unique=True)
-    app_id = Column(String(length=100), nullable=False)
-    embedding = Column(Vector(1024), nullable=False)
-
-
-class ServicePoolVector(Base):
+class ServicePoolVector(LanceModel):
     """Service向量信息"""
 
-    __tablename__ = "service_vector"
-    id = Column(String(length=100), primary_key=True, nullable=False, unique=True)
-    embedding = Column(Vector(1024), nullable=False)
+    id: str
+    embedding: Vector(dim=1024)  # type: ignore[call-arg]
 
 
-class CallPoolVector(Base):
+class CallPoolVector(LanceModel):
     """Call向量信息"""
 
-    __tablename__ = "call_vector"
-    id = Column(String(length=100), primary_key=True, nullable=False, unique=True)
-    embedding = Column(Vector(1024), nullable=False)
+    id: str
+    embedding: Vector(dim=1024)  # type: ignore[call-arg]
 
 
-class NodePoolVector(Base):
+class NodePoolVector(LanceModel):
     """Node向量信息"""
 
-    __tablename__ = "node_vector"
-    id = Column(String(length=100), primary_key=True, nullable=False, unique=True)
-    embedding = Column(Vector(1024), nullable=False)
+    id: str
+    service_id: str
+    embedding: Vector(dim=1024)  # type: ignore[call-arg]

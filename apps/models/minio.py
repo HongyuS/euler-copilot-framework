@@ -4,17 +4,17 @@ from typing import Any
 
 import minio
 
-from apps.common.config import config
+from apps.common.config import Config
 
 
 class MinioClient:
     """MinIO客户端"""
 
     client = minio.Minio(
-        endpoint=config["MINIO_ENDPOINT"],
-        access_key=config["MINIO_ACCESS_KEY"],
-        secret_key=config["MINIO_SECRET_KEY"],
-        secure=config["MINIO_SECURE"],
+        endpoint=Config().get_config().minio.endpoint,
+        access_key=Config().get_config().minio.access_key,
+        secret_key=Config().get_config().minio.secret_key,
+        secure=Config().get_config().minio.secure,
     )
 
     @classmethod
