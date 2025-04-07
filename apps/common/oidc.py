@@ -31,7 +31,7 @@ class OIDCProvider:
             raise NotImplementedError(err)
 
     @staticmethod
-    async def set_redis_token(user_sub: str, access_token: str, refresh_token: str) -> None:
+    async def set_token(user_sub: str, access_token: str, refresh_token: str) -> None:
         """设置MongoDB中的OIDC Token到sessions集合"""
         sessions_collection = MongoDB.get_collection("session")
 

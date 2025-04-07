@@ -1,7 +1,9 @@
-"""对接Euler Copilot RAG
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+对接Euler Copilot RAG
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import json
 import logging
 from collections.abc import AsyncGenerator
@@ -9,11 +11,11 @@ from collections.abc import AsyncGenerator
 import aiohttp
 from fastapi import status
 
-from apps.common.config import config
+from apps.common.config import Config
 from apps.entities.rag_data import RAGQueryReq
 from apps.service import Activity
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 class RAG:
     """调用RAG服务，获取知识库答案"""
@@ -21,7 +23,7 @@ class RAG:
     @staticmethod
     async def get_rag_result(user_sub: str, data: RAGQueryReq) -> AsyncGenerator[str, None]:
         """获取RAG服务的结果"""
-        url = config["RAG_HOST"].rstrip("/") + "/kb/get_stream_answer"
+        url = Config().get_config().rag.rag_service.rstrip("/") + "/kb/get_stream_answer"
         headers = {
             "Content-Type": "application/json",
         }
