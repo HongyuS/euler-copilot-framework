@@ -1,53 +1,74 @@
-"""flow拓扑相关函数
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+flow拓扑相关函数
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+import collections
 import logging
+from typing import Any
 
 from apps.entities.enum_var import NodeType
 from apps.entities.flow_topology import EdgeItem, FlowItem, NodeItem
+from apps.exceptions import FlowBranchValidationError, FlowEdgeValidationError, FlowNodeValidationError
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class FlowService:
     """flow拓扑相关函数"""
 
     @staticmethod
+    def _validate_branch_id(
+        node_name: str, branch_id: str, node_branches: set, branch_illegal_chars: str = ".",
+    ) -> None:
+        """验证分支ID的合法性；当分支ID重复或包含非法字符时抛出异常"""
+        if branch_id in node_branches:
+            err = f"[FlowService] 节点{node_name}的分支{branch_id}重复"
+            logger.error(err)
+            raise FlowBranchValidationError(err)
+
+        for illegal_char in branch_illegal_chars:
+            if illegal_char in branch_id:
+                err = f"[FlowService] 节点{node_name}的分支{branch_id}名称中含有非法字符"
+                logger.error(err)
+                raise FlowBranchValidationError(err)
+
+    @staticmethod
     async def remove_excess_structure_from_flow(flow_item: FlowItem) -> FlowItem:
         """移除流程图中的多余结构"""
-        node_to_branches = {}
+        node_branch_map = {}
         branch_illegal_chars = "."
 
         for node in flow_item.nodes:
-            node_to_branches[node.step_id] = set()
+            node_branch_map[node.step_id] = set()
             if node.call_id == NodeType.CHOICE.value:
                 node.parameters = node.parameters["input_parameters"]
                 if "choices" not in node.parameters:
                     node.parameters["choices"] = []
-                for branch in node.parameters["choices"]:
-                    if branch["branchId"] in node_to_branches[node.step_id]:
-                        err = f"[FlowService] 节点{node.name}的分支{branch['branchId']}重复"
+                for choice in node.parameters["choices"]:
+                    if choice["branchId"] in node_branch_map[node.step_id]:
+                        err = f"[FlowService] 节点{node.name}的分支{choice['branchId']}重复"
                         logger.error(err)
                         raise Exception(err)
                     for illegal_char in branch_illegal_chars:
-                        if illegal_char in branch["branchId"]:
-                            err = f"[FlowService] 节点{node.name}的分支{branch['branchId']}名称中含有非法字符"
+                        if illegal_char in choice["branchId"]:
+                            err = f"[FlowService] 节点{node.name}的分支{choice['branchId']}名称中含有非法字符"
                             logger.error(err)
                             raise Exception(err)
-                    node_to_branches[node.step_id].add(branch["branchId"])
+                    node_branch_map[node.step_id].add(choice["branchId"])
             else:
-                node_to_branches[node.step_id].add("")
-        new_edges_items = []
+                node_branch_map[node.step_id].add("")
+        valid_edges = []
         for edge in flow_item.edges:
-            if edge.source_node not in node_to_branches:
+            if edge.source_node not in node_branch_map:
                 continue
-            if edge.target_node not in node_to_branches:
+            if edge.target_node not in node_branch_map:
                 continue
-            if edge.branch_id not in node_to_branches[edge.source_node]:
+            if edge.branch_id not in node_branch_map[edge.source_node]:
                 continue
-            new_edges_items.append(edge)
-        flow_item.edges = new_edges_items
+            valid_edges.append(edge)
+        flow_item.edges = valid_edges
         return flow_item
 
     @staticmethod
@@ -63,7 +84,7 @@ class FlowService:
             if node.step_id in ids:
                 err = f"[FlowService] 节点{node.name}的id重复"
                 logger.error(err)
-                raise Exception(err)
+                raise FlowNodeValidationError(err)
             ids.add(node.step_id)
             if node.call_id == NodeType.START.value:
                 start_cnt += 1
@@ -75,12 +96,26 @@ class FlowService:
         if start_cnt != 1 or end_cnt != 1:
             err = "[FlowService] 起始节点和终止节点数量不为1"
             logger.error(err)
-            raise Exception(err)
+            raise FlowNodeValidationError(err)
 
         if start_id is None or end_id is None:
             err = "[FlowService] 起始节点或终止节点ID为空"
             logger.error(err)
-            raise Exception(err)
+            raise FlowNodeValidationError(err)
+
+        return start_id, end_id
+
+    @staticmethod
+    async def validate_flow_illegal(flow_item: FlowItem) -> tuple[str, str]:
+        """验证流程图是否合法；当流程图不合法时抛出异常"""
+        # 验证节点ID并获取起始和终止节点
+        start_id, end_id = await FlowService._validate_node_ids(flow_item.nodes)
+
+        # 验证边的合法性并获取节点的入度和出度
+        in_deg, out_deg = await FlowService._validate_edges(flow_item.edges)
+
+        # 验证起始和终止节点的入度和出度
+        await FlowService._validate_node_degrees(start_id, end_id, in_deg, out_deg)
 
         return start_id, end_id
 
@@ -96,20 +131,20 @@ class FlowService:
             if e.edge_id in ids:
                 err = f"[FlowService] 边{e.edge_id}的id重复"
                 logger.error(err)
-                raise Exception(err)
+                raise FlowEdgeValidationError(err)
             ids.add(e.edge_id)
 
             if e.source_node == e.target_node:
                 err = f"[FlowService] 边{e.edge_id}的起始节点和终止节点相同"
                 logger.error(err)
-                raise Exception(err)
+                raise FlowEdgeValidationError(err)
 
             if e.source_node not in branches:
                 branches[e.source_node] = set()
             if e.branch_id in branches[e.source_node]:
                 err = f"[FlowService] 边{e.edge_id}的分支{e.branch_id}重复"
                 logger.error(err)
-                raise Exception(err)
+                raise FlowEdgeValidationError(err)
             branches[e.source_node].add(e.branch_id)
 
             in_deg[e.target_node] = in_deg.get(e.target_node, 0) + 1
@@ -118,33 +153,60 @@ class FlowService:
         return in_deg, out_deg
 
     @staticmethod
-    async def _validate_node_degrees(start_id: str, end_id: str,
-                                     in_deg: dict[str, int], out_deg: dict[str, int]) -> None:
+    async def _validate_node_degrees(
+        start_id: str, end_id: str, in_deg: dict[str, int], out_deg: dict[str, int],
+    ) -> None:
         """验证起始和终止节点的入度和出度；当起始节点入度不为0或终止节点出度不为0时抛出异常"""
         if start_id in in_deg and in_deg[start_id] != 0:
             err = f"[FlowService] 起始节点{start_id}的入度不为0"
             logger.error(err)
-            raise Exception(err)
+            raise FlowNodeValidationError(err)
         if end_id in out_deg and out_deg[end_id] != 0:
             err = f"[FlowService] 终止节点{end_id}的出度不为0"
             logger.error(err)
-            raise Exception(err)
+            raise FlowNodeValidationError(err)
 
     @staticmethod
-    async def validate_flow_illegal(flow_item: FlowItem) -> None:
-        """验证流程图是否合法；当流程图不合法时抛出异常"""
-        # 验证节点ID并获取起始和终止节点
-        start_id, end_id = await FlowService._validate_node_ids(flow_item.nodes)
+    def _find_start_node_id(nodes: list[NodeItem]) -> str:
+        """查找起始节点ID"""
+        for node in nodes:
+            if node.call_id == NodeType.START.value:
+                return node.step_id
+        return ""
 
-        # 验证边的合法性并获取节点的入度和出度
-        in_deg, out_deg = await FlowService._validate_edges(flow_item.edges)
+    @staticmethod
+    def _build_adjacency_list(edges: list[EdgeItem]) -> dict[str, list[str]]:
+        """构建邻接表"""
+        adj_list = {}
+        for edge in edges:
+            if edge.source_node not in adj_list:
+                adj_list[edge.source_node] = []
+            adj_list[edge.source_node].append(edge.target_node)
+        return adj_list
 
-        # 验证起始和终止节点的入度和出度
-        await FlowService._validate_node_degrees(start_id, end_id, in_deg, out_deg)
+    @staticmethod
+    def _bfs_traverse(start_id: str, adj_list: dict[str, list[str]]) -> set[str]:
+        """使用BFS遍历图并返回可达节点集合"""
+        visited = set()
+        if not start_id:
+            return visited
+
+        queue = collections.deque([start_id])
+        visited.add(start_id)
+
+        while queue:
+            current = queue.popleft()
+            if current in adj_list:
+                for neighbor in adj_list[current]:
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        queue.append(neighbor)
+        return visited
 
     @staticmethod
     async def validate_flow_connectivity(flow_item: FlowItem) -> bool:
-        """验证流程图的连通性
+        """
+        验证流程图的连通性
 
         检查:
         1. 是否所有节点都能从起始节点到达
@@ -188,13 +250,15 @@ class FlowService:
         return end_id in vis
 
 
-def generate_from_schema(schema: dict) -> dict:
-    """根据 JSON Schema 生成示例 JSON 数据。
+def generate_from_schema(schema: dict) -> Any:
+    """
+    根据 JSON Schema 生成示例 JSON 数据。
 
     :param schema: JSON Schema 字典
-    :return: 生成的示例 JSON 数据
+    :return: 生成的示例 JSON 数据，可能是字典、列表、字符串、数字、布尔值或 None
     """
-    def _generate_example(schema_node: dict):
+
+    def _generate_example(schema_node: dict) -> Any:
         # 处理类型为 object 的节点
         if schema_node.get("type") == "object":
             example = {}
