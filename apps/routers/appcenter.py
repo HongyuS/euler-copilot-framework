@@ -1,10 +1,11 @@
-"""FastAPI 应用中心相关路由
+"""
+FastAPI 应用中心相关路由
 
 Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 """
 
 import logging
-from typing import Annotated, Optional, Union
+from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Path, Query, status
 from fastapi.responses import JSONResponse
@@ -28,7 +29,7 @@ from apps.entities.response_data import (
 )
 from apps.manager.appcenter import AppCenterManager
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/api/app",
     tags=["appcenter"],
@@ -36,14 +37,14 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=Union[GetAppListRsp, ResponseData])
+@router.get("", response_model=GetAppListRsp | ResponseData)
 async def get_applications(  # noqa: PLR0913
     user_sub: Annotated[str, Depends(get_user)],
     *,
     my_app: Annotated[bool, Query(..., alias="createdByMe", description="筛选我创建的")] = False,
     my_fav: Annotated[bool, Query(..., alias="favorited", description="筛选我收藏的")] = False,
     search_type: Annotated[SearchType, Query(..., alias="searchType", description="搜索类型")] = SearchType.ALL,
-    keyword: Annotated[Optional[str], Query(..., alias="keyword", description="搜索关键字")] = None,
+    keyword: Annotated[str | None, Query(..., alias="keyword", description="搜索关键字")] = None,
     page: Annotated[int, Query(..., alias="page", ge=1, description="页码")] = 1,
     page_size: Annotated[int, Query(..., alias="pageSize", ge=1, le=100, description="每页条数")] = 16,
 ) -> JSONResponse:
@@ -94,7 +95,7 @@ async def get_applications(  # noqa: PLR0913
     )
 
 
-@router.post("", dependencies=[Depends(verify_csrf_token)], response_model=Union[BaseAppOperationRsp, ResponseData])
+@router.post("", dependencies=[Depends(verify_csrf_token)], response_model=BaseAppOperationRsp | ResponseData)
 async def create_or_update_application(
     request: Annotated[CreateAppRequest, Body(...)],
     user_sub: Annotated[str, Depends(get_user)],
@@ -157,7 +158,7 @@ async def create_or_update_application(
     )
 
 
-@router.get("/recent", response_model=Union[GetRecentAppListRsp, ResponseData])
+@router.get("/recent", response_model=GetRecentAppListRsp | ResponseData)
 async def get_recently_used_applications(
     user_sub: Annotated[str, Depends(get_user)],
     count: Annotated[int, Query(..., ge=1, le=10)] = 5,
@@ -185,7 +186,7 @@ async def get_recently_used_applications(
     )
 
 
-@router.get("/{appId}", response_model=Union[GetAppPropertyRsp, ResponseData])
+@router.get("/{appId}", response_model=GetAppPropertyRsp | ResponseData)
 async def get_application(
     app_id: Annotated[str, Path(..., alias="appId", description="应用ID")],
 ) -> JSONResponse:
@@ -248,7 +249,7 @@ async def get_application(
 @router.delete(
     "/{appId}",
     dependencies=[Depends(verify_csrf_token)],
-    response_model=Union[BaseAppOperationRsp, ResponseData],
+    response_model=BaseAppOperationRsp | ResponseData,
 )
 async def delete_application(
     app_id: Annotated[str, Path(..., alias="appId", description="应用ID")],
@@ -345,7 +346,7 @@ async def publish_application(
     )
 
 
-@router.put("/{appId}", dependencies=[Depends(verify_csrf_token)], response_model=Union[ModFavAppRsp, ResponseData])
+@router.put("/{appId}", dependencies=[Depends(verify_csrf_token)], response_model=ModFavAppRsp | ResponseData)
 async def modify_favorite_application(
     app_id: Annotated[str, Path(..., alias="appId", description="应用ID")],
     request: Annotated[ModFavAppRequest, Body(...)],

@@ -1,7 +1,9 @@
-"""FastAPI 黑名单相关路由
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+FastAPI 黑名单相关路由
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
@@ -83,7 +85,8 @@ async def change_blacklist_user(request: UserBlacklistRequest):  # noqa: ANN201
 
 @router.get("/question", response_model=GetBlacklistQuestionRsp)
 async def get_blacklist_question(page: int = 0):  # noqa: ANN201
-    """获取黑名单问题
+    """
+    获取黑名单问题
 
     目前情况下，先直接输出问题，不做用户类型校验
     """

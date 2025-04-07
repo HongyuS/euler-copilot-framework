@@ -1,9 +1,10 @@
-"""App、Flow和Service等外置配置数据结构
+"""
+App、Flow和Service等外置配置数据结构
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -22,7 +23,7 @@ class Edge(BaseModel):
     id: str = Field(description="边的ID")
     edge_from: str = Field(description="边的来源节点ID")
     edge_to: str = Field(description="边的目标节点ID")
-    edge_type: Optional[EdgeType] = Field(description="边的类型", default=EdgeType.NORMAL)
+    edge_type: EdgeType | None = Field(description="边的类型", default=EdgeType.NORMAL)
 
 
 class Step(BaseModel):
@@ -40,7 +41,7 @@ class FlowError(BaseModel):
     """Flow的错误处理节点"""
 
     use_llm: bool = Field(description="是否使用LLM处理错误")
-    output_format: Optional[str] = Field(description="错误处理节点的输出格式", default=None)
+    output_format: str | None = Field(description="错误处理节点的输出格式", default=None)
 
 
 class Flow(BaseModel):
@@ -52,7 +53,7 @@ class Flow(BaseModel):
     steps: dict[str, Step] = Field(description="节点列表", default={})
     edges: list[Edge] = Field(description="边列表", default=[])
     connectivity: bool = Field(default=False, description="图的开始节点和结束节点是否联通，并且除结束节点都有出边")
-    focus_point: Optional[PositionItem] = Field(description="当前焦点节点", default=PositionItem(x=0, y=0))
+    focus_point: PositionItem | None = Field(description="当前焦点节点", default=PositionItem(x=0, y=0))
     debug: bool = Field(description="是否经过调试", default=False)
 
 
@@ -64,7 +65,8 @@ class Permission(BaseModel):
 
 
 class MetadataBase(BaseModel):
-    """Service或App的元数据
+    """
+    Service或App的元数据
 
     注意：hash字段在save和load的时候exclude
     """
@@ -76,7 +78,7 @@ class MetadataBase(BaseModel):
     description: str = Field(description="元数据描述")
     version: str = Field(description="元数据版本")
     author: str = Field(description="创建者的用户名")
-    hashes: Optional[dict[str, str]] = Field(description="资源（App、Service等）下所有文件的hash值", default=None)
+    hashes: dict[str, str] | None = Field(description="资源（App、Service等）下所有文件的hash值", default=None)
 
 
 class ServiceApiAuthOidc(BaseModel):
@@ -99,14 +101,14 @@ class ServiceApiAuth(BaseModel):
     header: list[ServiceApiAuthKeyVal] = Field(description="HTTP头鉴权配置", default=[])
     cookie: list[ServiceApiAuthKeyVal] = Field(description="HTTP Cookie鉴权配置", default=[])
     query: list[ServiceApiAuthKeyVal] = Field(description="HTTP URL参数鉴权配置", default=[])
-    oidc: Optional[ServiceApiAuthOidc] = Field(description="OIDC鉴权配置", default=None)
+    oidc: ServiceApiAuthOidc | None = Field(description="OIDC鉴权配置", default=None)
 
 
 class ServiceApiConfig(BaseModel):
     """Service的API配置"""
 
     server: str = Field(description="服务器地址", pattern=r"^(https|http)://.*$")
-    auth: Optional[ServiceApiAuth] = Field(description="API鉴权方式", default=None)
+    auth: ServiceApiAuth | None = Field(description="API鉴权方式", default=None)
 
 
 class ServiceMetadata(MetadataBase):
@@ -114,7 +116,7 @@ class ServiceMetadata(MetadataBase):
 
     type: MetadataType = MetadataType.SERVICE
     api: ServiceApiConfig = Field(description="API配置")
-    permission: Optional[Permission] = Field(description="服务权限配置", default=None)
+    permission: Permission | None = Field(description="服务权限配置", default=None)
 
 
 class AppFlow(BaseModel):
@@ -136,7 +138,7 @@ class AppMetadata(MetadataBase):
     links: list[AppLink] = Field(description="相关链接", default=[])
     first_questions: list[str] = Field(description="首次提问", default=[])
     history_len: int = Field(description="对话轮次", default=3, le=10)
-    permission: Optional[Permission] = Field(description="应用权限配置", default=None)
+    permission: Permission | None = Field(description="应用权限配置", default=None)
     flows: list[AppFlow] = Field(description="Flow列表", default=[])
 
 

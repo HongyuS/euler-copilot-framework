@@ -1,10 +1,11 @@
-"""App和Service等数据库内数据结构
+"""
+App和Service等数据库内数据结构
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -19,7 +20,7 @@ class BaseData(BaseModel):
     id: str = Field(alias="_id")
     name: str
     description: str
-    created_at: float = Field(default_factory=lambda: round(datetime.now(tz=timezone.utc).timestamp(), 3))
+    created_at: float = Field(default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3))
 
 
 class ServiceApiInfo(BaseModel):
@@ -31,7 +32,8 @@ class ServiceApiInfo(BaseModel):
 
 
 class ServicePool(BaseData):
-    """外部服务信息
+    """
+    外部服务信息
 
     collection: service
     """
@@ -42,7 +44,8 @@ class ServicePool(BaseData):
 
 
 class CallPool(BaseData):
-    """Call信息
+    """
+    Call信息
 
     collection: call
 
@@ -57,14 +60,15 @@ class CallPool(BaseData):
 class Node(BaseData):
     """Node合并后的信息（不存库）"""
 
-    service_id: Optional[str] = Field(description="Node所属的Service ID", default=None)
+    service_id: str | None = Field(description="Node所属的Service ID", default=None)
     call_id: str = Field(description="所使用的Call的ID")
     params_schema: dict[str, Any] = Field(description="Node的参数schema", default={})
     output_schema: dict[str, Any] = Field(description="Node输出的完整Schema", default={})
 
 
 class NodePool(BaseData):
-    """Node合并前的信息（作为附带信息的指针）
+    """
+    Node合并前的信息（作为附带信息的指针）
 
     collection: node
 
@@ -74,24 +78,25 @@ class NodePool(BaseData):
     2. 从openapi中获取：`openapi::<file_name>`
     """
 
-    service_id: Optional[str] = Field(description="Node所属的Service ID", default=None)
+    service_id: str | None = Field(description="Node所属的Service ID", default=None)
     call_id: str = Field(description="所使用的Call的ID")
-    known_params: Optional[dict[str, Any]] = Field(
+    known_params: dict[str, Any] | None = Field(
         description="已知的用于Call部分的参数，独立于输入和输出之外",
         default=None,
     )
-    override_input: Optional[dict[str, Any]] = Field(
+    override_input: dict[str, Any] | None = Field(
         description="Node的输入Schema；用于描述Call的参数中特定的字段",
         default=None,
     )
-    override_output: Optional[dict[str, Any]] = Field(
+    override_output: dict[str, Any] | None = Field(
         description="Node的输出Schema；用于描述Call的输出中特定的字段",
         default=None,
     )
 
 
 class AppPool(BaseData):
-    """应用信息
+    """
+    应用信息
 
     collection: app
     """
