@@ -1,9 +1,9 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 
 import unittest
 from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
-from apps.cron.delete_user import DeleteUserCorn
+from apps.utils.delete_user import DeleteUserCorn
 
 
 class TestSchedulerJob(unittest.TestCase):
