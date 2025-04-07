@@ -1,26 +1,25 @@
-"""主程序
+"""
+主程序
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
-import ray
-from apscheduler.schedulers.background import BackgroundScheduler
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from ray import serve
-from ray.serve.config import HTTPOptions
+from rich.console import Console
+from rich.logging import RichHandler
 
-from apps.common.config import config
-from apps.common.task import Task
+from apps.common.config import Config
 from apps.common.wordscheck import WordsCheck
-from apps.constants import SCHEDULER_REPLICAS
-from apps.cron.delete_user import DeleteUserCron
 from apps.dependency.session import VerifySessionMiddleware
 from apps.llm.token import TokenCalculator
+from apps.models.lance import LanceDB
 from apps.routers import (
     api_key,
     appcenter,
@@ -39,14 +38,13 @@ from apps.routers import (
     user,
 )
 from apps.scheduler.pool.pool import Pool
-from apps.scheduler.scheduler.scheduler import Scheduler
 
 # 定义FastAPI app
 app = FastAPI(redoc_url=None)
 # 定义FastAPI全局中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[config["DOMAIN"]],
+    allow_origins=[Config().get_config().fastapi.domain],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -68,36 +66,32 @@ app.include_router(document.router)
 app.include_router(knowledge.router)
 app.include_router(flow.router)
 app.include_router(user.router)
-# 初始化logger
-logger = logging.getLogger("ray")
-logger.setLevel(logging.INFO)
-# 初始化后台定时任务
-scheduler = BackgroundScheduler()
-scheduler.start()
-scheduler.add_job(DeleteUserCron.delete_user, "cron", hour=3)
 
-# 包装Ray
-@serve.deployment(ray_actor_options={"num_gpus": 0})
-@serve.ingress(app)
-class FastAPIWrapper:
-    """FastAPI Ray包装器"""
+# logger配置
+LOGGER_FORMAT = "%(funcName)s() - %(message)s"
+DATE_FORMAT = "%y-%b-%d %H:%M:%S"
+logging.basicConfig(
+    level=logging.INFO,
+    format=LOGGER_FORMAT,
+    datefmt=DATE_FORMAT,
+    handlers=[RichHandler(rich_tracebacks=True, console=Console(
+        color_system="256",
+        width=160,
+    ))],
+)
 
+
+async def init_resources() -> None:
+    """初始化必要资源"""
+    WordsCheck()
+    await LanceDB().init()
+    await Pool().init()
+    TokenCalculator()
 
 # 运行
 if __name__ == "__main__":
-    # 初始化Ray
-    ray.init(dashboard_host="0.0.0.0", num_cpus=4)
-
     # 初始化必要资源
-    words_check = WordsCheck.options(name="words_check").remote()
-    ray.get(words_check.init.remote())  # type: ignore[attr-type]
-    task = Task.options(name="task").remote()
-    pool_actor = Pool.options(name="pool").remote()
-    ray.get(pool_actor.init.remote())   # type: ignore[attr-type]
-    token_actor = TokenCalculator.options(name="token").remote()
-    # 初始化Scheduler
-    scheduler_sctors = [Scheduler.options(name=f"scheduler_{i}").remote() for i in range(SCHEDULER_REPLICAS)]
+    asyncio.run(init_resources())
 
     # 启动FastAPI
-    serve.start(http_options=HTTPOptions(host="0.0.0.0", port=8002))
-    serve.run(FastAPIWrapper.bind(), blocking=True)
+    uvicorn.run(app, host="0.0.0.0", port=8002, log_level="info", log_config=None)
