@@ -1,15 +1,17 @@
-"""FastAPI 用户认证相关路由
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+FastAPI 用户认证相关路由
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import logging
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from apps.common.config import config
-from apps.common.oidc import get_oidc_token, get_oidc_user
+from apps.common.config import Config
+from apps.common.oidc import oidc_provider
 from apps.dependency import get_user, verify_csrf_token, verify_user
 from apps.entities.collection import Audit
 from apps.entities.response_data import (
@@ -28,12 +30,13 @@ router = APIRouter(
     prefix="/api/auth",
     tags=["auth"],
 )
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 @router.get("/login")
-async def oidc_login(request: Request, code: str, redirect_index: Optional[str] = None) -> RedirectResponse:
-    """OIDC login
+async def oidc_login(request: Request, code: str, redirect_index: str | None = None) -> RedirectResponse:
+    """
+    OIDC login
 
     :param request: Request object
     :param code: OIDC code
@@ -45,11 +48,14 @@ async def oidc_login(request: Request, code: str, redirect_index: Optional[str] 
     else:
         response = RedirectResponse("/", status_code=status.HTTP_301_MOVED_PERMANENTLY)
     try:
-        token = await get_oidc_token(code)
-        user_info = await get_oidc_user(token["access_token"], token["refresh_token"])
-        user_sub: Optional[str] = user_info.get("user_sub", None)
+        token = await oidc_provider.get_oidc_token(code)
+        user_info = await oidc_provider.get_oidc_user(token["access_token"])
+
+        user_sub: str | None = user_info.get("user_sub", None)
+        if user_sub:
+            await oidc_provider.set_token(user_sub, token["access_token"], token["refresh_token"])
     except Exception as e:
-        logger.exception("[Auth] 用户登录失败")
+        logger.exception("User login failed")
         if "auth error" in str(e):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="auth error") from e
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User login failed.") from e
@@ -59,7 +65,7 @@ async def oidc_login(request: Request, code: str, redirect_index: Optional[str] 
         user_host = request.client.host
 
     if not user_sub:
-        logger.error("[Auth] OIDC 没有关联用户")
+        logger.error("OIDC no user_sub associated.")
         data = Audit(
             http_method="get",
             module="auth",
@@ -75,14 +81,11 @@ async def oidc_login(request: Request, code: str, redirect_index: Optional[str] 
         current_session = request.cookies["ECSESSION"]
         await SessionManager.delete_session(current_session)
     except Exception:
-        logger.exception("[Auth] 切换session失败")
+        logger.exception("Change session failed")
 
-    current_session = await SessionManager.create_session(user_host, extra_keys={
-        "user_sub": user_sub,
-    })
-
+    current_session = await SessionManager.create_session(user_host, user_sub)
     new_csrf_token = await SessionManager.create_csrf_token(current_session)
-    if config["COOKIE_MODE"] == "DEBUG":
+    if Config().get_config().deploy.mode == "debug":
         response.set_cookie(
             "_csrf_tk",
             new_csrf_token,
@@ -95,17 +98,17 @@ async def oidc_login(request: Request, code: str, redirect_index: Optional[str] 
         response.set_cookie(
             "_csrf_tk",
             new_csrf_token,
-            max_age=config["SESSION_TTL"] * 60,
+            max_age=Config().get_config().fastapi.session_ttl * 60,
             secure=True,
-            domain=config["DOMAIN"],
+            domain=Config().get_config().fastapi.domain,
             samesite="strict",
         )
         response.set_cookie(
             "ECSESSION",
             current_session,
-            max_age=config["SESSION_TTL"] * 60,
+            max_age=Config().get_config().fastapi.session_ttl * 60,
             secure=True,
-            domain=config["DOMAIN"],
+            domain=Config().get_config().fastapi.domain,
             httponly=True,
             samesite="strict",
         )
@@ -123,21 +126,31 @@ async def oidc_login(request: Request, code: str, redirect_index: Optional[str] 
 
 # 用户主动logout
 @router.get("/logout", dependencies=[Depends(verify_csrf_token)], response_model=ResponseData)
-async def logout(request: Request, response: Response, user_sub: Annotated[str, Depends(get_user)]):  # noqa: ANN201
+async def logout(request: Request, response: Response, user_sub: Annotated[str, Depends(get_user)]) -> JSONResponse:
     """用户登出EulerCopilot"""
     session_id = request.cookies["ECSESSION"]
     if not request.client:
-        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content=ResponseData(
-            code=status.HTTP_400_BAD_REQUEST,
-            message="IP error",
-            result={},
-        ).model_dump(exclude_none=True, by_alias=True))
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content=ResponseData(
+                code=status.HTTP_400_BAD_REQUEST,
+                message="IP error",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
     await TokenManager.delete_plugin_token(user_sub)
     await SessionManager.delete_session(session_id)
     new_session = await SessionManager.create_session(request.client.host)
 
-    response.set_cookie("ECSESSION", new_session, max_age=config["SESSION_TTL"] * 60,
-                        httponly=True, secure=True, samesite="strict", domain=config["DOMAIN"])
+    response.set_cookie(
+        "ECSESSION",
+        new_session,
+        max_age=Config().get_config().fastapi.session_ttl * 60,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        domain=Config().get_config().fastapi.domain,
+    )
     response.delete_cookie("_csrf_tk")
 
     data = Audit(
@@ -148,45 +161,62 @@ async def logout(request: Request, response: Response, user_sub: Annotated[str, 
         message="/api/auth/logout: User logout succeeded.",
     )
     await AuditLogManager.add_audit_log(data)
-    return JSONResponse(status_code=status.HTTP_200_OK, content=ResponseData(
-        code=status.HTTP_200_OK,
-        message="success",
-        result={},
-    ).model_dump(exclude_none=True, by_alias=True))
+
+    await oidc_provider.oidc_logout(request.cookies)
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=ResponseData(
+            code=status.HTTP_200_OK,
+            message="success",
+            result={},
+        ).model_dump(exclude_none=True, by_alias=True),
+    )
 
 
 @router.get("/redirect", response_model=OidcRedirectRsp)
-async def oidc_redirect(action: Annotated[str, Query()] = "login"):  # noqa: ANN201
+async def oidc_redirect(request: Request, action: Annotated[str, Query()] = "login") -> JSONResponse:
     """OIDC重定向URL"""
     if action == "login":
-        return JSONResponse(status_code=status.HTTP_200_OK, content=OidcRedirectRsp(
-            code=status.HTTP_200_OK,
-            message="success",
-            result=OidcRedirectMsg(url=config["OIDC_REDIRECT_URL"]),
-        ).model_dump(exclude_none=True, by_alias=True))
+        redirect_url = await oidc_provider.get_redirect_url()
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content=OidcRedirectRsp(
+                code=status.HTTP_200_OK,
+                message="success",
+                result=OidcRedirectMsg(url=redirect_url),
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
     if action == "logout":
-        return JSONResponse(status_code=status.HTTP_200_OK, content=OidcRedirectRsp(
-            code=status.HTTP_200_OK,
-            message="success",
-            result=OidcRedirectMsg(url=config["OIDC_LOGOUT_URL"]),
-        ).model_dump(exclude_none=True, by_alias=True))
-    return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content=ResponseData(
-        code=status.HTTP_400_BAD_REQUEST,
-        message="invalid action",
-        result={},
-    ).model_dump(exclude_none=True, by_alias=True))
+        await oidc_provider.oidc_logout(request.cookies)
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content=OidcRedirectRsp(
+                code=status.HTTP_200_OK,
+                message="success",
+                result=OidcRedirectMsg(url=Config().get_config().fastapi.domain),
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content=ResponseData(
+            code=status.HTTP_400_BAD_REQUEST,
+            message="invalid action",
+            result={},
+        ).model_dump(exclude_none=True, by_alias=True),
+    )
 
 
-# TODO: OIDC主动触发logout
+# TODO(zwt): OIDC主动触发logout
 # 002
-@router.post("/logout", response_model=ResponseData)
-async def oidc_logout(token: str):  # noqa: ANN201
+@router.post("/logout", dependencies=[Depends(verify_user)], response_model=ResponseData)
+async def oidc_logout(token: str) -> JSONResponse:
     """OIDC主动触发登出"""
-    pass
 
 
-@router.get("/user", dependencies=[Depends(verify_user)], response_model=AuthUserRsp)
-async def userinfo(user_sub: Annotated[str, Depends(get_user)]):  # noqa: ANN201
+@router.get("/user", response_model=AuthUserRsp)
+async def userinfo(
+    user_sub: Annotated[str, Depends(get_user)], _: Annotated[None, Depends(verify_user)],
+) -> JSONResponse:
     """获取用户信息"""
     user = await UserManager.get_userinfo_by_user_sub(user_sub=user_sub)
     if not user:
@@ -198,36 +228,48 @@ async def userinfo(user_sub: Annotated[str, Depends(get_user)]):  # noqa: ANN201
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    return JSONResponse(status_code=status.HTTP_200_OK, content=AuthUserRsp(
-        code=status.HTTP_200_OK,
-        message="success",
-        result=AuthUserMsg(
-            user_sub=user_sub,
-            revision=user.is_active,
-        ),
-    ).model_dump(exclude_none=True, by_alias=True))
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=AuthUserRsp(
+            code=status.HTTP_200_OK,
+            message="success",
+            result=AuthUserMsg(
+                user_sub=user_sub,
+                revision=user.is_active,
+            ),
+        ).model_dump(exclude_none=True, by_alias=True),
+    )
 
 
-@router.post("/update_revision_number", dependencies=[Depends(verify_user), Depends(verify_csrf_token)],
-             response_model=AuthUserRsp,
-             responses={
-                status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": ResponseData},
-             })
-async def update_revision_number(_post_body, user_sub: Annotated[str, Depends(get_user)]):  # noqa: ANN001, ANN201
+@router.post(
+    "/update_revision_number",
+    dependencies=[Depends(verify_user), Depends(verify_csrf_token)],
+    response_model=AuthUserRsp,
+    responses={
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": ResponseData},
+    },
+)
+async def update_revision_number(_post_body, user_sub: Annotated[str, Depends(get_user)]) -> JSONResponse:
     """更新用户协议信息"""
     ret: bool = await UserManager.update_userinfo_by_user_sub(user_sub, refresh_revision=True)
     if not ret:
-        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ResponseData(
-            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="update revision failed",
-            result={},
-        ).model_dump(exclude_none=True, by_alias=True))
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ResponseData(
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message="update revision failed",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
 
-    return JSONResponse(status_code=status.HTTP_200_OK, content=AuthUserRsp(
-        code=status.HTTP_200_OK,
-        message="success",
-        result=AuthUserMsg(
-            user_sub=user_sub,
-            revision=False,
-        ),
-    ).model_dump(exclude_none=True, by_alias=True))
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=AuthUserRsp(
+            code=status.HTTP_200_OK,
+            message="success",
+            result=AuthUserMsg(
+                user_sub=user_sub,
+                revision=False,
+            ),
+        ).model_dump(exclude_none=True, by_alias=True),
+    )
