@@ -1,6 +1,6 @@
 """样例工具 - 主逻辑
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 from typing import Any, Optional
 
