@@ -1,6 +1,7 @@
-"""问答大模型调用
+"""
+问答大模型调用
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 import copy
@@ -33,7 +34,7 @@ from apps.manager.appcenter import AppCenterManager
 from apps.manager.flow import FlowManager
 from apps.scheduler.pool.loader.flow import FlowLoader
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class ReasoningLLM:

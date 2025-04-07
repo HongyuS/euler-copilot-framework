@@ -1,30 +1,29 @@
-"""Flow加载器
+"""
+Flow加载器
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 import logging
 from hashlib import sha256
-from typing import Any, Optional
+from typing import Any
 
 import aiofiles
 import yaml
 from anyio import Path
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import delete
-from sqlalchemy.dialects.postgresql import insert
 
-from apps.common.config import config
-from apps.constants import APP_DIR, FLOW_DIR
+from apps.common.config import Config
 from apps.entities.enum_var import EdgeType
 from apps.entities.flow import AppFlow, Flow
 from apps.entities.vector import FlowPoolVector
+from apps.llm.embedding import Embedding
 from apps.manager.node import NodeManager
+from apps.models.lance import LanceDB
 from apps.models.mongo import MongoDB
-from apps.models.postgres import PostgreSQL
 from apps.scheduler.util import yaml_str_presenter
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class FlowLoader:
@@ -89,7 +88,7 @@ class FlowLoader:
                 step["description"] = "结束节点"
                 step["type"] = "end"
             else:
-                step["type"] = (await NodeManager.get_node_call_id(step["node"]))
+                step["type"] = await NodeManager.get_node_call_id(step["node"])
                 step["name"] = (
                     (await NodeManager.get_node_name(step["node"]))
                     if "name" not in step or step["name"] == ""
@@ -97,12 +96,14 @@ class FlowLoader:
                 )
         return flow_yaml
 
-    async def load(self, app_id: str, flow_id: str) -> Optional[Flow]:
+    async def load(self, app_id: str, flow_id: str) -> Flow | None:
         """从文件系统中加载【单个】工作流"""
         logger.info("[FlowLoader] 加载工作流 %s 应用 %s...", flow_id, app_id)
 
         # 构建工作流文件路径
-        flow_path = Path(config["SEMANTICS_DIR"]) / "app" / app_id / "flow" / f"{flow_id}.yaml"
+        flow_path = (
+            Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / app_id / "flow" / f"{flow_id}.yaml"
+        )
         if not await flow_path.exists():
             logger.error("[FlowLoader] Flow file %s does not exist.", flow_path)
             return None
@@ -125,8 +126,7 @@ class FlowLoader:
             flow_config = Flow.model_validate(flow_yaml)
             await self._update_db(
                 app_id,
-                AppFlow
-                (
+                AppFlow(
                     id=flow_id,
                     name=flow_config.name,
                     description=flow_config.description,
@@ -142,7 +142,9 @@ class FlowLoader:
 
     async def save(self, app_id: str, flow_id: str, flow: Flow) -> None:
         """保存工作流"""
-        flow_path = Path(config["SEMANTICS_DIR"]) / "app" / app_id / "flow" / f"{flow_id}.yaml"
+        flow_path = (
+            Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / app_id / "flow" / f"{flow_id}.yaml"
+        )
         if not await flow_path.parent.exists():
             await flow_path.parent.mkdir(parents=True)
 
@@ -178,15 +180,16 @@ class FlowLoader:
 
         async with aiofiles.open(flow_path, mode="w", encoding="utf-8") as f:
             yaml.add_representer(str, yaml_str_presenter)
-            await f.write(yaml.dump(
-                flow_dict,
-                allow_unicode=True,
-                sort_keys=False,
-            ))
+            await f.write(
+                yaml.dump(
+                    flow_dict,
+                    allow_unicode=True,
+                    sort_keys=False,
+                ),
+            )
         await self._update_db(
             app_id,
-            AppFlow
-            (
+            AppFlow(
                 id=flow_id,
                 name=flow.name,
                 description=flow.description,
@@ -198,7 +201,9 @@ class FlowLoader:
 
     async def delete(self, app_id: str, flow_id: str) -> bool:
         """删除指定工作流文件"""
-        flow_path = Path(config["SEMANTICS_DIR"]) / APP_DIR / app_id / FLOW_DIR / f"{flow_id}.yaml"
+        flow_path = (
+            Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / app_id / "flow" / f"{flow_id}.yaml"
+        )
         # 确保目标为文件且存在
         if await flow_path.exists():
             try:
@@ -207,13 +212,12 @@ class FlowLoader:
             except Exception:
                 logger.exception("[FlowLoader] 删除工作流文件失败：%s", flow_path)
                 return False
-            session = await PostgreSQL.get_session()
+
+            table = await LanceDB().get_table("flow")
             try:
-                await session.execute(delete(FlowPoolVector).where(FlowPoolVector.id == flow_id))
-                await session.commit()
+                await table.delete(f"id = '{flow_id}'")
             except Exception:
-                logger.exception("[FlowLoader] PostgreSQL删除flow失败")
-            await session.aclose()
+                logger.exception("[FlowLoader] LanceDB删除flow失败")
             return True
         logger.warning("[FlowLoader] 工作流文件不存在或不是文件：%s", flow_path)
         return True
@@ -236,34 +240,40 @@ class FlowLoader:
                 {
                     "$set": jsonable_encoder(metadata),
                 },
+                upsert=True,
             )
-            flow_path = Path(config["SEMANTICS_DIR"]) / APP_DIR / app_id / FLOW_DIR / f"{metadata.id}.yaml"
+            flow_path = (
+                Path(Config().get_config().deploy.data_dir)
+                / "semantics"
+                / "app"
+                / app_id
+                / "flow"
+                / f"{metadata.id}.yaml"
+            )
             async with aiofiles.open(flow_path, "rb") as f:
                 new_hash = sha256(await f.read()).hexdigest()
 
-            key = f"hashes.{FLOW_DIR}/{metadata.id}.yaml"
-            await app_collection.aggregate([
-                {"$match": {"_id": app_id}},
-                {"$setField": {"field": key, "input": "$$ROOT", "value": new_hash}},
-            ])
+            key = f"hashes.flow/{metadata.id}.yaml"
+            await app_collection.aggregate(
+                [
+                    {"$match": {"_id": app_id}},
+                    {"$replaceWith": {"$setField": {"field": key, "input": "$$ROOT", "value": new_hash}}},
+                ],
+            )
         except Exception:
             logger.exception("[FlowLoader] 更新 MongoDB 失败")
 
         # 向量化所有数据并保存
-        session = await PostgreSQL.get_session()
-        service_embedding = await PostgreSQL.get_embedding([metadata.description])
-        insert_stmt = (
-            insert(FlowPoolVector)
-            .values(
+        table = await LanceDB().get_table("flow")
+        # 删除重复的ID
+        await table.delete(f"id = '{metadata.id}'")
+        # 进行向量化
+        service_embedding = await Embedding.get_embedding([metadata.description])
+        vector_data = [
+            FlowPoolVector(
                 id=metadata.id,
                 app_id=app_id,
                 embedding=service_embedding[0],
-            )
-            .on_conflict_do_update(
-                index_elements=["id"],
-                set_={"embedding": service_embedding[0]},
-            )
-        )
-        await session.execute(insert_stmt)
-        await session.commit()
-        await session.aclose()
+            ),
+        ]
+        await table.add(vector_data)

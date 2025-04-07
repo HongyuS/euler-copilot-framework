@@ -1,17 +1,19 @@
-"""JSON参数生成Prompt
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+JSON参数生成Prompt
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import json
 import logging
 from copy import deepcopy
-from typing import Any, Optional
+from typing import Any
 
-from apps.common.config import config
+from apps.common.config import Config
 from apps.llm.function import FunctionLLM
 from apps.llm.patterns.core import CorePattern
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class Json(CorePattern):
@@ -75,14 +77,15 @@ class Json(CorePattern):
     """
     """用户提示词"""
 
-    def __init__(self, system_prompt: Optional[str] = None, user_prompt: Optional[str] = None) -> None:
+    def __init__(self, system_prompt: str | None = None, user_prompt: str | None = None) -> None:
         """初始化Json模式"""
         super().__init__(system_prompt, user_prompt)
 
 
     @staticmethod
     def _remove_null_params(input_val: Any) -> Any:
-        """递归地移除输入数据中的空值参数。
+        """
+        递归地移除输入数据中的空值参数。
 
         :param input_val: 输入的数据，可以是字典、列表或其他类型。
         :return: 移除空值参数后的数据。
@@ -177,8 +180,8 @@ class Json(CorePattern):
         result = await FunctionLLM().call(
             messages=messages_list,
             schema=spec,
-            max_tokens=config["SCHEDULER_MAX_TOKENS"],
-            temperature=config["SCHEDULER_TEMPERATURE"],
+            max_tokens=Config().get_config().llm.max_tokens,
+            temperature=Config().get_config().llm.temperature,
         )
 
         try:

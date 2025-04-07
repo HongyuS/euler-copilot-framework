@@ -1,11 +1,12 @@
-"""文件Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+文件Manager
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import base64
 import logging
 import uuid
-from typing import Optional
 
 import asyncer
 from fastapi import UploadFile
@@ -13,15 +14,13 @@ from fastapi import UploadFile
 from apps.entities.collection import (
     Conversation,
     Document,
-    RecordGroup,
-    RecordGroupDocument,
 )
-from apps.entities.record import RecordDocument
+from apps.entities.record import RecordDocument, RecordGroup, RecordGroupDocument
 from apps.models.minio import MinioClient
 from apps.models.mongo import MongoDB
 from apps.service import KnowledgeBaseService
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class DocumentManager:
@@ -36,6 +35,7 @@ class DocumentManager:
         file = document.file
 
         import magic
+
         mime = magic.from_buffer(file.read(), mime=True)
 
         file.seek(0)
@@ -47,13 +47,12 @@ class DocumentManager:
             data=file,
             content_type=mime,
             length=-1,
-            part_size=10*1024*1024,
+            part_size=10 * 1024 * 1024,
             metadata={
                 "file_name": base64.b64encode(document.filename.encode("utf-8")).decode("ascii"),  # type: ignore[arg-type]
             },
         )
         return mime
-
 
     @classmethod
     async def storage_docs(cls, user_sub: str, conversation_id: str, documents: list[UploadFile]) -> list[Document]:
@@ -79,9 +78,12 @@ class DocumentManager:
                     conversation_id=conversation_id,
                 )
                 await doc_collection.insert_one(doc_info.model_dump(by_alias=True))
-                await conversation_collection.update_one({"_id": conversation_id}, {
-                    "$push": {"unused_docs": file_id},
-                })
+                await conversation_collection.update_one(
+                    {"_id": conversation_id},
+                    {
+                        "$push": {"unused_docs": file_id},
+                    },
+                )
 
                 # 准备返回值
                 uploaded_files.append(doc_info)
@@ -130,22 +132,29 @@ class DocumentManager:
                     size=item[1].size,
                     conversation_id=item[1].conversation_id,
                     associated=item[0].associated,
-                ) for item in zip(docs, doc_infos)
+                )
+                for item in zip(docs, doc_infos, strict=True)
             ]
         except Exception:
             logger.exception("[DocumentManager] 获取使用文件失败")
             return []
 
     @classmethod
-    async def get_used_docs(cls, user_sub: str, conversation_id: str, record_num: Optional[int] = 10) -> list[Document]:
+    async def get_used_docs(cls, user_sub: str, conversation_id: str, record_num: int | None = 10) -> list[Document]:
         """获取最后n次问答所用到的文件"""
         docs_collection = MongoDB.get_collection("document")
         record_group_collection = MongoDB.get_collection("record_group")
         try:
             if record_num:
-                record_groups = record_group_collection.find({"conversation_id": conversation_id, "user_sub": user_sub}).sort("created_at", -1).limit(record_num)
+                record_groups = (
+                    record_group_collection.find({"conversation_id": conversation_id, "user_sub": user_sub})
+                    .sort("created_at", -1)
+                    .limit(record_num)
+                )
             else:
-                record_groups = record_group_collection.find({"conversation_id": conversation_id, "user_sub": user_sub}).sort("created_at", -1)
+                record_groups = record_group_collection.find(
+                    {"conversation_id": conversation_id, "user_sub": user_sub},
+                ).sort("created_at", -1)
 
             docs = []
             async for current_record_group in record_groups:
@@ -172,7 +181,9 @@ class DocumentManager:
         try:
             async with MongoDB.get_session() as session, await session.start_transaction():
                 for doc in document_list:
-                    doc_info = await doc_collection.find_one_and_delete({"_id": doc, "user_sub": user_sub}, session=session)
+                    doc_info = await doc_collection.find_one_and_delete(
+                        {"_id": doc, "user_sub": user_sub}, session=session,
+                    )
                     # 删除Document表内文件
                     if not doc_info:
                         logger.error("[DocumentManager] 文件不存在: %s", doc)
@@ -184,9 +195,13 @@ class DocumentManager:
                     # 删除Conversation内文件
                     conv = await conv_collection.find_one({"_id": doc_info["conversation_id"]}, session=session)
                     if conv:
-                        await conv_collection.update_one({"_id": conv["_id"]}, {
-                            "$pull": {"unused_docs": doc},
-                        }, session=session)
+                        await conv_collection.update_one(
+                            {"_id": conv["_id"]},
+                            {
+                                "$pull": {"unused_docs": doc},
+                            },
+                            session=session,
+                        )
                 await session.commit_transaction()
                 return True
         except Exception:
@@ -200,7 +215,9 @@ class DocumentManager:
         doc_ids = []
         try:
             async with MongoDB.get_session() as session, await session.start_transaction():
-                async for doc in doc_collection.find({"user_sub": user_sub, "conversation_id": conversation_id}, session=session):
+                async for doc in doc_collection.find(
+                    {"user_sub": user_sub, "conversation_id": conversation_id}, session=session,
+                ):
                     doc_ids.append(doc["_id"])
                     await asyncer.asyncify(cls._remove_doc_from_minio)(doc["_id"])
                     await doc_collection.delete_one({"_id": doc["_id"]}, session=session)
@@ -211,13 +228,11 @@ class DocumentManager:
             logger.exception("[DocumentManager] 通过ConversationID删除文件失败")
             return []
 
-
     @classmethod
     async def get_doc_count(cls, user_sub: str, conversation_id: str) -> int:
         """获取对话文件数量"""
         doc_collection = MongoDB.get_collection("document")
         return await doc_collection.count_documents({"user_sub": user_sub, "conversation_id": conversation_id})
-
 
     @classmethod
     async def change_doc_status(cls, user_sub: str, conversation_id: str, record_group_id: str) -> None:
@@ -235,13 +250,15 @@ class DocumentManager:
             docs_id = Conversation.model_validate(conversation).unused_docs
             for doc in docs_id:
                 doc_info = RecordGroupDocument(_id=doc, associated="question")
-                await record_group_collection.update_one({"_id": record_group_id, "user_sub": user_sub}, {"$push": {"docs": doc_info.model_dump(by_alias=True)}})
+                await record_group_collection.update_one(
+                    {"_id": record_group_id, "user_sub": user_sub},
+                    {"$push": {"docs": doc_info.model_dump(by_alias=True)}},
+                )
 
             # 把unused_docs从Conversation中删除
             await conversation_collection.update_one({"_id": conversation_id}, {"$set": {"unused_docs": []}})
         except Exception:
             logger.exception("[DocumentManager] 改变文件状态失败")
-
 
     @classmethod
     async def save_answer_doc(cls, user_sub: str, record_group_id: str, doc_ids: list[str]) -> None:
@@ -250,8 +267,9 @@ class DocumentManager:
         try:
             for doc_id in doc_ids:
                 doc_info = RecordGroupDocument(_id=doc_id, associated="answer")
-                await record_group_collection.update_one({"_id": record_group_id, "user_sub": user_sub}, {"$push": {"docs": doc_info.model_dump(by_alias=True)}})
+                await record_group_collection.update_one(
+                    {"_id": record_group_id, "user_sub": user_sub},
+                    {"$push": {"docs": doc_info.model_dump(by_alias=True)}},
+                )
         except Exception:
             logger.exception("[DocumentManager] 保存答案文件失败")
-
-

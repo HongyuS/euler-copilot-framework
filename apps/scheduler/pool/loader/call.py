@@ -1,29 +1,30 @@
-"""Call 加载器
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+Call 加载器
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import importlib
 import logging
 import sys
 from hashlib import shake_128
 from pathlib import Path
 
-from sqlalchemy.dialects.postgresql import insert
-
 import apps.scheduler.call as system_call
-from apps.common.config import config
-from apps.constants import CALL_DIR
+from apps.common.config import Config
 from apps.entities.enum_var import CallType
 from apps.entities.pool import CallPool, NodePool
 from apps.entities.vector import CallPoolVector
+from apps.llm.embedding import Embedding
+from apps.models.lance import LanceDB
 from apps.models.mongo import MongoDB
-from apps.models.postgres import PostgreSQL
 
-logger = logging.getLogger("ray")
+logger = logging.getLogger(__name__)
 
 
 class CallLoader:
-    """Call 加载器
+    """
+    Call 加载器
 
     系统Call放在apps.scheduler.call下
     用户Call放在call下
@@ -49,12 +50,11 @@ class CallLoader:
 
         return call_metadata
 
-
     async def _load_single_call_dir(self, call_dir_name: str) -> list[CallPool]:
         """加载单个Call package"""
         call_metadata = []
 
-        call_dir = Path(config["SEMANTICS_DIR"]) / CALL_DIR / call_dir_name
+        call_dir = Path(Config().get_config().deploy.data_dir) / "semantics" / "call" / call_dir_name
         if not (call_dir / "__init__.py").exists():
             logger.info("[CallLoader] 模块 %s 不存在__init__.py文件，尝试自动创建。", call_dir)
             try:
@@ -81,7 +81,7 @@ class CallLoader:
         for call_id in call_package.__all__:
             try:
                 call_cls = getattr(call_package, call_id)
-            except Exception as e:
+            except AttributeError as e:
                 err = f"[CallLoader] 载入工具call.{call_dir_name}.{call_id}失败：{e}；跳过载入。"
                 logger.info(err)
                 continue
@@ -102,7 +102,7 @@ class CallLoader:
 
     async def _load_all_user_call(self) -> list[CallPool]:
         """加载Python Call"""
-        call_dir = Path(config["SEMANTICS_DIR"]) / CALL_DIR
+        call_dir = Path(Config().get_config().deploy.data_dir) / "semantics" / "call"
         call_metadata = []
 
         # 载入父包
@@ -123,23 +123,46 @@ class CallLoader:
             # 载入包
             try:
                 call_metadata.extend(await self._load_single_call_dir(call_file.name))
-            except Exception as e:
+            except RuntimeError as e:
                 err = f"[CallLoader] 载入模块{call_file}失败：{e}，跳过载入。"
                 logger.info(err)
                 continue
 
         return call_metadata
 
-
     async def _delete_one(self, call_name: str) -> None:
         """删除单个Call"""
-        pass
+        # 从数据库中删除
+        await self._delete_from_db(call_name)
 
+        # 从Python中卸载模块
+        call_dir = Path(Config().get_config().deploy.data_dir) / "semantics" / "call" / call_name
+        if call_dir.exists():
+            module_name = f"call.{call_name}"
+            if module_name in sys.modules:
+                del sys.modules[module_name]
 
     async def _delete_from_db(self, call_name: str) -> None:
         """从数据库中删除单个Call"""
-        pass
+        # 从MongoDB中删除
+        call_collection = MongoDB.get_collection("call")
+        node_collection = MongoDB.get_collection("node")
+        try:
+            await call_collection.delete_one({"_id": call_name})
+            await node_collection.delete_many({"call_id": call_name})
+        except Exception as e:
+            err = f"[CallLoader] 从MongoDB删除Call失败：{e}"
+            logger.exception(err)
+            raise RuntimeError(err) from e
 
+        # 从LanceDB中删除
+        try:
+            table = await LanceDB().get_table("call")
+            await table.delete(f"id = '{call_name}'")
+        except Exception as e:
+            err = f"[CallLoader] 从LanceDB删除Call失败：{e}"
+            logger.exception(err)
+            raise RuntimeError(err) from e
 
     # 更新数据库
     async def _add_to_db(self, call_metadata: list[CallPool]) -> None:
@@ -150,35 +173,39 @@ class CallLoader:
         call_descriptions = []
         try:
             for call in call_metadata:
-                await call_collection.update_one({"_id": call.id}, {"$set": call.model_dump(exclude_none=True, by_alias=True)}, upsert=True)
-                await node_collection.insert_one(NodePool(
-                    _id=call.id,
-                    name=call.name,
-                    description=call.description,
-                    service_id="",
-                    call_id=call.id,
-                ).model_dump(exclude_none=True, by_alias=True))
+                await call_collection.update_one(
+                    {"_id": call.id}, {"$set": call.model_dump(exclude_none=True, by_alias=True)}, upsert=True,
+                )
+                await node_collection.insert_one(
+                    NodePool(
+                        _id=call.id,
+                        name=call.name,
+                        description=call.description,
+                        service_id="",
+                        call_id=call.id,
+                    ).model_dump(exclude_none=True, by_alias=True),
+                )
                 call_descriptions += [call.description]
         except Exception as e:
             err = "[CallLoader] 更新MongoDB失败"
             logger.exception(err)
             raise RuntimeError(err) from e
 
-        # 进行向量化，更新PostgreSQL
-        session = await PostgreSQL.get_session()
-        call_vecs = await PostgreSQL.get_embedding(call_descriptions)
-        for i, data in enumerate(call_vecs):
-            insert_stmt = insert(CallPoolVector).values(
-                id=call_metadata[i].id,
-                embedding=data,
-            ).on_conflict_do_update(
-                index_elements=["id"],
-                set_={"embedding": data},
+        table = await LanceDB().get_table("call")
+        # 删除重复的ID
+        for call in call_metadata:
+            await table.delete(f"id = '{call.id}'")
+        # 进行向量化，更新LanceDB
+        call_vecs = await Embedding.get_embedding(call_descriptions)
+        vector_data = []
+        for i, vec in enumerate(call_vecs):
+            vector_data.append(
+                CallPoolVector(
+                    id=call_metadata[i].id,
+                    embedding=vec,
+                ),
             )
-            await session.execute(insert_stmt)
-        await session.commit()
-        await session.aclose()
-
+        await table.add(vector_data)
 
     async def load(self) -> None:
         """初始化Call信息"""
@@ -211,7 +238,6 @@ class CallLoader:
 
         # 更新数据库
         await self._add_to_db(call_metadata)
-
 
     async def load_one(self, call_name: str) -> None:
         """加载单个Call"""
