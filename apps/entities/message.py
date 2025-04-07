@@ -1,13 +1,15 @@
-"""队列中的消息结构
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
-from typing import Any, Optional
+队列中的消息结构
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.entities.collection import RecordMetadata
-from apps.entities.enum_var import EventType, FlowOutputType, StepStatus
+from apps.entities.enum_var import EventType, StepStatus
+from apps.entities.record import RecordMetadata
 
 
 class HeartbeatData(BaseModel):
@@ -81,13 +83,6 @@ class FlowStartContent(BaseModel):
     params: dict[str, Any] = Field(description="预先提供的参数")
 
 
-class FlowStopContent(BaseModel):
-    """flow.stop消息的content"""
-
-    type: Optional[FlowOutputType] = Field(description="Flow输出的类型", default=None)
-    data: Optional[dict[str, Any]] = Field(description="Flow输出的数据", default=None)
-
-
 class MessageBase(HeartbeatData):
     """基础消息事件结构"""
 
@@ -95,6 +90,6 @@ class MessageBase(HeartbeatData):
     group_id: str = Field(min_length=36, max_length=36, alias="groupId")
     conversation_id: str = Field(min_length=36, max_length=36, alias="conversationId")
     task_id: str = Field(min_length=36, max_length=36, alias="taskId")
-    flow: Optional[MessageFlow] = None
+    flow: MessageFlow | None = None
     content: dict[str, Any] = {}
     metadata: MessageMetadata

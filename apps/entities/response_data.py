@@ -1,9 +1,10 @@
-"""FastAPI 返回数据结构
+"""
+FastAPI 返回数据结构
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -28,35 +29,11 @@ class ResponseData(BaseModel):
     result: Any
 
 
-class _GetAuthKeyMsg(BaseModel):
-    """GET /api/auth/key Result数据结构"""
-
-    api_key_exists: bool
-
-
-class GetAuthKeyRsp(ResponseData):
-    """GET /api/auth/key 返回数据结构"""
-
-    result: _GetAuthKeyMsg
-
-
-class PostAuthKeyMsg(BaseModel):
-    """POST /api/auth/key Result数据结构"""
-
-    api_key: str
-
-
-class PostAuthKeyRsp(ResponseData):
-    """POST /api/auth/key 返回数据结构"""
-
-    result: PostAuthKeyMsg
-
-
 class PostClientSessionMsg(BaseModel):
     """POST /api/client/session Result数据结构"""
 
     session_id: str
-    user_sub: Optional[str] = None
+    user_sub: str | None = None
 
 
 class PostClientSessionRsp(ResponseData):
@@ -378,8 +355,8 @@ class GetServiceDetailMsg(BaseModel):
 
     service_id: str = Field(..., alias="serviceId", description="服务ID")
     name: str = Field(..., description="服务名称")
-    apis: Optional[list[ServiceApiData]] = Field(default=None, description="解析后的接口列表")
-    data: Optional[dict[str, Any]] = Field(default=None, description="YAML 内容数据对象")
+    apis: list[ServiceApiData] | None = Field(default=None, description="解析后的接口列表")
+    data: dict[str, Any] | None = Field(default=None, description="YAML 内容数据对象")
 
 
 class GetServiceDetailRsp(ResponseData):
