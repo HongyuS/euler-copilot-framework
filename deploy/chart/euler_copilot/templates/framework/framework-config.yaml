@@ -5,8 +5,8 @@ metadata:
   name: framework-config
   namespace: {{ .Release.Namespace }}
 data:
-  .env: |-
-{{ tpl (.Files.Get "configs/framework/.env") . | indent 4 }}
+  config.toml: |-
+{{ tpl (.Files.Get "configs/framework/config.toml") . | indent 4 }}
   copy-config.yaml: |-
 {{ tpl (.Files.Get "configs/framework/copy-config.yaml") . | indent 4 }}
 {{- end -}}

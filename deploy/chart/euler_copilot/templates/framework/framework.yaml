@@ -60,14 +60,14 @@ spec:
           env:
             - name: TZ
               value: "Asia/Shanghai"
-         #   - name: PROD
-         #     value: "enable"
+            - name: CONFIG
+              value: "/app/config/config.toml"
           volumeMounts:
-            - mountPath: /euler-copilot-frame/config
+            - mountPath: /app/config
               name: framework-shared
             - mountPath: /tmp
               name: framework-tmp-volume
-            - mountPath: /euler-copilot-frame/apps/semantics
+            - mountPath: /app/data
               name: framework-semantics-vl
           securityContext:
             readOnlyRootFilesystem: {{ default false .Values.euler_copilot.framework.readOnly }}
@@ -86,12 +86,12 @@ spec:
               {{ toYaml .Values.euler_copilot.framework.resourceLimits | nindent 14 }}
       initContainers:
         - name: framework-copy
-          image: {{ .Values.euler_copilot.secret_inject.image | default (printf "%s/neocopilot/secret_inject:dev-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
+          image: {{ .Values.euler_copilot.secretInject.image | default (printf "%s/neocopilot/secret_inject:dev-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
           volumeMounts:
-            - mountPath: /config/.env
+            - mountPath: /config/config.toml
               name: framework-config
-              subPath: .env
+              subPath: config.toml
             - mountPath: /app/config.yaml
               name: framework-config
               subPath: copy-config.yaml
