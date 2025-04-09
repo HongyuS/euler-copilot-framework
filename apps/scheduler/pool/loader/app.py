@@ -133,23 +133,14 @@ class AppLoader:
         # 更新应用数据
         try:
             app_collection = MongoDB.get_collection("app")
+            metadata.permission = metadata.permission if metadata.permission else Permission()
             await app_collection.update_one(
                 {"_id": metadata.id},
                 {
                     "$set": jsonable_encoder(
                         AppPool(
                             _id=metadata.id,
-                            icon=metadata.icon,
-                            name=metadata.name,
-                            description=metadata.description,
-                            author=metadata.author,
-                            links=metadata.links,
-                            first_questions=metadata.first_questions,
-                            history_len=metadata.history_len,
-                            permission=metadata.permission if metadata.permission else Permission(),
-                            published=metadata.published,
-                            flows=metadata.flows,
-                            hashes=metadata.hashes,
+                            **(metadata.model_dump(by_alias=True)),
                         ),
                     ),
                 },
