@@ -7,7 +7,6 @@ from pydantic import BaseModel, ConfigDict
 
 from apps.common.queue import MessageQueue
 from apps.entities.enum_var import EventType
-from apps.entities.flow import Flow
 from apps.entities.message import FlowStartContent
 from apps.entities.scheduler import ExecutorBackground
 from apps.entities.task import FlowStepHistory, Task
@@ -20,10 +19,9 @@ class BaseExecutor(BaseModel):
 
     task: Task
     queue: MessageQueue
-    flow: Flow
-    executor_background: ExecutorBackground
+    background: ExecutorBackground
     question: str
-    step_history: FlowStepHistory | None = None
+    history: FlowStepHistory | None = None
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -56,19 +54,19 @@ class BaseExecutor(BaseModel):
             data = {}
         elif event_type == EventType.STEP_INPUT:
             # 更新step_history的输入数据
-            if self.step_history is not None and data is not None:
-                self.step_history.input_data = data
+            if self.history is not None and data is not None:
+                self.history.input_data = data
                 if self.task.state is not None:
-                    self.step_history.status = self.task.state.status
+                    self.history.status = self.task.state.status
                 # 步骤开始，重置时间
                 self.task.tokens.time = round(datetime.now(UTC).timestamp(), 2)
         elif event_type == EventType.STEP_OUTPUT:
             # 更新step_history的输出数据
-            if self.step_history is not None and data is not None:
-                self.step_history.output_data = data
+            if self.history is not None and data is not None:
+                self.history.output_data = data
                 if self.task.state is not None:
-                    self.step_history.status = self.task.state.status
-                    self.task.context[self.task.state.step_id] = self.step_history
+                    self.history.status = self.task.state.status
+                    self.task.context[self.task.state.step_id] = self.history
 
         await self.queue.push_output(
             self.task,

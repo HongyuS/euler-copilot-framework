@@ -1,21 +1,23 @@
 """工作流中步骤相关函数"""
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 
 from apps.common.queue import MessageQueue
 from apps.entities.enum_var import EventType, StepStatus
-from apps.entities.scheduler import CallOutputChunk, CallVars
+from apps.entities.flow import Step
 from apps.entities.task import FlowStepHistory, Task
 from apps.manager.node import NodeManager
 from apps.manager.task import TaskManager
-from apps.scheduler.call.core import CoreCall
 from apps.scheduler.call.slot.schema import SlotInput, SlotOutput
 from apps.scheduler.call.slot.slot import Slot
 from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.executor.node import StepNode
+
+if TYPE_CHECKING:
+    from apps.entities.scheduler import CallOutputChunk
 
 logger = logging.getLogger(__name__)
 SPECIAL_EVENT_TYPES = [
@@ -28,7 +30,9 @@ SPECIAL_EVENT_TYPES = [
 class StepExecutor(BaseExecutor):
     """工作流中步骤相关函数"""
 
-    sys_vars: CallVars
+    step: Step
+    step_id: str = Field(description="步骤ID")
+
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -43,9 +47,9 @@ class StepExecutor(BaseExecutor):
             logger.error(err)
             raise ValueError(err)
 
-        self.step_history = FlowStepHistory(
-            task_id=self.sys_vars.task_id,
-            flow_id=self.sys_vars.flow_id,
+        self.history = FlowStepHistory(
+            task_id=self.task.id,
+            flow_id=self.task.state.flow_id,
             step_id=self.task.state.step_id,
             status=self.task.state.status,
             input_data={},
@@ -73,84 +77,74 @@ class StepExecutor(BaseExecutor):
             data=data,
         )
 
-    async def init_step(self, step_id: str) -> tuple[str, Any]:
+    async def init(self) -> None:
         """初始化步骤"""
         if not self.task.state:
             err = "[StepExecutor] 当前ExecutorState为空"
             logger.error(err)
             raise ValueError(err)
 
-        logger.info("[FlowExecutor] 运行步骤 %s", self.flow.steps[step_id].name)
+        logger.info("[FlowExecutor] 运行步骤 %s", self.step.name)
 
         # State写入ID和运行状态
-        self.task.state.step_id = step_id
-        self.task.state.step_name = self.flow.steps[step_id].name
+        self.task.state.step_id = self.step_id
+        self.task.state.step_name = self.step.name
         self.task.state.status = StepStatus.RUNNING
         await TaskManager.save_task(self.task.id, self.task)
 
         # 获取并验证Call类
-        node_id = self.flow.steps[step_id].node
+        node_id = self.step.node
         # 获取node详情并存储
         try:
             self._node_data = await NodeManager.get_node(node_id)
         except Exception:
-            logger.exception("[StepExecutor] 获取Node失败，为内部Node或ID不存在")
+            logger.exception("[StepExecutor] 获取Node失败，为内部Node或ID不存在", stack_info=False)
             self._node_data = None
 
         if self._node_data:
             call_cls = await StepNode.get_call_cls(self._node_data.call_id)
-            call_id = self._node_data.call_id
+            self._call_id = self._node_data.call_id
         else:
             # 可能是特殊的内置Node
             call_cls = await StepNode.get_call_cls(node_id)
-            call_id = node_id
+            self._call_id = node_id
 
         # 初始化Call Class，用户参数会覆盖node的参数
         params: dict[str, Any] = (
             self._node_data.known_params if self._node_data and self._node_data.known_params else {}
-        )  # type: ignore[union-attr]
-        if self.flow.steps[step_id].params:
-            params.update(self.flow.steps[step_id].params)
+        )
+        if self.step.params:
+            params.update(self.step.params)
 
         # 检查初始化Call Class是否需要特殊处理
         try:
-            call_obj, input_data = await call_cls.init(self.sys_vars, **params)
+            self._obj, self._input = await call_cls.init(self, **params)
         except Exception:
             logger.exception("[StepExecutor] 初始化Call失败")
             raise
-        else:
-            return call_id, call_obj
 
-    async def fill_slots(self, call_obj: Any) -> dict[str, Any]:
+
+    async def fill_slots(self) -> dict[str, Any]:
         """执行Call并处理结果"""
         if not self.task.state:
             err = "[StepExecutor] 当前ExecutorState为空"
             logger.error(err)
             raise ValueError(err)
 
-        # 尝试初始化call_obj
-        try:
-            input_data = await call_obj.init(self.sys_vars)
-        except Exception:
-            logger.exception("[StepExecutor] 初始化Call失败")
-            raise
-
         # 合并已经填充的参数
-        input_data.update(self.task.runtime.filled)
-
-        # 检查输入参数
-        input_schema = (
-            call_obj.input_type.model_json_schema(override=self._node_data.override_input) if self._node_data else {}
-        )
+        self._input.update(self.task.runtime.filled)
 
         # 检查输入参数是否需要填充
+        input_schema = (
+            self._obj.input_type.model_json_schema(override=self._node_data.override_input) if self._node_data else {}
+        )
         slot_obj = Slot(
-            data=input_data,
+            data=self._input,
             current_schema=input_schema,
             summary=self.task.runtime.summary,
             facts=self.task.runtime.facts,
         )
-        slot_input = SlotInput(**await slot_obj.init(self.sys_vars))
+        slot_input = SlotInput(**await slot_obj.init(self))
 
         # 若需要填参，额外执行一步
         if slot_input.remaining_schema:
@@ -167,12 +161,13 @@ class StepExecutor(BaseExecutor):
                 raise ValueError(err)
 
             return output.slot_data
-        return input_data
+        return self._input
+
 
     # TODO: 需要评估如何进行流式输出
-    async def run_step(self, call_id: str, call_obj: CoreCall, input_data: dict[str, Any]) -> dict[str, Any]:
+    async def run_step(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """运行单个步骤"""
-        iterator = call_obj.exec(self, input_data)
+        iterator = self._obj.exec(self, input_data)
         await self.push_message(EventType.STEP_INPUT, input_data)
 
         result: CallOutputChunk | None = None
@@ -185,6 +180,11 @@ class StepExecutor(BaseExecutor):
             content = result.content if isinstance(result.content, dict) else {"message": result.content}
 
         # 更新执行状态
+        if not self.task.state:
+            err = "[StepExecutor] 当前ExecutorState为空"
+            logger.error(err)
+            raise ValueError(err)
+
         self.task.state.status = StepStatus.SUCCESS
         await self.push_message(EventType.STEP_OUTPUT, content)
 
