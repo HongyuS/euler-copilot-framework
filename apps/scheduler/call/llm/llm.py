@@ -37,7 +37,7 @@ class LLM(CoreCall, input_type=LLMInput, output_type=LLMOutput):
     system_prompt: str = Field(description="大模型系统提示词", default="")
     user_prompt: str = Field(description="大模型用户提示词", default=LLM_DEFAULT_PROMPT)
 
-    async def _prepare_message(self, syscall_vars: CallVars) -> list[dict[str, Any]]:
+    async def _prepare_message(self, call_vars: CallVars) -> list[dict[str, Any]]:
         """准备消息"""
         # 创建共享的 Environment 实例
         env = SandboxedEnvironment(
@@ -48,11 +48,11 @@ class LLM(CoreCall, input_type=LLMInput, output_type=LLMOutput):
         )
 
         # 上下文信息
-        step_history = list(syscall_vars.history.values())[-self.step_history_size :]
+        step_history = list(call_vars.history.values())[-self.step_history_size :]
         if self.enable_context:
             context_tmpl = env.from_string(LLM_CONTEXT_PROMPT)
             context_prompt = context_tmpl.render(
-                summary=syscall_vars.summary,
+                summary=call_vars.summary,
                 history_data=step_history,
             )
         else:
@@ -63,7 +63,7 @@ class LLM(CoreCall, input_type=LLMInput, output_type=LLMOutput):
         formatter = {
             "time": time,
             "context": context_prompt,
-            "question": syscall_vars.question,
+            "question": call_vars.question,
         }
 
         try:
@@ -82,21 +82,20 @@ class LLM(CoreCall, input_type=LLMInput, output_type=LLMOutput):
             {"role": "user", "content": user_input},
         ]
 
-    async def _init(self, syscall_vars: CallVars) -> dict[str, Any]:
+    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
         """初始化LLM工具"""
-        await super()._init(syscall_vars)
+        await super()._init(call_vars)
 
         return LLMInput(
-            task_id=syscall_vars.task_id,
-            message=await self._prepare_message(syscall_vars),
+            task_id=call_vars.task_id,
+            message=await self._prepare_message(call_vars),
         ).model_dump(exclude_none=True, by_alias=True)
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """运行LLM Call"""
         data = LLMInput(**input_data)
         try:
-            # TODO: 临时改成了非流式
-            async for chunk in ReasoningLLM().call(task_id=data.task_id, messages=data.message, streaming=False):
+            async for chunk in ReasoningLLM().call(task_id=data.task_id, messages=data.message):
                 if not chunk:
                     continue
                 yield CallOutputChunk(type=CallOutputType.TEXT, content=chunk)

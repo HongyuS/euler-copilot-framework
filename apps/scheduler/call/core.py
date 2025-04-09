@@ -41,12 +41,12 @@ class CoreCall(BaseModel):
         extra="allow",
     )
 
-    input_type: ClassVar[type[BaseModel]] = Field(description="Call的输入Pydantic类型", exclude=True, frozen=True)
+    input_type: ClassVar[type[DataBase]] = Field(description="Call的输入Pydantic类型", exclude=True, frozen=True)
     """需要以消息形式输出的、需要大模型填充参数的输入信息填到这里"""
-    output_type: ClassVar[type[BaseModel]] = Field(description="Call的输出Pydantic类型", exclude=True, frozen=True)
+    output_type: ClassVar[type[DataBase]] = Field(description="Call的输出Pydantic类型", exclude=True, frozen=True)
     """需要以消息形式输出的输出信息填到这里"""
 
-    def __init_subclass__(cls, input_type: type[BaseModel], output_type: type[BaseModel], **kwargs: Any) -> None:
+    def __init_subclass__(cls, input_type: type[DataBase], output_type: type[DataBase], **kwargs: Any) -> None:
         """初始化子类"""
         super().__init_subclass__(**kwargs)
         cls.input_type = input_type
@@ -54,14 +54,25 @@ class CoreCall(BaseModel):
 
 
     @classmethod
-    async def init(cls, syscall_vars: CallVars, **kwargs: Any) -> tuple[Self, dict[str, Any]]:
+    async def init(cls, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
         """实例化Call类"""
+        sys_vars = CallVars(
+            question=executor.question,
+            task_id=executor.task.id,
+            flow_id=executor.flow_id,
+            session_id=executor.task.ids.session_id,
+            history=executor.task.context,
+            summary=executor.task.runtime.summary,
+            user_sub=executor.task.ids.user_sub,
+            service_id=executor.step.params.get("service_id", ""),
+        )
+
         call_obj = cls(**kwargs)
-        input_data = await call_obj._init(syscall_vars)
+        input_data = await call_obj._init(sys_vars)
         return call_obj, input_data
 
 
-    async def _init(self, syscall_vars: CallVars) -> dict[str, Any]:
+    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
         """实例化Call类，并返回Call的输入"""
         err = "[CoreCall] 初始化方法必须手动实现"
         raise NotImplementedError(err)
