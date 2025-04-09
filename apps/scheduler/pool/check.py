@@ -47,7 +47,8 @@ class FileChecker:
     async def diff_one(self, path: Path, previous_hashes: dict[str, str] | None = None) -> bool:
         """检查文件是否发生变化"""
         self._resource_path = path
-        path_diff = self._resource_path.relative_to(self._dir_path)
+        semantics_path = Path(Config().get_config().deploy.data_dir) / "semantics"
+        path_diff = self._resource_path.relative_to(semantics_path)
         self.hashes[path_diff.as_posix()] = await self.check_one(path)
         return self.hashes[path_diff.as_posix()] != previous_hashes
 

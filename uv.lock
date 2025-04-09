@@ -326,7 +326,7 @@ wheels = [
 
 [[package]]
 name = "euler-copilot-framework"
-version = "9.5.0"
+version = "0.9.5"
 source = { virtual = "." }
 dependencies = [
     { name = "aiofiles" },

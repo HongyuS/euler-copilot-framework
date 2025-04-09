@@ -94,7 +94,7 @@ class StepExecutor(BaseExecutor):
         try:
             self._node_data = await NodeManager.get_node(node_id)
         except Exception:
-            logger.exception("[StepExecutor] 获取Node失败，为内置Node或ID不存在")
+            logger.exception("[StepExecutor] 获取Node失败，为内部Node或ID不存在")
             self._node_data = None
 
         if self._node_data:
@@ -114,8 +114,7 @@ class StepExecutor(BaseExecutor):
 
         # 检查初始化Call Class是否需要特殊处理
         try:
-            # TODO
-            call_obj = call_cls.init(params)
+            call_obj, input_data = await call_cls.init(self.sys_vars, **params)
         except Exception:
             logger.exception("[StepExecutor] 初始化Call失败")
             raise

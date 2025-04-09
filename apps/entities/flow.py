@@ -49,12 +49,12 @@ class Flow(BaseModel):
 
     name: str = Field(description="Flow的名称", min_length=1)
     description: str = Field(description="Flow的描述 ")
-    on_error: FlowError = FlowError(use_llm=True)
-    steps: dict[str, Step] = Field(description="节点列表", default={})
-    edges: list[Edge] = Field(description="边列表", default=[])
     connectivity: bool = Field(default=False, description="图的开始节点和结束节点是否联通，并且除结束节点都有出边")
     focus_point: PositionItem | None = Field(description="当前焦点节点", default=PositionItem(x=0, y=0))
     debug: bool = Field(description="是否经过调试", default=False)
+    on_error: FlowError = FlowError(use_llm=True)
+    steps: dict[str, Step] = Field(description="节点列表", default={})
+    edges: list[Edge] = Field(description="边列表", default=[])
 
 
 class Permission(BaseModel):

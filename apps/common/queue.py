@@ -32,7 +32,7 @@ class MessageQueue:
         self._task_id = task_id
         self._queue = asyncio.Queue()
         self._close = False
-        self._heartbeat_task = asyncio.get_running_loop().create_task(self._heartbeat())
+        self._heartbeat_task = asyncio.new_event_loop().create_task(self._heartbeat())
 
     async def push_output(self, task: Task, event_type: EventType, data: dict[str, Any]) -> None:
         """组装用于向用户（前端/Shell端）输出的消息"""

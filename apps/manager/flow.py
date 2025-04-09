@@ -230,7 +230,12 @@ class FlowManager:
             app_record = app_records[0]
             if "flows" not in app_record or len(app_record["flows"]) == 0:
                 return None
-            flow_record = app_record["flows"][0]
+            for flow in app_record["flows"]:
+                if flow["id"] == flow_id:
+                    flow_record = flow
+                    break
+            if flow_record is None:
+                return None
         except Exception:
             logger.exception("[FlowManager] 获取流失败")
             return None
@@ -240,7 +245,7 @@ class FlowManager:
             if not flow_config:
                 logger.error("[FlowManager] 获取流配置失败")
                 return None
-            focus_point = flow_record["focus_point"]
+            focus_point = flow_config.focus_point or PositionItem(x=0, y=0)
             flow_item = FlowItem(
                 flowId=flow_id,
                 name=flow_config.name,
