@@ -11,17 +11,17 @@ from typing import Any
 import aiofiles
 import yaml
 from anyio import Path
-from fastapi.encoders import jsonable_encoder
 
 from apps.common.config import Config
 from apps.entities.enum_var import EdgeType
 from apps.entities.flow import AppFlow, Flow
+from apps.entities.pool import AppPool
 from apps.entities.vector import FlowPoolVector
 from apps.llm.embedding import Embedding
 from apps.manager.node import NodeManager
 from apps.models.lance import LanceDB
 from apps.models.mongo import MongoDB
-from apps.scheduler.util import yaml_str_presenter
+from apps.scheduler.util import yaml_enum_presenter, yaml_str_presenter
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class FlowLoader:
 
     async def _process_edges(self, flow_yaml: dict[str, Any], flow_id: str, app_id: str) -> dict[str, Any]:
         """处理工作流边的转换"""
-        logger.info("[FlowLoader] 解析工作流 %s 应用 %s 的边...", flow_id, app_id)
+        logger.info("[FlowLoader] 应用 %s：解析工作流 %s 的边", flow_id, app_id)
         try:
             for edge in flow_yaml["edges"]:
                 if "from" in edge:
@@ -73,7 +73,7 @@ class FlowLoader:
 
     async def _process_steps(self, flow_yaml: dict[str, Any], flow_id: str, app_id: str) -> dict[str, Any]:
         """处理工作流步骤的转换"""
-        logger.info("[FlowLoader] 解析工作流 %s 应用 %s 的步骤", flow_id, app_id)
+        logger.info("[FlowLoader] 应用 %s：解析工作流 %s 的步骤", flow_id, app_id)
         for key, step in flow_yaml["steps"].items():
             if key[0] == "_":
                 err = f"[FlowLoader] 步骤名称不能以下划线开头：{key}"
@@ -98,14 +98,14 @@ class FlowLoader:
 
     async def load(self, app_id: str, flow_id: str) -> Flow | None:
         """从文件系统中加载【单个】工作流"""
-        logger.info("[FlowLoader] 加载工作流 %s 应用 %s...", flow_id, app_id)
+        logger.info("[FlowLoader] 应用 %s：加载工作流 %s...", flow_id, app_id)
 
         # 构建工作流文件路径
         flow_path = (
             Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / app_id / "flow" / f"{flow_id}.yaml"
         )
         if not await flow_path.exists():
-            logger.error("[FlowLoader] Flow file %s does not exist.", flow_path)
+            logger.error("[FlowLoader] 应用 %s：工作流文件 %s 不存在", app_id, flow_path)
             return None
 
         try:
@@ -137,7 +137,7 @@ class FlowLoader:
             )
             return Flow.model_validate(flow_yaml)
         except Exception:
-            logger.exception("[FlowLoader] 工作流 %s 应用 %s 格式不合法", flow_id, app_id)
+            logger.exception("[FlowLoader] 应用 %s：工作流 %s 格式不合法", app_id, flow_id)
             return None
 
     async def save(self, app_id: str, flow_id: str, flow: Flow) -> None:
@@ -148,38 +148,10 @@ class FlowLoader:
         if not await flow_path.parent.exists():
             await flow_path.parent.mkdir(parents=True)
 
-        flow_dict = {
-            "name": flow.name,
-            "description": flow.description,
-            "on_error": flow.on_error.model_dump(by_alias=True, exclude_none=True),
-            "steps": {
-                step_id: {
-                    "name": step.name,
-                    "description": step.description,
-                    "node": step.node,
-                    "params": step.params,
-                    "pos": {
-                        "x": step.pos.x,
-                        "y": step.pos.y,
-                    },
-                }
-                for step_id, step in flow.steps.items()
-            },
-            "edges": [
-                {
-                    "id": edge.id,
-                    "from": edge.edge_from,
-                    "to": edge.edge_to,
-                    "type": edge.edge_type.value if edge.edge_type else None,
-                }
-                for edge in flow.edges
-            ],
-            "connectivity": flow.connectivity,
-            "debug": flow.debug,
-        }
-
+        flow_dict = flow.model_dump(by_alias=True, exclude_none=True)
         async with aiofiles.open(flow_path, mode="w", encoding="utf-8") as f:
             yaml.add_representer(str, yaml_str_presenter)
+            yaml.add_representer(EdgeType, yaml_enum_presenter)
             await f.write(
                 yaml.dump(
                     flow_dict,
@@ -226,19 +198,30 @@ class FlowLoader:
         """更新数据库"""
         try:
             app_collection = MongoDB.get_collection("app")
+            # 获取当前的flows
+            app_data = await app_collection.find_one({"_id": app_id})
+            if not app_data:
+                err = f"[FlowLoader] App {app_id} 不存在"
+                logger.error(err)
+                return
+            app_obj = AppPool.model_validate(app_data)
+            flows = app_obj.flows
+
+            for flow in flows:
+                if flow.id == metadata.id:
+                    flows.remove(flow)
+                    break
+            flows.append(metadata)
 
             # 执行更新操作
             await app_collection.update_one(
-                {
+                filter={
                     "_id": app_id,
-                    "flows": {
-                        "$elemMatch": {
-                            "id": metadata.id,
-                        },
-                    },
                 },
-                {
-                    "$set": jsonable_encoder(metadata),
+                update={
+                    "$set": {
+                        "flows": [flow.model_dump(by_alias=True, exclude_none=True) for flow in flows],
+                    },
                 },
                 upsert=True,
             )
