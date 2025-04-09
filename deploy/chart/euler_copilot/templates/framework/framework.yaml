@@ -14,9 +14,6 @@ spec:
       port: 8002
       targetPort: 8002
       nodePort: {{ default nil .Values.euler_copilot.framework.service.nodePort }}
-    - name: framework-ray
-      port: 8265
-      targetPort: 8265
 
 ---
 apiVersion: apps/v1
@@ -46,8 +43,6 @@ spec:
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
           ports:
             - containerPort: 8002
-              protocol: TCP
-            - containerPort: 8265
               protocol: TCP
           livenessProbe:
             httpGet:
@@ -88,6 +83,13 @@ spec:
         - name: framework-copy
           image: {{ .Values.euler_copilot.secretInject.image | default (printf "%s/neocopilot/secret_inject:dev-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            runAsUser: 1001
+            runAsGroup: 1001
+            runAsNonRoot: true
           volumeMounts:
             - mountPath: /config/config.toml
               name: framework-config
