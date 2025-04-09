@@ -63,3 +63,6 @@ temperature = {{ default 0.7 .Values.models.functionCall.temperature }}
 [check]
 enable = false
 words_list = ""
+
+[extra]
+sql_url = ''

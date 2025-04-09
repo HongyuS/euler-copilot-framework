@@ -107,7 +107,7 @@ class CallLoader:
 
         # 载入父包
         try:
-            sys.path.insert(0, str(call_dir))
+            sys.path.insert(0, str(call_dir.parent))
             if not (call_dir / "__init__.py").exists():
                 logger.info("[CallLoader] 父模块 %s 不存在__init__.py文件，尝试自动创建。", call_dir)
                 (Path(call_dir) / "__init__.py").touch()
@@ -118,7 +118,7 @@ class CallLoader:
 
         # 处理每一个子包
         for call_file in Path(call_dir).rglob("*"):
-            if not call_file.is_dir():
+            if not call_file.is_dir() or call_file.name[0] == "_":
                 continue
             # 载入包
             try:

@@ -34,10 +34,10 @@ class SQL(CoreCall, input_type=SQLInput, output_type=SQLOutput):
     use_llm_enhancements: ClassVar[bool] = Field(description="是否使用大模型增强",default=False)
 
 
-    async def _init(self, syscall_vars: CallVars) -> dict[str, Any]:
+    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
         """初始化SQL工具。"""
         return SQLInput(
-            question=syscall_vars.question,
+            question=call_vars.question,
         ).model_dump(by_alias=True, exclude_none=True)
 
 

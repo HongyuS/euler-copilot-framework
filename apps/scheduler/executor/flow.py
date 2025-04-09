@@ -9,9 +9,8 @@ import logging
 from pydantic import ConfigDict, Field
 
 from apps.entities.enum_var import EventType, StepStatus
-from apps.entities.flow import Step
+from apps.entities.flow import Flow, Step
 from apps.entities.request_data import RequestDataApp
-from apps.entities.scheduler import CallVars
 from apps.entities.task import ExecutorState
 from apps.manager.task import TaskManager
 from apps.scheduler.call.llm.schema import LLM_ERROR_PROMPT
@@ -59,6 +58,7 @@ ERROR_STEP = Step(
 class FlowExecutor(BaseExecutor):
     """用于执行工作流的Executor"""
 
+    flow: Flow
     flow_id: str = Field(description="Flow ID")
     question: str = Field(description="用户输入")
     post_body_app: RequestDataApp = Field(description="请求体中的app信息")
@@ -97,32 +97,22 @@ class FlowExecutor(BaseExecutor):
 
         step = self.flow.steps[step_id]
 
-        # 准备系统变量
-        sys_vars = CallVars(
-            question=self.question,
-            task_id=self.task.id,
-            flow_id=self.post_body_app.flow_id,
-            session_id=self.task.ids.session_id,
-            history=self.task.context,
-            summary=self.task.runtime.summary,
-            user_sub=self.task.ids.user_sub,
-            service_id=step.params.get("service_id", ""),
-        )
+        # 创建Runner
         step_runner = StepExecutor(
             queue=self.queue,
             task=self.task,
-            flow=self.flow,
-            sys_vars=sys_vars,
-            executor_background=self.executor_background,
+            step=step,
+            step_id=step_id,
+            background=self.background,
             question=self.question,
         )
 
         # 运行Step
-        call_id, call_obj = await step_runner.init_step(step_id)
+        await step_runner.init()
         # 尝试填参
-        input_data = await step_runner.fill_slots(call_obj)
+        input_data = await step_runner.fill_slots()
         # 运行
-        await step_runner.run_step(call_id, call_obj, input_data)
+        await step_runner.run_step(input_data)
 
         # 更新Task
         self.task = step_runner.task

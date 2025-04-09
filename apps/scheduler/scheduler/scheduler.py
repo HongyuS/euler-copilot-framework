@@ -165,7 +165,7 @@ class Scheduler:
             queue=queue,
             question=post_body.question,
             post_body_app=app_info,
-            executor_background=background,
+            background=background,
         )
 
         # 开始运行
