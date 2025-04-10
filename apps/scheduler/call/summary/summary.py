@@ -29,14 +29,16 @@ class Summary(CoreCall, input_type=SummaryInput, output_type=SummaryOutput):
     context: ExecutorBackground = Field(description="对话上下文")
 
     @classmethod
-    async def init(cls, **kwargs: Any) -> Self:
+    async def init(cls, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
         """初始化工具"""
-        return cls(context=kwargs["executor_background"], **kwargs)
+        cls_obj = cls(context=executor.background, **kwargs)
+
+        sys_vars = cls.assemble_call_vars(executor)
+        input_data = await cls_obj._init(sys_vars)
+        return cls_obj, input_data
 
     async def _init(self, syscall_vars: CallVars) -> dict[str, Any]:
         """初始化工具"""
-        await super()._init(syscall_vars)
-
         return SummaryInput(
             task_id=syscall_vars.task_id,
         ).model_dump(by_alias=True, exclude_none=True)

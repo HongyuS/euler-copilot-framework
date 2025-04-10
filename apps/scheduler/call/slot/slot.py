@@ -5,10 +5,9 @@ from typing import Annotated, Any, ClassVar
 from pydantic import Field
 
 from apps.entities.enum_var import CallOutputType
-from apps.entities.scheduler import CallOutputChunk
+from apps.entities.scheduler import CallOutputChunk, CallVars
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.call.slot.schema import SlotInput, SlotOutput
-from apps.scheduler.executor.step import CallVars
 from apps.scheduler.slot.slot import Slot as SlotProcessor
 
 
@@ -30,11 +29,9 @@ class Slot(CoreCall, input_type=SlotInput, output_type=SlotOutput):
         ...
 
 
-    async def _init(self, syscall_vars: CallVars) -> dict[str, Any]:
+    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
         """初始化"""
-        await super()._init(syscall_vars)
-
-        self._task_id = syscall_vars.task_id
+        self._task_id = call_vars.task_id
 
         if not self.current_schema:
             return SlotInput(
