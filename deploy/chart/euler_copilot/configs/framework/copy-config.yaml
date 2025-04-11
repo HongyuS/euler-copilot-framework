@@ -5,3 +5,6 @@ copy:
       uid: 1001
       gid: 1001
       mode: "0o650"
+    secrets:
+      - /db-secrets
+      - /system-secrets
