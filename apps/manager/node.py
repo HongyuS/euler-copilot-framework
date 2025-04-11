@@ -34,7 +34,7 @@ class NodeManager:
         node_collection = MongoDB().get_collection("node")
         node = await node_collection.find_one({"_id": node_id})
         if not node:
-            err = f"[NodeManager] Node type {node_id} not found."
+            err = f"[NodeManager] Node {node_id} not found."
             raise ValueError(err)
 
         try:

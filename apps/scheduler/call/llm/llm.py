@@ -84,8 +84,6 @@ class LLM(CoreCall, input_type=LLMInput, output_type=LLMOutput):
 
     async def _init(self, call_vars: CallVars) -> dict[str, Any]:
         """初始化LLM工具"""
-        await super()._init(call_vars)
-
         return LLMInput(
             task_id=call_vars.task_id,
             message=await self._prepare_message(call_vars),

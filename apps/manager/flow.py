@@ -128,7 +128,7 @@ class FlowManager:
                 return None
             # 获取用户收藏的服务列表
             fav_services = user.fav_services
-            logger.error("[FlowManager] 用户 %s 收藏的服务列表: %s", user_sub, fav_services)
+            logger.info("[FlowManager] 用户 %s 收藏的服务列表: %s", user_sub, fav_services)
             match_conditions = [
                 {"author": user_sub},
                 {

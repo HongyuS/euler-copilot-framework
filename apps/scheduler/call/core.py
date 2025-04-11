@@ -5,6 +5,7 @@ Core Call类，定义了所有Call的抽象类和基础参数。
 Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
+import logging
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self
 
@@ -15,6 +16,7 @@ from apps.entities.scheduler import CallOutputChunk, CallVars
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor
+logger = logging.getLogger(__name__)
 
 
 class DataBase(BaseModel):
@@ -53,19 +55,30 @@ class CoreCall(BaseModel):
         cls.output_type = output_type
 
 
-    @classmethod
-    async def init(cls, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
-        """实例化Call类"""
-        sys_vars = CallVars(
+    @staticmethod
+    def assemble_call_vars(executor: "StepExecutor") -> CallVars:
+        """组装CallVars"""
+        if not executor.task.state:
+            err = "[CoreCall] 当前ExecutorState为空"
+            logger.error(err)
+            raise ValueError(err)
+
+        return CallVars(
             question=executor.question,
             task_id=executor.task.id,
-            flow_id=executor.flow_id,
+            flow_id=executor.task.state.flow_id,
             session_id=executor.task.ids.session_id,
             history=executor.task.context,
             summary=executor.task.runtime.summary,
             user_sub=executor.task.ids.user_sub,
             service_id=executor.step.params.get("service_id", ""),
         )
+
+
+    @classmethod
+    async def init(cls, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
+        """实例化Call类"""
+        sys_vars = cls.assemble_call_vars(executor)
 
         call_obj = cls(**kwargs)
         input_data = await call_obj._init(sys_vars)

@@ -118,7 +118,7 @@ class DocumentManager:
         try:
             record_group = await record_group_collection.find_one({"_id": record_group_id, "user_sub": user_sub})
             if not record_group:
-                logger.error("[DocumentManager] 记录组不存在: %s", record_group_id)
+                logger.info("[DocumentManager] 记录组不存在: %s", record_group_id)
                 return []
 
             docs = RecordGroup.model_validate(record_group).docs
