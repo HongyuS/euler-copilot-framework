@@ -27,6 +27,7 @@ from apps.entities.response_data import (
     ModFavAppRsp,
     ResponseData,
 )
+from apps.exceptions import InstancePermissionError
 from apps.manager.appcenter import AppCenterManager
 
 logger = logging.getLogger(__name__)
@@ -115,7 +116,7 @@ async def create_or_update_application(
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
-        except PermissionError:
+        except InstancePermissionError:
             logger.exception("[AppCenter] 更新应用鉴权失败")
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -268,7 +269,7 @@ async def delete_application(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    except PermissionError:
+    except InstancePermissionError:
         logger.exception("[AppCenter] 删除应用鉴权失败")
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -316,7 +317,7 @@ async def publish_application(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    except PermissionError:
+    except InstancePermissionError:
         logger.exception("[AppCenter] 发布应用鉴权失败")
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
