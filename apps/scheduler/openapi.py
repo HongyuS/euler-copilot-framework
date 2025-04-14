@@ -26,6 +26,8 @@ class ReducedOpenAPISpec(BaseModel):
 
     id: str
     description: str
+    version: str
+    servers: str
     endpoints: list[ReducedOpenAPIEndpoint]
 
 
@@ -165,5 +167,7 @@ def reduce_openapi_spec(spec: dict) -> ReducedOpenAPISpec:
     return ReducedOpenAPISpec(
         id=spec["info"]["title"],
         description=spec["info"].get("description", ""),
+        version=spec["info"].get("version", ""),
+        servers=spec["servers"][0]["url"],
         endpoints=endpoints,
     )
