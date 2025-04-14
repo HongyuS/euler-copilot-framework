@@ -11,6 +11,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from apps.entities.enum_var import StepStatus
+from apps.entities.flow import Step
 
 
 class FlowStepHistory(BaseModel):
@@ -89,3 +90,10 @@ class Task(BaseModel):
     tokens: TaskTokens = Field(description="Token信息")
     runtime: TaskRuntime = Field(description="任务运行时数据")
     created_at: float = Field(default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3))
+
+
+class StepQueueItem(BaseModel):
+    """步骤栈中的元素"""
+
+    step_id: str = Field(description="步骤ID")
+    step: Step = Field(description="步骤")
