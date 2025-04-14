@@ -83,6 +83,12 @@ spec:
         - name: framework-copy
           image: {{ .Values.euler_copilot.secretInject.image | default (printf "%s/neocopilot/secret_inject:dev-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
+          command:
+            - python3
+            - ./main.py
+            - --config
+            - config.yaml
+            - --copy
           securityContext:
             capabilities:
               drop:
@@ -99,36 +105,10 @@ spec:
               subPath: copy-config.yaml
             - mountPath: /config-rw
               name: framework-shared
-            - mountPath: /secrets/redis-password
+            - mountPath: /db-secrets
               name: database-secrets
-              subPath: redis-password
-            - mountPath: /secrets/mongo-password
-              name: database-secrets
-              subPath: mongo-password
-            - mountPath: /secrets/minio-password
-              name: database-secrets
-              subPath: minio-password
-            - mountPath: /secrets/pgsql-password
-              name: database-secrets
-              subPath: pgsql-password
-            - mountPath: /secrets/halfKey1
+            - mountPath: /system-secrets
               name: system-secrets
-              subPath: halfKey1
-            - mountPath: /secrets/halfKey2
-              name: system-secrets
-              subPath: halfKey2
-            - mountPath: /secrets/halfKey3
-              name: system-secrets
-              subPath: halfKey3
-            - mountPath: /secrets/jwtKey
-              name: system-secrets
-              subPath: jwtKey
-            - mountPath: /secrets/clientId
-              name: system-secrets
-              subPath: clientId
-            - mountPath: /secrets/clientSecret
-              name: system-secrets
-              subPath: clientSecret
       volumes:
         - name: framework-config
           configMap:

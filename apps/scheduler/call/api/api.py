@@ -13,7 +13,7 @@ import aiohttp
 from fastapi import status
 from pydantic import Field
 
-from apps.common.config import Config
+from apps.common.oidc import oidc_provider
 from apps.entities.enum_var import CallOutputType, ContentType, HTTPMethod
 from apps.entities.flow import ServiceMetadata
 from apps.entities.scheduler import CallError, CallOutputChunk, CallVars
@@ -128,7 +128,8 @@ class API(CoreCall, input_type=APIInput, output_type=APIOutput):
                 token = await TokenManager.get_plugin_token(
                     self._service_id,
                     self._session_id,
-                    config["OIDC_ACCESS_TOKEN_URL"],
+                    await oidc_provider.get_access_token_url(),
+                    30,
                 )
                 req_header.update({"access-token": token})
 

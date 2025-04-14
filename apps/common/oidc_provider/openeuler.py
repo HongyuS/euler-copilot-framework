@@ -25,6 +25,7 @@ class OpenEulerOIDCProvider(OIDCProviderBase):
             raise TypeError(err)
         return login_config
 
+
     @classmethod
     async def get_oidc_token(cls, code: str) -> dict[str, Any]:
         """获取OIDC Token"""
@@ -37,7 +38,7 @@ class OpenEulerOIDCProvider(OIDCProviderBase):
             "grant_type": "authorization_code",
             "code": code,
         }
-        url = login_config.host_inner.rstrip("/") + "/oneid/oidc/token"
+        url = await cls.get_access_token_url()
         headers = {
             "Content-Type": "application/x-www-form-urlencoded",
         }
@@ -55,6 +56,7 @@ class OpenEulerOIDCProvider(OIDCProviderBase):
             "access_token": result["access_token"],
             "refresh_token": result["refresh_token"],
         }
+
 
     @classmethod
     async def get_oidc_user(cls, access_token: str) -> dict:
@@ -88,15 +90,18 @@ class OpenEulerOIDCProvider(OIDCProviderBase):
             "user_sub": result["sub"],
         }
 
+
     @classmethod
     async def get_login_status(cls, _cookie: dict[str, str]) -> dict[str, Any]:
         """检查登录状态"""
         return {}
 
+
     @classmethod
     async def oidc_logout(cls, _cookie: dict[str, str]) -> None:
         """触发OIDC的登出"""
         ...
+
 
     @classmethod
     async def get_redirect_url(cls) -> str:
@@ -106,3 +111,10 @@ class OpenEulerOIDCProvider(OIDCProviderBase):
                 f"?client_id={login_config.app_id}"
                 f"&response_type=code&access_type=offline&redirect_uri={login_config.login_api}"
                 "&scope=openid+profile+email+phone+offline_access")
+
+
+    @classmethod
+    async def get_access_token_url(cls) -> str:
+        """获取OpenEuler OIDC 访问Token URL"""
+        login_config = cls._get_login_config()
+        return login_config.host_inner.rstrip("/") + "/oneid/oidc/token"
