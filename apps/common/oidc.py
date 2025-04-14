@@ -88,5 +88,9 @@ class OIDCProvider:
         """获取OIDC 重定向URL"""
         return await self.provider.get_redirect_url()
 
+    async def get_access_token_url(self) -> str:
+        """获取OIDC 访问Token URL"""
+        return await self.provider.get_access_token_url()
+
 
 oidc_provider = OIDCProvider()

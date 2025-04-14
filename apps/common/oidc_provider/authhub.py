@@ -39,7 +39,7 @@ class AuthhubOIDCProvider(OIDCProviderBase):
         headers = {
             "Content-Type": "application/json",
         }
-        url = login_config.host_inner.rstrip("/") + "/oauth2/token"
+        url = await cls.get_access_token_url()
         result = None
         async with (
             aiohttp.ClientSession() as session,
@@ -142,3 +142,10 @@ class AuthhubOIDCProvider(OIDCProviderBase):
         return (f"{login_config.host.rstrip('/')}/oauth2/authorize?client_id={login_config.app_id}"
                 f"&response_type=code&access_type=offline&redirect_uri={login_config.login_api}"
                 "&scope=openid offline_access&prompt=consent&nonce=loser")
+
+    @classmethod
+    async def get_access_token_url(cls) -> str:
+        """获取Authhub OIDC 访问Token URL"""
+        login_config = cls._get_login_config()
+        return login_config.host_inner.rstrip("/") + "/oauth2/token"
+
