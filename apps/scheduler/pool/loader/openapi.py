@@ -168,7 +168,11 @@ class OpenAPILoader:
         """保存单个OpenAPI文档"""
         try:
             yaml.add_representer(str, yaml_str_presenter)
-            yaml_data = yaml.safe_dump(yaml_dict)
+            yaml_data = yaml.safe_dump(
+                yaml_dict,
+                allow_unicode=True,
+                sort_keys=False,
+            )
             await yaml_path.write_text(yaml_data)
         except Exception as e:
             if await yaml_path.exists():
