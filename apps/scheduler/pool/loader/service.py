@@ -74,6 +74,7 @@ class ServiceLoader:
         ]
         await self._update_db(node_pool_list, metadata)
 
+
     async def save(self, service_id: str, metadata: ServiceMetadata, data: dict) -> None:
         """在文件系统上保存Service，并更新数据库"""
         service_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id
@@ -91,6 +92,7 @@ class ServiceLoader:
         file_checker = FileChecker()
         await file_checker.diff_one(service_path)
         await self.load(service_id, file_checker.hashes[f"service/{service_id}"])
+
 
     async def delete(self, service_id: str, *, is_reload: bool = False) -> None:
         """删除Service，并更新数据库"""
@@ -117,6 +119,7 @@ class ServiceLoader:
             path = Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id
             if await path.exists():
                 shutil.rmtree(path)
+
 
     async def _update_db(self, nodes: list[NodePool], metadata: ServiceMetadata) -> None:
         """更新数据库"""
