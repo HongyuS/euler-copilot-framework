@@ -6,6 +6,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 
 import logging
 import shutil
+from typing import TYPE_CHECKING
 
 from anyio import Path
 from fastapi.encoders import jsonable_encoder
@@ -20,6 +21,9 @@ from apps.models.mongo import MongoDB
 from apps.scheduler.pool.check import FileChecker
 from apps.scheduler.pool.loader.metadata import MetadataLoader, MetadataType
 from apps.scheduler.pool.loader.openapi import OpenAPILoader
+
+if TYPE_CHECKING:
+    from apps.entities.node import APINode
 
 logger = logging.getLogger(__name__)
 
@@ -40,20 +44,36 @@ class ServiceLoader:
 
         # 载入OpenAPI文档，获取Node列表
         try:
-            nodes = []
+            nodes: list[APINode] = []
             async for yaml_path in (service_path / "openapi").rglob("*.yaml"):
                 nodes.extend(await OpenAPILoader().load_one(service_id, yaml_path, metadata))
         except Exception:
             logger.exception("[ServiceLoader] 服务 %s 文件损坏", service_id)
             return
-        try:
-            nodes = [node for sublist in nodes for node in sublist]
-        except Exception:
-            logger.exception("[ServiceLoader] 服务 %s 获取Node列表失败", service_id)
-            return
         # 更新数据库
-        nodes = [NodePool(**node.model_dump(exclude_none=True, by_alias=True)) for node in nodes]
-        await self._update_db(nodes, metadata)
+        node_pool_list = [
+            NodePool(
+                _id=node.id,
+                name=node.name,
+                description=node.description,
+                call_id=node.call_id,
+                override_input=node.override_input.model_dump(
+                    exclude_none=True,
+                    by_alias=True,
+                )
+                if node.override_input
+                else {},
+                override_output=node.override_output.model_dump(
+                    exclude_none=True,
+                    by_alias=True,
+                )
+                if node.override_output
+                else {},
+            )
+            for node in nodes
+        ]
+        await self._update_db(node_pool_list, metadata)
+
 
     async def save(self, service_id: str, metadata: ServiceMetadata, data: dict) -> None:
         """在文件系统上保存Service，并更新数据库"""
@@ -72,6 +92,7 @@ class ServiceLoader:
         file_checker = FileChecker()
         await file_checker.diff_one(service_path)
         await self.load(service_id, file_checker.hashes[f"service/{service_id}"])
+
 
     async def delete(self, service_id: str, *, is_reload: bool = False) -> None:
         """删除Service，并更新数据库"""
@@ -98,6 +119,7 @@ class ServiceLoader:
             path = Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id
             if await path.exists():
                 shutil.rmtree(path)
+
 
     async def _update_db(self, nodes: list[NodePool], metadata: ServiceMetadata) -> None:
         """更新数据库"""

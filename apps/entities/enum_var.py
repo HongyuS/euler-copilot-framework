@@ -135,3 +135,14 @@ class CallOutputType(str, Enum):
 
     TEXT = "text"
     DATA = "data"
+
+
+class SpecialCallType(str, Enum):
+    """特殊Call类型"""
+
+    EMPTY = "Empty"
+    SUMMARY = "Summary"
+    FACTS = "Facts"
+    SLOT = "Slot"
+    OUTPUT = "Output"
+    LLM = "LLM"

@@ -19,61 +19,57 @@ logger = logging.getLogger(__name__)
 class Json(CorePattern):
     """使用FunctionCall范式，生成JSON参数"""
 
-    system_prompt: str = r"""
-        Extract parameter data from conversations using given JSON Schema definitions.
-        Conversations tags: "<conversation>" and "</conversation>".
-        Schema tags: "<tool_call>" and "</tool_call>".
-        The output must be valid JSON without any additional formatting or comments.
-
-        Example:
-        {"search_key": "杭州"}
-
-        Requirements:
-        1. Use "null" if no valid values are present, e.g., `{"search_key": null}`.
-        2. Do not fabricate parameters.
-        3. Example values are for format reference only.
-        4. No comments or instructions in the output JSON.
-
-        EXAMPLE
-        <conversation>
-        [HUMAN] 创建"任务1"，并进行扫描
-        </conversation>
-
-        <tool_call>
-        {
-          "type": "object",
-          "properties": {
-            "name": {
-                "type": "string",
-                "description": "扫描任务的名称",
-                "example": "Task 1"
-            },
-            "enable": {
-                "type": "boolean",
-                "description": "是否启用该任务",
-                "pattern": "(true|false)"
-            }
-          },
-          "required": ["name", "enable"]
-        }
-        </tool_call>
-
-        Output:
-        {"scan": [{"name": "Task 1", "enable": true}]}
-        END OF EXAMPLE
-    """
-    """系统提示词"""
-
     user_prompt: str = r"""
+        <instructions>
+          <instruction>
+            你是一个可以调用工具函数的智能助手。目前你正在使用工具函数，但是函数缺少必要的参数。
+            你需要根据对话内容和JSON Schema定义，提取信息并填充符合要求的JSON参数。
+            要求：
+            1. 输出必须是有效的JSON格式，不包含任何注释或额外格式。
+            2. 如果找不到有效值，直接使用null作为值。
+            3. 不要编造参数，不要编造参数的值。
+            4. 示例值仅作为格式参考，不要直接输出示例值。
+          </instruction>
+
+          <example>
+            <conversation>
+              <user>创建"任务1"，并进行扫描</user>
+            </conversation>
+
+            <schema>
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "扫描任务的名称",
+                    "example": "Task 1"
+                  },
+                  "enable": {
+                    "type": "boolean",
+                    "description": "是否启用该任务",
+                    "pattern": "(true|false)"
+                  }
+                },
+                "required": ["name", "enable"]
+              }
+            </schema>
+
+            <output>
+              {"scan": [{"name": "Task 1", "enable": true}]}
+            </output>
+          </example>
+        </instructions>
+
         <conversation>
         {conversation}
         </conversation>
 
-        <tool_call>
+        <schema>
         {slot_schema}
-        </tool_call>
+        </schema>
 
-        Output:
+        <output>
     """
     """用户提示词"""
 
@@ -162,17 +158,16 @@ class Json(CorePattern):
         conversation_str = ""
         for item in kwargs["conversation"]:
             if item["role"] == "user":
-                conversation_str += f"[HUMAN] {item['content']}"
+                conversation_str += f"<user>{item['content']}</user>"
             if item["role"] == "assistant":
-                conversation_str += f"[ASSISTANT] {item['content']}"
+                conversation_str += f"<assistant>{item['content']}</assistant>"
             if item["role"] == "tool":
-                conversation_str += f"[TOOL OUTPUT] {item['content']}"
+                conversation_str += f"<tool>{item['content']}</tool>"
 
         user_input = self.user_prompt.format(conversation=conversation_str, slot_schema=spec)
 
         # 使用FunctionLLM进行提参
         messages_list = [
-            {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": user_input},
         ]
 

@@ -27,6 +27,7 @@ from apps.entities.response_data import (
     UpdateServiceMsg,
     UpdateServiceRsp,
 )
+from apps.exceptions import InstancePermissionError, ServiceIDError
 from apps.manager.service import ServiceCenterManager
 
 logger = logging.getLogger(__name__)
@@ -119,7 +120,7 @@ async def get_service_list(  # noqa: PLR0913
 
 
 @router.post("", response_model=UpdateServiceRsp, dependencies=[Depends(verify_csrf_token)])
-async def update_service(  # noqa: PLR0911
+async def update_service(
     user_sub: Annotated[str, Depends(get_user)],
     data: Annotated[UpdateServiceRequest, Body(..., description="上传 YAML 文本对应数据对象")],
 ) -> JSONResponse:
@@ -127,83 +128,56 @@ async def update_service(  # noqa: PLR0911
     if not data.service_id:
         try:
             service_id = await ServiceCenterManager.create_service(user_sub, data.data)
-        except ValueError as e:  # OpenAPI YAML 接口字段不完整
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content=ResponseData(
-                    code=status.HTTP_400_BAD_REQUEST,
-                    message=str(e),
-                    result={},
-                ).model_dump(exclude_none=True, by_alias=True),
-            )
-        except Exception:
+        except Exception as e:
             logger.exception("[ServiceCenter] 创建服务失败")
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content=ResponseData(
                     code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    message="ERROR",
+                    message=f"OpenAPI解析错误: {e!s}",
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
     else:
         try:
             service_id = await ServiceCenterManager.update_service(user_sub, data.service_id, data.data)
-        except ValueError as e:
-            if str(e).startswith("Endpoint error"):  # OpenAPI YAML 接口字段不完整
-                return JSONResponse(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    content=ResponseData(
-                        code=status.HTTP_400_BAD_REQUEST,
-                        message=str(e),
-                        result={},
-                    ).model_dump(exclude_none=True, by_alias=True),
-                )
+        except ServiceIDError:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content=ResponseData(
                     code=status.HTTP_400_BAD_REQUEST,
-                    message="INVALID_SERVICE_ID",
+                    message="Service ID错误",
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
-        except PermissionError:
+        except InstancePermissionError:
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
                 content=ResponseData(
                     code=status.HTTP_403_FORBIDDEN,
-                    message="UNAUTHORIZED",
+                    message="未授权访问",
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
-        except Exception:
+        except Exception as e:
             logger.exception("[ServiceCenter] 更新服务失败")
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content=ResponseData(
                     code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    message="ERROR",
+                    message=f"更新服务失败: {e!s}",
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
     try:
         name, apis = await ServiceCenterManager.get_service_apis(service_id)
-    except ValueError:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content=ResponseData(
-                code=status.HTTP_400_BAD_REQUEST,
-                message="OpenAPI 格式错误，YAML 解析失败",
-                result={},
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
-    except Exception:
+    except Exception as e:
         logger.exception("[ServiceCenter] 获取服务API失败")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
                 code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                message="ERROR",
+                message=f"获取服务API失败: {e!s}",
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
@@ -224,21 +198,21 @@ async def get_service_detail(
     if edit:
         try:
             name, data = await ServiceCenterManager.get_service_data(user_sub, service_id)
-        except ValueError:
+        except ServiceIDError:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content=ResponseData(
                     code=status.HTTP_400_BAD_REQUEST,
-                    message="INVALID_SERVICE_ID",
+                    message="Service ID错误",
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
-        except PermissionError:
+        except InstancePermissionError:
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
                 content=ResponseData(
                     code=status.HTTP_403_FORBIDDEN,
-                    message="UNAUTHORIZED",
+                    message="未授权访问",
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
@@ -256,12 +230,12 @@ async def get_service_detail(
     else:
         try:
             name, apis = await ServiceCenterManager.get_service_apis(service_id)
-        except ValueError:
+        except ServiceIDError:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content=ResponseData(
                     code=status.HTTP_400_BAD_REQUEST,
-                    message="INVALID_SERVICE_ID",
+                    message="Service ID错误",
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
@@ -288,21 +262,21 @@ async def delete_service(
     """删除服务"""
     try:
         await ServiceCenterManager.delete_service(user_sub, service_id)
-    except ValueError:
+    except ServiceIDError:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content=ResponseData(
                 code=status.HTTP_400_BAD_REQUEST,
-                message="INVALID_SERVICE_ID",
+                message="Service ID错误",
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    except PermissionError:
+    except InstancePermissionError:
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
             content=ResponseData(
                 code=status.HTTP_403_FORBIDDEN,
-                message="UNAUTHORIZED",
+                message="未授权访问",
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
@@ -339,12 +313,12 @@ async def modify_favorite_service(
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
-    except ValueError:
+    except ServiceIDError:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content=ResponseData(
                 code=status.HTTP_400_BAD_REQUEST,
-                message="INVALID_SERVICE_ID",
+                message="Service ID错误",
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )

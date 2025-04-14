@@ -12,7 +12,7 @@ import yaml
 from anyio import Path
 
 from apps.entities.enum_var import ContentType, HTTPMethod
-from apps.entities.flow import ServiceMetadata
+from apps.entities.flow import ServiceApiConfig, ServiceMetadata
 from apps.entities.node import APINode, APINodeInput, APINodeOutput
 from apps.scheduler.openapi import (
     ReducedOpenAPIEndpoint,
@@ -147,6 +147,35 @@ class OpenAPILoader:
             nodes.append(node)
         return nodes
 
+
+    async def load_dict(
+        self,
+        yaml_dict: dict[str, Any],
+    ) -> ReducedOpenAPISpec:
+        """加载字典形式的OpenAPI文档"""
+        spec = reduce_openapi_spec(yaml_dict)
+        # 使用临时的空元数据
+        service_metadata = ServiceMetadata(
+            id="temp",
+            name="测试用服务",
+            description="测试用服务",
+            version="",
+            author="",
+            api=ServiceApiConfig(
+                server="",
+                auth=None,
+            ),
+        )
+        try:
+            await self._process_spec(service_metadata.id, "temp.yaml", spec, service_metadata)
+        except Exception:
+            err = "[OpenAPILoader] 处理OpenAPI文档失败"
+            logger.exception(err)
+            raise
+
+        return spec
+
+
     async def load_one(self, service_id: str, yaml_path: Path, service_metadata: ServiceMetadata) -> list[APINode]:
         """加载单个OpenAPI文档，可以直接指定路径"""
         try:
@@ -164,11 +193,16 @@ class OpenAPILoader:
             logger.exception(err)
             raise RuntimeError(err) from e
 
+
     async def save_one(self, yaml_path: Path, yaml_dict: dict[str, Any]) -> None:
         """保存单个OpenAPI文档"""
         try:
             yaml.add_representer(str, yaml_str_presenter)
-            yaml_data = yaml.safe_dump(yaml_dict)
+            yaml_data = yaml.safe_dump(
+                yaml_dict,
+                allow_unicode=True,
+                sort_keys=False,
+            )
             await yaml_path.write_text(yaml_data)
         except Exception as e:
             if await yaml_path.exists():

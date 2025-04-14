@@ -15,6 +15,7 @@ from apps.entities.enum_var import SearchType
 from apps.entities.flow import AppMetadata, MetadataType, Permission
 from apps.entities.pool import AppPool
 from apps.entities.response_data import RecentAppList, RecentAppListItem
+from apps.exceptions import InstancePermissionError
 from apps.manager.flow import FlowManager
 from apps.models.mongo import MongoDB
 from apps.scheduler.pool.loader.app import AppLoader
@@ -251,7 +252,7 @@ class AppCenterManager:
             raise ValueError(msg)
         if app_data.author != user_sub:
             msg = "Permission denied"
-            raise PermissionError(msg)
+            raise InstancePermissionError(msg)
         metadata.flows = app_data.flows
         metadata.published = app_data.published
         app_loader = AppLoader()
@@ -272,7 +273,7 @@ class AppCenterManager:
             raise ValueError(msg)
         if app_data.author != user_sub:
             msg = "Permission denied"
-            raise PermissionError(msg)
+            raise InstancePermissionError(msg)
         await app_collection.update_one(
             {"_id": app_id},
             {"$set": {"published": True}},
@@ -347,7 +348,7 @@ class AppCenterManager:
             raise ValueError(msg)
         if app_data.author != user_sub:
             msg = "Permission denied"
-            raise PermissionError(msg)
+            raise InstancePermissionError(msg)
         # 删除应用
         app_loader = AppLoader()
         await app_loader.delete(app_id)
