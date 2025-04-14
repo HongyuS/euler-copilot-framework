@@ -7,7 +7,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 
 import logging
 from collections.abc import AsyncGenerator
-from typing import Any, ClassVar
+from typing import Annotated, Any, ClassVar
 
 import aiohttp
 from fastapi import status
@@ -25,13 +25,15 @@ logger = logging.getLogger(__name__)
 class SQL(CoreCall, input_type=SQLInput, output_type=SQLOutput):
     """SQL工具。用于调用外置的Chat2DB工具的API，获得SQL语句；再在PostgreSQL中执行SQL语句，获得数据。"""
 
-    name: ClassVar[str] = Field(description="数据库", exclude=True)
-    description: ClassVar[str] = Field(description="使用大模型生成SQL语句，用于查询数据库中的结构化数据", exclude=True)
+    name: ClassVar[Annotated[str, Field(description="工具名称", exclude=True, frozen=True)]] = "数据库查询"
+    description: ClassVar[
+        Annotated[str, Field(description="工具描述", exclude=True, frozen=True)]
+    ] = "使用大模型生成SQL语句，用于查询数据库中的结构化数据"
 
-    database_url: ClassVar[str] = Field(description="数据库连接地址")
-    table_name_list: ClassVar[list[str]] = Field(description="表名列表",default=[])
-    top_k: ClassVar[int] = Field(description="生成SQL语句数量",default=5)
-    use_llm_enhancements: ClassVar[bool] = Field(description="是否使用大模型增强",default=False)
+    database_url: str = Field(description="数据库连接地址")
+    table_name_list: list[str] = Field(description="表名列表",default=[])
+    top_k: int = Field(description="生成SQL语句数量",default=5)
+    use_llm_enhancements: bool = Field(description="是否使用大模型增强", default=False)
 
 
     async def _init(self, call_vars: CallVars) -> dict[str, Any]:
