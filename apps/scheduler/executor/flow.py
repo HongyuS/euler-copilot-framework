@@ -7,7 +7,6 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 import logging
 import uuid
 from collections import deque
-from copy import deepcopy
 from typing import Any
 
 from pydantic import Field
@@ -19,7 +18,6 @@ from apps.entities.task import ExecutorState, StepQueueItem
 from apps.manager.task import TaskManager
 from apps.scheduler.call.llm.schema import LLM_ERROR_PROMPT
 from apps.scheduler.call.output.output import Output
-from apps.scheduler.call.slot.schema import SlotInput
 from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.executor.step import StepExecutor
 
@@ -86,32 +84,6 @@ class FlowExecutor(BaseExecutor):
         self.step_queue: deque[StepQueueItem] = deque()
 
 
-    async def _run_slot_filling(self, step_id: str, step: Step) -> dict[str, Any] | None:
-        """运行自动参数填充"""
-        # 给填参Step加入参数
-        slot_step = deepcopy(SLOT_FILLING_STEP)
-        slot_step.params = {
-            "data": self.task.runtime.filled,
-            "current_schema": ,
-        }
-
-        slot_step_runner = StepExecutor(
-            msg_queue=self.msg_queue,
-            task=self.task,
-            step=SLOT_FILLING_STEP,
-            step_id=str(uuid.uuid4()),
-            background=self.background,
-            question=self.question,
-            history=self.history,
-        )
-        await slot_step_runner.init()
-        result = await slot_step_runner.run_step()
-        if result:
-            self.task.runtime.filled.update(result)
-
-        return self.task.runtime.filled
-
-
     async def _invoke_runner(self, step_id: str, step: Step, *, enable_slot_filling: bool = True) -> dict[str, Any]:
         """单一Step执行"""
         if not self.task.state:
@@ -132,11 +104,6 @@ class FlowExecutor(BaseExecutor):
 
         # 初始化步骤
         await step_runner.init()
-
-        if enable_slot_filling:
-            slot_result = await self._run_slot_filling(step_id, step)
-        else:
-            slot_result = None
 
         # 运行Step，并判断是否需要输出
         if isinstance(step_runner.obj, Output):
@@ -222,7 +189,7 @@ class FlowExecutor(BaseExecutor):
 
         logger.info("[FlowExecutor] 运行工作流")
         # 推送Flow开始消息
-        await self.push_message(EventType.FLOW_START)
+        await self.push_message(EventType.FLOW_START.value)
 
         # 获取首个步骤
         first_step = StepQueueItem(
@@ -279,7 +246,7 @@ class FlowExecutor(BaseExecutor):
         await self._step_process()
 
         # 推送Flow停止消息
-        await self.push_message(EventType.FLOW_STOP)
+        await self.push_message(EventType.FLOW_STOP.value)
 
         # 更新全局的Task
         await TaskManager.save_task(self.task.id, self.task)

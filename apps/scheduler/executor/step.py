@@ -5,23 +5,22 @@ from typing import Any
 
 from pydantic import ConfigDict, Field
 
-from apps.common.queue import MessageQueue
-from apps.entities.enum_var import EventType, StepStatus, SpecialCallType
+from apps.entities.enum_var import (
+    EventType,
+    SpecialCallType,
+    StepStatus,
+)
 from apps.entities.flow import Step
+from apps.entities.message import TextAddContent
 from apps.entities.scheduler import CallOutputChunk
-from apps.entities.task import FlowStepHistory, Task
+from apps.entities.task import FlowStepHistory
 from apps.manager.node import NodeManager
 from apps.manager.task import TaskManager
+from apps.scheduler.call.slot.slot import Slot
 from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.executor.node import StepNode
-from apps.scheduler.call.slot.slot import Slot
 
 logger = logging.getLogger(__name__)
-SPECIAL_EVENT_TYPES = [
-    EventType.GRAPH,
-    EventType.SUGGEST,
-    EventType.TEXT_ADD,
-]
 
 
 class StepExecutor(BaseExecutor):
@@ -43,32 +42,11 @@ class StepExecutor(BaseExecutor):
 
         self.history = FlowStepHistory(
             task_id=self.task.id,
-            flow_id=self.task.state.flow_id, # type: ignore
-            step_id=self.task.state.step_id, # type: ignore
-            status=self.task.state.status, # type: ignore
+            flow_id=self.task.state.flow_id, # type: ignore[arg-type]
+            step_id=self.task.state.step_id, # type: ignore[arg-type]
+            status=self.task.state.status, # type: ignore[arg-type]
             input_data={},
             output_data={},
-        )
-
-    async def _push_call_output(
-        self,
-        task: Task,
-        queue: MessageQueue,
-        msg_type: EventType,
-        data: dict[str, Any],
-    ) -> None:
-        """推送输出"""
-        # 如果不是特殊类型
-        if msg_type not in SPECIAL_EVENT_TYPES:
-            err = f"[StepExecutor] 不支持的事件类型: {msg_type}"
-            logger.error(err)
-            raise ValueError(err)
-
-        # 推送消息
-        await queue.push_output(
-            task,
-            event_type=msg_type,
-            data=data,
         )
 
     async def init(self) -> None:
@@ -78,9 +56,9 @@ class StepExecutor(BaseExecutor):
         logger.info("[StepExecutor] 初始化步骤 %s", self.step.name)
 
         # State写入ID和运行状态
-        self.task.state.step_id = self.step_id # type: ignore
-        self.task.state.step_name = self.step.name # type: ignore
-        self.task.state.status = StepStatus.RUNNING # type: ignore
+        self.task.state.step_id = self.step_id # type: ignore[arg-type]
+        self.task.state.step_name = self.step.name # type: ignore[arg-type]
+        self.task.state.status = StepStatus.RUNNING # type: ignore[arg-type]
         await TaskManager.save_task(self.task.id, self.task)
 
         # 获取并验证Call类
@@ -112,7 +90,7 @@ class StepExecutor(BaseExecutor):
         except Exception:
             logger.exception("[StepExecutor] 初始化Call失败")
             raise
-    
+
 
     async def _run_slot_filling(self) -> None:
         """运行自动参数填充"""
@@ -129,44 +107,76 @@ class StepExecutor(BaseExecutor):
             SpecialCallType.START.value,
             SpecialCallType.END.value,
         ]:
-            return None
-        
+            return
+
         # 暂存旧数据
-        current_step_id = self.task.state.step_id # type: ignore
-        current_step_name = self.task.state.step_name # type: ignore
-        current_step_status = self.task.state.status # type: ignore
+        current_step_id = self.task.state.step_id # type: ignore[arg-type]
+        current_step_name = self.task.state.step_name # type: ignore[arg-type]
+        current_step_status = self.task.state.status # type: ignore[arg-type]
+
+        # 更新State
+        self.task.state.step_id = str(uuid.uuid4()) # type: ignore[arg-type]
+        self.task.state.step_name = "自动参数填充" # type: ignore[arg-type]
+        self.task.state.status = StepStatus.RUNNING # type: ignore[arg-type]
+        await TaskManager.save_task(self.task.id, self.task)
+
+        # 推送填参消息
+        await self.push_message(EventType.STEP_INPUT.value, self.input)
+
+        # 准备参数
+        params = {
+            "data": self.input,
+            "current_schema": self.obj.input_type.model_json_schema(),
+        }
 
         # 运行填参
-        await Slot().run(self)
+        slot_obj, slot_input = await Slot.init(self, **params)
+
+        # 恢复State
+        self.task.state.step_id = current_step_id # type: ignore[arg-type]
+        self.task.state.step_name = current_step_name # type: ignore[arg-type]
+        self.task.state.status = current_step_status # type: ignore[arg-type]
+        await TaskManager.save_task(self.task.id, self.task)
 
 
     async def run_step(self, *, to_user: bool = False) -> None:
         """运行单个步骤"""
         self.validate_flow_state(self.task)
-
         logger.info("[StepExecutor] 运行步骤 %s", self.step.name)
 
-        # 合并已经填充的参数
-        self.input.update(self.task.runtime.filled)
-        await self.push_message(EventType.STEP_INPUT, self.input)
+        # 推送输入
+        await self.push_message(EventType.STEP_INPUT.value, self.input)
 
         # 执行步骤
         iterator = self.obj.exec(self, self.input)
 
-        self.answer = ""
-        self.content = {}
-        if not to_user:
-            async for chunk in iterator:
-                if not isinstance(chunk, CallOutputChunk):
-                    err = "[StepExecutor] 返回结果类型错误"
-                    logger.error(err)
-                    raise TypeError(err)
+        content: str | dict[str, Any] = ""
+        async for chunk in iterator:
+            if not isinstance(chunk, CallOutputChunk):
+                err = "[StepExecutor] 返回结果类型错误"
+                logger.error(err)
+                raise TypeError(err)
+            
+            if isinstance(chunk.content, str):
+                if not isinstance(content, str):
+                    content = ""
+                content += chunk.content
+            else:
+                if not isinstance(content, dict):
+                    content = {}
+                content = chunk.content
 
+            if to_user:
                 if isinstance(chunk.content, str):
-                    self.answer += chunk.content
+                    await self.push_message(EventType.TEXT_ADD.value, chunk.content)
                 else:
-                    self.content = chunk.content
+                    await self.push_message(self.step.type, chunk.content)
 
         # 更新执行状态
-        self.task.state.status = StepStatus.SUCCESS # type: ignore
-        await self.push_message(EventType.STEP_OUTPUT, self.content)
+        self.task.state.status = StepStatus.SUCCESS # type: ignore[arg-type]
+
+        if isinstance(content, str):
+            self.content = TextAddContent(text=content).model_dump(exclude_none=True, by_alias=True)
+        else:
+            self.content = content
+        await self.push_message(EventType.STEP_OUTPUT.value, self.content)
