@@ -162,7 +162,7 @@ class Scheduler:
             flow_id=flow_id,
             flow=flow_data,
             task=task,
-            queue=queue,
+            msg_queue=queue,
             question=post_body.question,
             post_body_app=app_info,
             background=background,
