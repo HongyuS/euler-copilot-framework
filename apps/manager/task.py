@@ -7,7 +7,6 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 import logging
 import uuid
 
-from apps.entities.enum_var import StepStatus
 from apps.entities.record import RecordGroup
 from apps.entities.request_data import RequestData
 from apps.entities.task import FlowStepHistory, Task, TaskIds, TaskRuntime, TaskTokens
@@ -202,11 +201,6 @@ class TaskManager:
     async def save_task(cls, task_id: str, task: Task) -> None:
         """保存任务块"""
         task_collection = MongoDB.get_collection("task")
-
-        # 判断Task是否结束
-        if task.state and task.state.status in (StepStatus.ERROR, StepStatus.SUCCESS):
-            logger.info("[TaskManager] 任务 %s 已完成，状态为 %s，跳过保存", task_id, task.state.status)
-            return
 
         # 更新已有的Task记录
         await task_collection.update_one(

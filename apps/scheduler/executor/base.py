@@ -18,7 +18,7 @@ class BaseExecutor(BaseModel):
     """Executor基类"""
 
     task: Task
-    queue: MessageQueue
+    msg_queue: MessageQueue
     background: ExecutorBackground
     question: str
     history: FlowStepHistory | None = None
@@ -68,7 +68,7 @@ class BaseExecutor(BaseModel):
                     self.history.status = self.task.state.status
                     self.task.context[self.task.state.step_id] = self.history
 
-        await self.queue.push_output(
+        await self.msg_queue.push_output(
             self.task,
             event_type=event_type,
             data=data,  # type: ignore[arg-type]

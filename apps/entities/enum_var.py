@@ -146,3 +146,5 @@ class SpecialCallType(str, Enum):
     SLOT = "Slot"
     OUTPUT = "Output"
     LLM = "LLM"
+    START = "start"
+    END = "end"

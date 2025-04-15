@@ -14,7 +14,6 @@ from apps.scheduler.call.core import CoreCall
 from apps.scheduler.call.facts.schema import FactsInput, FactsOutput
 
 if TYPE_CHECKING:
-    from apps.entities.task import Task
     from apps.scheduler.executor.step import StepExecutor
 
 
@@ -29,26 +28,32 @@ class FactsCall(CoreCall, input_type=FactsInput, output_type=FactsOutput):
     answer: str = Field(description="用户输入")
 
     @classmethod
-    async def init(cls, **kwargs: Any) -> Self:
+    async def init(cls, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
         """初始化工具"""
-        task: Task = kwargs["task"]
-        return cls(answer=task.runtime.answer, **kwargs)
+        cls_obj = cls(answer=executor.task.runtime.answer, **kwargs)
 
-    async def _init(self, syscall_vars: CallVars) -> dict[str, Any]:
+        call_vars = cls.assemble_call_vars(executor)
+        input_data = await cls_obj._init(call_vars)
+
+        return cls_obj, input_data
+
+
+    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
         """初始化工具"""
-        await super()._init(syscall_vars)
+        await super()._init(call_vars)
 
         # 组装必要变量
         message = [
-            {"role": "user", "content": syscall_vars.question},
+            {"role": "user", "content": call_vars.question},
             {"role": "assistant", "content": self.answer},
         ]
 
         return FactsInput(
-            task_id=syscall_vars.task_id,
-            user_sub=syscall_vars.user_sub,
+            task_id=call_vars.task_id,
+            user_sub=call_vars.user_sub,
             message=message,
         ).model_dump(exclude_none=True, by_alias=True)
+
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """执行工具"""
@@ -67,6 +72,7 @@ class FactsCall(CoreCall, input_type=FactsInput, output_type=FactsOutput):
                 domain=domain_list,
             ).model_dump(by_alias=True, exclude_none=True),
         )
+
 
     async def exec(self, executor: "StepExecutor", input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """执行工具"""
