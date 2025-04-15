@@ -229,11 +229,10 @@ echo -e "${BLUE}=== 开始模型部署 ===${NC}"
 
 echo -e "${GREEN}=== 模型部署成功 ===${NC}"
 
+echo -e "${YELLOW}使用说明：${NC}"
+echo -e "${YELLOW}1. 启动交互模式：ollama run $MODEL_NAME${NC}"
+echo -e "${BLUE}2. API访问示例：${NC}"
 cat << EOF
-${YELLOW}
-使用说明：
-1. 启动交互模式：ollama run $MODEL_NAME
-${BLUE}2. API访问示例：${NC}
 curl http://localhost:11434/v1/chat/completions \\
 -H "Content-Type: application/json" \\
 -H "Authorization: Bearer sk-123456" \\
@@ -247,8 +246,8 @@ curl http://localhost:11434/v1/chat/completions \\
     "n": 1,
     "max_tokens": 2048
 }'
-
-${BLUE}3. 流式对话模式：${NC}
-将上述请求中的 "stream": false 改为 "stream": true
-${NC}
 EOF
+
+echo -e "${BLUE}3. 流式对话模式：${NC}"
+echo -e "${BLUE}将上述请求中的 "stream": false 改为 "stream": true${NC}"
+
