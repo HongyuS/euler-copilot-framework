@@ -28,9 +28,10 @@ class BaseExecutor(BaseModel):
         extra="allow",
     )
 
-    def validate_flow_state(self) -> None:
+    @staticmethod
+    def validate_flow_state(task: Task) -> None:
         """验证flow_state是否存在"""
-        if not self.task.state:
+        if not task.state:
             err = "[Executor] 当前ExecutorState为空"
             logger.error(err)
             raise ValueError(err)
@@ -42,7 +43,7 @@ class BaseExecutor(BaseModel):
         :param event_type: 事件类型
         :param data: 消息数据，如果是FLOW_START事件且data为None，则自动构建FlowStartContent
         """
-        self.validate_flow_state()
+        self.validate_flow_state(self.task)
 
         if event_type == EventType.FLOW_START and data is None:
             content = FlowStartContent(
