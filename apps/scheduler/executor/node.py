@@ -3,6 +3,7 @@
 import inspect
 from typing import Any
 
+from apps.entities.enum_var import SpecialCallType
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.call.empty import Empty
 from apps.scheduler.call.facts.facts import FactsCall
@@ -30,13 +31,13 @@ class StepNode:
     async def get_call_cls(call_id: str) -> type[CoreCall]:
         """获取并验证Call类"""
         # 特判，用于处理隐藏节点
-        if call_id == "Empty":
+        if call_id == SpecialCallType.EMPTY.value:
             return Empty
-        if call_id == "Summary":
+        if call_id == SpecialCallType.SUMMARY.value:
             return Summary
-        if call_id == "Facts":
+        if call_id == SpecialCallType.FACTS.value:
             return FactsCall
-        if call_id == "Slot":
+        if call_id == SpecialCallType.SLOT.value:
             return Slot
 
         # 从Pool中获取对应的Call
