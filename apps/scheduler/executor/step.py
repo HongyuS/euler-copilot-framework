@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import ConfigDict, Field
 
 from apps.common.queue import MessageQueue
-from apps.entities.enum_var import EventType, StepStatus
+from apps.entities.enum_var import EventType, StepStatus, SpecialCallType
 from apps.entities.flow import Step
 from apps.entities.scheduler import CallOutputChunk
 from apps.entities.task import FlowStepHistory, Task
@@ -14,6 +14,7 @@ from apps.manager.node import NodeManager
 from apps.manager.task import TaskManager
 from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.executor.node import StepNode
+from apps.scheduler.call.slot.slot import Slot
 
 logger = logging.getLogger(__name__)
 SPECIAL_EVENT_TYPES = [
@@ -38,16 +39,13 @@ class StepExecutor(BaseExecutor):
     def __init__(self, **kwargs: Any) -> None:
         """初始化"""
         super().__init__(**kwargs)
-        if not self.task.state:
-            err = "[StepExecutor] 当前ExecutorState为空"
-            logger.error(err)
-            raise ValueError(err)
+        self.validate_flow_state(self.task)
 
         self.history = FlowStepHistory(
             task_id=self.task.id,
-            flow_id=self.task.state.flow_id,
-            step_id=self.task.state.step_id,
-            status=self.task.state.status,
+            flow_id=self.task.state.flow_id, # type: ignore
+            step_id=self.task.state.step_id, # type: ignore
+            status=self.task.state.status, # type: ignore
             input_data={},
             output_data={},
         )
@@ -75,17 +73,14 @@ class StepExecutor(BaseExecutor):
 
     async def init(self) -> None:
         """初始化步骤"""
-        if not self.task.state:
-            err = "[StepExecutor] 当前ExecutorState为空"
-            logger.error(err)
-            raise ValueError(err)
+        self.validate_flow_state(self.task)
 
         logger.info("[StepExecutor] 初始化步骤 %s", self.step.name)
 
         # State写入ID和运行状态
-        self.task.state.step_id = self.step_id
-        self.task.state.step_name = self.step.name
-        self.task.state.status = StepStatus.RUNNING
+        self.task.state.step_id = self.step_id # type: ignore
+        self.task.state.step_name = self.step.name # type: ignore
+        self.task.state.status = StepStatus.RUNNING # type: ignore
         await TaskManager.save_task(self.task.id, self.task)
 
         # 获取并验证Call类
@@ -117,14 +112,37 @@ class StepExecutor(BaseExecutor):
         except Exception:
             logger.exception("[StepExecutor] 初始化Call失败")
             raise
+    
+
+    async def _run_slot_filling(self) -> None:
+        """运行自动参数填充"""
+        # 判断State是否为空
+        self.validate_flow_state(self.task)
+
+        # 特殊步骤跳过填参
+        if self.step.type in [
+            SpecialCallType.SUMMARY.value,
+            SpecialCallType.FACTS.value,
+            SpecialCallType.SLOT.value,
+            SpecialCallType.OUTPUT.value,
+            SpecialCallType.EMPTY.value,
+            SpecialCallType.START.value,
+            SpecialCallType.END.value,
+        ]:
+            return None
+        
+        # 暂存旧数据
+        current_step_id = self.task.state.step_id # type: ignore
+        current_step_name = self.task.state.step_name # type: ignore
+        current_step_status = self.task.state.status # type: ignore
+
+        # 运行填参
+        await Slot().run(self)
 
 
     async def run_step(self, *, to_user: bool = False) -> None:
         """运行单个步骤"""
-        if not self.task.state:
-            err = "[StepExecutor] 当前ExecutorState为空"
-            logger.error(err)
-            raise ValueError(err)
+        self.validate_flow_state(self.task)
 
         logger.info("[StepExecutor] 运行步骤 %s", self.step.name)
 
@@ -150,5 +168,5 @@ class StepExecutor(BaseExecutor):
                     self.content = chunk.content
 
         # 更新执行状态
-        self.task.state.status = StepStatus.SUCCESS
+        self.task.state.status = StepStatus.SUCCESS # type: ignore
         await self.push_message(EventType.STEP_OUTPUT, self.content)

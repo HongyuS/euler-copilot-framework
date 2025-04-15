@@ -7,6 +7,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 import logging
 import uuid
 from collections import deque
+from copy import deepcopy
 from typing import Any
 
 from pydantic import Field
@@ -18,10 +19,12 @@ from apps.entities.task import ExecutorState, StepQueueItem
 from apps.manager.task import TaskManager
 from apps.scheduler.call.llm.schema import LLM_ERROR_PROMPT
 from apps.scheduler.call.output.output import Output
+from apps.scheduler.call.slot.schema import SlotInput
 from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.executor.step import StepExecutor
 
 logger = logging.getLogger(__name__)
+# 开始前的固定步骤
 FIXED_STEPS_BEFORE_START = [
     Step(
         name="理解上下文",
@@ -30,6 +33,7 @@ FIXED_STEPS_BEFORE_START = [
         type=SpecialCallType.SUMMARY.value,
     ),
 ]
+# 结束后的固定步骤
 FIXED_STEPS_AFTER_END = [
     Step(
         name="记忆存储",
@@ -38,12 +42,7 @@ FIXED_STEPS_AFTER_END = [
         type=SpecialCallType.FACTS.value,
     ),
 ]
-SLOT_FILLING_STEP = Step(
-    name="自动参数填充",
-    description="根据工作流上下文，自动填充参数",
-    node=SpecialCallType.SLOT.value,
-    type=SpecialCallType.SLOT.value,
-)
+# 错误处理步骤
 ERROR_STEP = Step(
     name="错误处理",
     description="错误处理",
@@ -87,6 +86,32 @@ class FlowExecutor(BaseExecutor):
         self.step_queue: deque[StepQueueItem] = deque()
 
 
+    async def _run_slot_filling(self, step_id: str, step: Step) -> dict[str, Any] | None:
+        """运行自动参数填充"""
+        # 给填参Step加入参数
+        slot_step = deepcopy(SLOT_FILLING_STEP)
+        slot_step.params = {
+            "data": self.task.runtime.filled,
+            "current_schema": ,
+        }
+
+        slot_step_runner = StepExecutor(
+            msg_queue=self.msg_queue,
+            task=self.task,
+            step=SLOT_FILLING_STEP,
+            step_id=str(uuid.uuid4()),
+            background=self.background,
+            question=self.question,
+            history=self.history,
+        )
+        await slot_step_runner.init()
+        result = await slot_step_runner.run_step()
+        if result:
+            self.task.runtime.filled.update(result)
+
+        return self.task.runtime.filled
+
+
     async def _invoke_runner(self, step_id: str, step: Step, *, enable_slot_filling: bool = True) -> dict[str, Any]:
         """单一Step执行"""
         if not self.task.state:
@@ -108,35 +133,10 @@ class FlowExecutor(BaseExecutor):
         # 初始化步骤
         await step_runner.init()
 
-        if step.type in [
-            SpecialCallType.SUMMARY.value,
-            SpecialCallType.FACTS.value,
-            SpecialCallType.SLOT.value,
-            SpecialCallType.OUTPUT.value,
-            SpecialCallType.EMPTY.value,
-            SpecialCallType.START.value,
-            SpecialCallType.END.value,
-        ]:
-            enable_slot_filling = False
-
-        # 运行参数填充Step
         if enable_slot_filling:
-            slot_step = StepExecutor(
-                msg_queue=self.msg_queue,
-                task=self.task,
-                step=SLOT_FILLING_STEP,
-                step_id=str(uuid.uuid4()),
-                background=self.background,
-                question=self.question,
-                history=self.history,
-            )
-            await slot_step.init()
-            result = await slot_step.run_step()
-            if result:
-                self.task.runtime.filled.update(result)
-
-            # 合并参数
-            step_runner.input = self.task.runtime.filled
+            slot_result = await self._run_slot_filling(step_id, step)
+        else:
+            slot_result = None
 
         # 运行Step，并判断是否需要输出
         if isinstance(step_runner.obj, Output):
@@ -164,14 +164,6 @@ class FlowExecutor(BaseExecutor):
                 queue_item = self.step_queue.pop()
             except IndexError:
                 break
-
-            # 更新Task
-            self.task.state.step_id = queue_item.step_id
-            self.task.state.step_name = queue_item.step.name
-            if queue_item.step_id not in self.flow.steps:
-                self.task.state.slot = {}
-            else:
-                self.task.state.slot = self.flow.steps[queue_item.step_id].params
 
             # 执行Step
             content = await self._invoke_runner(
@@ -232,15 +224,25 @@ class FlowExecutor(BaseExecutor):
         # 推送Flow开始消息
         await self.push_message(EventType.FLOW_START)
 
-        # 进行开始前的系统步骤
+        # 获取首个步骤
+        first_step = StepQueueItem(
+            step_id=self.task.state.step_id,
+            step=self.flow.steps[self.task.state.step_id],
+        )
+
+        # 头插开始前的系统步骤，并执行
         for step in FIXED_STEPS_BEFORE_START:
             self.step_queue.append(StepQueueItem(
                 step_id=str(uuid.uuid4()),
                 step=step,
                 enable_filling=False,
             ))
+        await self._step_process()
 
-        # 如果允许继续运行Flow
+        # 插入首个步骤
+        self.step_queue.append(first_step)
+
+        # 运行Flow（未达终点）
         while not self._reached_end:
             # 如果当前步骤出错，执行错误处理步骤
             if self.task.state.status == StepStatus.ERROR:
@@ -253,18 +255,8 @@ class FlowExecutor(BaseExecutor):
                 ))
                 # 错误处理后结束
                 self._reached_end = True
-            else:
-                try:
-                    self.step_queue.append(StepQueueItem(
-                        step_id=self.task.state.step_id,
-                        step=self.flow.steps[self.task.state.step_id],
-                    ))
-                except KeyError:
-                    logger.info("[FlowExecutor] 当前步骤 %s 不存在", self.task.state.step_id)
-                    self.task.state.status = StepStatus.ERROR
-                    continue
 
-            # 执行正常步骤
+            # 执行步骤
             await self._step_process()
 
             # 步骤结束，更新全局的Task
@@ -278,7 +270,7 @@ class FlowExecutor(BaseExecutor):
             for step in next_step:
                 self.step_queue.append(step)
 
-        # 运行结束后的系统步骤
+        # 尾插运行结束后的系统步骤
         for step in FIXED_STEPS_AFTER_END:
             self.step_queue.append(StepQueueItem(
                 step_id=str(uuid.uuid4()),
