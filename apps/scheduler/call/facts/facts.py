@@ -40,8 +40,6 @@ class FactsCall(CoreCall, input_type=FactsInput, output_type=FactsOutput):
 
     async def _init(self, call_vars: CallVars) -> dict[str, Any]:
         """初始化工具"""
-        await super()._init(call_vars)
-
         # 组装必要变量
         message = [
             {"role": "user", "content": call_vars.question},
