@@ -1,12 +1,15 @@
 """参数填充工具"""
+
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self
 
+import jinja2
 from pydantic import Field
 
 from apps.entities.enum_var import CallOutputType
 from apps.entities.scheduler import CallOutputChunk, CallVars
 from apps.llm.patterns.json_gen import Json
+from apps.manager.task import TaskManager
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.call.slot.schema import SlotInput, SlotOutput
 from apps.scheduler.slot.slot import Slot as SlotProcessor
@@ -36,7 +39,7 @@ class Slot(CoreCall, input_type=SlotInput, output_type=SlotOutput):
 
                 事实信息: {self.facts}
 
-                历史输出（JSON）: {self.step_num}
+                历史输出（JSON）: {self._flow_history}
             """},
         ]
 
@@ -48,17 +51,22 @@ class Slot(CoreCall, input_type=SlotInput, output_type=SlotOutput):
 
     @classmethod
     async def init(cls, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
-        """初始化"""
+        """实例化Call类"""
+        call_obj = cls(
+            facts=executor.background.facts,
+            summary=executor.task.runtime.summary,
+            **kwargs,
+        )
+
         sys_vars = cls.assemble_call_vars(executor)
+        input_data = await call_obj._init(sys_vars)
+        return call_obj, input_data
 
-        cls_obj = cls(**kwargs)
-        input_data = await cls_obj._init(sys_vars)
-
-        return cls_obj, input_data
 
     async def _init(self, call_vars: CallVars) -> dict[str, Any]:
         """初始化"""
         self._task_id = call_vars.task_id
+        self._flow_history = await TaskManager.get_flow_history_by_task_id(self._task_id, self.step_num)
 
         if not self.current_schema:
             return SlotInput(
