@@ -108,7 +108,7 @@ get_ollama_url() {
 }
 
 install_ollama() {
-  log "INFO" "步骤4/8：安装Ollama核心..."
+  log "INFO" "步骤3/8：安装Ollama核心..."
   local install_url=$(get_ollama_url)
   local tmp_file="/tmp/ollama-${ARCH}.tgz"
   # 增强清理逻辑
@@ -162,7 +162,15 @@ install_ollama() {
     exit 1
   fi
   log "SUCCESS" "Ollama核心安装完成，版本: $($OLLAMA_BIN_PATH --version || echo '未知')"
+    # 新增：创建兼容性符号链接
+  if [ ! -L "/usr/local/bin/ollama" ]; then
+    ln -sf "$OLLAMA_BIN_PATH" "/usr/local/bin/ollama"
+    log "INFO" "已创建符号链接：/usr/local/bin/ollama → $OLLAMA_BIN_PATH"
+  fi
 
+  # 设置库路径
+  echo "${OLLAMA_LIB_DIR}" > /etc/ld.so.conf.d/ollama.conf
+  ldconfig
 }
 
 fix_user() {
