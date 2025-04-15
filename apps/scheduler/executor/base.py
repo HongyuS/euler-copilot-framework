@@ -2,12 +2,13 @@
 
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
 from apps.common.queue import MessageQueue
 from apps.entities.enum_var import EventType
-from apps.entities.message import FlowStartContent
+from apps.entities.message import FlowStartContent, TextAddContent
 from apps.entities.scheduler import ExecutorBackground
 from apps.entities.task import FlowStepHistory, Task
 
@@ -36,7 +37,7 @@ class BaseExecutor(BaseModel):
             logger.error(err)
             raise ValueError(err)
 
-    async def push_message(self, event_type: EventType, data: dict | None = None) -> None:
+    async def push_message(self, event_type: str, data: dict[str, Any] | str | None = None) -> None:  # noqa: C901
         """
         统一的消息推送接口
 
@@ -45,32 +46,39 @@ class BaseExecutor(BaseModel):
         """
         self.validate_flow_state(self.task)
 
-        if event_type == EventType.FLOW_START and data is None:
-            content = FlowStartContent(
+        if event_type == EventType.FLOW_START.value and isinstance(data, dict):
+            data = FlowStartContent(
                 question=self.question,
                 params=self.task.runtime.filled,
-            )
-            data = content.model_dump(exclude_none=True, by_alias=True)
-        elif event_type == EventType.FLOW_STOP and data is None:
+            ).model_dump(exclude_none=True, by_alias=True)
+        elif event_type == EventType.FLOW_STOP.value:
             data = {}
-        elif event_type == EventType.STEP_INPUT:
+        elif event_type == EventType.STEP_INPUT.value and isinstance(data, dict):
             # 更新step_history的输入数据
-            if self.history is not None and data is not None:
+            if self.history is not None:
                 self.history.input_data = data
                 if self.task.state is not None:
                     self.history.status = self.task.state.status
                 # 步骤开始，重置时间
                 self.task.tokens.time = round(datetime.now(UTC).timestamp(), 2)
-        elif event_type == EventType.STEP_OUTPUT:
+        elif event_type == EventType.STEP_OUTPUT.value and isinstance(data, dict):
             # 更新step_history的输出数据
-            if self.history is not None and data is not None:
+            if self.history is not None:
                 self.history.output_data = data
                 if self.task.state is not None:
                     self.history.status = self.task.state.status
                     self.task.context[self.task.state.step_id] = self.history
+        elif event_type == EventType.TEXT_ADD.value and isinstance(data, str):
+            data=TextAddContent(text=data).model_dump(exclude_none=True, by_alias=True)
+
+
+        if data is None:
+            data = {}
+        elif isinstance(data, str):
+            data = TextAddContent(text=data).model_dump(exclude_none=True, by_alias=True)
 
         await self.msg_queue.push_output(
             self.task,
             event_type=event_type,
-            data=data,  # type: ignore[arg-type]
+            data=data, # type: ignore[arg-type]
         )

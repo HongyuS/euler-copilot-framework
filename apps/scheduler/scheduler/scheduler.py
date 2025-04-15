@@ -114,7 +114,7 @@ class Scheduler:
         # 更新Task，发送结束消息
         logger.info("[Scheduler] 发送结束消息")
         await TaskManager.save_task(task.id, task)
-        await self.queue.push_output(task, event_type=EventType.DONE, data={})
+        await self.queue.push_output(task, event_type=EventType.DONE.value, data={})
         # 关闭Queue
         await self.queue.close()
 

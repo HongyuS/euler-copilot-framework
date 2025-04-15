@@ -15,8 +15,8 @@ from apps.entities.record import RecordMetadata
 class HeartbeatData(BaseModel):
     """心跳事件的数据结构"""
 
-    event: EventType = Field(
-        default=EventType.HEARTBEAT, description="支持的事件类型",
+    event: str = Field(
+        default=EventType.HEARTBEAT.value, description="支持的事件类型",
     )
 
 
