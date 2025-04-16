@@ -71,7 +71,6 @@ class CoreCall(BaseModel):
             history=executor.task.context,
             summary=executor.task.runtime.summary,
             user_sub=executor.task.ids.user_sub,
-            service_id=executor.step.params.get("service_id", ""),
         )
 
 
