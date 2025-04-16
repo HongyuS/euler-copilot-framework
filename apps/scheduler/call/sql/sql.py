@@ -74,16 +74,19 @@ class SQL(CoreCall, input_type=SQLInput, output_type=SQLOutput):
                         result = await response.json()
                         sub_sql_list = result["result"]["sql_list"]
                         sql_list += sub_sql_list
+                        retry += 1
                     else:
                         text = await response.text()
                         logger.error("[SQL] 生成失败：%s", text)
+                        retry += 1
                         continue
             except Exception:
                 logger.exception("[SQL] 生成失败")
+                retry += 1
                 continue
+
             if len(sql_list) >= self.top_k:
                 break
-            retry += 1
         #执行sql,并将执行结果保存在sql_exec_results中
         sql_exec_results = []
         for sql_dict in sql_list:

@@ -22,7 +22,6 @@ class CallVars(BaseModel):
     task_id: str = Field(description="任务ID")
     flow_id: str = Field(description="Flow ID")
     session_id: str = Field(description="当前用户的Session ID")
-    service_id: str = Field(description="语义接口ID")
 
 
 class ExecutorBackground(BaseModel):

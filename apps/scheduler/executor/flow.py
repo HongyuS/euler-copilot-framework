@@ -7,7 +7,6 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 import logging
 import uuid
 from collections import deque
-from typing import Any
 
 from pydantic import Field
 
@@ -17,7 +16,6 @@ from apps.entities.request_data import RequestDataApp
 from apps.entities.task import ExecutorState, StepQueueItem
 from apps.manager.task import TaskManager
 from apps.scheduler.call.llm.schema import LLM_ERROR_PROMPT
-from apps.scheduler.call.output.output import Output
 from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.executor.step import StepExecutor
 
@@ -84,7 +82,7 @@ class FlowExecutor(BaseExecutor):
         self.step_queue: deque[StepQueueItem] = deque()
 
 
-    async def _invoke_runner(self, step_id: str, step: Step, *, enable_slot_filling: bool = True) -> dict[str, Any]:
+    async def _invoke_runner(self, queue_item: StepQueueItem) -> None:
         """单一Step执行"""
         if not self.task.state:
             err = "[FlowExecutor] 当前ExecutorState为空"
@@ -95,8 +93,7 @@ class FlowExecutor(BaseExecutor):
         step_runner = StepExecutor(
             msg_queue=self.msg_queue,
             task=self.task,
-            step=step,
-            step_id=step_id,
+            step=queue_item,
             background=self.background,
             question=self.question,
             history=self.history,
@@ -106,7 +103,7 @@ class FlowExecutor(BaseExecutor):
         await step_runner.init()
 
         # 运行Step，并判断是否需要输出
-        if isinstance(step_runner.obj, Output):
+        if await self._is_to_user(queue_item.step_id, queue_item.step):
             await step_runner.run_step(to_user=True)
         else:
             await step_runner.run_step()
@@ -114,9 +111,6 @@ class FlowExecutor(BaseExecutor):
         # 更新Task
         self.task = step_runner.task
         await TaskManager.save_task(self.task.id, self.task)
-
-        # 返回迭代器
-        return step_runner.content
 
 
     async def _step_process(self) -> None:
@@ -133,11 +127,28 @@ class FlowExecutor(BaseExecutor):
                 break
 
             # 执行Step
-            content = await self._invoke_runner(
-                queue_item.step_id,
-                queue_item.step,
-                enable_slot_filling=queue_item.enable_filling,
-            )
+            await self._invoke_runner(queue_item)
+
+
+    async def _find_next_id(self, step_id: str) -> list[str]:
+        """查找下一个节点"""
+        next_ids = []
+        for edge in self.flow.edges:
+            if edge.edge_from == step_id:
+                next_ids += [edge.edge_to]
+        return next_ids
+
+
+    async def _is_to_user(self, step_id: str, step: Step) -> bool:
+        """判断是否需要输出"""
+        # 最后一步或者Choice类型，任何情况下都不输出
+        if step.type in [
+            SpecialCallType.CHOICE.value,
+        ]:
+            return False
+
+        next_steps = await self._find_next_id(step_id)
+        return bool(len(next_steps) == 1 and self.flow.steps[next_steps[0]].type == SpecialCallType.OUTPUT.value)
 
 
     async def _find_flow_next(self) -> list[StepQueueItem]:
@@ -151,12 +162,7 @@ class FlowExecutor(BaseExecutor):
         if self.task.state.step_id == "end" or not self.task.state.step_id:
             return []
 
-        next_steps = []
-        # 遍历Edges，查找下一个节点
-        for edge in self.flow.edges:
-            if edge.edge_from == self.task.state.step_id:
-                next_steps += [edge.edge_to]
-
+        next_steps = await self._find_next_id(self.task.state.step_id)
         # 如果step没有任何出边，直接跳到end
         if not next_steps:
             return [

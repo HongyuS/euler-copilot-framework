@@ -148,3 +148,4 @@ class SpecialCallType(str, Enum):
     LLM = "LLM"
     START = "start"
     END = "end"
+    CHOICE = "choice"
