@@ -1,3 +1,4 @@
+#!/bin/bash
 set -euo pipefail
 
 # 颜色定义
@@ -14,6 +15,10 @@ readonly MODEL_FILE="bge-m3-Q4_K_M.gguf"
 readonly MODELLEFILE="Modelfile"
 readonly TIMEOUT_DURATION=45
 readonly MODEL_DIR="/home/eulercopilot/models"
+
+# 初始化工作目录
+readonly WORK_DIR=$(pwd)
+mkdir -p "$MODEL_DIR"
 
 # 网络检查函数（保持不变）
 check_network() {
@@ -41,28 +46,72 @@ check_service() {
     fi
 }
 
+show_progress() {
+    local pid=$1
+    local cols=$(tput cols)
+    local bar_width=$((cols - 20))
+    
+    while kill -0 "$pid" 2>/dev/null; do
+        local current_size=$(du -b "${MODEL_DIR}/${MODEL_FILE}" 2>/dev/null | awk '{print $1}')
+        local percent=$((current_size * 100 / EXPECTED_SIZE))
+        [ $percent -gt 100 ] && percent=100
+        
+        local filled=$((percent * bar_width / 100))
+        local empty=$((bar_width - filled))
+        
+        printf "\r[%-*s] %3d%%" "$bar_width" "$(printf '%0.s=' {1..$filled})$(printf '%0.s ' {1..$empty})" "$percent"
+        sleep 1
+    done
+}
+
+detect_gpu() {
+    echo -e "${BLUE}检测GPU设备...${NC}"
+
+    # 检查是否存在NVIDIA GPU硬件
+    if lspci | grep -i nvidia || [ -c /dev/nvidia0 ]; then
+        echo -e "${GREEN}检测到NVIDIA GPU设备${NC}"
+
+        # 检查NVIDIA驱动是否安装
+        if command -v nvidia-smi &> /dev/null; then
+            echo -e "${GREEN}NVIDIA驱动已安装${NC}"
+            return 0
+        else
+            echo -e "${YELLOW}检测到GPU但未安装NVIDIA驱动，将使用CPU模式${NC}"
+            return 1
+        fi
+    else
+        echo -e "${YELLOW}未检测到GPU设备，将使用CPU模式${NC}"
+        return 1
+    fi
+}
+
 handle_model() {
     echo -e "${BLUE}步骤3/5：处理模型文件...${NC}"
     local model_path="${MODEL_DIR}/${MODEL_FILE}"
 
-    # 离线模式处理
-    if ! check_network; then
-        if [[ -f "$model_path" ]]; then
-            echo -e "${YELLOW}检测到本地模型文件 ${model_path}${NC}"
-            return 0
-        else
-            echo -e "${RED}[ERROR] 找不到本地模型文件${NC}"
-            ls -l "$MODEL_DIR"/*.gguf 2>/dev/null || echo "目录内容：$(ls -l $MODEL_DIR)"
-            exit 1
-        fi
+    # 检查本地模型
+    if [[ -f "$model_path" ]]; then
+        echo -e "${GREEN}检测到本地模型文件 ${model_path}${NC}"
+        return 0
     fi
 
-    # 在线模式处理
+    # 需要下载时检查网络
+    if ! check_network; then
+        echo -e "${RED}[ERROR] 无法下载模型：网络连接不可用${NC}"
+	echo -e "${YELLOW}解决方案："
+        echo -e "1. 请检查网络连接"
+        echo -e "2. 可以手动将模型文件放置到：${MODEL_DIR}"
+        exit 1
+    fi
+
+    # 在线下载模式
     echo -e "${YELLOW}开始在线下载模型...${NC}"
+    echo -e "${YELLOW}下载地址：${MODEL_URL}${NC}"
+    
 
     # 创建临时文件记录wget输出
     local wget_output=$(mktemp)
-    
+
     # 执行下载并显示动态进度条
     (
         wget --tries=3 --content-disposition -O "$model_path" "$MODEL_URL" --progress=dot:binary 2>&1 | \
@@ -75,21 +124,22 @@ handle_model() {
                 local bar_width=$((cols - 20))
                 local filled=$((percent * bar_width / 100))
                 local empty=$((bar_width - filled))
-                
+
                 # 构建进度条
                 local progress_bar=$(printf "%${filled}s" | tr ' ' '=')
                 local remaining_bar=$(printf "%${empty}s" | tr ' ' ' ')
-                
+
                 # 显示进度（使用回车覆盖）
                 printf "\r[%s%s] %3d%%" "$progress_bar" "$remaining_bar" "$percent"
             fi
         done
         echo  # 换行
     ) | tee "$wget_output"
-    
+
     # 检查下载结果
     if grep -q "100%" "$wget_output"; then
         echo -e "${GREEN}[SUCCESS] 模型下载完成（文件大小：$(du -h "$model_path" | awk '{print $1}')）${NC}"
+	echo -e "${GREEN}存储路径：${model_path}${NC}"
         rm -f "$wget_output"
     else
         echo -e "${RED}[ERROR] 模型下载失败${NC}"
@@ -100,33 +150,48 @@ handle_model() {
         rm -f "$wget_output"
         exit 1
     fi
+
 }
 
 create_modelfile() {
     echo -e "${BLUE}步骤4/5：创建模型配置...${NC}"
-    cat > "$MODELLEFILE" <<EOF
+    
+    # GPU参数配置
+    local gpu_param=""
+    if detect_gpu; then
+        gpu_param="PARAMETER num_gpu -1"
+        echo -e "${GREEN}已启用GPU加速模式${NC}"
+    else
+        echo -e "${YELLOW}使用CPU模式运行${NC}"
+	gpu_param="PARAMETER num_gpu 0"
+    fi
+
+    cat > "${WORK_DIR}/${MODELLEFILE}" <<EOF
 FROM ${MODEL_DIR}/${MODEL_FILE}
 PARAMETER num_ctx 4096
-PARAMETER num_gpu 1
+${gpu_param}
 EOF
-    echo -e "${GREEN}[SUCCESS] Modelfile创建成功（路径：$(pwd)/${MODELLEFILE}）${NC}"
+
+    echo -e "${GREEN}Modelfile创建成功（路径：${WORK_DIR}/${MODELLEFILE}）${NC}"
+    echo -e "${YELLOW}生成的Modelfile内容：${NC}"
+    cat "${WORK_DIR}/${MODELLEFILE}"
 }
 
 create_model() {
     echo -e "${BLUE}步骤5/5：导入模型...${NC}"
-    if ollama list | grep -q "${MODEL_NAME}"; then
-        echo -e "${GREEN}[SUCCESS] 模型已存在，跳过创建${NC}"
+    if ollama list | grep -qw "${MODEL_NAME}"; then
+        echo -e "${GREEN}模型已存在，跳过创建${NC}"
         return 0
     fi
 
-    if ! ollama create "${MODEL_NAME}" -f "${MODELLEFILE}"; then
-        echo -e "${RED}[ERROR] 模型创建失败${NC}"
+    if ! ollama create "${MODEL_NAME}" -f "${WORK_DIR}/${MODELLEFILE}"; then
+        echo -e "${RED}模型创建失败${NC}"
         echo -e "${YELLOW}可能原因："
-        echo "1. Modelfile格式错误（当前路径：$(pwd)/${MODELLEFILE}）"
-        echo "2. 模型文件损坏（MD5校验：$(md5sum ${MODEL_DIR}/${MODEL_FILE} | awk '{print $1}')）"
+        echo "1. Modelfile格式错误（路径：${WORK_DIR}/${MODELLEFILE}）"
+        echo "2. 模型文件损坏（MD5校验：$(md5sum "${MODEL_DIR}/${MODEL_FILE}" | cut -d' ' -f1)）"
         exit 1
     fi
-    echo -e "${GREEN}[SUCCESS] 模型导入成功${NC}"
+    echo -e "${GREEN}模型导入成功${NC}"
 }
 
 verify_deployment() {
