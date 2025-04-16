@@ -14,7 +14,6 @@ from apps.scheduler.call.core import DataBase
 class APIInput(DataBase):
     """API调用工具的输入"""
 
-    service_id: str = Field(description="API调用工具的Service ID")
     url: str = Field(description="API调用工具的URL")
     method: str = Field(description="API调用工具的HTTP方法")
 
