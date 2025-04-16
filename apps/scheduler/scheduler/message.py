@@ -55,7 +55,7 @@ async def push_init_message(
     # 推送初始化消息
     await queue.push_output(
         task=task,
-        event_type=EventType.INIT,
+        event_type=EventType.INIT.value,
         data=InitContent(feature=feature, createdAt=created_at).model_dump(exclude_none=True, by_alias=True),
     )
     return task
@@ -99,7 +99,7 @@ async def _push_rag_chunk(task: Task, queue: MessageQueue, content: str) -> tupl
         # 推送消息
         await queue.push_output(
             task=task,
-            event_type=EventType.TEXT_ADD,
+            event_type=EventType.TEXT_ADD.value,
             data=TextAddContent(text=content_obj.content).model_dump(exclude_none=True, by_alias=True),
         )
     except Exception:
@@ -119,7 +119,7 @@ async def push_document_message(task: Task, queue: MessageQueue, doc: RecordDocu
     )
     await queue.push_output(
         task=task,
-        event_type=EventType.DOCUMENT_ADD,
+        event_type=EventType.DOCUMENT_ADD.value,
         data=content.model_dump(exclude_none=True, by_alias=True),
     )
     return task

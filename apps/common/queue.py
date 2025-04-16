@@ -32,11 +32,11 @@ class MessageQueue:
         self._task_id = task_id
         self._queue = asyncio.Queue()
         self._close = False
-        self._heartbeat_task = asyncio.new_event_loop().create_task(self._heartbeat())
+        self._heartbeat_task = asyncio.get_event_loop().create_task(self._heartbeat())
 
-    async def push_output(self, task: Task, event_type: EventType, data: dict[str, Any]) -> None:
+    async def push_output(self, task: Task, event_type: str, data: dict[str, Any]) -> None:
         """组装用于向用户（前端/Shell端）输出的消息"""
-        if event_type == EventType.DONE:
+        if event_type == EventType.DONE.value:
             await self._queue.put("[DONE]")
             return
 
@@ -85,7 +85,7 @@ class MessageQueue:
                 message = self._queue.get_nowait()
                 yield message
             except asyncio.QueueEmpty:
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.02)
             except asyncio.CancelledError:
                 break
             except Exception:

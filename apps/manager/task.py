@@ -109,13 +109,17 @@ class TaskManager:
 
 
     @staticmethod
-    async def get_flow_history_by_task_id(task_id: str) -> dict[str, FlowStepHistory]:
+    async def get_flow_history_by_task_id(task_id: str, length: int = 0) -> dict[str, FlowStepHistory]:
         """根据task_id获取flow信息"""
         flow_context_collection = MongoDB.get_collection("flow_context")
 
         flow_context = {}
         try:
-            async for history in flow_context_collection.find({"task_id": task_id}):
+            async for history in flow_context_collection.find(
+                {"task_id": task_id},
+            ).sort(
+                "created_at", -1,
+            ).limit(length):
                 history_obj = FlowStepHistory.model_validate(history)
                 flow_context[history_obj.step_id] = history_obj
         except Exception:
