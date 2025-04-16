@@ -9,6 +9,9 @@ import logging
 from copy import deepcopy
 from typing import Any
 
+from jinja2 import BaseLoader
+from jinja2.sandbox import SandboxedEnvironment
+
 from apps.common.config import Config
 from apps.llm.function import FunctionLLM
 from apps.llm.patterns.core import CorePattern
@@ -62,11 +65,11 @@ class Json(CorePattern):
         </instructions>
 
         <conversation>
-        {conversation}
+        {{ conversation }}
         </conversation>
 
         <schema>
-        {slot_schema}
+        {{ slot_schema }}
         </schema>
 
         <output>
@@ -164,7 +167,16 @@ class Json(CorePattern):
             if item["role"] == "tool":
                 conversation_str += f"<tool>{item['content']}</tool>"
 
-        user_input = self.user_prompt.format(conversation=conversation_str, slot_schema=spec)
+        env = SandboxedEnvironment(
+            loader=BaseLoader(),
+            autoescape=False,
+            trim_blocks=True,
+            lstrip_blocks=True,
+        )
+        user_input = env.from_string(self.user_prompt).render(
+            conversation=conversation_str,
+            slot_schema=spec,
+        )
 
         # 使用FunctionLLM进行提参
         messages_list = [
