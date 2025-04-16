@@ -33,8 +33,11 @@ class ReasoningContent:
         reason = ""
         text = ""
 
-        if hasattr(chunk.choices[0].delta, "reasoning_content"):
-            reason = "<think>" + chunk.choices[0].delta.reasoning_content or "" # type: ignore[attr-defined]
+        if (
+            hasattr(chunk.choices[0].delta, "reasoning_content")
+            and chunk.choices[0].delta.reasoning_content is not None  # type: ignore[attr-defined]
+        ):
+            reason = "<think>" + chunk.choices[0].delta.reasoning_content  # type: ignore[attr-defined]
             self.reasoning_type = "args"
             self.is_reasoning = True
         else:
@@ -59,7 +62,7 @@ class ReasoningContent:
 
         if self.reasoning_type == "args":
             if hasattr(chunk.choices[0].delta, "reasoning_content"):
-                reason = chunk.choices[0].delta.reasoning_content or ""   # type: ignore[attr-defined]
+                reason = chunk.choices[0].delta.reasoning_content or ""  # type: ignore[attr-defined]
             else:
                 self.is_reasoning = False
                 reason = "</think>"
@@ -177,7 +180,8 @@ class ReasoningLLM:
 
             # 更新token统计
             output_tokens = TokenCalculator().calculate_token_length(
-                [{"role": "assistant", "content": result}], pure_text=True,
+                [{"role": "assistant", "content": result}],
+                pure_text=True,
             )
             await TaskManager.update_token_summary(task_id, input_tokens, output_tokens)
 
