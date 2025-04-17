@@ -7,7 +7,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 
 import logging
 from collections.abc import AsyncGenerator
-from typing import Annotated, Any, ClassVar
+from typing import Any
 
 import aiohttp
 from fastapi import status
@@ -15,7 +15,12 @@ from pydantic import Field
 
 from apps.common.config import Config
 from apps.entities.enum_var import CallOutputType
-from apps.entities.scheduler import CallError, CallOutputChunk, CallVars
+from apps.entities.scheduler import (
+    CallError,
+    CallInfo,
+    CallOutputChunk,
+    CallVars,
+)
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.call.sql.schema import SQLInput, SQLOutput
 
@@ -25,15 +30,16 @@ logger = logging.getLogger(__name__)
 class SQL(CoreCall, input_type=SQLInput, output_type=SQLOutput):
     """SQL工具。用于调用外置的Chat2DB工具的API，获得SQL语句；再在PostgreSQL中执行SQL语句，获得数据。"""
 
-    name: ClassVar[Annotated[str, Field(description="工具名称", exclude=True, frozen=True)]] = "数据库查询"
-    description: ClassVar[
-        Annotated[str, Field(description="工具描述", exclude=True, frozen=True)]
-    ] = "使用大模型生成SQL语句，用于查询数据库中的结构化数据"
-
     database_url: str = Field(description="数据库连接地址")
     table_name_list: list[str] = Field(description="表名列表",default=[])
     top_k: int = Field(description="生成SQL语句数量",default=5)
     use_llm_enhancements: bool = Field(description="是否使用大模型增强", default=False)
+
+
+    @classmethod
+    def cls_info(cls) -> CallInfo:
+        """返回Call的名称和描述"""
+        return CallInfo(name="SQL查询", description="使用大模型生成SQL语句，用于查询数据库中的结构化数据")
 
 
     async def _init(self, call_vars: CallVars) -> dict[str, Any]:
@@ -88,7 +94,7 @@ class SQL(CoreCall, input_type=SQLInput, output_type=SQLOutput):
             if len(sql_list) >= self.top_k:
                 break
         #执行sql,并将执行结果保存在sql_exec_results中
-        sql_exec_results = []
+        sql_exec_results: Any = None
         for sql_dict in sql_list:
             database_id = sql_dict["database_id"]
             sql = sql_dict["sql"]
@@ -105,8 +111,8 @@ class SQL(CoreCall, input_type=SQLInput, output_type=SQLOutput):
                 ) as response:
                     if response.status == status.HTTP_200_OK:
                         result = await response.json()
-                        sql_exec_result = result["result"]
-                        sql_exec_results.append(sql_exec_result)
+                        sql_exec_results = result["result"]
+                        break
                     else:
                         text = await response.text()
                         logger.error("[SQL] 调用失败：%s", text)
@@ -114,7 +120,7 @@ class SQL(CoreCall, input_type=SQLInput, output_type=SQLOutput):
             except Exception:
                 logger.exception("[SQL] 调用失败")
                 continue
-        if len(sql_exec_results) > 0:
+        if sql_exec_results is not None:
             data = SQLOutput(
                 dataset=sql_exec_results,
             ).model_dump(exclude_none=True, by_alias=True)
@@ -122,6 +128,7 @@ class SQL(CoreCall, input_type=SQLInput, output_type=SQLOutput):
                 content=data,
                 type=CallOutputType.DATA,
             )
+            return
         raise CallError(
             message="SQL查询错误：SQL语句错误，数据库查询失败！",
             data={},

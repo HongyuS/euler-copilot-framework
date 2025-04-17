@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self
 
 from pydantic import Field
 
-from apps.entities.scheduler import CallOutputChunk, CallVars
+from apps.entities.scheduler import CallInfo, CallOutputChunk, CallVars
 from apps.llm.patterns.recommend import Recommend
 from apps.manager.task import TaskManager
 from apps.manager.user_domain import UserDomainManager
@@ -27,15 +27,15 @@ if TYPE_CHECKING:
 class Suggestion(CoreCall, input_type=SuggestionInput, output_type=SuggestionOutput):
     """问题推荐"""
 
-    name: ClassVar[Annotated[str, Field(description="工具名称", exclude=True, frozen=True)]] = "问题推荐"
-    description: ClassVar[Annotated[str, Field(description="工具描述", exclude=True, frozen=True)]] = (
-        "在答案下方显示推荐的下一个问题"
-    )
-
     configs: list[SingleFlowSuggestionConfig] = Field(description="问题推荐配置", min_length=1)
     num: int = Field(default=3, ge=1, le=6, description="推荐问题的总数量（必须大于等于configs中涉及的Flow的数量）")
 
     context: list[dict[str, str]] = Field(description="Executor的上下文")
+
+    @classmethod
+    def cls_info(cls) -> CallInfo:
+        """返回Call的名称和描述"""
+        return CallInfo(name="问题推荐", description="在答案下方显示推荐的下一个问题")
 
 
     async def init(self, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
@@ -58,8 +58,8 @@ class Suggestion(CoreCall, input_type=SuggestionInput, output_type=SuggestionOut
         """初始化"""
         return SuggestionInput(
             question=call_vars.question,
-            task_id=call_vars.task_id,
-            user_sub=call_vars.user_sub,
+            task_id=call_vars.ids.task_id,
+            user_sub=call_vars.ids.user_sub,
         ).model_dump(by_alias=True, exclude_none=True)
 
 
