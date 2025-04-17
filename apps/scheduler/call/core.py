@@ -7,12 +7,17 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 
 import logging
 from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from apps.entities.enum_var import CallOutputType
-from apps.entities.scheduler import CallOutputChunk, CallVars
+from apps.entities.scheduler import (
+    CallIds,
+    CallInfo,
+    CallOutputChunk,
+    CallVars,
+)
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor
@@ -35,8 +40,8 @@ class DataBase(BaseModel):
 class CoreCall(BaseModel):
     """所有Call的父类，所有Call必须继承此类。"""
 
-    name: ClassVar[Annotated[str, Field(description="Call的名称", exclude=True)]] = ""
-    description: ClassVar[Annotated[str, Field(description="Call的描述", exclude=True)]] = ""
+    name: str
+    description: str
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -55,8 +60,15 @@ class CoreCall(BaseModel):
         cls.output_type = output_type
 
 
+    @classmethod
+    def cls_info(cls) -> CallInfo:
+        """返回Call的名称和描述"""
+        err = "[CoreCall] 必须手动实现cls_info方法"
+        raise NotImplementedError(err)
+
+
     @staticmethod
-    def assemble_call_vars(executor: "StepExecutor") -> CallVars:
+    def _assemble_call_vars(executor: "StepExecutor") -> CallVars:
         """组装CallVars"""
         if not executor.task.state:
             err = "[CoreCall] 当前ExecutorState为空"
@@ -64,22 +76,28 @@ class CoreCall(BaseModel):
             raise ValueError(err)
 
         return CallVars(
+            ids=CallIds(
+                task_id=executor.task.id,
+                flow_id=executor.task.state.flow_id,
+                session_id=executor.task.ids.session_id,
+                user_sub=executor.task.ids.user_sub,
+            ),
             question=executor.question,
-            task_id=executor.task.id,
-            flow_id=executor.task.state.flow_id,
-            session_id=executor.task.ids.session_id,
             history=executor.task.context,
             summary=executor.task.runtime.summary,
-            user_sub=executor.task.ids.user_sub,
         )
 
 
     @classmethod
     async def init(cls, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
         """实例化Call类"""
-        sys_vars = cls.assemble_call_vars(executor)
+        sys_vars = cls._assemble_call_vars(executor)
 
-        call_obj = cls(**kwargs)
+        call_obj = cls(
+            name=executor.step.step.name,
+            description=executor.step.step.description,
+            **kwargs,
+        )
         input_data = await call_obj._init(sys_vars)
         return call_obj, input_data
 

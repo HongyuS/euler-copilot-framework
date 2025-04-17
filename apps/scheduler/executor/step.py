@@ -12,6 +12,7 @@ from apps.entities.enum_var import (
     StepStatus,
 )
 from apps.entities.message import TextAddContent
+from apps.entities.pool import NodePool
 from apps.entities.scheduler import CallOutputChunk
 from apps.entities.task import FlowStepHistory, StepQueueItem
 from apps.manager.node import NodeManager
@@ -65,14 +66,14 @@ class StepExecutor(BaseExecutor):
         node_id = self.step.step.node
         # 获取node详情并存储
         try:
-            self._node_data = await NodeManager.get_node(node_id)
+            self.node = await NodeManager.get_node(node_id)
         except ValueError:
             logger.info("[StepExecutor] 获取Node失败，为内部Node或ID不存在")
-            self._node_data = None
+            self.node = None
 
-        if self._node_data:
-            call_cls = await StepNode.get_call_cls(self._node_data.call_id)
-            self._call_id = self._node_data.call_id
+        if self.node:
+            call_cls = await StepNode.get_call_cls(self.node.call_id)
+            self._call_id = self.node.call_id
         else:
             # 可能是特殊的内置Node
             call_cls = await StepNode.get_call_cls(node_id)
@@ -80,7 +81,7 @@ class StepExecutor(BaseExecutor):
 
         # 初始化Call Class，用户参数会覆盖node的参数
         params: dict[str, Any] = (
-            self._node_data.known_params if self._node_data and self._node_data.known_params else {}
+            self.node.known_params if self.node and self.node.known_params else {}
         )
         if self.step.step.params:
             params.update(self.step.step.params)

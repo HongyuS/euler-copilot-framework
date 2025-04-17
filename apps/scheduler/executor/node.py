@@ -19,11 +19,11 @@ class StepNode:
     async def check_cls(call_cls: Any) -> bool:
         """检查Call是否符合标准要求"""
         flag = True
-        if not hasattr(call_cls, "name") or not isinstance(call_cls.name, str):
+        if not hasattr(call_cls, "_init") or not callable(call_cls._init):  # noqa: SLF001
             flag = False
-        if not hasattr(call_cls, "description") or not isinstance(call_cls.description, str):
+        if not hasattr(call_cls, "_exec") or not inspect.isasyncgenfunction(call_cls._exec):  # noqa: SLF001
             flag = False
-        if not hasattr(call_cls, "exec") or not inspect.isasyncgenfunction(call_cls.exec):
+        if not hasattr(call_cls, "cls_info") or not callable(call_cls.cls_info):
             flag = False
         return flag
 

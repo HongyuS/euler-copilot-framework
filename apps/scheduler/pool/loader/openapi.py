@@ -12,8 +12,8 @@ import yaml
 from anyio import Path
 
 from apps.entities.enum_var import ContentType, HTTPMethod
-from apps.entities.flow import ServiceApiConfig, ServiceMetadata
 from apps.entities.node import APINode, APINodeInput, APINodeOutput
+from apps.entities.pool import NodePool
 from apps.scheduler.openapi import (
     ReducedOpenAPIEndpoint,
     ReducedOpenAPISpec,
@@ -58,17 +58,17 @@ class OpenAPILoader:
     async def _get_api_data(
         self,
         spec: ReducedOpenAPIEndpoint,
-        service_metadata: ServiceMetadata,
+        server: str,
     ) -> tuple[APINodeInput, APINodeOutput, dict[str, Any]]:
         """从OpenAPI文档中获取API数据"""
         try:
             method = HTTPMethod[spec.method.upper()]
         except KeyError as e:
-            err = f"[OpenAPILoader] HTTP方法{spec.method}不支持。"
-            logger.exception(err)
-            raise RuntimeError(err) from e
+            err = f"[OpenAPILoader] HTTP方法“{spec.method}”不支持。"
+            logger.warning(err)
+            raise ValueError(err) from e
 
-        url = service_metadata.api.server.rstrip("/") + spec.uri
+        url = server.rstrip("/") + spec.uri
         known_params = {}
         content_type = None
 
@@ -82,9 +82,9 @@ class OpenAPILoader:
             )
             known_params["content_type"] = content_type
             if content_type is None:
-                err = f"[OpenAPILoader] 接口{spec.name}的Content-Type不支持"
-                logger.error(err)
-                raise RuntimeError(err)
+                err = f"[OpenAPILoader] 接口“{spec.name}”的Content-Type不支持"
+                logger.warning(err)
+                raise ValueError(err)
 
         try:
             body_schema = None
@@ -97,18 +97,19 @@ class OpenAPILoader:
                 else None,
                 body=body_schema,
             )
-        except KeyError:
-            logger.exception("[OpenAPILoader] 接口 %s 请求体定义错误", spec.name)
-            inp = APINodeInput()  # Create a default input object when exception occurs
+        except KeyError as e:
+            err = f"[OpenAPILoader] 接口“{spec.name}”请求体定义错误: {e!s}"
+            logger.warning(err)
+            raise ValueError(err) from e
 
         try:
             out = APINodeOutput(
-                result=spec.spec["responses"]["200"]["content"]["application/json"]["schema"],
+                result=spec.spec["responses"]["content"]["application/json"]["schema"],
             )
-        except KeyError:
-            err = f"[OpenAPILoader] 接口{spec.name}不存在响应体定义"
-            logger.exception(err)
-            out = APINodeOutput()
+        except KeyError as e:
+            err = f"[OpenAPILoader] 接口“{spec.name}”不存在响应体定义: {e!s}"
+            logger.warning(err)
+            raise ValueError(err) from e
 
         known_params = {
             "url": url,
@@ -122,7 +123,7 @@ class OpenAPILoader:
         service_id: str,
         yaml_filename: str,
         spec: ReducedOpenAPISpec,
-        service_metadata: ServiceMetadata,
+        server: str,
     ) -> list[APINode]:
         """将OpenAPI文档拆解为Node"""
         nodes = []
@@ -142,7 +143,7 @@ class OpenAPILoader:
             # 合并参数
             node.override_input, node.override_output, node.known_params = await self._get_api_data(
                 api_endpoint,
-                service_metadata,
+                server,
             )
             nodes.append(node)
         return nodes
@@ -154,20 +155,8 @@ class OpenAPILoader:
     ) -> ReducedOpenAPISpec:
         """加载字典形式的OpenAPI文档"""
         spec = reduce_openapi_spec(yaml_dict)
-        # 使用临时的空元数据
-        service_metadata = ServiceMetadata(
-            id="temp",
-            name="测试用服务",
-            description="测试用服务",
-            version="",
-            author="",
-            api=ServiceApiConfig(
-                server="",
-                auth=None,
-            ),
-        )
         try:
-            await self._process_spec(service_metadata.id, "temp.yaml", spec, service_metadata)
+            await self._process_spec("temp", "temp.yaml", spec, spec.servers)
         except Exception:
             err = "[OpenAPILoader] 处理OpenAPI文档失败"
             logger.exception(err)
@@ -176,7 +165,7 @@ class OpenAPILoader:
         return spec
 
 
-    async def load_one(self, service_id: str, yaml_path: Path, service_metadata: ServiceMetadata) -> list[APINode]:
+    async def load_one(self, service_id: str, yaml_path: Path, server: str) -> list[NodePool]:
         """加载单个OpenAPI文档，可以直接指定路径"""
         try:
             spec = await self._read_yaml(yaml_path)
@@ -186,12 +175,37 @@ class OpenAPILoader:
             raise RuntimeError(err) from e
 
         yaml_filename = yaml_path.name
+        server = spec.servers
         try:
-            return await self._process_spec(service_id, yaml_filename, spec, service_metadata)
+            api_nodes = await self._process_spec(service_id, yaml_filename, spec, server)
         except Exception as e:
             err = f"[OpenAPILoader] 处理OpenAPI文档{yaml_filename}失败"
             logger.exception(err)
             raise RuntimeError(err) from e
+
+        return [
+            NodePool(
+                _id=node.id,
+                name=node.name,
+                description=node.description,
+                call_id=node.call_id,
+                service_id=service_id,
+                override_input=node.override_input.model_dump(
+                    exclude_none=True,
+                    by_alias=True,
+                )
+                if node.override_input
+                else {},
+                override_output=node.override_output.model_dump(
+                    exclude_none=True,
+                    by_alias=True,
+                )
+                if node.override_output
+                else {},
+                known_params=node.known_params,
+            )
+            for node in api_nodes
+        ]
 
 
     async def save_one(self, yaml_path: Path, yaml_dict: dict[str, Any]) -> None:

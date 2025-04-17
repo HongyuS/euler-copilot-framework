@@ -7,7 +7,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 import json
 import logging
 from collections.abc import AsyncGenerator
-from typing import Annotated, Any, ClassVar
+from typing import TYPE_CHECKING, Any, Self
 
 import aiohttp
 from fastapi import status
@@ -16,11 +16,20 @@ from pydantic import Field
 from apps.common.oidc import oidc_provider
 from apps.entities.enum_var import CallOutputType, ContentType, HTTPMethod
 from apps.entities.flow import ServiceMetadata
-from apps.entities.scheduler import CallError, CallOutputChunk, CallVars
+from apps.entities.scheduler import (
+    CallError,
+    CallInfo,
+    CallOutputChunk,
+    CallVars,
+)
 from apps.manager.service import ServiceCenterManager
 from apps.manager.token import TokenManager
 from apps.scheduler.call.api.schema import APIInput, APIOutput
 from apps.scheduler.call.core import CoreCall
+
+if TYPE_CHECKING:
+    from apps.scheduler.executor.step import StepExecutor
+
 
 logger = logging.getLogger(__name__)
 SUCCESS_HTTP_CODES = [
@@ -46,11 +55,6 @@ SUCCESS_HTTP_CODES = [
 class API(CoreCall, input_type=APIInput, output_type=APIOutput):
     """API调用工具"""
 
-    name: ClassVar[Annotated[str, Field(description="工具名称", exclude=True, frozen=True)]] = "HTTP请求"
-    description: ClassVar[Annotated[str, Field(description="工具描述", exclude=True, frozen=True)]] = (
-        "向某一个API接口发送HTTP请求，获取数据。"
-    )
-
     url: str = Field(description="API接口的完整URL")
     method: HTTPMethod = Field(description="API接口的HTTP Method")
     content_type: ContentType = Field(description="API接口的Content-Type")
@@ -60,13 +64,33 @@ class API(CoreCall, input_type=APIInput, output_type=APIOutput):
     query: dict[str, Any] = Field(description="已知的部分请求参数", default={})
 
 
-    async def _init(self, syscall_vars: CallVars) -> dict[str, Any]:
+    @classmethod
+    def cls_info(cls) -> CallInfo:
+        """返回Call的名称和描述"""
+        return CallInfo(name="API调用", description="向某一个API接口发送HTTP请求，获取数据。")
+
+
+    @classmethod
+    async def init(cls, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
+        """初始化工具"""
+        cls_obj = cls(
+            name=executor.step.step.name,
+            description=executor.step.step.description,
+            **kwargs,
+        )
+
+        call_vars = cls._assemble_call_vars(executor)
+        input_data = await cls_obj._init(call_vars)
+
+        return cls_obj, input_data
+
+
+    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
         """初始化API调用工具"""
-        await super()._init(syscall_vars)
         # 获取对应API的Service Metadata
         try:
             service_metadata = await ServiceCenterManager.get_service_data(
-                syscall_vars.user_sub, syscall_vars.service_id
+                call_vars.ids.user_sub, call_vars.ids.service_id,
             )
             service_metadata = ServiceMetadata.model_validate(service_metadata)
         except Exception as e:
@@ -77,11 +101,10 @@ class API(CoreCall, input_type=APIInput, output_type=APIOutput):
 
         # 获取Service对应的Auth
         self._auth = service_metadata.api.auth
-        self._session_id = syscall_vars.session_id
-        self._service_id = syscall_vars.service_id
+        self._session_id = call_vars.ids.session_id
+        self._service_id = call_vars.ids.service_id
 
         return APIInput(
-            service_id=self._service_id,
             url=self.url,
             method=self.method,
             query=self.query,

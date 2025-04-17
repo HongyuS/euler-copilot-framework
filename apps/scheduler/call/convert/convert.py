@@ -5,7 +5,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import Any, ClassVar
+from typing import Any
 
 import pytz
 from jinja2 import BaseLoader
@@ -13,7 +13,11 @@ from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
 from apps.entities.enum_var import CallOutputType
-from apps.entities.scheduler import CallVars
+from apps.entities.scheduler import (
+    CallInfo,
+    CallOutputChunk,
+    CallVars,
+)
 from apps.scheduler.call.convert.schema import ConvertInput, ConvertOutput
 from apps.scheduler.call.core import CallOutputChunk, CoreCall
 
@@ -21,12 +25,14 @@ from apps.scheduler.call.core import CallOutputChunk, CoreCall
 class Convert(CoreCall, input_type=ConvertInput, output_type=ConvertOutput):
     """Convert 工具，用于对生成的文字信息和原始数据进行格式化"""
 
-    name: ClassVar[str] = "模板转换"
-    description: ClassVar[str] = "使用jinja2语法和jsonnet语法，将自然语言信息和原始数据进行格式化。"
-
     text_template: str | None = Field(description="自然语言信息的格式化模板，jinja2语法", default=None)
     data_template: str | None = Field(description="原始数据的格式化模板，jinja2语法", default=None)
 
+
+    @classmethod
+    def cls_info(cls) -> CallInfo:
+        """返回Call的名称和描述"""
+        return CallInfo(name="模板转换", description="使用jinja2语法和jsonnet语法，将自然语言信息和原始数据进行格式化。")
 
     async def _init(self, syscall_vars: CallVars) -> dict[str, Any]:
         """初始化工具"""

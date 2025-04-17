@@ -78,4 +78,4 @@ class Domain(CorePattern):
         ]
 
         output = await Json().generate("", conversation=messages, spec=self.slot_schema)
-        return output["keywords"]
+        return output.get("keywords", [])

@@ -5,25 +5,23 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 from collections.abc import AsyncGenerator
-from typing import Annotated, Any, ClassVar
-
-from pydantic import Field
+from typing import Any
 
 from apps.entities.enum_var import CallOutputType
-from apps.entities.scheduler import CallOutputChunk, CallVars
+from apps.entities.scheduler import CallInfo, CallOutputChunk, CallVars
 from apps.scheduler.call.core import CoreCall, DataBase
 
 
 class Empty(CoreCall, input_type=DataBase, output_type=DataBase):
     """空Call"""
 
-    name: ClassVar[Annotated[str, Field(description="工具名称", exclude=True, frozen=True)]] = "空白"
-    description: ClassVar[
-        Annotated[str, Field(description="工具描述", exclude=True, frozen=True)]
-    ] = "空白节点，用于占位"
+    @classmethod
+    def cls_info(cls) -> CallInfo:
+        """返回Call的名称和描述"""
+        return CallInfo(name="空白", description="空白节点，用于占位")
 
 
-    async def _init(self, syscall_vars: CallVars) -> dict[str, Any]:
+    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
         """初始化"""
         return {}
 
