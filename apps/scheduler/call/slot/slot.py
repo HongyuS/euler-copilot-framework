@@ -1,13 +1,13 @@
 """参数填充工具"""
 
 from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self
+from typing import TYPE_CHECKING, Any, Self
 
 import jinja2
 from pydantic import Field
 
 from apps.entities.enum_var import CallOutputType
-from apps.entities.scheduler import CallOutputChunk, CallVars
+from apps.entities.scheduler import CallInfo, CallOutputChunk, CallVars
 from apps.llm.patterns.json_gen import Json
 from apps.manager.task import TaskManager
 from apps.scheduler.call.core import CoreCall
@@ -21,14 +21,17 @@ if TYPE_CHECKING:
 class Slot(CoreCall, input_type=SlotInput, output_type=SlotOutput):
     """参数填充工具"""
 
-    name: ClassVar[Annotated[str, Field(description="Call的名称", exclude=True)]] = "参数自动填充"
-    description: ClassVar[Annotated[str, Field(description="Call的描述", exclude=True)]] = "根据步骤历史，自动填充参数"
-
     data: dict[str, Any] = Field(description="当前输入", default={})
     current_schema: dict[str, Any] = Field(description="当前Schema", default={})
     summary: str = Field(description="背景信息总结", default="")
     facts: list[str] = Field(description="事实信息", default=[])
     step_num: int = Field(description="历史步骤数", default=1)
+
+
+    @classmethod
+    def cls_info(cls) -> CallInfo:
+        """返回Call的名称和描述"""
+        return CallInfo(name="参数自动填充", description="根据步骤历史，自动填充参数")
 
 
     async def _llm_slot_fill(self, remaining_schema: dict[str, Any]) -> dict[str, Any]:
@@ -58,14 +61,14 @@ class Slot(CoreCall, input_type=SlotInput, output_type=SlotOutput):
             **kwargs,
         )
 
-        sys_vars = cls.assemble_call_vars(executor)
+        sys_vars = cls._assemble_call_vars(executor)
         input_data = await call_obj._init(sys_vars)
         return call_obj, input_data
 
 
     async def _init(self, call_vars: CallVars) -> dict[str, Any]:
         """初始化"""
-        self._task_id = call_vars.task_id
+        self._task_id = call_vars.ids.task_id
         self._flow_history = await TaskManager.get_flow_history_by_task_id(self._task_id, self.step_num)
 
         if not self.current_schema:
