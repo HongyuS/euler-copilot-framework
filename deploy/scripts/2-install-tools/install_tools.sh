@@ -127,6 +127,29 @@ install_basic_tools() {
     return 0
 }
 
+function check_local_k3s_files {
+    local version="${1:-v1.30.2+k3s1}"
+    local k3s_version="$version"
+    
+    # 自动补全v前缀
+    if [[ $k3s_version != v* ]]; then
+        k3s_version="v$k3s_version"
+    fi
+
+    local image_name="k3s-airgap-images-$ARCH.tar.zst"
+    local bin_name="k3s"
+    [[ $ARCH == "arm64" ]] && bin_name="k3s-arm64"
+
+    # 检查本地文件是否存在
+    if [[ -f "$TOOLS_DIR/$bin_name" && -f "$TOOLS_DIR/$image_name" ]]; then
+        echo -e "\033[32m[Info] 检测到本地K3s安装文件，将使用本地文件安装\033[0m"
+        return 0
+    else
+        echo -e "\033[33m[Info] 本地K3s安装文件不完整，将尝试在线下载\033[0m"
+        return 1
+    fi
+}
+
 function install_k3s {
     local version="${1:-v1.30.2+k3s1}"
     local use_mirror="$2"
@@ -141,48 +164,10 @@ function install_k3s {
     local bin_name="k3s"
     [[ $ARCH == "arm64" ]] && bin_name="k3s-arm64"
 
-    # 优先检查网络
-    if check_network; then
-        echo -e "\033[32m[Info] 开始在线安装K3s\033[0m"
-
-        # 在线下载安装
-        local k3s_bin_url="$GITHUB_MIRROR/https://github.com/k3s-io/k3s/releases/download/$k3s_version/$bin_name"
-        local k3s_image_url="$GITHUB_MIRROR/https://github.com/k3s-io/k3s/releases/download/$k3s_version/$image_name"
-
-        echo -e "[Info] 下载K3s二进制文件..."
-        if ! curl -L "$k3s_bin_url" -o /usr/local/bin/k3s; then
-            echo -e "\033[31m[Error] 二进制文件下载失败\033[0m"
-            return 1
-        fi
-        chmod +x /usr/local/bin/k3s
-
-        echo -e "[Info] 下载依赖镜像..."
-        mkdir -p /var/lib/rancher/k3s/agent/images
-        if ! curl -L "$k3s_image_url" -o "/var/lib/rancher/k3s/agent/images/$image_name"; then
-            echo -e "\033[33m[Warn] 镜像下载失败，可能影响离线能力\033[0m"
-        fi
-
-        local install_source="https://get.k3s.io"
-        [[ $use_mirror == "cn" ]] && install_source="https://rancher-mirror.rancher.cn/k3s/k3s-install.sh"
-
-        echo -e "\033[32m[Info] 使用在线安装脚本\033[0m"
-        if ! curl -sfL "$install_source" | INSTALL_K3S_SKIP_DOWNLOAD=true sh -; then
-            echo -e "\033[31m[Error] 在线安装失败\033[0m"
-            return 1
-        fi
-    else
-        # 离线模式检查本地包
+    # 首先检查本地文件是否存在
+    if check_local_k3s_files "$version"; then
+        # 使用本地文件安装
         echo -e "\033[33m[Info] 进入离线安装K3s模式\033[0m"
-
-        if [[ ! -f "$TOOLS_DIR/$bin_name" ]]; then
-            echo -e "\033[31m[Error] 缺少K3s二进制文件：$TOOLS_DIR/$bin_name\033[0m"
-            return 1
-        fi
-
-        if [[ ! -f "$TOOLS_DIR/$image_name" ]]; then
-            echo -e "\033[31m[Error] 缺少K3s镜像包：$TOOLS_DIR/$image_name\033[0m"
-            return 1
-        fi
 
         echo -e "[Info] 使用本地包安装..."
         cp "$TOOLS_DIR/$bin_name" /usr/local/bin/k3s
@@ -198,6 +183,7 @@ function install_k3s {
             chmod +x "$local_install_script"
             if INSTALL_K3S_SKIP_DOWNLOAD=true "$local_install_script"; then
                 echo -e "\033[32m[Success] K3s安装完成\033[0m"
+                return 0
             else
                 echo -e "\033[31m[Error] 本地安装失败\033[0m"
                 return 1
@@ -209,10 +195,73 @@ function install_k3s {
             echo -e "国内镜像：curl -sfL https://rancher-mirror.rancher.cn/k3s/k3s-install.sh -o $local_install_script"
             return 1
         fi
+    else
+        # 本地文件不存在，检查网络
+        if check_network; then
+            echo -e "\033[32m[Info] 开始在线安装K3s\033[0m"
+
+            # 在线下载安装
+            local k3s_bin_url="$GITHUB_MIRROR/https://github.com/k3s-io/k3s/releases/download/$k3s_version/$bin_name"
+            local k3s_image_url="$GITHUB_MIRROR/https://github.com/k3s-io/k3s/releases/download/$k3s_version/$image_name"
+
+            echo -e "[Info] 下载K3s二进制文件..."
+            if ! curl -L "$k3s_bin_url" -o /usr/local/bin/k3s; then
+                echo -e "\033[31m[Error] 二进制文件下载失败\033[0m"
+                return 1
+            fi
+            chmod +x /usr/local/bin/k3s
+
+            echo -e "[Info] 下载依赖镜像..."
+            mkdir -p /var/lib/rancher/k3s/agent/images
+            if ! curl -L "$k3s_image_url" -o "/var/lib/rancher/k3s/agent/images/$image_name"; then
+                echo -e "\033[33m[Warn] 镜像下载失败，可能影响离线能力\033[0m"
+            fi
+
+            local install_source="https://get.k3s.io"
+            [[ $use_mirror == "cn" ]] && install_source="https://rancher-mirror.rancher.cn/k3s/k3s-install.sh"
+
+            echo -e "\033[32m[Info] 使用在线安装脚本\033[0m"
+            if ! curl -sfL "$install_source" | INSTALL_K3S_SKIP_DOWNLOAD=true sh -; then
+                echo -e "\033[31m[Error] 在线安装失败\033[0m"
+                return 1
+            fi
+        else
+            # 既没有本地文件，也没有网络连接
+            echo -e "\033[31m[Error] 无法安装K3s：\033[0m"
+            echo -e "1. 本地缺少必要的安装文件"
+            echo -e "2. 网络不可用，无法下载安装文件"
+            echo -e "请执行以下操作之一："
+            echo -e "- 确保网络连接正常后重试"
+            echo -e "- 或预先将以下文件放置在 $TOOLS_DIR 目录："
+            echo -e "  - $bin_name"
+            echo -e "  - $image_name"
+            echo -e "  - k3s-install.sh (可选)"
+            return 1
+        fi
     fi
 }
 
-# 安装helm逻辑（修改版）
+function check_local_helm_file {
+    local version="${1:-v3.15.0}"
+    local helm_version="$version"
+    
+    # 自动补全v前缀
+    if [[ $helm_version != v* ]]; then
+        helm_version="v$helm_version"
+    fi
+
+    local file_name="helm-${helm_version}-linux-${ARCH}.tar.gz"
+
+    # 检查本地文件是否存在
+    if [[ -f "$TOOLS_DIR/$file_name" ]]; then
+        echo -e "\033[32m[Info] 检测到本地Helm安装文件，将使用本地文件安装\033[0m"
+        return 0
+    else
+        echo -e "\033[33m[Info] 本地Helm安装文件不存在，将尝试在线下载\033[0m"
+        return 1
+    fi
+}
+
 function install_helm {
     local version="${1:-v3.15.0}"
     local use_mirror="$2"
@@ -225,30 +274,38 @@ function install_helm {
 
     local file_name="helm-${helm_version}-linux-${ARCH}.tar.gz"
 
-    if check_network; then
-        echo -e "\033[32m[Info] 开始在线安装Helm\033[0m"
-
-        local base_url="https://get.helm.sh"
-        if [[ $use_mirror == "cn" ]]; then
-            local helm_version_without_v="${helm_version#v}"
-            base_url="https://kubernetes.oss-cn-hangzhou.aliyuncs.com/charts/helm/${helm_version_without_v}"
-        fi
-
-        echo -e "[Info] 下载Helm..."
-        if ! curl -L "$base_url/$file_name" -o "$file_name"; then
-            echo -e "\033[31m[Error] 下载失败\033[0m"
-            return 1
-        fi
-    else
+    # 首先检查本地文件是否存在
+    if check_local_helm_file "$version"; then
         echo -e "\033[33m[Info] 进入离线安装Helm模式\033[0m"
-
-        if [[ ! -f "$TOOLS_DIR/$file_name" ]]; then
-            echo -e "\033[31m[Error] 缺少Helm安装包：$TOOLS_DIR/$file_name\033[0m"
-            return 1
-        fi
-
         echo -e "[Info] 使用本地包安装..."
         cp "$TOOLS_DIR/$file_name" .
+    else
+        # 本地文件不存在，检查网络
+        if check_network; then
+            echo -e "\033[32m[Info] 开始在线安装Helm\033[0m"
+
+            local base_url="https://get.helm.sh"
+            if [[ $use_mirror == "cn" ]]; then
+                local helm_version_without_v="${helm_version#v}"
+                base_url="https://kubernetes.oss-cn-hangzhou.aliyuncs.com/charts/helm/${helm_version_without_v}"
+            fi
+
+            echo -e "[Info] 下载Helm..."
+            if ! curl -L "$base_url/$file_name" -o "$file_name"; then
+                echo -e "\033[31m[Error] 下载失败\033[0m"
+                return 1
+            fi
+        else
+            # 既没有本地文件，也没有网络连接
+            echo -e "\033[31m[Error] 无法安装Helm：\033[0m"
+            echo -e "1. 本地缺少必要的安装文件"
+            echo -e "2. 网络不可用，无法下载安装文件"
+            echo -e "请执行以下操作之一："
+            echo -e "- 确保网络连接正常后重试"
+            echo -e "- 或预先将以下文件放置在 $TOOLS_DIR 目录："
+            echo -e "  - $file_name"
+            return 1
+        fi
     fi
 
     echo -e "[Info] 解压安装..."
@@ -344,8 +401,8 @@ function main {
     if check_network; then
         echo -e "\033[32m[Info] 在线环境，跳过镜像导入\033[0m"
     else
-	echo -e "\033[33m[Info] 离线环境，开始导入本地镜像，请确保本地目录已存在所有镜像文件\033[0m"
-	bash "$IMPORT_SCRIPT/9-other-script/import_images.sh" -v "$eulercopilot_version"
+        echo -e "\033[33m[Info] 离线环境，开始导入本地镜像，请确保本地目录已存在所有镜像文件\033[0m"
+        bash "$IMPORT_SCRIPT/9-other-script/import_images.sh" -v "$eulercopilot_version"
     fi
 
     # 安装Helm（如果尚未安装）
