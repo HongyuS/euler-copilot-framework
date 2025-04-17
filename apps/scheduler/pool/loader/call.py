@@ -37,13 +37,14 @@ class CallLoader:
         # 检查合法性
         for call_id in system_call.__all__:
             call_cls = getattr(system_call, call_id)
+            call_info = call_cls.cls_info()
 
             call_metadata.append(
                 CallPool(
                     _id=call_id,
                     type=CallType.SYSTEM,
-                    name=call_cls.name,
-                    description=call_cls.description,
+                    name=call_info.name,
+                    description=call_info.description,
                     path=f"python::apps.scheduler.call::{call_id}",
                 ),
             )
@@ -81,6 +82,7 @@ class CallLoader:
         for call_id in call_package.__all__:
             try:
                 call_cls = getattr(call_package, call_id)
+                call_info = call_cls.cls_info()
             except AttributeError as e:
                 err = f"[CallLoader] 载入工具call.{call_dir_name}.{call_id}失败：{e}；跳过载入。"
                 logger.info(err)
@@ -92,8 +94,8 @@ class CallLoader:
                 CallPool(
                     _id=cls_hash,
                     type=CallType.PYTHON,
-                    name=call_cls.name,
-                    description=call_cls.description,
+                    name=call_info.name,
+                    description=call_info.description,
                     path=f"python::call.{call_dir_name}::{call_id}",
                 ),
             )
