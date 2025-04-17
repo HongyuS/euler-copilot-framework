@@ -12,16 +12,29 @@ from apps.entities.enum_var import CallOutputType
 from apps.entities.task import FlowStepHistory
 
 
+class CallInfo(BaseModel):
+    """Call的名称和描述"""
+
+    name: str = Field(description="Call的名称")
+    description: str = Field(description="Call的描述")
+
+
+class CallIds(BaseModel):
+    """Call的ID，来自于Task"""
+
+    task_id: str = Field(description="任务ID")
+    flow_id: str = Field(description="Flow ID")
+    session_id: str = Field(description="当前用户的Session ID")
+    user_sub: str = Field(description="当前用户的用户ID")
+
+
 class CallVars(BaseModel):
     """由Executor填充的变量，即“系统变量”"""
 
     summary: str = Field(description="上下文信息")
-    user_sub: str = Field(description="用户ID")
     question: str = Field(description="改写后的用户输入")
     history: dict[str, FlowStepHistory] = Field(description="Executor中历史工具的结构化数据", default={})
-    task_id: str = Field(description="任务ID")
-    flow_id: str = Field(description="Flow ID")
-    session_id: str = Field(description="当前用户的Session ID")
+    ids: CallIds = Field(description="Call的ID")
 
 
 class ExecutorBackground(BaseModel):
