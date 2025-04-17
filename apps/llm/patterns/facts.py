@@ -92,4 +92,4 @@ class Facts(CorePattern):
 
         if not fact_dict or "facts" not in fact_dict or not fact_dict["facts"]:
             return []
-        return fact_dict["facts"]
+        return fact_dict.get("facts", [])
