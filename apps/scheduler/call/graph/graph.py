@@ -27,9 +27,9 @@ class Graph(CoreCall, output_type=RenderOutput):
     data: list[dict[str, Any]] = Field(description="用于绘制图表的数据", exclude=True, frozen=True)
 
 
-    async def _init(self, syscall_vars: CallVars) -> dict[str, Any]:
+    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
         """初始化Render Call，校验参数，读取option模板"""
-        await super()._init(syscall_vars)
+        await super()._init(call_vars)
 
         try:
             option_location = Path(__file__).parent / "option.json"
@@ -41,8 +41,8 @@ class Graph(CoreCall, output_type=RenderOutput):
             raise CallError(message=f"图表模板读取失败：{e!s}", data={}) from e
 
         return RenderInput(
-            question=syscall_vars.question,
-            task_id=syscall_vars.task_id,
+            question=call_vars.question,
+            task_id=call_vars.ids.task_id,
             data=self.data,
         ).model_dump(exclude_none=True, by_alias=True)
 

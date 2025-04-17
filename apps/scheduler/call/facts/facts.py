@@ -1,12 +1,12 @@
 """提取事实工具"""
 
 from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self
+from typing import TYPE_CHECKING, Any, Self
 
 from pydantic import Field
 
 from apps.entities.enum_var import CallOutputType
-from apps.entities.scheduler import CallOutputChunk, CallVars
+from apps.entities.scheduler import CallInfo, CallOutputChunk, CallVars
 from apps.llm.patterns.domain import Domain
 from apps.llm.patterns.facts import Facts
 from apps.manager.user_domain import UserDomainManager
@@ -20,19 +20,26 @@ if TYPE_CHECKING:
 class FactsCall(CoreCall, input_type=FactsInput, output_type=FactsOutput):
     """提取事实工具"""
 
-    name: ClassVar[Annotated[str, Field(description="工具名称", exclude=True, frozen=True)]] = "提取事实"
-    description: ClassVar[Annotated[str, Field(description="工具描述", exclude=True, frozen=True)]] = (
-        "从对话上下文和文档片段中提取事实。"
-    )
-
     answer: str = Field(description="用户输入")
+
+
+    @classmethod
+    def cls_info(cls) -> CallInfo:
+        """返回Call的名称和描述"""
+        return CallInfo(name="提取事实", description="从对话上下文和文档片段中提取事实。")
+
 
     @classmethod
     async def init(cls, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
         """初始化工具"""
-        cls_obj = cls(answer=executor.task.runtime.answer, **kwargs)
+        cls_obj = cls(
+            answer=executor.task.runtime.answer,
+            name=executor.step.step.name,
+            description=executor.step.step.description,
+            **kwargs,
+        )
 
-        call_vars = cls.assemble_call_vars(executor)
+        call_vars = cls._assemble_call_vars(executor)
         input_data = await cls_obj._init(call_vars)
 
         return cls_obj, input_data
@@ -47,8 +54,8 @@ class FactsCall(CoreCall, input_type=FactsInput, output_type=FactsOutput):
         ]
 
         return FactsInput(
-            task_id=call_vars.task_id,
-            user_sub=call_vars.user_sub,
+            task_id=call_vars.ids.task_id,
+            user_sub=call_vars.ids.user_sub,
             message=message,
         ).model_dump(exclude_none=True, by_alias=True)
 

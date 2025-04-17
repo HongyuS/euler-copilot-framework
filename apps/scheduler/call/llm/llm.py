@@ -7,7 +7,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 import logging
 from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import Annotated, Any, ClassVar
+from typing import Any
 
 import pytz
 from jinja2 import BaseLoader
@@ -15,7 +15,12 @@ from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
 from apps.entities.enum_var import CallOutputType
-from apps.entities.scheduler import CallError, CallOutputChunk, CallVars
+from apps.entities.scheduler import (
+    CallError,
+    CallInfo,
+    CallOutputChunk,
+    CallVars,
+)
 from apps.llm.reasoning import ReasoningLLM
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.call.llm.schema import LLM_CONTEXT_PROMPT, LLM_DEFAULT_PROMPT, LLMInput, LLMOutput
@@ -26,16 +31,16 @@ logger = logging.getLogger(__name__)
 class LLM(CoreCall, input_type=LLMInput, output_type=LLMOutput):
     """大模型调用工具"""
 
-    name: ClassVar[Annotated[str, Field(description="工具名称", exclude=True, frozen=True)]] = "大模型"
-    description: ClassVar[Annotated[str, Field(description="工具描述", exclude=True, frozen=True)]] = (
-        "以指定的提示词和上下文信息调用大模型，并获得输出。"
-    )
-
     temperature: float = Field(description="大模型温度（随机化程度）", default=0.7)
     enable_context: bool = Field(description="是否启用上下文", default=True)
     step_history_size: int = Field(description="上下文信息中包含的步骤历史数量", default=3, ge=1, le=10)
     system_prompt: str = Field(description="大模型系统提示词", default="")
     user_prompt: str = Field(description="大模型用户提示词", default=LLM_DEFAULT_PROMPT)
+
+    @classmethod
+    def cls_info(cls) -> CallInfo:
+        """返回Call的名称和描述"""
+        return CallInfo(name="大模型", description="以指定的提示词和上下文信息调用大模型，并获得输出。")
 
     async def _prepare_message(self, call_vars: CallVars) -> list[dict[str, Any]]:
         """准备消息"""
@@ -85,7 +90,7 @@ class LLM(CoreCall, input_type=LLMInput, output_type=LLMOutput):
     async def _init(self, call_vars: CallVars) -> dict[str, Any]:
         """初始化LLM工具"""
         return LLMInput(
-            task_id=call_vars.task_id,
+            task_id=call_vars.ids.task_id,
             message=await self._prepare_message(call_vars),
         ).model_dump(exclude_none=True, by_alias=True)
 
