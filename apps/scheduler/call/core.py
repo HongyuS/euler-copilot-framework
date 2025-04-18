@@ -10,6 +10,7 @@ from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any, ClassVar, Self
 
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic.json_schema import SkipJsonSchema
 
 from apps.entities.enum_var import CallOutputType
 from apps.entities.scheduler import (
@@ -40,24 +41,32 @@ class DataBase(BaseModel):
 class CoreCall(BaseModel):
     """所有Call的父类，所有Call必须继承此类。"""
 
-    name: str
-    description: str
+    name: SkipJsonSchema[str] = Field(description="Step的名称", exclude=True)
+    description: SkipJsonSchema[str] = Field(description="Step的描述", exclude=True)
+    input_model: ClassVar[SkipJsonSchema[type[DataBase]]] = Field(
+        description="Call的输入Pydantic类型；不包含override的模板",
+        exclude=True,
+        frozen=True,
+    )
+    output_model: ClassVar[SkipJsonSchema[type[DataBase]]] = Field(
+        description="Call的输出Pydantic类型；不包含override的模板",
+        exclude=True,
+        frozen=True,
+    )
+
+    to_user: bool = Field(description="是否需要将输出返回给用户", default=False)
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         extra="allow",
     )
 
-    input_type: ClassVar[type[DataBase]] = Field(description="Call的输入Pydantic类型", exclude=True, frozen=True)
-    """需要以消息形式输出的、需要大模型填充参数的输入信息填到这里"""
-    output_type: ClassVar[type[DataBase]] = Field(description="Call的输出Pydantic类型", exclude=True, frozen=True)
-    """需要以消息形式输出的输出信息填到这里"""
 
-    def __init_subclass__(cls, input_type: type[DataBase], output_type: type[DataBase], **kwargs: Any) -> None:
+    def __init_subclass__(cls, input_model: type[DataBase], output_model: type[DataBase], **kwargs: Any) -> None:
         """初始化子类"""
         super().__init_subclass__(**kwargs)
-        cls.input_type = input_type
-        cls.output_type = output_type
+        cls.input_model = input_model
+        cls.output_model = output_model
 
 
     @classmethod
@@ -65,6 +74,22 @@ class CoreCall(BaseModel):
         """返回Call的名称和描述"""
         err = "[CoreCall] 必须手动实现cls_info方法"
         raise NotImplementedError(err)
+
+
+    @property
+    def input_type(self) -> type[DataBase]:
+        """返回输入类型"""
+        class InputType(self.input_model):
+            pass
+        return InputType
+
+
+    @property
+    def output_type(self) -> type[DataBase]:
+        """返回输出类型"""
+        class OutputType(self._output_type_template):
+            pass
+        return OutputType
 
 
     @staticmethod
