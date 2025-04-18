@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from collections.abc import AsyncGenerator
 from typing import Any
 
 from pydantic import ConfigDict
@@ -12,7 +13,6 @@ from apps.entities.enum_var import (
     StepStatus,
 )
 from apps.entities.message import TextAddContent
-from apps.entities.pool import NodePool
 from apps.entities.scheduler import CallOutputChunk
 from apps.entities.task import FlowStepHistory, StepQueueItem
 from apps.manager.node import NodeManager
@@ -103,7 +103,6 @@ class StepExecutor(BaseExecutor):
             SpecialCallType.SUMMARY.value,
             SpecialCallType.FACTS.value,
             SpecialCallType.SLOT.value,
-            SpecialCallType.OUTPUT.value,
             SpecialCallType.EMPTY.value,
             SpecialCallType.START.value,
             SpecialCallType.END.value,
@@ -144,7 +143,39 @@ class StepExecutor(BaseExecutor):
         await TaskManager.save_task(self.task.id, self.task)
 
 
-    async def run_step(self, *, to_user: bool = False) -> None:
+    async def _process_chunk(
+        self,
+        iterator: AsyncGenerator[CallOutputChunk, None],
+        *,
+        to_user: bool = False,
+    ) -> str | dict[str, Any]:
+        """处理Chunk"""
+        content: str | dict[str, Any] = ""
+
+        async for chunk in iterator:
+            if not isinstance(chunk, CallOutputChunk):
+                err = "[StepExecutor] 返回结果类型错误"
+                logger.error(err)
+                raise TypeError(err)
+            if isinstance(chunk.content, str):
+                if not isinstance(content, str):
+                    content = ""
+                content += chunk.content
+            else:
+                if not isinstance(content, dict):
+                    content = {}
+                content = chunk.content
+            if to_user:
+                if isinstance(chunk.content, str):
+                    await self.push_message(EventType.TEXT_ADD.value, chunk.content)
+                    self.task.runtime.answer += chunk.content
+                else:
+                    await self.push_message(self.step.step.type, chunk.content)
+
+        return content
+
+
+    async def run_step(self) -> None:
         """运行单个步骤"""
         self.validate_flow_state(self.task)
         logger.info("[StepExecutor] 运行步骤 %s", self.step.step.name)
@@ -155,28 +186,14 @@ class StepExecutor(BaseExecutor):
         # 执行步骤
         iterator = self.obj.exec(self, self.input)
 
-        content: str | dict[str, Any] = ""
-        async for chunk in iterator:
-            if not isinstance(chunk, CallOutputChunk):
-                err = "[StepExecutor] 返回结果类型错误"
-                logger.error(err)
-                raise TypeError(err)
-
-            if isinstance(chunk.content, str):
-                if not isinstance(content, str):
-                    content = ""
-                content += chunk.content
-            else:
-                if not isinstance(content, dict):
-                    content = {}
-                content = chunk.content
-
-            if to_user:
-                if isinstance(chunk.content, str):
-                    await self.push_message(EventType.TEXT_ADD.value, chunk.content)
-                    self.task.runtime.answer += chunk.content
-                else:
-                    await self.push_message(self.step.step.type, chunk.content)
+        try:
+            content = await self._process_chunk(iterator, to_user=self.obj.to_user)
+        except Exception:
+            logger.exception("[StepExecutor] 运行步骤失败")
+            self.task.state.status = StepStatus.ERROR # type: ignore[arg-type]
+            await self.push_message(EventType.STEP_OUTPUT.value, {})
+            await TaskManager.save_task(self.task.id, self.task)
+            return
 
         # 更新执行状态
         self.task.state.status = StepStatus.SUCCESS # type: ignore[arg-type]

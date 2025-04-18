@@ -84,10 +84,7 @@ class FlowExecutor(BaseExecutor):
 
     async def _invoke_runner(self, queue_item: StepQueueItem) -> None:
         """单一Step执行"""
-        if not self.task.state:
-            err = "[FlowExecutor] 当前ExecutorState为空"
-            logger.error(err)
-            raise ValueError(err)
+        self.validate_flow_state(self.task)
 
         # 创建步骤Runner
         step_runner = StepExecutor(
@@ -101,12 +98,8 @@ class FlowExecutor(BaseExecutor):
 
         # 初始化步骤
         await step_runner.init()
-
-        # 运行Step，并判断是否需要输出
-        if await self._is_to_user(queue_item.step_id, queue_item.step):
-            await step_runner.run_step(to_user=True)
-        else:
-            await step_runner.run_step()
+        # 运行Step
+        await step_runner.run_step()
 
         # 更新Task
         self.task = step_runner.task
@@ -115,10 +108,7 @@ class FlowExecutor(BaseExecutor):
 
     async def _step_process(self) -> None:
         """单一Step执行"""
-        if not self.task.state:
-            err = "[FlowExecutor] 当前ExecutorState为空"
-            logger.error(err)
-            raise ValueError(err)
+        self.validate_flow_state(self.task)
 
         while True:
             try:
@@ -139,30 +129,15 @@ class FlowExecutor(BaseExecutor):
         return next_ids
 
 
-    async def _is_to_user(self, step_id: str, step: Step) -> bool:
-        """判断是否需要输出"""
-        # 最后一步或者Choice类型，任何情况下都不输出
-        if step.type in [
-            SpecialCallType.CHOICE.value,
-        ]:
-            return False
-
-        next_steps = await self._find_next_id(step_id)
-        return bool(len(next_steps) == 1 and self.flow.steps[next_steps[0]].type == SpecialCallType.OUTPUT.value)
-
-
     async def _find_flow_next(self) -> list[StepQueueItem]:
         """在当前步骤执行前，尝试获取下一步"""
-        if not self.task.state:
-            err = "[StepExecutor] 当前ExecutorState为空"
-            logger.error(err)
-            raise ValueError(err)
+        self.validate_flow_state(self.task)
 
         # 如果当前步骤为结束，则直接返回
-        if self.task.state.step_id == "end" or not self.task.state.step_id:
+        if self.task.state.step_id == "end" or not self.task.state.step_id: # type: ignore[arg-type]
             return []
 
-        next_steps = await self._find_next_id(self.task.state.step_id)
+        next_steps = await self._find_next_id(self.task.state.step_id) # type: ignore[arg-type]
         # 如果step没有任何出边，直接跳到end
         if not next_steps:
             return [
@@ -188,10 +163,7 @@ class FlowExecutor(BaseExecutor):
 
         数据通过向Queue发送消息的方式传输
         """
-        if not self.task.state:
-            err = "[FlowExecutor] 当前ExecutorState为空"
-            logger.error(err)
-            raise ValueError(err)
+        self.validate_flow_state(self.task)
 
         logger.info("[FlowExecutor] 运行工作流")
         # 推送Flow开始消息
@@ -199,8 +171,8 @@ class FlowExecutor(BaseExecutor):
 
         # 获取首个步骤
         first_step = StepQueueItem(
-            step_id=self.task.state.step_id,
-            step=self.flow.steps[self.task.state.step_id],
+            step_id=self.task.state.step_id, # type: ignore[arg-type]
+            step=self.flow.steps[self.task.state.step_id], # type: ignore[arg-type]
         )
 
         # 头插开始前的系统步骤，并执行
@@ -209,6 +181,7 @@ class FlowExecutor(BaseExecutor):
                 step_id=str(uuid.uuid4()),
                 step=step,
                 enable_filling=False,
+                to_user=False,
             ))
         await self._step_process()
 
@@ -218,13 +191,14 @@ class FlowExecutor(BaseExecutor):
         # 运行Flow（未达终点）
         while not self._reached_end:
             # 如果当前步骤出错，执行错误处理步骤
-            if self.task.state.status == StepStatus.ERROR:
+            if self.task.state.status == StepStatus.ERROR: # type: ignore[arg-type]
                 logger.warning("[FlowExecutor] Executor出错，执行错误处理步骤")
                 self.step_queue.clear()
-                self.step_queue.append(StepQueueItem(
+                self.step_queue.appendleft(StepQueueItem(
                     step_id=str(uuid.uuid4()),
                     step=ERROR_STEP,
                     enable_filling=False,
+                    to_user=True,
                 ))
                 # 错误处理后结束
                 self._reached_end = True
