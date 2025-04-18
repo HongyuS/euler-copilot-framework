@@ -7,7 +7,11 @@ from apps.scheduler.call.core import DataBase
 
 SLOT_GEN_PROMPT = [
     {"role": "user", "content": ""},
-    {"role": "assistant", "content": ""},
+    {"role": "assistant", "content": r"""
+
+
+        """,
+    },
 ]
 
 

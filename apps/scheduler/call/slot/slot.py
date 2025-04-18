@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor
 
 
-class Slot(CoreCall, input_type=SlotInput, output_type=SlotOutput):
+class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
     """参数填充工具"""
 
     data: dict[str, Any] = Field(description="当前输入", default={})
