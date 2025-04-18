@@ -28,7 +28,7 @@ from apps.scheduler.call.llm.schema import LLM_CONTEXT_PROMPT, LLM_DEFAULT_PROMP
 logger = logging.getLogger(__name__)
 
 
-class LLM(CoreCall, input_type=LLMInput, output_type=LLMOutput):
+class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
     """大模型调用工具"""
 
     temperature: float = Field(description="大模型温度（随机化程度）", default=0.7)

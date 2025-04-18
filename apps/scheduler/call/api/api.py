@@ -52,7 +52,7 @@ SUCCESS_HTTP_CODES = [
 ]
 
 
-class API(CoreCall, input_type=APIInput, output_type=APIOutput):
+class API(CoreCall, input_model=APIInput, output_model=APIOutput):
     """API调用工具"""
 
     url: str = Field(description="API接口的完整URL")

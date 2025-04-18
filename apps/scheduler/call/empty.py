@@ -12,7 +12,7 @@ from apps.entities.scheduler import CallInfo, CallOutputChunk, CallVars
 from apps.scheduler.call.core import CoreCall, DataBase
 
 
-class Empty(CoreCall, input_type=DataBase, output_type=DataBase):
+class Empty(CoreCall, input_model=DataBase, output_model=DataBase):
     """空Call"""
 
     @classmethod

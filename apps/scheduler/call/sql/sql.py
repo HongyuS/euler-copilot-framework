@@ -27,7 +27,7 @@ from apps.scheduler.call.sql.schema import SQLInput, SQLOutput
 logger = logging.getLogger(__name__)
 
 
-class SQL(CoreCall, input_type=SQLInput, output_type=SQLOutput):
+class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
     """SQL工具。用于调用外置的Chat2DB工具的API，获得SQL语句；再在PostgreSQL中执行SQL语句，获得数据。"""
 
     database_url: str = Field(description="数据库连接地址")
@@ -49,10 +49,8 @@ class SQL(CoreCall, input_type=SQLInput, output_type=SQLOutput):
         ).model_dump(by_alias=True, exclude_none=True)
 
 
-    async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
-        """运行SQL工具"""
-        # 获取必要参数
-        data = SQLInput(**input_data)
+    async def _generate_sql(self, data: SQLInput) -> list[dict[str, Any]]:
+        """生成SQL语句列表"""
         post_data = {
             "database_url": self.database_url,
             "table_name_list": self.table_name_list,
@@ -60,76 +58,89 @@ class SQL(CoreCall, input_type=SQLInput, output_type=SQLOutput):
             "topk": self.top_k,
             "use_llm_enhancements": self.use_llm_enhancements,
         }
-        headers = {
-            "Content-Type": "application/json",
-        }
+        headers = {"Content-Type": "application/json"}
 
-        # 生成sql,重试3次直到sql生成数量大于等于top_k
         sql_list = []
         retry = 0
         max_retry = 3
-        while retry < max_retry:
+
+        while retry < max_retry and len(sql_list) < self.top_k:
             try:
                 async with aiohttp.ClientSession() as session, session.post(
-                    Config().get_config().extra.sql_url+"/database/sql",
+                    Config().get_config().extra.sql_url + "/database/sql",
                     headers=headers,
                     json=post_data,
                     timeout=aiohttp.ClientTimeout(total=60),
                 ) as response:
                     if response.status == status.HTTP_200_OK:
                         result = await response.json()
-                        sub_sql_list = result["result"]["sql_list"]
-                        sql_list += sub_sql_list
-                        retry += 1
+                        if result["code"] == status.HTTP_200_OK:
+                            sql_list.extend(result["result"]["sql_list"])
                     else:
                         text = await response.text()
                         logger.error("[SQL] 生成失败：%s", text)
                         retry += 1
-                        continue
             except Exception:
                 logger.exception("[SQL] 生成失败")
                 retry += 1
-                continue
 
-            if len(sql_list) >= self.top_k:
-                break
-        #执行sql,并将执行结果保存在sql_exec_results中
-        sql_exec_results: Any = None
+        return sql_list
+
+
+    async def _execute_sql(self, sql_list: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+        """执行SQL语句并返回结果"""
+        headers = {"Content-Type": "application/json"}
+
         for sql_dict in sql_list:
-            database_id = sql_dict["database_id"]
-            sql = sql_dict["sql"]
-            post_data = {
-                "database_id": database_id,
-                "sql": sql,
-            }
             try:
                 async with aiohttp.ClientSession() as session, session.post(
-                    Config().get_config().extra.sql_url+"/sql/execute",
+                    Config().get_config().extra.sql_url + "/sql/execute",
                     headers=headers,
-                    json=post_data,
+                    json={
+                        "database_id": sql_dict["database_id"],
+                        "sql": sql_dict["sql"],
+                    },
                     timeout=aiohttp.ClientTimeout(total=60),
                 ) as response:
                     if response.status == status.HTTP_200_OK:
                         result = await response.json()
-                        sql_exec_results = result["result"]
-                        break
+                        if result["code"] == status.HTTP_200_OK:
+                            return result["result"]
                     else:
                         text = await response.text()
                         logger.error("[SQL] 调用失败：%s", text)
-                        continue
             except Exception:
                 logger.exception("[SQL] 调用失败")
-                continue
-        if sql_exec_results is not None:
-            data = SQLOutput(
-                dataset=sql_exec_results,
-            ).model_dump(exclude_none=True, by_alias=True)
-            yield CallOutputChunk(
-                content=data,
-                type=CallOutputType.DATA,
+
+        return None
+
+
+    async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
+        """运行SQL工具"""
+        data = SQLInput(**input_data)
+
+        # 生成SQL语句
+        sql_list = await self._generate_sql(data)
+        if not sql_list:
+            raise CallError(
+                message="SQL查询错误：无法生成有效的SQL语句！",
+                data={},
             )
-            return
-        raise CallError(
-            message="SQL查询错误：SQL语句错误，数据库查询失败！",
-            data={},
+
+        # 执行SQL语句
+        sql_exec_results = await self._execute_sql(sql_list)
+        if sql_exec_results is None:
+            raise CallError(
+                message="SQL查询错误：SQL语句执行失败！",
+                data={},
+            )
+
+        # 返回结果
+        data = SQLOutput(
+            dataset=sql_exec_results,
+        ).model_dump(exclude_none=True, by_alias=True)
+
+        yield CallOutputChunk(
+            content=data,
+            type=CallOutputType.DATA,
         )
