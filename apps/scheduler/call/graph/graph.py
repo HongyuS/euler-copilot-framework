@@ -6,25 +6,33 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 
 import json
 from collections.abc import AsyncGenerator
-from typing import Any, ClassVar
+from typing import Any
 
 from anyio import Path
 from pydantic import Field
 
 from apps.entities.enum_var import CallOutputType
-from apps.entities.scheduler import CallError, CallOutputChunk, CallVars
+from apps.entities.scheduler import (
+    CallError,
+    CallInfo,
+    CallOutputChunk,
+    CallVars,
+)
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.call.graph.schema import RenderFormat, RenderInput, RenderOutput
 from apps.scheduler.call.graph.style import RenderStyle
 
 
-class Graph(CoreCall, output_type=RenderOutput):
+class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
     """Render Call，用于将SQL Tool查询出的数据转换为图表"""
 
-    name: ClassVar[str] = Field("图表", exclude=True, frozen=True)
-    description: ClassVar[str] = Field("将SQL查询出的数据转换为图表", exclude=True, frozen=True)
-
     data: list[dict[str, Any]] = Field(description="用于绘制图表的数据", exclude=True, frozen=True)
+
+
+    @classmethod
+    def cls_info(cls) -> CallInfo:
+        """返回Call的名称和描述"""
+        return CallInfo(name="图表", description="将SQL查询出的数据转换为图表")
 
 
     async def _init(self, call_vars: CallVars) -> dict[str, Any]:

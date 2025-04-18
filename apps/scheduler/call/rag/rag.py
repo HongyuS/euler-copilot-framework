@@ -27,7 +27,7 @@ from apps.scheduler.call.rag.schema import RAGInput, RAGOutput, RetrievalMode
 logger = logging.getLogger(__name__)
 
 
-class RAG(CoreCall, input_type=RAGInput, output_type=RAGOutput):
+class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
     """RAG工具：查询知识库"""
 
     knowledge_base: str | None = Field(description="知识库的id", alias="kb_sn", default=None)
@@ -41,8 +41,6 @@ class RAG(CoreCall, input_type=RAGInput, output_type=RAGOutput):
 
     async def _init(self, call_vars: CallVars) -> dict[str, Any]:
         """初始化RAG工具"""
-        await super()._init(call_vars)
-
         self._task_id = call_vars.ids.task_id
         return RAGInput(
             content=call_vars.question,

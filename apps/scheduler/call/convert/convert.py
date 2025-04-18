@@ -22,7 +22,7 @@ from apps.scheduler.call.convert.schema import ConvertInput, ConvertOutput
 from apps.scheduler.call.core import CallOutputChunk, CoreCall
 
 
-class Convert(CoreCall, input_type=ConvertInput, output_type=ConvertOutput):
+class Convert(CoreCall, input_model=ConvertInput, output_model=ConvertOutput):
     """Convert 工具，用于对生成的文字信息和原始数据进行格式化"""
 
     text_template: str | None = Field(description="自然语言信息的格式化模板，jinja2语法", default=None)

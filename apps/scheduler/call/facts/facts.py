@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor
 
 
-class FactsCall(CoreCall, input_type=FactsInput, output_type=FactsOutput):
+class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
     """提取事实工具"""
 
     answer: str = Field(description="用户输入")
