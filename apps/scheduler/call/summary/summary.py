@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 
-class Summary(CoreCall, input_type=SummaryInput, output_type=SummaryOutput):
+class Summary(CoreCall, input_model=SummaryInput, output_model=SummaryOutput):
     """总结工具"""
 
     context: ExecutorBackground = Field(description="对话上下文")

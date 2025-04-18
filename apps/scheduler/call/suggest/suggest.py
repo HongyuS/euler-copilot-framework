@@ -5,7 +5,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Self
+from typing import TYPE_CHECKING, Any, Self
 
 from pydantic import Field
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor
 
 
-class Suggestion(CoreCall, input_type=SuggestionInput, output_type=SuggestionOutput):
+class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionOutput):
     """问题推荐"""
 
     configs: list[SingleFlowSuggestionConfig] = Field(description="问题推荐配置", min_length=1)
