@@ -70,7 +70,7 @@ class AbuseRequest(BaseModel):
 
     record_id: str
     reason: str
-    reason_type: list[str]
+    reason_type: str
 
 
 class AbuseProcessRequest(BaseModel):

@@ -168,7 +168,7 @@ class AbuseManager:
     """用户举报相关操作"""
 
     @staticmethod
-    async def change_abuse_report(user_sub: str, record_id: str, reason_type: list[str], reason: str) -> bool:
+    async def change_abuse_report(user_sub: str, record_id: str, reason_type: str, reason: str) -> bool:
         """存储用户举报详情"""
         try:
             # 判断record_id是否合法
