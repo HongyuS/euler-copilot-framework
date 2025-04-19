@@ -7,6 +7,7 @@ import jinja2
 from pydantic import Field
 
 from apps.entities.enum_var import CallOutputType
+from apps.entities.pool import NodePool
 from apps.entities.scheduler import CallInfo, CallOutputChunk, CallVars
 from apps.llm.patterns.json_gen import Json
 from apps.manager.task import TaskManager
@@ -29,7 +30,7 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
 
 
     @classmethod
-    def cls_info(cls) -> CallInfo:
+    def info(cls) -> CallInfo:
         """返回Call的名称和描述"""
         return CallInfo(name="参数自动填充", description="根据步骤历史，自动填充参数")
 
@@ -53,20 +54,21 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
         )
 
     @classmethod
-    async def init(cls, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
+    async def instance(cls, executor: "StepExecutor", node: NodePool | None, **kwargs: Any) -> Self:
         """实例化Call类"""
-        call_obj = cls(
+        obj = cls(
+            name=executor.step.step.name,
+            description=executor.step.step.description,
             facts=executor.background.facts,
             summary=executor.task.runtime.summary,
+            node=node,
             **kwargs,
         )
-
-        sys_vars = cls._assemble_call_vars(executor)
-        input_data = await call_obj._init(sys_vars)
-        return call_obj, input_data
+        await obj._set_input(executor)
+        return obj
 
 
-    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
+    async def _init(self, call_vars: CallVars) -> SlotInput:
         """初始化"""
         self._task_id = call_vars.ids.task_id
         self._flow_history = await TaskManager.get_flow_history_by_task_id(self._task_id, self.step_num)
@@ -74,14 +76,14 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
         if not self.current_schema:
             return SlotInput(
                 remaining_schema={},
-            ).model_dump(by_alias=True, exclude_none=True)
+            )
 
         self._processor = SlotProcessor(self.current_schema)
         remaining_schema = self._processor.check_json(self.data)
 
         return SlotInput(
             remaining_schema=remaining_schema,
-        ).model_dump(by_alias=True, exclude_none=True)
+        )
 
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:

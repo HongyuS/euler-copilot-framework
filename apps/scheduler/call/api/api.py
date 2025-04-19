@@ -65,32 +65,17 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
 
 
     @classmethod
-    def cls_info(cls) -> CallInfo:
+    def info(cls) -> CallInfo:
         """返回Call的名称和描述"""
         return CallInfo(name="API调用", description="向某一个API接口发送HTTP请求，获取数据。")
 
 
-    @classmethod
-    async def init(cls, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
-        """初始化工具"""
-        cls_obj = cls(
-            name=executor.step.step.name,
-            description=executor.step.step.description,
-            **kwargs,
-        )
-
-        call_vars = cls._assemble_call_vars(executor)
-        input_data = await cls_obj._init(call_vars)
-
-        return cls_obj, input_data
-
-
-    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
+    async def _init(self, call_vars: CallVars) -> APIInput:
         """初始化API调用工具"""
         # 获取对应API的Service Metadata
         try:
             service_metadata = await ServiceCenterManager.get_service_data(
-                call_vars.ids.user_sub, call_vars.ids.service_id,
+                call_vars.ids.user_sub, self.node.service_id or "",
             )
             service_metadata = ServiceMetadata.model_validate(service_metadata)
         except Exception as e:
@@ -109,7 +94,7 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
             method=self.method,
             query=self.query,
             body=self.body,
-        ).model_dump(exclude_none=True, by_alias=True)
+        )
 
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:

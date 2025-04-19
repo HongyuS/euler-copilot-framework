@@ -12,24 +12,18 @@ class SingleFlowSuggestionConfig(BaseModel):
     question: str | None = Field(default=None, description="固定的推荐问题")
 
 
-class SuggestionOutputItem(BaseModel):
-    """问题推荐结果的单个条目"""
-
-    question: str
-    app_id: str
-    flow_id: str
-    flow_description: str
-
-
 class SuggestionInput(DataBase):
     """问题推荐输入"""
 
     question: str
-    task_id: str
     user_sub: str
+    history_questions: list[str]
 
 
 class SuggestionOutput(DataBase):
     """问题推荐结果"""
 
-    output: list[SuggestionOutputItem]
+    question: str
+    app_id: str = Field(alias="appId")
+    flow_id: str = Field(alias="flowId")
+    flow_description: str = Field(alias="flowDescription")

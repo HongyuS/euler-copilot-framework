@@ -37,10 +37,12 @@ class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
     system_prompt: str = Field(description="大模型系统提示词", default="")
     user_prompt: str = Field(description="大模型用户提示词", default=LLM_DEFAULT_PROMPT)
 
+
     @classmethod
-    def cls_info(cls) -> CallInfo:
+    def info(cls) -> CallInfo:
         """返回Call的名称和描述"""
         return CallInfo(name="大模型", description="以指定的提示词和上下文信息调用大模型，并获得输出。")
+
 
     async def _prepare_message(self, call_vars: CallVars) -> list[dict[str, Any]]:
         """准备消息"""
@@ -87,12 +89,14 @@ class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
             {"role": "user", "content": user_input},
         ]
 
-    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
+
+    async def _init(self, call_vars: CallVars) -> LLMInput:
         """初始化LLM工具"""
         return LLMInput(
             task_id=call_vars.ids.task_id,
             message=await self._prepare_message(call_vars),
-        ).model_dump(exclude_none=True, by_alias=True)
+        )
+
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """运行LLM Call"""

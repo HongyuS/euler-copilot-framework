@@ -1,28 +1,22 @@
 """搜索工具"""
-from typing import Any, ClassVar
 
-from pydantic import BaseModel, Field
+from typing import Any, ClassVar
 
 from apps.entities.scheduler import CallVars
 from apps.scheduler.call.core import CoreCall
+from apps.scheduler.call.search.schema import SearchInput, SearchRet
 
 
-class SearchRet(BaseModel):
-    """搜索工具返回值"""
-
-    data: list[dict[str, Any]] = Field(description="搜索结果")
-
-
-class Search(CoreCall, ret_type=SearchRet):
+class Search(CoreCall, input_model=SearchInput, output_model=SearchRet):
     """搜索工具"""
 
     name: ClassVar[str] = "搜索"
     description: ClassVar[str] = "获取搜索引擎的结果"
 
-    async def _init(self, syscall_vars: CallVars, **kwargs: Any) -> dict[str, Any]:
+    async def _init(self, call_vars: CallVars, **kwargs: Any) -> SearchInput:
         """初始化工具"""
         self._query: str = kwargs["query"]
-        return {}
+        return SearchInput(query=self._query)
 
 
     async def _exec(self) -> dict[str, Any]:
