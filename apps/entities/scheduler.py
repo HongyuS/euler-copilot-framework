@@ -25,6 +25,7 @@ class CallIds(BaseModel):
     task_id: str = Field(description="任务ID")
     flow_id: str = Field(description="Flow ID")
     session_id: str = Field(description="当前用户的Session ID")
+    app_id: str = Field(description="当前应用的ID")
     user_sub: str = Field(description="当前用户的用户ID")
 
 

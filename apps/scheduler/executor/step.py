@@ -87,7 +87,7 @@ class StepExecutor(BaseExecutor):
             params.update(self.step.step.params)
 
         try:
-            self.obj, self.input = await call_cls.init(self, **params)
+            self.obj = await call_cls.instance(self, self.node, **params)
         except Exception:
             logger.exception("[StepExecutor] 初始化Call失败")
             raise
@@ -121,20 +121,22 @@ class StepExecutor(BaseExecutor):
         await TaskManager.save_task(self.task.id, self.task)
         # 准备参数
         params = {
-            "data": self.input,
-            "current_schema": self.obj.input_type.model_json_schema(),
+            "data": self.obj.input,
+            "current_schema": self.obj.input_model.model_json_schema(
+                override=self.node.override_input if self.node and self.node.override_input else {},
+            ),
         }
 
         # 初始化填参
-        slot_obj, slot_input = await Slot.init(self, **params)
+        slot_obj = await Slot.instance(self, self.node, **params)
         # 推送填参消息
-        await self.push_message(EventType.STEP_INPUT.value, slot_input)
+        await self.push_message(EventType.STEP_INPUT.value, slot_obj.input)
         # 运行填参
-        iterator = slot_obj.exec(self, slot_input)
+        iterator = slot_obj.exec(self, slot_obj.input)
         async for chunk in iterator:
             result: SlotOutput = SlotOutput.model_validate(chunk.content)
 
-        self.input.update(result.slot_data)
+        self.obj.input.update(result.slot_data)
 
         # 恢复State
         self.task.state.step_id = current_step_id # type: ignore[arg-type]
@@ -181,10 +183,10 @@ class StepExecutor(BaseExecutor):
         logger.info("[StepExecutor] 运行步骤 %s", self.step.step.name)
 
         # 推送输入
-        await self.push_message(EventType.STEP_INPUT.value, self.input)
+        await self.push_message(EventType.STEP_INPUT.value, self.obj.input)
 
         # 执行步骤
-        iterator = self.obj.exec(self, self.input)
+        iterator = self.obj.exec(self, self.obj.input)
 
         try:
             content = await self._process_chunk(iterator, to_user=self.obj.to_user)
