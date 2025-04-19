@@ -16,14 +16,14 @@ class Empty(CoreCall, input_model=DataBase, output_model=DataBase):
     """空Call"""
 
     @classmethod
-    def cls_info(cls) -> CallInfo:
+    def info(cls) -> CallInfo:
         """返回Call的名称和描述"""
         return CallInfo(name="空白", description="空白节点，用于占位")
 
 
-    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
+    async def _init(self, call_vars: CallVars) -> DataBase:
         """初始化"""
-        return {}
+        return DataBase()
 
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:

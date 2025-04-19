@@ -37,7 +37,7 @@ class CallLoader:
         # 检查合法性
         for call_id in system_call.__all__:
             call_cls = getattr(system_call, call_id)
-            call_info = call_cls.cls_info()
+            call_info = call_cls.info()
 
             call_metadata.append(
                 CallPool(
@@ -82,7 +82,7 @@ class CallLoader:
         for call_id in call_package.__all__:
             try:
                 call_cls = getattr(call_package, call_id)
-                call_info = call_cls.cls_info()
+                call_info = call_cls.info()
             except AttributeError as e:
                 err = f"[CallLoader] 载入工具call.{call_dir_name}.{call_id}失败：{e}；跳过载入。"
                 logger.info(err)
