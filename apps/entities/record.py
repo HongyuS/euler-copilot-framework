@@ -86,7 +86,7 @@ class RecordData(BaseModel):
     flow: RecordFlow | None = None
     content: RecordContent
     metadata: RecordMetadata
-    comment: RecordComment
+    comment: RecordComment= Field(default=RecordComment())
     created_at: float = Field(alias="createdAt")
 
 
