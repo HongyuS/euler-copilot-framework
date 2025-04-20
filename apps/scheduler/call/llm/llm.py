@@ -31,6 +31,9 @@ logger = logging.getLogger(__name__)
 class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
     """大模型调用工具"""
 
+    to_user: bool = Field(default=True)
+
+    # 大模型参数
     temperature: float = Field(description="大模型温度（随机化程度）", default=0.7)
     enable_context: bool = Field(description="是否启用上下文", default=True)
     step_history_size: int = Field(description="上下文信息中包含的步骤历史数量", default=3, ge=1, le=10)
