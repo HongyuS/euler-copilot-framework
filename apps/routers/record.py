@@ -77,6 +77,7 @@ async def get_record(conversation_id: str, user_sub: Annotated[str, Depends(get_
                     outputTokens=0,
                     timeCost=0,
                 ),
+                comment=record.comment,
                 createdAt=record.created_at,
             )
 

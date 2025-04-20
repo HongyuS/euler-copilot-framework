@@ -147,3 +147,11 @@ class SpecialCallType(str, Enum):
     START = "start"
     END = "end"
     CHOICE = "choice"
+
+
+class CommentType(str, Enum):
+    """点赞点踩类型"""
+
+    LIKE = "liked"
+    DISLIKE = "disliked"
+    NONE = "none"

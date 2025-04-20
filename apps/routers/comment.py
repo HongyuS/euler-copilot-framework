@@ -40,7 +40,7 @@ async def add_comment(post_body: AddCommentData, user_sub: Annotated[str, Depend
         ).model_dump(exclude_none=True, by_alias=True))
 
     comment_data = RecordComment(
-        is_liked=post_body.is_like,
+        comment=post_body.comment,
         feedback_type=post_body.dislike_reason,
         feedback_link=post_body.reason_link,
         feedback_content=post_body.reason_description,
