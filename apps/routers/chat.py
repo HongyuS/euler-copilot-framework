@@ -81,8 +81,6 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
                 break
 
             yield "data: " + content + "\n\n"
-            import time
-            time.sleep(0.3)
         # 等待Scheduler运行完毕
         await scheduler_task
 
