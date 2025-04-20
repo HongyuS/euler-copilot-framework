@@ -78,7 +78,7 @@ class MessageQueue:
     async def get(self) -> AsyncGenerator[str, None]:
         """从Queue中获取消息；变为async generator"""
         while True:
-            if self._close:
+            if self._close and self._queue.empty():
                 break
 
             try:

@@ -9,7 +9,6 @@ from pydantic import ConfigDict
 
 from apps.entities.enum_var import (
     EventType,
-    SpecialCallType,
     StepStatus,
 )
 from apps.entities.message import TextAddContent
@@ -98,15 +97,8 @@ class StepExecutor(BaseExecutor):
         # 判断State是否为空
         self.validate_flow_state(self.task)
 
-        # 特殊步骤跳过填参
-        if self.step.step.type in [
-            SpecialCallType.SUMMARY.value,
-            SpecialCallType.FACTS.value,
-            SpecialCallType.SLOT.value,
-            SpecialCallType.EMPTY.value,
-            SpecialCallType.START.value,
-            SpecialCallType.END.value,
-        ]:
+        # 判断是否需要进行自动参数填充
+        if not self.obj.enable_filling:
             return
 
         # 暂存旧数据
@@ -136,6 +128,7 @@ class StepExecutor(BaseExecutor):
         async for chunk in iterator:
             result: SlotOutput = SlotOutput.model_validate(chunk.content)
 
+        await self.push_message(EventType.STEP_OUTPUT.value, result.slot_data)
         self.obj.input.update(result.slot_data)
 
         # 恢复State
@@ -181,6 +174,9 @@ class StepExecutor(BaseExecutor):
         """运行单个步骤"""
         self.validate_flow_state(self.task)
         logger.info("[StepExecutor] 运行步骤 %s", self.step.step.name)
+
+        # 进行自动参数填充
+        await self._run_slot_filling()
 
         # 推送输入
         await self.push_message(EventType.STEP_INPUT.value, self.obj.input)

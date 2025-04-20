@@ -57,6 +57,7 @@ class CoreCall(BaseModel):
     )
 
     to_user: bool = Field(description="是否需要将输出返回给用户", default=False)
+    enable_filling: bool = Field(description="是否需要进行自动参数填充", default=False)
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,

@@ -50,6 +50,8 @@ SUCCESS_HTTP_CODES = [
 class API(CoreCall, input_model=APIInput, output_model=APIOutput):
     """API调用工具"""
 
+    enable_filling: bool = Field(description="是否需要进行自动参数填充", default=True)
+
     url: str = Field(description="API接口的完整URL")
     method: HTTPMethod = Field(description="API接口的HTTP Method")
     content_type: ContentType = Field(description="API接口的Content-Type")
@@ -99,8 +101,9 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
         """调用API，然后返回LLM解析后的数据"""
         self._session = aiohttp.ClientSession()
         self._timeout = aiohttp.ClientTimeout(total=self.timeout)
+        input_obj = APIInput.model_validate(input_data)
         try:
-            result = await self._call_api(input_data)
+            result = await self._call_api(input_obj)
             yield CallOutputChunk(
                 type=CallOutputType.DATA,
                 content=result.model_dump(exclude_none=True, by_alias=True),
@@ -109,7 +112,7 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
             await self._session.close()
 
 
-    async def _make_api_call(self, data: dict | None, files: aiohttp.FormData):  # noqa: ANN202, C901
+    async def _make_api_call(self, data: APIInput, files: aiohttp.FormData):  # noqa: ANN202, C901
         """组装API请求Session"""
         # 获取必要参数
         req_header = {
@@ -117,8 +120,6 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
         }
         req_cookie = {}
         req_params = {}
-
-        data = data or {}
 
         if self._auth:
             if self._auth.header:
@@ -143,7 +144,7 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
             HTTPMethod.GET.value,
             HTTPMethod.DELETE.value,
         ]:
-            req_params.update(data)
+            req_params.update(data.query)
             return self._session.request(
                 self.method,
                 self.url,
@@ -158,12 +159,13 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
             HTTPMethod.PUT.value,
             HTTPMethod.PATCH.value,
         ]:
+            req_body = data.body
             if self.content_type in [
                 ContentType.FORM_URLENCODED.value,
                 ContentType.MULTIPART_FORM_DATA.value,
             ]:
                 form_data = files
-                for key, val in data.items():
+                for key, val in req_body.items():
                     form_data.add_field(key, val)
                 return self._session.request(
                     self.method,
@@ -176,7 +178,7 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
             return self._session.request(
                 self.method,
                 self.url,
-                json=data,
+                json=req_body,
                 headers=req_header,
                 cookies=req_cookie,
                 timeout=self._timeout,
@@ -187,14 +189,14 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
             data={},
         )
 
-    async def _call_api(self, final_data: dict[str, Any] | None = None) -> APIOutput:
+    async def _call_api(self, final_data: APIInput) -> APIOutput:
         """实际调用API，并处理返回值"""
         # 获取必要参数
         logger.info("[API] 调用接口 %s，请求数据为 %s", self.url, final_data)
 
         session_context = await self._make_api_call(final_data, aiohttp.FormData())
         async with session_context as response:
-            if response.status in SUCCESS_HTTP_CODES:
+            if response.status not in SUCCESS_HTTP_CODES:
                 text = f"API发生错误：API返回状态码{response.status}, 原因为{response.reason}。"
                 logger.error(text)
                 raise CallError(
