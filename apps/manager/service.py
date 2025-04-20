@@ -59,7 +59,6 @@ class ServiceCenterManager:
         ]
         return services, total_count
 
-
     @staticmethod
     async def fetch_user_services(
         user_sub: str,
@@ -70,7 +69,7 @@ class ServiceCenterManager:
     ) -> tuple[list[ServiceCardItem], int]:
         """获取用户创建的服务"""
         if search_type == SearchType.AUTHOR:
-            if keyword not in user_sub:
+            if keyword is not None and keyword not in user_sub:
                 return [], 0
         base_filter = {"author": user_sub}
         filters = ServiceCenterManager._build_filters(base_filter, search_type, keyword) if keyword else base_filter
@@ -88,7 +87,6 @@ class ServiceCenterManager:
             for service_pool in service_pools
         ]
         return services, total_count
-
 
     @staticmethod
     async def fetch_favorite_services(
@@ -115,7 +113,6 @@ class ServiceCenterManager:
             for service_pool in service_pools
         ]
         return services, total_count
-
 
     @staticmethod
     async def create_service(
@@ -152,7 +149,6 @@ class ServiceCenterManager:
         # 返回服务ID
         return service_id
 
-
     @staticmethod
     async def update_service(
         user_sub: str,
@@ -186,7 +182,6 @@ class ServiceCenterManager:
         # 返回服务ID
         return service_id
 
-
     @staticmethod
     async def get_service_apis(
         service_id: str,
@@ -216,7 +211,6 @@ class ServiceCenterManager:
             )
         return service_pool_store.name, api_list
 
-
     @staticmethod
     async def get_service_data(
         user_sub: str,
@@ -239,7 +233,6 @@ class ServiceCenterManager:
         async with await service_path.open() as f:
             service_data = yaml.safe_load(await f.read())
         return service_pool_store.name, service_data
-
 
     @staticmethod
     async def get_service_metadata(
@@ -288,7 +281,6 @@ class ServiceCenterManager:
         )
         return True
 
-
     @staticmethod
     async def modify_favorite_service(
         user_sub: str,
@@ -325,7 +317,6 @@ class ServiceCenterManager:
             )
         return True
 
-
     @staticmethod
     async def _search_service(
         search_conditions: dict,
@@ -345,14 +336,12 @@ class ServiceCenterManager:
         service_pools = [ServicePool.model_validate(db_service) for db_service in db_services]
         return service_pools, total
 
-
     @staticmethod
     async def _get_favorite_service_ids_by_user(user_sub: str) -> list[str]:
         """获取用户收藏的服务ID"""
         user_collection = MongoDB.get_collection("user")
         user_data = User.model_validate(await user_collection.find_one({"_id": user_sub}))
         return user_data.fav_services
-
 
     @staticmethod
     async def _validate_service_data(data: dict[str, Any]) -> ReducedOpenAPISpec:
@@ -363,7 +352,6 @@ class ServiceCenterManager:
             raise ValueError(msg)
         # 校验 OpenAPI 规范的 JSON Schema
         return await OpenAPILoader().load_dict(data)
-
 
     @staticmethod
     def _build_filters(

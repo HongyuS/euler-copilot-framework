@@ -98,7 +98,7 @@ class AppCenterManager:
         """
         try:
             if search_type == SearchType.AUTHOR:
-                if keyword not in user_sub:
+                if keyword is not None and keyword not in user_sub:
                     return [], 0
             base_filter = {"author": user_sub}
             filters: dict[str, Any] = (
