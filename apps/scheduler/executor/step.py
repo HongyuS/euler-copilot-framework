@@ -128,7 +128,12 @@ class StepExecutor(BaseExecutor):
         async for chunk in iterator:
             result: SlotOutput = SlotOutput.model_validate(chunk.content)
 
+        # 推送填参结果
+        self.task.state.status = StepStatus.SUCCESS # type: ignore[arg-type]
+        await TaskManager.save_task(self.task.id, self.task)
         await self.push_message(EventType.STEP_OUTPUT.value, result.slot_data)
+
+        # 更新输入
         self.obj.input.update(result.slot_data)
 
         # 恢复State

@@ -101,6 +101,7 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
             )
             return
         slot_data = await self._llm_slot_fill(data.remaining_schema)
+        slot_data = self._processor.convert_json(slot_data)
 
         # 再次检查
         remaining_schema = self._processor.check_json(slot_data)
