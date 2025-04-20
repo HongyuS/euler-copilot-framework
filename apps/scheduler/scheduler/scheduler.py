@@ -8,13 +8,12 @@ import asyncio
 import logging
 
 from apps.common.queue import MessageQueue
-from apps.entities.enum_var import EventType, StepStatus
+from apps.entities.enum_var import EventType
 from apps.entities.rag_data import RAGQueryReq
 from apps.entities.request_data import RequestData
 from apps.entities.scheduler import ExecutorBackground
 from apps.entities.task import Task
 from apps.manager.appcenter import AppCenterManager
-from apps.manager.flow import FlowManager
 from apps.manager.task import TaskManager
 from apps.manager.user import UserManager
 from apps.scheduler.executor.flow import FlowExecutor
@@ -175,5 +174,4 @@ class Scheduler:
 
         # 更新Task
         task = await TaskManager.get_task(task.id)
-        # 如果状态正常，则更新Flow的debug状态
         return

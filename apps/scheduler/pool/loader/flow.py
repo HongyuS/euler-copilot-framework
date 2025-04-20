@@ -88,7 +88,11 @@ class FlowLoader:
                 step["description"] = "结束节点"
                 step["type"] = "end"
             else:
-                step["type"] = await NodeManager.get_node_call_id(step["node"])
+                try:
+                    step["type"] = await NodeManager.get_node_call_id(step["node"])
+                except ValueError as e:
+                    logger.warning("[FlowLoader] 获取节点call_id失败：%s，错误信息：%s", step["node"], e)
+                    step["type"] = "Empty"
                 step["name"] = (
                     (await NodeManager.get_node_name(step["node"]))
                     if "name" not in step or step["name"] == ""

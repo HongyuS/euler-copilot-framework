@@ -26,7 +26,7 @@ from apps.scheduler.call.graph.style import RenderStyle
 class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
     """Render Call，用于将SQL Tool查询出的数据转换为图表"""
 
-    data: list[dict[str, Any]] = Field(description="用于绘制图表的数据", exclude=True, frozen=True)
+    dataset_key: str = Field(description="图表的数据来源（字段名）")
 
 
     @classmethod
@@ -37,8 +37,6 @@ class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
 
     async def _init(self, call_vars: CallVars) -> RenderInput:
         """初始化Render Call，校验参数，读取option模板"""
-        await super()._init(call_vars)
-
         try:
             option_location = Path(__file__).parent / "option.json"
             f = await Path(option_location).open(encoding="utf-8")
@@ -47,6 +45,9 @@ class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
             await f.aclose()
         except Exception as e:
             raise CallError(message=f"图表模板读取失败：{e!s}", data={}) from e
+
+        # 获取数据
+        needed_history = call_vars.history.values()
 
         return RenderInput(
             question=call_vars.question,

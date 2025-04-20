@@ -19,6 +19,7 @@ from apps.scheduler.openapi import (
     ReducedOpenAPISpec,
     reduce_openapi_spec,
 )
+from apps.scheduler.slot.slot import Slot
 from apps.scheduler.util import yaml_str_presenter
 
 logger = logging.getLogger(__name__)
@@ -102,6 +103,10 @@ class OpenAPILoader:
             logger.warning(err)
             raise ValueError(err) from e
 
+        # 将数据转为已知JSON
+        known_body = Slot(inp.body).create_empty_slot() if inp.body else {}
+        known_query = Slot(inp.query).create_empty_slot() if inp.query else {}
+
         try:
             out = APINodeOutput(
                 result=spec.spec["responses"]["content"]["application/json"]["schema"],
@@ -114,6 +119,9 @@ class OpenAPILoader:
         known_params = {
             "url": url,
             "method": method,
+            "content_type": content_type,
+            "body": known_body,
+            "query": known_query,
         }
 
         return inp, out, known_params

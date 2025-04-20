@@ -25,6 +25,7 @@ from apps.entities.request_data import RequestData
 from apps.entities.response_data import ResponseData
 from apps.manager.flow import FlowManager
 from apps.manager.blacklist import QuestionBlacklistManager, UserBlacklistManager
+from apps.manager.flow import FlowManager
 from apps.manager.task import TaskManager
 from apps.scheduler.scheduler import Scheduler
 from apps.scheduler.scheduler.context import save_data
@@ -107,7 +108,12 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
         yield "data: [DONE]\n\n"
 
         if post_body.app and post_body.app.flow_id:
-            await FlowManager.update_flow_debug_by_app_and_flow_id(post_body.app.app_id, post_body.app.flow_id, debug=True)
+            await FlowManager.update_flow_debug_by_app_and_flow_id(
+                post_body.app.app_id,
+                post_body.app.flow_id,
+                debug=True,
+            )
+
     except Exception:
         logger.exception("[Chat] 生成答案失败")
         yield "data: [ERROR]\n\n"

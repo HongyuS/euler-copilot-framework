@@ -24,6 +24,6 @@ class SuggestionOutput(DataBase):
     """问题推荐结果"""
 
     question: str
-    app_id: str = Field(alias="appId")
+    flow_name: str = Field(alias="flowName")
     flow_id: str = Field(alias="flowId")
     flow_description: str = Field(alias="flowDescription")
