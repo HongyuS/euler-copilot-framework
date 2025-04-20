@@ -22,7 +22,7 @@ from apps.entities.flow_topology import (
 from apps.manager.node import NodeManager
 from apps.models.mongo import MongoDB
 from apps.scheduler.pool.loader.flow import FlowLoader
-from apps.service.flow import generate_from_schema
+from apps.scheduler.slot.slot import Slot
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +87,9 @@ class FlowManager:
             async for node_pool_record in cursor:
                 params_schema, output_schema = await NodeManager.get_node_params(node_pool_record["_id"])
                 try:
+                    # TODO: 由于现在没有动态表单，所以暂时使用Slot的create_empty_slot方法
                     parameters = {
-                        "input_parameters": generate_from_schema(params_schema),
+                        "input_parameters": Slot(params_schema).create_empty_slot(),
                         "output_parameters": output_schema,
                     }
                 except Exception:

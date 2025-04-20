@@ -7,7 +7,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 import json
 import logging
 from collections.abc import AsyncGenerator
-from typing import TYPE_CHECKING, Any, Self
+from typing import Any
 
 import aiohttp
 from fastapi import status
@@ -15,7 +15,6 @@ from pydantic import Field
 
 from apps.common.oidc import oidc_provider
 from apps.entities.enum_var import CallOutputType, ContentType, HTTPMethod
-from apps.entities.flow import ServiceMetadata
 from apps.entities.scheduler import (
     CallError,
     CallInfo,
@@ -26,10 +25,6 @@ from apps.manager.service import ServiceCenterManager
 from apps.manager.token import TokenManager
 from apps.scheduler.call.api.schema import APIInput, APIOutput
 from apps.scheduler.call.core import CoreCall
-
-if TYPE_CHECKING:
-    from apps.scheduler.executor.step import StepExecutor
-
 
 logger = logging.getLogger(__name__)
 SUCCESS_HTTP_CODES = [
@@ -72,22 +67,25 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
 
     async def _init(self, call_vars: CallVars) -> APIInput:
         """初始化API调用工具"""
-        # 获取对应API的Service Metadata
-        try:
-            service_metadata = await ServiceCenterManager.get_service_data(
-                call_vars.ids.user_sub, self.node.service_id or "",
-            )
-            service_metadata = ServiceMetadata.model_validate(service_metadata)
-        except Exception as e:
-            raise CallError(
-                message="API接口的Service Metadata获取失败",
-                data={},
-            ) from e
-
-        # 获取Service对应的Auth
-        self._auth = service_metadata.api.auth
+        self._service_id = ""
         self._session_id = call_vars.ids.session_id
-        self._service_id = call_vars.ids.service_id
+        self._auth = None
+
+        if self.node:
+            # 获取对应API的Service Metadata
+            try:
+                service_metadata = await ServiceCenterManager.get_service_metadata(
+                    call_vars.ids.user_sub, self.node.service_id or "",
+                )
+            except Exception as e:
+                raise CallError(
+                    message="API接口的Service Metadata获取失败",
+                    data={},
+                ) from e
+
+            # 获取Service对应的Auth
+            self._auth = service_metadata.api.auth
+            self._service_id = self.node.service_id or ""
 
         return APIInput(
             url=self.url,
@@ -111,7 +109,7 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
             await self._session.close()
 
 
-    async def _make_api_call(self, data: dict | None, files: aiohttp.FormData):  # noqa: ANN202
+    async def _make_api_call(self, data: dict | None, files: aiohttp.FormData):  # noqa: ANN202, C901
         """组装API请求Session"""
         # 获取必要参数
         req_header = {
@@ -141,7 +139,10 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
                 )
                 req_header.update({"access-token": token})
 
-        if self.method in ["get", "delete"]:
+        if self.method in [
+            HTTPMethod.GET.value,
+            HTTPMethod.DELETE.value,
+        ]:
             req_params.update(data)
             return self._session.request(
                 self.method,
@@ -152,8 +153,15 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
                 timeout=self._timeout,
             )
 
-        if self.method in ["post", "put", "patch"]:
-            if self.content_type == "form":
+        if self.method in [
+            HTTPMethod.POST.value,
+            HTTPMethod.PUT.value,
+            HTTPMethod.PATCH.value,
+        ]:
+            if self.content_type in [
+                ContentType.FORM_URLENCODED.value,
+                ContentType.MULTIPART_FORM_DATA.value,
+            ]:
                 form_data = files
                 for key, val in data.items():
                     form_data.add_field(key, val)
@@ -174,8 +182,10 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
                 timeout=self._timeout,
             )
 
-        err = "Method not implemented."
-        raise NotImplementedError(err)
+        raise CallError(
+            message="API接口的HTTP Method不支持",
+            data={},
+        )
 
     async def _call_api(self, final_data: dict[str, Any] | None = None) -> APIOutput:
         """实际调用API，并处理返回值"""
@@ -207,8 +217,11 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
         # 如果返回值是JSON
         try:
             response_dict = json.loads(response_data)
-        except Exception:
-            logger.exception("[API] 返回值不是JSON格式！")
+        except Exception as e:
+            raise CallError(
+                message="API接口的返回值不是JSON格式",
+                data={},
+            ) from e
 
         return APIOutput(
             http_code=response_status,

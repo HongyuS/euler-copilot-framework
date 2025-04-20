@@ -225,7 +225,7 @@ class ServiceCenterManager:
         """获取服务数据"""
         # 验证用户权限
         service_collection = MongoDB.get_collection("service")
-        db_service = await service_collection.find_one({"_id": service_id})
+        db_service = await service_collection.find_one({"_id": service_id, "author": user_sub})
         if not db_service:
             msg = "Service not found"
             raise ServiceIDError(msg)
@@ -239,6 +239,26 @@ class ServiceCenterManager:
         async with await service_path.open() as f:
             service_data = yaml.safe_load(await f.read())
         return service_pool_store.name, service_data
+
+
+    @staticmethod
+    async def get_service_metadata(
+        user_sub: str,
+        service_id: str,
+    ) -> ServiceMetadata:
+        """获取服务元数据"""
+        service_collection = MongoDB.get_collection("service")
+        db_service = await service_collection.find_one({"_id": service_id, "author": user_sub})
+        if not db_service:
+            msg = "Service not found"
+            raise ServiceIDError(msg)
+
+        metadata_path = (
+            Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id / "metadata.yaml"
+        )
+        async with await metadata_path.open() as f:
+            metadata_data = yaml.safe_load(await f.read())
+        return ServiceMetadata.model_validate(metadata_data)
 
 
     @staticmethod
