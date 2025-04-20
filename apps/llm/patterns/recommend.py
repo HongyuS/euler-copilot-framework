@@ -21,9 +21,10 @@ class Recommend(CorePattern):
     user_prompt: str = r"""
         <instructions>
             <instruction>
-                根据提供的对话和附加信息（用户倾向、历史问题列表等），生成三个预测问题。
+                根据提供的对话和附加信息（用户倾向、历史问题列表、工具信息等），生成三个预测问题。
                 历史提问列表展示的是用户发生在历史对话之前的提问，仅为背景参考作用。
-                对话将在<conversation>标签中给出，用户倾向将在<domain>标签中给出，历史问题列表将在<history_list>标签中给出。
+                对话将在<conversation>标签中给出，用户倾向将在<domain>标签中给出，\
+                历史问题列表将在<history_list>标签中给出，工具信息将在<tool_info>标签中给出。
 
                 生成预测问题时的要求：
                     1. 以用户口吻生成预测问题，数量必须为3个，必须为疑问句或祈使句，必须少于30字。
@@ -50,6 +51,12 @@ class Recommend(CorePattern):
                     <question>简单介绍一下杭州</question>
                     <question>杭州有哪些著名景点？</question>
                 </history_list>
+                <tool_info>
+                    <tool>
+                        <name>景点查询</name>
+                        <description>查询景点信息</description>
+                    </tool>
+                </tool_info>
                 <domain>["杭州", "旅游"]</domain>
 
                 现在，进行问题生成：
@@ -72,6 +79,11 @@ class Recommend(CorePattern):
         <history_list>
             {history_questions}
         </history_list>
+
+        <tool_info>
+            <name>{tool_name}</name>
+            <description>{tool_description}</description>
+        </tool_info>
 
         <domain>{user_preference}</domain>
 
@@ -118,6 +130,8 @@ class Recommend(CorePattern):
                 conversation=convert_context_to_prompt(kwargs["conversation"]),
                 history_questions=history_questions,
                 user_preference=user_preference,
+                tool_name=kwargs["tool_name"],
+                tool_description=kwargs["tool_description"],
             )},
         ]
 

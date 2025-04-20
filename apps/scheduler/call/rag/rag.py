@@ -34,12 +34,14 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
     top_k: int = Field(description="返回的答案数量(经过整合以及上下文关联)", default=5)
     retrieval_mode: Literal["chunk", "full_text"] = Field(description="检索模式", default="chunk")
 
+
     @classmethod
-    def cls_info(cls) -> CallInfo:
+    def info(cls) -> CallInfo:
         """返回Call的名称和描述"""
         return CallInfo(name="知识库", description="查询知识库，从文档中获取必要信息")
 
-    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
+
+    async def _init(self, call_vars: CallVars) -> RAGInput:
         """初始化RAG工具"""
         self._task_id = call_vars.ids.task_id
         return RAGInput(
@@ -47,7 +49,8 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
             kb_sn=self.knowledge_base,
             top_k=self.top_k,
             retrieval_mode=RetrievalMode(self.retrieval_mode),
-        ).model_dump(by_alias=True, exclude_none=True)
+        )
+
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """调用RAG工具"""

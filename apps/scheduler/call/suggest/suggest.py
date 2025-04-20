@@ -4,14 +4,25 @@
 Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
+import random
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any, Self
 
 from pydantic import Field
+from pydantic.json_schema import SkipJsonSchema
 
-from apps.entities.scheduler import CallInfo, CallOutputChunk, CallVars
+from apps.common.security import Security
+from apps.entities.enum_var import CallOutputType
+from apps.entities.pool import NodePool
+from apps.entities.record import RecordContent
+from apps.entities.scheduler import (
+    CallError,
+    CallInfo,
+    CallOutputChunk,
+    CallVars,
+)
 from apps.llm.patterns.recommend import Recommend
-from apps.manager.task import TaskManager
+from apps.manager.record import RecordManager
 from apps.manager.user_domain import UserDomainManager
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.call.suggest.schema import (
@@ -27,20 +38,22 @@ if TYPE_CHECKING:
 class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionOutput):
     """问题推荐"""
 
-    configs: list[SingleFlowSuggestionConfig] = Field(description="问题推荐配置", min_length=1)
+    configs: list[SingleFlowSuggestionConfig] = Field(description="问题推荐配置")
     num: int = Field(default=3, ge=1, le=6, description="推荐问题的总数量（必须大于等于configs中涉及的Flow的数量）")
 
-    context: list[dict[str, str]] = Field(description="Executor的上下文")
+    context: SkipJsonSchema[list[dict[str, str]]] = Field(description="Executor的上下文", exclude=True)
+    conversation_id: SkipJsonSchema[str] = Field(description="对话ID", exclude=True)
 
     @classmethod
-    def cls_info(cls) -> CallInfo:
+    def info(cls) -> CallInfo:
         """返回Call的名称和描述"""
         return CallInfo(name="问题推荐", description="在答案下方显示推荐的下一个问题")
 
 
-    async def init(self, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
+    @classmethod
+    async def instance(cls, executor: "StepExecutor", node: NodePool | None, **kwargs: Any) -> Self:
         """初始化"""
-        self.context = [
+        context = [
             {
                 "role": "user",
                 "content": executor.task.runtime.question,
@@ -50,33 +63,127 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
                 "content": executor.task.runtime.answer,
             },
         ]
+        obj = cls(
+            name=executor.step.step.name,
+            description=executor.step.step.description,
+            node=node,
+            context=context,
+            conversation_id=executor.task.ids.conversation_id,
+            **kwargs,
+        )
+        await obj._set_input(executor)
+        return obj
 
-        return await super().init(executor, **kwargs)
 
-
-    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
+    async def _init(self, call_vars: CallVars) -> SuggestionInput:
         """初始化"""
+        from apps.manager.appcenter import AppCenterManager
+
+        self._task_id = call_vars.ids.task_id
+        self._history_questions = await self._get_history_questions(
+            call_vars.ids.user_sub,
+            self.conversation_id,
+        )
+        self._app_id = call_vars.ids.app_id
+        self._flow_id = call_vars.ids.flow_id
+        app_metadata = await AppCenterManager.fetch_app_data_by_id(self._app_id)
+        self._avaliable_flows = {}
+        for flow in app_metadata.flows:
+            self._avaliable_flows[flow.id] = flow.description
+
         return SuggestionInput(
             question=call_vars.question,
-            task_id=call_vars.ids.task_id,
             user_sub=call_vars.ids.user_sub,
-        ).model_dump(by_alias=True, exclude_none=True)
+            history_questions=self._history_questions,
+        )
+
+
+    async def _get_history_questions(self, user_sub: str, conversation_id: str) -> list[str]:
+        """获取当前对话的历史问题"""
+        records = await RecordManager.query_record_by_conversation_id(
+            user_sub,
+            conversation_id,
+            15,
+        )
+
+        history_questions = []
+        for record in records:
+            record_data = RecordContent.model_validate_json(Security.decrypt(record.content, record.key))
+            history_questions.append(record_data.question)
+        return history_questions
 
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """运行问题推荐"""
         data = SuggestionInput(**input_data)
-        # 获取当前任务
-        task = await TaskManager.get_task(task_id=data.task_id)
+
+        # 配置不正确
+        if self.num < len(self.configs):
+            raise CallError(
+                message="推荐问题的数量必须大于等于配置的数量",
+                data={},
+            )
 
         # 获取当前用户的画像
         user_domain = await UserDomainManager.get_user_domain_by_user_sub_and_topk(data.user_sub, 5)
+        # 已推送问题数量
+        pushed_questions = 0
 
-        recommended_questions = await Recommend().generate(
-            data.task_id,
-            conversation=self.context,
-            user_preference=user_domain,
-            history_questions=task.runtime.history,
-        )
+        # 先处理configs
+        for config in self.configs:
+            if config.flow_id not in self._avaliable_flows:
+                raise CallError(
+                    message="配置的Flow ID不存在",
+                    data={},
+                )
 
-        yield CallOutputChunk(content="")
+            if config.question:
+                question = config.question
+            else:
+                questions = await Recommend().generate(
+                    self._task_id,
+                    conversation=self.context,
+                    user_preference=user_domain,
+                    history_questions=self._history_questions,
+                    tool_name=config.flow_id,
+                    tool_description=self._avaliable_flows[config.flow_id],
+                )
+                question = questions[random.randint(0, len(questions) - 1)]  # noqa: S311
+
+            yield CallOutputChunk(
+                type=CallOutputType.DATA,
+                content=SuggestionOutput(
+                    question=question,
+                    appId=self._app_id,
+                    flowId=config.flow_id,
+                    flowDescription=self._avaliable_flows[config.flow_id],
+                ).model_dump(by_alias=True, exclude_none=True),
+            )
+            pushed_questions += 1
+
+
+        while pushed_questions < self.num:
+            recommended_questions = await Recommend().generate(
+                self._task_id,
+                conversation=self.context,
+                user_preference=user_domain,
+                history_questions=self._history_questions,
+                tool_name=self._flow_id,
+                tool_description=self._avaliable_flows[self._flow_id],
+            )
+
+            # 只会关联当前flow
+            for question in recommended_questions:
+                if pushed_questions >= self.num:
+                    break
+
+                yield CallOutputChunk(
+                    type=CallOutputType.DATA,
+                    content=SuggestionOutput(
+                        question=question,
+                        appId=self._app_id,
+                        flowId=self._flow_id,
+                        flowDescription=self._avaliable_flows[self._flow_id],
+                    ).model_dump(by_alias=True, exclude_none=True),
+                )
+                pushed_questions += 1

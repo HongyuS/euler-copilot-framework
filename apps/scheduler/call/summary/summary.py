@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Self
 from pydantic import Field
 
 from apps.entities.enum_var import CallOutputType
+from apps.entities.pool import NodePool
 from apps.entities.scheduler import (
     CallInfo,
     CallOutputChunk,
@@ -31,29 +32,29 @@ class Summary(CoreCall, input_model=SummaryInput, output_model=SummaryOutput):
     context: ExecutorBackground = Field(description="对话上下文")
 
     @classmethod
-    def cls_info(cls) -> CallInfo:
+    def info(cls) -> CallInfo:
         """返回Call的名称和描述"""
         return CallInfo(name="理解上下文", description="使用大模型，理解对话上下文")
 
     @classmethod
-    async def init(cls, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
-        """初始化工具"""
-        cls_obj = cls(
+    async def instance(cls, executor: "StepExecutor", node: NodePool | None, **kwargs: Any) -> Self:
+        """实例化工具"""
+        obj = cls(
             context=executor.background,
             name=executor.step.step.name,
             description=executor.step.step.description,
+            node=node,
             **kwargs,
         )
+        await obj._set_input(executor)
+        return obj
 
-        sys_vars = cls._assemble_call_vars(executor)
-        input_data = await cls_obj._init(sys_vars)
-        return cls_obj, input_data
 
-    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
-        """初始化工具"""
+    async def _init(self, call_vars: CallVars) -> SummaryInput:
+        """初始化工具，返回输入"""
         return SummaryInput(
             task_id=call_vars.ids.task_id,
-        ).model_dump(by_alias=True, exclude_none=True)
+        )
 
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:

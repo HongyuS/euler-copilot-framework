@@ -23,7 +23,7 @@ class StepNode:
             flag = False
         if not hasattr(call_cls, "_exec") or not inspect.isasyncgenfunction(call_cls._exec):  # noqa: SLF001
             flag = False
-        if not hasattr(call_cls, "cls_info") or not callable(call_cls.cls_info):
+        if not hasattr(call_cls, "info") or not callable(call_cls.info):
             flag = False
         return flag
 

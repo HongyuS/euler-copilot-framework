@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.json_schema import SkipJsonSchema
 
 from apps.entities.enum_var import CallOutputType
+from apps.entities.pool import NodePool
 from apps.entities.scheduler import (
     CallIds,
     CallInfo,
@@ -43,6 +44,7 @@ class CoreCall(BaseModel):
 
     name: SkipJsonSchema[str] = Field(description="Step的名称", exclude=True)
     description: SkipJsonSchema[str] = Field(description="Step的描述", exclude=True)
+    node: SkipJsonSchema[NodePool | None] = Field(description="节点信息", exclude=True)
     input_model: ClassVar[SkipJsonSchema[type[DataBase]]] = Field(
         description="Call的输入Pydantic类型；不包含override的模板",
         exclude=True,
@@ -70,26 +72,10 @@ class CoreCall(BaseModel):
 
 
     @classmethod
-    def cls_info(cls) -> CallInfo:
+    def info(cls) -> CallInfo:
         """返回Call的名称和描述"""
-        err = "[CoreCall] 必须手动实现cls_info方法"
+        err = "[CoreCall] 必须手动实现info方法"
         raise NotImplementedError(err)
-
-
-    @property
-    def input_type(self) -> type[DataBase]:
-        """返回输入类型"""
-        class InputType(self.input_model):
-            pass
-        return InputType
-
-
-    @property
-    def output_type(self) -> type[DataBase]:
-        """返回输出类型"""
-        class OutputType(self._output_type_template):
-            pass
-        return OutputType
 
 
     @staticmethod
@@ -106,6 +92,7 @@ class CoreCall(BaseModel):
                 flow_id=executor.task.state.flow_id,
                 session_id=executor.task.ids.session_id,
                 user_sub=executor.task.ids.user_sub,
+                app_id=executor.task.state.app_id,
             ),
             question=executor.question,
             history=executor.task.context,
@@ -114,21 +101,28 @@ class CoreCall(BaseModel):
 
 
     @classmethod
-    async def init(cls, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
+    async def instance(cls, executor: "StepExecutor", node: NodePool | None, **kwargs: Any) -> Self:
         """实例化Call类"""
-        sys_vars = cls._assemble_call_vars(executor)
-
-        call_obj = cls(
+        obj = cls(
             name=executor.step.step.name,
             description=executor.step.step.description,
+            node=node,
             **kwargs,
         )
-        input_data = await call_obj._init(sys_vars)
-        return call_obj, input_data
+
+        await obj._set_input(executor)
+        return obj
 
 
-    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
-        """实例化Call类，并返回Call的输入"""
+    async def _set_input(self, executor: "StepExecutor") -> None:
+        """获取Call的输入"""
+        self._sys_vars = self._assemble_call_vars(executor)
+        input_data = await self._init(self._sys_vars)
+        self.input = input_data.model_dump(by_alias=True, exclude_none=True)
+
+
+    async def _init(self, call_vars: CallVars) -> DataBase:
+        """初始化Call类，并返回Call的输入"""
         err = "[CoreCall] 初始化方法必须手动实现"
         raise NotImplementedError(err)
 
@@ -137,7 +131,13 @@ class CoreCall(BaseModel):
         """Call类实例的流式输出方法"""
         yield CallOutputChunk(type=CallOutputType.TEXT, content="")
 
+
+    async def _after_exec(self, input_data: dict[str, Any]) -> None:
+        """Call类实例的执行后方法"""
+
+
     async def exec(self, executor: "StepExecutor", input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """Call类实例的执行方法"""
         async for chunk in self._exec(input_data):
             yield chunk
+        await self._after_exec(input_data)

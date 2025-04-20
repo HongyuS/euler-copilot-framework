@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Self
 from pydantic import Field
 
 from apps.entities.enum_var import CallOutputType
+from apps.entities.pool import NodePool
 from apps.entities.scheduler import CallInfo, CallOutputChunk, CallVars
 from apps.llm.patterns.domain import Domain
 from apps.llm.patterns.facts import Facts
@@ -24,28 +25,27 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
 
 
     @classmethod
-    def cls_info(cls) -> CallInfo:
+    def info(cls) -> CallInfo:
         """返回Call的名称和描述"""
         return CallInfo(name="提取事实", description="从对话上下文和文档片段中提取事实。")
 
 
     @classmethod
-    async def init(cls, executor: "StepExecutor", **kwargs: Any) -> tuple[Self, dict[str, Any]]:
+    async def instance(cls, executor: "StepExecutor", node: NodePool | None, **kwargs: Any) -> Self:
         """初始化工具"""
-        cls_obj = cls(
+        obj = cls(
             answer=executor.task.runtime.answer,
             name=executor.step.step.name,
             description=executor.step.step.description,
+            node=node,
             **kwargs,
         )
 
-        call_vars = cls._assemble_call_vars(executor)
-        input_data = await cls_obj._init(call_vars)
-
-        return cls_obj, input_data
+        await obj._set_input(executor)
+        return obj
 
 
-    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
+    async def _init(self, call_vars: CallVars) -> FactsInput:
         """初始化工具"""
         # 组装必要变量
         message = [
@@ -57,7 +57,7 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
             task_id=call_vars.ids.task_id,
             user_sub=call_vars.ids.user_sub,
             message=message,
-        ).model_dump(exclude_none=True, by_alias=True)
+        )
 
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:

@@ -5,7 +5,8 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 from enum import Enum
 
-from pydantic import BaseModel
+from apps.scheduler.call.choice.schema import ChoiceInput, ChoiceOutput
+from apps.scheduler.call.core import CoreCall
 
 
 class Operator(str, Enum):
@@ -14,8 +15,7 @@ class Operator(str, Enum):
     pass
 
 
-class ChoiceInput(BaseModel):
-    """Choice工具的输入格式"""
+class Choice(CoreCall, input_model=ChoiceInput, output_model=ChoiceOutput):
+    """Choice工具"""
 
     pass
-

@@ -97,5 +97,5 @@ class StepQueueItem(BaseModel):
 
     step_id: str = Field(description="步骤ID")
     step: Step = Field(description="步骤")
-    enable_filling: bool = Field(description="是否启用填充", default=True)
-    to_user: bool = Field(description="是否输出给用户", default=False)
+    enable_filling: bool | None = Field(description="是否启用填充", default=None)
+    to_user: bool | None = Field(description="是否输出给用户", default=None)

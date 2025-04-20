@@ -37,16 +37,16 @@ class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
 
 
     @classmethod
-    def cls_info(cls) -> CallInfo:
+    def info(cls) -> CallInfo:
         """返回Call的名称和描述"""
         return CallInfo(name="SQL查询", description="使用大模型生成SQL语句，用于查询数据库中的结构化数据")
 
 
-    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
+    async def _init(self, call_vars: CallVars) -> SQLInput:
         """初始化SQL工具。"""
         return SQLInput(
             question=call_vars.question,
-        ).model_dump(by_alias=True, exclude_none=True)
+        )
 
 
     async def _generate_sql(self, data: SQLInput) -> list[dict[str, Any]]:
@@ -87,7 +87,10 @@ class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
         return sql_list
 
 
-    async def _execute_sql(self, sql_list: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+    async def _execute_sql(
+        self,
+        sql_list: list[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]] | None, str | None]:
         """执行SQL语句并返回结果"""
         headers = {"Content-Type": "application/json"}
 
@@ -105,14 +108,14 @@ class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
                     if response.status == status.HTTP_200_OK:
                         result = await response.json()
                         if result["code"] == status.HTTP_200_OK:
-                            return result["result"]
+                            return result["result"], sql_dict["sql"]
                     else:
                         text = await response.text()
                         logger.error("[SQL] 调用失败：%s", text)
             except Exception:
                 logger.exception("[SQL] 调用失败")
 
-        return None
+        return None, None
 
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
@@ -128,8 +131,8 @@ class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
             )
 
         # 执行SQL语句
-        sql_exec_results = await self._execute_sql(sql_list)
-        if sql_exec_results is None:
+        sql_exec_results, sql_exec = await self._execute_sql(sql_list)
+        if sql_exec_results is None or sql_exec is None:
             raise CallError(
                 message="SQL查询错误：SQL语句执行失败！",
                 data={},
@@ -138,6 +141,7 @@ class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
         # 返回结果
         data = SQLOutput(
             dataset=sql_exec_results,
+            sql=sql_exec,
         ).model_dump(exclude_none=True, by_alias=True)
 
         yield CallOutputChunk(

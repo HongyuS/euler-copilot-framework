@@ -23,7 +23,7 @@ class Blacklist(BaseModel):
     question: str
     answer: str
     is_audited: bool = False
-    reason_type: list[str] = []
+    reason_type: str = ""
     reason: str | None = None
     updated_at: float = Field(default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3))
 

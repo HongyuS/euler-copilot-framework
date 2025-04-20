@@ -30,23 +30,23 @@ class Convert(CoreCall, input_model=ConvertInput, output_model=ConvertOutput):
 
 
     @classmethod
-    def cls_info(cls) -> CallInfo:
+    def info(cls) -> CallInfo:
         """返回Call的名称和描述"""
         return CallInfo(name="模板转换", description="使用jinja2语法和jsonnet语法，将自然语言信息和原始数据进行格式化。")
 
-    async def _init(self, syscall_vars: CallVars) -> dict[str, Any]:
+    async def _init(self, call_vars: CallVars) -> ConvertInput:
         """初始化工具"""
-        await super()._init(syscall_vars)
+        await super()._init(call_vars)
 
-        self._history = syscall_vars.history
-        self._question = syscall_vars.question
+        self._history = call_vars.history
+        self._question = call_vars.question
         self._env = SandboxedEnvironment(
             loader=BaseLoader(),
             autoescape=False,
             trim_blocks=True,
             lstrip_blocks=True,
         )
-        return ConvertInput().model_dump(exclude_none=True, by_alias=True)
+        return ConvertInput()
 
 
     async def _exec(self) -> AsyncGenerator[CallOutputChunk, None]:

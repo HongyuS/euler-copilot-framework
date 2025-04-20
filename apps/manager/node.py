@@ -115,5 +115,7 @@ class NodeManager:
         # 返回参数Schema
         return (
             NodeManager.merge_params_schema(call_class.model_json_schema(), node_data.known_params or {}),
-            call_class.output_type.model_json_schema(), # type: ignore[attr-defined]
+            call_class.output_model.model_json_schema(  # type: ignore[attr-defined]
+                override=node_data.override_output if node_data.override_output else {},
+            ),
         )

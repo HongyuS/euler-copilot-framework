@@ -67,15 +67,6 @@ class DocumentAddContent(BaseModel):
     document_size: float = Field(ge=0, description="文档大小，单位是KB，保留两位小数", alias="documentSize")
 
 
-class SuggestContent(BaseModel):
-    """suggest消息的content"""
-
-    app_id: str = Field(description="插件ID", alias="appId")
-    flow_id: str = Field(description="Flow ID", alias="flowId")
-    flow_description: str = Field(description="Flow描述", alias="flowDescription")
-    question: str = Field(description="用户问题")
-
-
 class FlowStartContent(BaseModel):
     """flow.start消息的content"""
 

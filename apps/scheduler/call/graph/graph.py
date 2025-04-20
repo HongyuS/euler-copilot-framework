@@ -30,12 +30,12 @@ class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
 
 
     @classmethod
-    def cls_info(cls) -> CallInfo:
+    def info(cls) -> CallInfo:
         """返回Call的名称和描述"""
         return CallInfo(name="图表", description="将SQL查询出的数据转换为图表")
 
 
-    async def _init(self, call_vars: CallVars) -> dict[str, Any]:
+    async def _init(self, call_vars: CallVars) -> RenderInput:
         """初始化Render Call，校验参数，读取option模板"""
         await super()._init(call_vars)
 
@@ -52,7 +52,7 @@ class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
             question=call_vars.question,
             task_id=call_vars.ids.task_id,
             data=self.data,
-        ).model_dump(exclude_none=True, by_alias=True)
+        )
 
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
