@@ -39,8 +39,17 @@ class FlowService:
         """移除流程图中的多余结构"""
         node_branch_map = {}
         branch_illegal_chars = "."
-
         for node in flow_item.nodes:
+            from apps.scheduler.pool.pool import Pool
+            from pydantic import BaseModel
+            if node.node_id != 'start' and node.node_id != 'end' and node.node_id != 'Empty':
+                try:
+                    call_class: type[BaseModel] = await Pool().get_call(node.call_id)
+                    if not call_class:
+                        node.node_id = 'Empty'
+                except Exception as e:
+                    node.node_id = 'Empty'
+                    logger.error(f"[FlowService] 获取步骤的call_id失败{node.call_id}由于：{e}")
             node_branch_map[node.step_id] = set()
             if node.call_id == NodeType.CHOICE.value:
                 node.parameters = node.parameters["input_parameters"]
