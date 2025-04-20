@@ -218,7 +218,20 @@ class ServiceCenterManager:
         """获取服务数据"""
         # 验证用户权限
         service_collection = MongoDB.get_collection("service")
-        db_service = await service_collection.find_one({"_id": service_id, "author": user_sub})
+        match_conditions = {
+            {"author": user_sub},
+            {
+                "permission.type": PermissionType.PUBLIC.value
+            },
+            {
+                "$and": [
+                    {"permission.type": PermissionType.PROTECTED.value},
+                    {"permission.users": {"$in": [user_sub]}},
+                ],
+            }
+        }
+        query = {"$and": [{"service_id": service_id}, {"$or": match_conditions}]}
+        db_service = await service_collection.find_one(query)
         if not db_service:
             msg = "Service not found"
             raise ServiceIDError(msg)
@@ -251,7 +264,6 @@ class ServiceCenterManager:
         async with await metadata_path.open() as f:
             metadata_data = yaml.safe_load(await f.read())
         return ServiceMetadata.model_validate(metadata_data)
-
 
     @staticmethod
     async def delete_service(

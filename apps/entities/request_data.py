@@ -9,6 +9,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from apps.common.config import Config
+from apps.entities.enum_var import CommentType
 from apps.entities.appcenter import AppData
 from apps.entities.flow_topology import FlowItem
 
@@ -26,7 +27,7 @@ class MockRequestData(BaseModel):
 
     app_id: str = Field(default="", description="应用ID", alias="appId")
     flow_id: str = Field(default="", description="流程ID", alias="flowId")
-    conversation_id : str = Field(..., description="会话ID", alias="conversationId")
+    conversation_id: str = Field(..., description="会话ID", alias="conversationId")
     question: str = Field(..., description="问题", alias="question")
 
 
@@ -128,7 +129,7 @@ class AddCommentData(BaseModel):
 
     record_id: str
     group_id: str
-    is_like: bool = Field(...)
+    comment: CommentType
     dislike_reason: list[str] = Field(default=[], max_length=10)
     reason_link: str = Field(default="", max_length=200)
     reason_description: str = Field(default="", max_length=500)

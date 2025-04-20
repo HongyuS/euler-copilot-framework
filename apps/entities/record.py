@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from apps.entities.collection import (
     Document,
 )
-from apps.entities.enum_var import StepStatus
+from apps.entities.enum_var import StepStatus, CommentType
 
 
 class RecordDocument(Document):
@@ -65,6 +65,15 @@ class RecordMetadata(BaseModel):
     time_cost: float = Field(default=0, alias="timeCost")
     feature: dict[str, Any] = {}
 
+class RecordComment(BaseModel):
+    """Record表子项：Record的评论信息"""
+
+    comment: CommentType = Field(default=CommentType.NONE)
+    feedback_type: list[str] = Field(default=[], alias="dislike_reason")
+    feedback_link: str = Field(default="", alias="reason_link")
+    feedback_content: str = Field(default="", alias="reason_description")
+    feedback_time: float = Field(default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3))
+
 
 class RecordData(BaseModel):
     """GET /api/record/{conversation_id} Result内元素数据结构"""
@@ -77,6 +86,7 @@ class RecordData(BaseModel):
     flow: RecordFlow | None = None
     content: RecordContent
     metadata: RecordMetadata
+    comment: RecordComment= Field(default=RecordComment())
     created_at: float = Field(alias="createdAt")
 
 
@@ -85,16 +95,6 @@ class RecordGroupDocument(BaseModel):
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
     associated: Literal["question", "answer"]
-
-
-class RecordComment(BaseModel):
-    """Record表子项：Record的评论信息"""
-
-    is_liked: bool
-    feedback_type: list[str]
-    feedback_link: str
-    feedback_content: str
-    feedback_time: float = Field(default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3))
 
 
 class Record(RecordData):

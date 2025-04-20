@@ -418,8 +418,9 @@ class FlowManager:
                 error_msg = f"[FlowManager] 流 {flow_id} 不存在；可能为新创建"
                 logger.error(error_msg)
             else:
-                flow_config.debug = await FlowManager.is_flow_config_equal(old_flow_config, flow_config)
-                await flow_loader.save(app_id, flow_id, flow_config)
+                if flow_config.debug:
+                    flow_config.debug = await FlowManager.is_flow_config_equal(old_flow_config, flow_config)
+            await flow_loader.save(app_id, flow_id, flow_config)
         except Exception:
             logger.exception("[FlowManager] 存储/更新流失败")
             return None
