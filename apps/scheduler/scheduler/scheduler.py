@@ -176,6 +176,4 @@ class Scheduler:
         # 更新Task
         task = await TaskManager.get_task(task.id)
         # 如果状态正常，则更新Flow的debug状态
-        if task.state and task.state.status == StepStatus.SUCCESS:
-            await FlowManager.update_flow_debug_by_app_and_flow_id(app_info.app_id, flow_id, debug=True)
         return
