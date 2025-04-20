@@ -7,6 +7,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 import logging
 import uuid
 from datetime import UTC, datetime
+import re
 from typing import Any
 
 from apps.entities.appcenter import AppCenterCardItem, AppData
@@ -21,6 +22,7 @@ from apps.models.mongo import MongoDB
 from apps.scheduler.pool.loader.app import AppLoader
 
 logger = logging.getLogger(__name__)
+
 
 class AppCenterManager:
     """应用中心管理器"""
@@ -96,6 +98,9 @@ class AppCenterManager:
         """
         try:
             # 搜索条件
+            if search_type == SearchType.AUTHOR:
+                if keyword not in user_sub:
+                    return [], 0
             base_filter = {"author": user_sub}
             filters: dict[str, Any] = (
                 AppCenterManager._build_filters(
@@ -103,7 +108,7 @@ class AppCenterManager:
                     search_type,
                     keyword,
                 )
-                if keyword and search_type != SearchType.AUTHOR
+                if keyword
                 else base_filter
             )
             apps, total_apps = await AppCenterManager._search_apps_by_filter(filters, page, page_size)

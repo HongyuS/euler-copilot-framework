@@ -260,6 +260,8 @@ def generate_from_schema(schema: dict) -> Any:
 
     def _generate_example(schema_node: dict) -> Any:
         # 处理类型为 object 的节点
+        if "default" in schema_node:
+            return schema_node["default"]
         if schema_node.get("type") == "object":
             example = {}
             properties = schema_node.get("properties", {})
@@ -274,15 +276,15 @@ def generate_from_schema(schema: dict) -> Any:
 
         # 处理类型为 string 的节点
         if schema_node.get("type") == "string":
-            return schema_node.get("default", "example_string")
+            return "example_string"
 
         # 处理类型为 number 或 integer 的节点
         if schema_node.get("type") in ["number", "integer"]:
-            return schema_node.get("default", 0)
+            return 0
 
         # 处理类型为 boolean 的节点
         if schema_node.get("type") == "boolean":
-            return schema_node.get("default", False)
+            return False
 
         # 处理其他类型或未定义类型
         return None
