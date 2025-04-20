@@ -386,7 +386,7 @@ class FlowManager:
                 edges=[],
                 focus_point=flow_item.focus_point,
                 connectivity=flow_item.connectivity,
-                debug=False,
+                debug=flow_item.debug,
             )
             for node_item in flow_item.nodes:
                 flow_config.steps[node_item.step_id] = Step(
@@ -408,7 +408,6 @@ class FlowManager:
                     edge_type=EdgeType(edge_item.type) if edge_item.type else EdgeType.NORMAL,
                 )
                 flow_config.edges.append(edge_config)
-            flow_config.debug = False
 
             flow_loader = FlowLoader()
             old_flow_config = await flow_loader.load(app_id, flow_id)
