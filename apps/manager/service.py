@@ -69,6 +69,9 @@ class ServiceCenterManager:
         page_size: int,
     ) -> tuple[list[ServiceCardItem], int]:
         """获取用户创建的服务"""
+        if search_type == SearchType.AUTHOR:
+            if keyword not in user_sub:
+                return [], 0
         base_filter = {"author": user_sub}
         filters = ServiceCenterManager._build_filters(base_filter, search_type, keyword) if keyword else base_filter
         service_pools, total_count = await ServiceCenterManager._search_service(filters, page, page_size)
