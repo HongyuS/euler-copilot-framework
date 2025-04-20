@@ -97,7 +97,6 @@ class AppCenterManager:
         :return: 应用列表, 总应用数
         """
         try:
-            # 搜索条件
             if search_type == SearchType.AUTHOR:
                 if keyword not in user_sub:
                     return [], 0
