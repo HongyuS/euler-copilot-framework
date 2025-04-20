@@ -103,10 +103,9 @@ class AppCenterManager:
                     search_type,
                     keyword,
                 )
-                if keyword and search_type != SearchType.AUTHOR
+                if keyword
                 else base_filter
             )
-            logging.exception(f'{filter}')
             apps, total_apps = await AppCenterManager._search_apps_by_filter(filters, page, page_size)
             fav_apps = await AppCenterManager._get_favorite_app_ids_by_user(user_sub)
             return [

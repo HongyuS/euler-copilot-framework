@@ -1,4 +1,4 @@
-FROM hub.oepkgs.net/neocopilot/framework-baseimg:dev
+FROM hub.oepkgs.net/neocopilot/framework_base:0.9.5-x86-test 
 
 USER root
 RUN sed -i 's/umask 002/umask 027/g' /etc/bashrc && \
