@@ -89,7 +89,10 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
         app_metadata = await AppCenterManager.fetch_app_data_by_id(self._app_id)
         self._avaliable_flows = {}
         for flow in app_metadata.flows:
-            self._avaliable_flows[flow.id] = flow.description
+            self._avaliable_flows[flow.id] = {
+                "name": flow.name,
+                "description": flow.description,
+            }
 
         return SuggestionInput(
             question=call_vars.question,
@@ -154,9 +157,9 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
                 type=CallOutputType.DATA,
                 content=SuggestionOutput(
                     question=question,
-                    appId=self._app_id,
+                    flowName=self._avaliable_flows[config.flow_id]["name"],
                     flowId=config.flow_id,
-                    flowDescription=self._avaliable_flows[config.flow_id],
+                    flowDescription=self._avaliable_flows[config.flow_id]["description"],
                 ).model_dump(by_alias=True, exclude_none=True),
             )
             pushed_questions += 1
@@ -181,9 +184,9 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
                     type=CallOutputType.DATA,
                     content=SuggestionOutput(
                         question=question,
-                        appId=self._app_id,
+                        flowName=self._avaliable_flows[self._flow_id]["name"],
                         flowId=self._flow_id,
-                        flowDescription=self._avaliable_flows[self._flow_id],
+                        flowDescription=self._avaliable_flows[self._flow_id]["description"],
                     ).model_dump(by_alias=True, exclude_none=True),
                 )
                 pushed_questions += 1

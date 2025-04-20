@@ -96,9 +96,9 @@ async def get_services(
     status.HTTP_404_NOT_FOUND: {"model": ResponseData},
 })
 async def get_flow(
-        user_sub: Annotated[str, Depends(get_user)],
-        app_id: Annotated[str, Query(alias="appId")],
-        flow_id: Annotated[str, Query(alias="flowId")],
+    user_sub: Annotated[str, Depends(get_user)],
+    app_id: Annotated[str, Query(alias="appId")],
+    flow_id: Annotated[str, Query(alias="flowId")],
 ) -> JSONResponse:
     """获取流拓扑结构"""
     if not await AppManager.validate_user_app_access(user_sub, app_id):

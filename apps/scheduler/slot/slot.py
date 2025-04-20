@@ -95,65 +95,106 @@ class Slot:
             Draft7Validator, type_checker=type_checker, format_checker=format_checker, validators=_KEYWORD_CHECKER,
         )
 
-    @staticmethod
-    def _process_json_value(json_value: Any, spec_data: dict[str, Any]) -> Any:  # noqa: C901, PLR0911, PLR0912
-        """
-        使用递归的方式对JSON返回值进行处理
 
-        :param json_value: 返回值中的字段
-        :param spec_data: 返回值字段对应的JSON Schema
-        :return: 处理后的这部分返回值字段
-        """
-        if "allOf" in spec_data:
-            processed_dict = {}
-            for item in spec_data["allOf"]:
-                processed_dict.update(Slot._process_json_value(json_value, item))
-            return processed_dict
-
-        for key in ("anyOf", "oneOf"):
-            if key in spec_data:
-                for item in spec_data[key]:
-                    processed_dict = Slot._process_json_value(json_value, item)
-                    if processed_dict is not None:
-                        return processed_dict
-
-        if "type" in spec_data:
-            if spec_data["type"] == "array" and isinstance(json_value, list):
-                # 若Schema不标准，则不进行处理
-                if "items" not in spec_data:
-                    return json_value
-                # Schema标准
-                return [Slot._process_json_value(item, spec_data["items"]) for item in json_value]
-            if spec_data["type"] == "object" and isinstance(json_value, dict):
-                # 若Schema不标准，则不进行处理
-                if "properties" not in spec_data:
-                    return json_value
-                # Schema标准
-                processed_dict = {}
-                for key, val in json_value.items():
-                    if key not in spec_data["properties"]:
-                        processed_dict[key] = val
-                        continue
-                    processed_dict[key] = Slot._process_json_value(val, spec_data["properties"][key])
-                return processed_dict
-
-            for converter in _TYPE_CONVERTER:
-                # 如果是自定义类型
-                if converter.name == spec_data["type"]:
-                    # 如果类型有附加字段
-                    if converter.name in spec_data:
-                        return converter.convert(json_value, **spec_data[converter.name])
-                    return converter.convert(json_value)
-
-        return json_value
-
-    def process_json(self, json_data: str | dict[str, Any]) -> dict[str, Any]:
+    def process_json(self, json_data: str | dict[str, Any]) -> dict[str, Any]:  # noqa: C901
         """将提供的JSON数据进行处理"""
         if isinstance(json_data, str):
             json_data = json.loads(json_data)
 
+        def _process_json_value(json_value: Any, spec_data: dict[str, Any]) -> Any:  # noqa: C901, PLR0911, PLR0912
+            """
+            使用递归的方式对JSON返回值进行处理
+
+            :param json_value: 返回值中的字段
+            :param spec_data: 返回值字段对应的JSON Schema
+            :return: 处理后的这部分返回值字段
+            """
+            if "allOf" in spec_data:
+                processed_dict = {}
+                for item in spec_data["allOf"]:
+                    processed_dict.update(_process_json_value(json_value, item))
+                return processed_dict
+
+            for key in ("anyOf", "oneOf"):
+                if key in spec_data:
+                    for item in spec_data[key]:
+                        processed_dict = _process_json_value(json_value, item)
+                        if processed_dict is not None:
+                            return processed_dict
+
+            if "type" in spec_data:
+                if spec_data["type"] == "array" and isinstance(json_value, list):
+                    # 若Schema不标准，则不进行处理
+                    if "items" not in spec_data:
+                        return json_value
+                    # Schema标准
+                    return [_process_json_value(item, spec_data["items"]) for item in json_value]
+                if spec_data["type"] == "object" and isinstance(json_value, dict):
+                    # 若Schema不标准，则不进行处理
+                    if "properties" not in spec_data:
+                        return json_value
+                    # Schema标准
+                    processed_dict = {}
+                    for key, val in json_value.items():
+                        if key not in spec_data["properties"]:
+                            processed_dict[key] = val
+                            continue
+                        processed_dict[key] = _process_json_value(val, spec_data["properties"][key])
+                    return processed_dict
+
+                for converter in _TYPE_CONVERTER:
+                    # 如果是自定义类型
+                    if converter.name == spec_data["type"]:
+                        # 如果类型有附加字段
+                        if converter.name in spec_data:
+                            return converter.convert(json_value, **spec_data[converter.name])
+                        return converter.convert(json_value)
+
+            return json_value
+
         # 遍历JSON，处理每一个字段
-        return Slot._process_json_value(json_data, self._schema)
+        return _process_json_value(json_data, self._schema)
+
+
+    def create_empty_slot(self) -> dict[str, Any]:
+        """创建一个空的槽位"""
+        def _generate_example(schema_node: dict) -> Any:  # noqa: PLR0911
+            # 处理类型为 object 的节点
+            if "default" in schema_node:
+                return schema_node["default"]
+
+            if "type" not in schema_node:
+                return None
+
+            if schema_node["type"] == "object":
+                data = {}
+                properties = schema_node.get("properties", {})
+                for name, schema in properties.items():
+                    data[name] = _generate_example(schema)
+                return data
+
+            # 处理类型为 array 的节点
+            if schema_node["type"] == "array":
+                items_schema = schema_node.get("items", {})
+                return [_generate_example(items_schema)]
+
+            # 处理类型为 string 的节点
+            if schema_node["type"] == "string":
+                return ""
+
+            # 处理类型为 number 或 integer 的节点
+            if schema_node["type"] in ["number", "integer"]:
+                return 0
+
+            # 处理类型为 boolean 的节点
+            if schema_node["type"] == "boolean":
+                return False
+
+            # 处理其他类型或未定义类型
+            return None
+
+        return _generate_example(self._schema)
+
 
     def _flatten_schema(self, schema: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
         """将JSON Schema扁平化"""
