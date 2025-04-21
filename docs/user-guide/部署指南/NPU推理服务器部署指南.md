@@ -67,7 +67,7 @@ modelscope download deepseek-ai/DeepSeek-R1-Distill-Llama-70B --revision v1.0.0
 git lfs clone https://www.modelscope.cn/BAAI/bge-m3.git /data/models/Embedding/bge-m3
 ```
 
-## 4. 服务启动（优化容器参数）
+## 4. 服务启动（8张910B4为例）
 ```bash
 # 大模型推理服务
 docker run -itd --name=deepseek-70b \
@@ -81,14 +81,21 @@ docker run -itd --name=deepseek-70b \
   swr.cn-south-1.myhuaweicloud.com/ascendhub/deepseek-r1-distill-llama-70b:0.1.1-arm64
 
 # Embedding服务
-docker run -d --name=tei-embedding \
-  --net=host \
-  --privileged \
-  -v /data/models/Embedding/bge-m3:/app/model \
-  --device=/dev/davinci0 \
-  --device=/dev/davinci1 \
-  swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:7.0.RC1-800I-A2-aarch64 \
-  BAAI/bge-m3 0.0.0.0 8090
+# 8张卡
+docker run -u root -itd --name=tei-embedding --net=host --privileged \
+        -v /home/data/bge-m3:/home/HwHiAiUser/model \
+        -e ASCEND_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \ 
+        -v /usr/local/Ascend/driver:/usr/local/Ascend/driver:ro \
+        -v /usr/local/sbin:/usr/local/sbin:ro \
+        swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:7.0.RC1-800I-A2-aarch64 BAAI/bge-m3 0.0.0.0 8090
+
+# 单张卡
+docker run -d --name=tei-embedding --net=host --privileged \
+        -v /home/HwHiAiUser/model:/home/HwHiAiUser/model \
+        --device=/dev/davinci5 \
+        -v /usr/local/Ascend/driver:/usr/local/Ascend/driver:ro \
+        -v /usr/local/sbin:/usr/local/sbin:ro \
+        swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:7.0.RC1-300l-Duo-aarch64 BAAl/bge-m3 0.0.0.0 8090
 ```
 
 ## 5. 服务验证
