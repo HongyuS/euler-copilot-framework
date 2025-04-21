@@ -95,7 +95,7 @@ cd /data/models/MindSDK/DeepSeek-R1-Distill-Llama-70B
 modelscope download --model deepseek-ai/DeepSeek-R1-Distill-Llama-70B --local_dir ./
 ```
 
-## 4. 服务启动（8张910B4为例）
+## 服务启动（8张910B4为例）
 
 - 大模型推理服务
 ```bash
