@@ -77,7 +77,7 @@ async def get_record(conversation_id: str, user_sub: Annotated[str, Depends(get_
                     outputTokens=0,
                     timeCost=0,
                 ),
-                comment=record.comment,
+                comment=record.comment.comment,
                 createdAt=record.created_at,
             )
 
@@ -85,7 +85,7 @@ async def get_record(conversation_id: str, user_sub: Annotated[str, Depends(get_
             tmp_record.document = await DocumentManager.get_used_docs_by_record_group(user_sub, record_group.id)
 
             # 获得Record关联的flow数据
-            flow_list = await TaskManager.get_flow_history_by_record_id(record_group.id, record.id)
+            flow_list = await TaskManager.get_context_by_record_id(record_group.id, record.id)
             if flow_list:
                 tmp_record.flow = RecordFlow(
                     id=flow_list[0].id,
