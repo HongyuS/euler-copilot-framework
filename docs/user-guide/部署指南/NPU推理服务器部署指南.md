@@ -1,34 +1,46 @@
 # NPU推理服务器部署指南
+本指南是基于Atlas 800I A2推理服务器，使用昇腾开放的[Docker镜像仓库](https://www.hiascend.com/developer/ascendhub)，提供的昇腾软件Docker镜像来部署大模型和Embeddings服务的案例。
 
 ## 系统环境
 - 操作系统：openEuler 22.03 LTS
 - 硬件：Atlas 800I A2推理服务器
 - 组件：Ascend NPU
 
-## 1. 驱动安装 (优化说明)
+## 驱动安装
+- 安装依赖（使用openEuler官方源）
 ```bash
-# 安装依赖（使用openEuler官方源）
 sudo dnf install -y make dkms gcc kernel-headers-$(uname -r) kernel-devel-$(uname -r)
-
+```
+- 下载驱动
+```bash
 # 已下载的驱动包为：
 # Ascend-hdk-910b-npu-driver_24.1.rc3_linux-aarch64.run
 # Ascend-hdk-910b-npu-firmware_7.5.0.1.129.run
 
 # 设置权限并校验
 chmod +x Ascend-hdk-*.run
+```
+- 安装驱动和固件
+```bash
 ./Ascend-hdk-910b-npu-driver_24.1.rc3_linux-aarch64.run --check
+```
+```bash
 ./Ascend-hdk-910b-npu-firmware_7.5.0.1.129.run --check
-
+```
+```bash
 # 安装驱动（全量安装）
 sudo ./Ascend-hdk-910b-npu-driver_24.1.rc3_linux-aarch64.run --full --install-for-all
-
+```
+```bash
 # 安装固件
 sudo ./Ascend-hdk-910b-npu-firmware_7.5.0.1.129.run --full
+```
+- 重启并验证安装
 
-# 重启服务器
+```bash
 reboot
-
-# 验证安装
+```
+```bash
 npu-smi info -t board -i 0  # 查看0号卡信息
 ```
 > **注意事项**：
@@ -36,40 +48,57 @@ npu-smi info -t board -i 0  # 查看0号卡信息
 > 2. 若内核升级过，需要重启进入新内核后再安装
 > 3. 出现`npu-smi`命令找不到时，检查`/usr/local/Ascend/npu-smi`是否在PATH中
 
-## 2. 容器环境准备
-本指南使用昇腾开放的Docker镜像仓库，提供的昇腾软件Docker镜像来部署大模型[昇腾镜像仓库地址](https://www.hiascend.com/developer/ascendhub)
+## 容器环境准备
+
+- 安装Docker运行时
+
+
+参考docker 运行时 安装步骤：
+https://www.hiascend.com/document/detail/zh/mindx-dl/600/clusterscheduling/clusterschedulingig/clusterschedulingig/dlug_installation_017.html 
+
 ```bash
-# 安装Docker运行时
 wget https://gitee.com/ascend/mind-cluster/releases/download/v6.0.0.SPC1/Ascend-docker-runtime_6.0.0.SPC1_linux-aarch64.run
-sudo ./Ascend-docker-runtime_6.0.0.SPC1_linux-aarch64.run --install
+```
+```bash
+./Ascend-docker-runtime_6.0.0.SPC1_linux-aarch64.run --install
+```
+- 申请下载权限并登录镜像仓库
 
-# 登录镜像仓库（需点击申请权限)
-
+```bash
 docker login -u cn-south-1@HST3UGLECEMTZLJ17RUT swr.cn-south-1.myhuaweicloud.com
-
-# 拉取镜像
-docker pull swr.cn-south-1.myhuaweicloud.com/ascendhub/deepseek-r1-distill-llama-70b:0.1.1-arm64
-docker pull swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:7.0.RC1-800I-A2-aarch64
 ```
 
-## 3. 模型部署
+- 拉取镜像
 ```bash
-# 创建模型存储目录
-sudo mkdir -p /data/models/{MindSDK,Embedding}
-sudo chmod -R 777 /data/models  # 按需调整权限
-
-# 下载大模型权重
-cd /data/models/MindSDK
+docker pull swr.cn-south-1.myhuaweicloud.com/ascendhub/deepseek-r1-distill-llama-70b:0.1.1-arm64
+```
+```bash
+docker pull swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:7.0.RC1-800I-A2-aarch64
+```
+## 模型部署
+- 创建模型存储目录
+```bash
+mkdir -p /data/models/MindSDK/DeepSeek-R1-Distill-Llama-70B
+```
+```bash
+chmod -R 777 /data/models  # 按需调整权限
+```
+- 安装ModelScope 
+```bash
 pip install modelscope
-modelscope download deepseek-ai/DeepSeek-R1-Distill-Llama-70B --revision v1.0.0
-
-# 下载Embedding模型
-git lfs clone https://www.modelscope.cn/BAAI/bge-m3.git /data/models/Embedding/bge-m3
+```
+- 下载大模型权重
+```bash
+cd /data/models/MindSDK/DeepSeek-R1-Distill-Llama-70B
+```
+```bash
+modelscope download --model deepseek-ai/DeepSeek-R1-Distill-Llama-70B --local_dir ./
 ```
 
 ## 4. 服务启动（8张910B4为例）
+
+- 大模型推理服务
 ```bash
-# 大模型推理服务
 docker run -itd --name=deepseek-70b \
   --privileged \
   --device=/dev/davinci0 --device=/dev/davinci1 \
@@ -79,8 +108,10 @@ docker run -itd --name=deepseek-70b \
   -e ASCEND_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
   -p 8000:8000 \
   swr.cn-south-1.myhuaweicloud.com/ascendhub/deepseek-r1-distill-llama-70b:0.1.1-arm64
+```
 
-# Embedding服务
+- Embedding服务
+```bash 
 # 8张卡
 docker run -u root -itd --name=tei-embedding --net=host --privileged \
         -v /home/data/bge-m3:/home/HwHiAiUser/model \
@@ -88,7 +119,8 @@ docker run -u root -itd --name=tei-embedding --net=host --privileged \
         -v /usr/local/Ascend/driver:/usr/local/Ascend/driver:ro \
         -v /usr/local/sbin:/usr/local/sbin:ro \
         swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:7.0.RC1-800I-A2-aarch64 BAAI/bge-m3 0.0.0.0 8090
-
+```
+```bash
 # 单张卡
 docker run -d --name=tei-embedding --net=host --privileged \
         -v /home/HwHiAiUser/model:/home/HwHiAiUser/model \
@@ -98,12 +130,13 @@ docker run -d --name=tei-embedding --net=host --privileged \
         swr.cn-south-1.myhuaweicloud.com/ascendhub/mis-tei:7.0.RC1-300l-Duo-aarch64 BAAl/bge-m3 0.0.0.0 8090
 ```
 
-## 5. 服务验证
+## 服务验证
+- 检查容器状态
 ```bash
-# 检查容器状态
 docker ps -a --filter "name=deepseek\|tei"
-
-# 测试大模型接口
+```
+- 测试大模型接口
+```bash
 curl -X POST http://localhost:8000/openai/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
@@ -111,8 +144,10 @@ curl -X POST http://localhost:8000/openai/v1/chat/completions \
     "messages": [{"role":"user","content":"你好"}],
     "temperature": 0.6
   }'
+```
 
-# 测试Embedding接口
+- 测试Embedding接口
+```bash
 curl http://localhost:8090/embed \
   -X POST \
   -d '{"inputs":"测试文本"}' \
@@ -159,6 +194,8 @@ models:
 ## 更新服务
 ```bash
 helm upgrade -n euler-copilot euler-copilot .
+```
+```bash
 kubectl get pods -n euler-copilot
 ```
 ## 常见问题排查
