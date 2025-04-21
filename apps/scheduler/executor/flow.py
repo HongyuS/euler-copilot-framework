@@ -72,6 +72,7 @@ class FlowExecutor(BaseExecutor):
             # 创建ExecutorState
             self.task.state = ExecutorState(
                 flow_id=str(self.flow_id),
+                flow_name=self.flow.name,
                 description=str(self.flow.description),
                 status=StepStatus.RUNNING,
                 app_id=str(self.post_body_app.app_id),

@@ -213,6 +213,7 @@ class StepExecutor(BaseExecutor):
         history = FlowStepHistory(
             task_id=self.task.id,
             flow_id=self.task.state.flow_id, # type: ignore[arg-type]
+            flow_name=self.task.state.flow_name, # type: ignore[arg-type]
             step_id=self.step.step_id,
             step_name=self.step.step.name,
             status=self.task.state.status, # type: ignore[arg-type]
