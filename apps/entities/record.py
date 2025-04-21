@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from apps.entities.collection import (
     Document,
 )
-from apps.entities.enum_var import StepStatus, CommentType
+from apps.entities.enum_var import CommentType, StepStatus
 
 
 class RecordDocument(Document):
@@ -86,7 +86,7 @@ class RecordData(BaseModel):
     flow: RecordFlow | None = None
     content: RecordContent
     metadata: RecordMetadata
-    comment: RecordComment= Field(default=RecordComment())
+    comment: CommentType = Field(default=CommentType.NONE)
     created_at: float = Field(alias="createdAt")
 
 
@@ -103,6 +103,7 @@ class Record(RecordData):
     user_sub: str
     key: dict[str, Any] = {}
     content: str
+    comment: RecordComment= Field(default=RecordComment())
     flow: list[str] = Field(default=[])
 
 
