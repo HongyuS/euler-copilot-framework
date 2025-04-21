@@ -90,9 +90,9 @@ async def get_record(conversation_id: str, user_sub: Annotated[str, Depends(get_
             if flow_list:
                 first_flow = FlowStepHistory.model_validate(flow_list[0])
                 tmp_record.flow = RecordFlow(
-                    id=first_flow.id,
+                    id=first_flow.flow_name,  #TODO: 此处前端应该用name
                     recordId=record.id,
-                    flowId=first_flow.flow_id,
+                    flowId=first_flow.id,
                     stepNum=len(flow_list),
                     steps=[],
                 )

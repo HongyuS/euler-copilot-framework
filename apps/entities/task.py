@@ -24,6 +24,7 @@ class FlowStepHistory(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
     task_id: str = Field(description="任务ID")
     flow_id: str = Field(description="FlowID")
+    flow_name: str = Field(description="Flow名称")
     step_id: str = Field(description="当前步骤名称")
     step_name: str = Field(description="当前步骤名称")
     status: StepStatus = Field(description="当前步骤状态")
@@ -37,6 +38,7 @@ class ExecutorState(BaseModel):
 
     # 执行器级数据
     flow_id: str = Field(description="Flow ID")
+    flow_name: str = Field(description="Flow名称")
     description: str = Field(description="Flow描述")
     status: StepStatus = Field(description="Flow执行状态")
     # 附加信息
