@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 
 from apps.common.security import Security
 from apps.entities.collection import Document
+from apps.entities.enum_var import StepStatus
 from apps.entities.record import (
     Record,
     RecordContent,
@@ -105,12 +106,7 @@ async def save_data(task_id: str, user_sub: str, post_body: RequestData, used_do
     # 保存Flow信息
     if task.state:
         # 遍历查找数据，并添加
-        for history_id in task.context:
-            pass
-        # await TaskManager.save_flow_context(history_data)
-
-        # 修改metadata里面时间为实际运行时间
-        task.tokens.time = round(datetime.now(UTC).timestamp() - task.tokens.time, 2)
+        await TaskManager.save_flow_context(task.id, task.context)
 
     # 整理Record数据
     current_time = round(datetime.now(UTC).timestamp(), 2)
@@ -129,16 +125,19 @@ async def save_data(task_id: str, user_sub: str, post_body: RequestData, used_do
             feature={},
         ),
         createdAt=current_time,
-        flow=[i.id for i in task.context.values()],
+        flow=[i["_id"] for i in task.context],
     )
 
-    record_group = task.ids.group_id
     # 检查是否存在group_id
-    if not await RecordManager.check_group_id(record_group, user_sub):
-        record_group = await RecordManager.create_record_group(user_sub, post_body.conversation_id, task.id)
+    if not await RecordManager.check_group_id(task.ids.group_id, user_sub):
+        record_group = await RecordManager.create_record_group(
+            task.ids.group_id, user_sub, post_body.conversation_id, task.id,
+        )
         if not record_group:
             logger.error("[Scheduler] 创建问答组失败")
             return
+    else:
+        record_group = task.ids.group_id
 
     # 修改文件状态
     await DocumentManager.change_doc_status(user_sub, post_body.conversation_id, record_group)
@@ -151,5 +150,9 @@ async def save_data(task_id: str, user_sub: str, post_body: RequestData, used_do
         # 更新最近使用的应用
         await AppCenterManager.update_recent_app(user_sub, post_body.app.app_id)
 
-    # 保存Task
-    await TaskManager.save_task(task_id, task)
+    # 若状态为成功，删除Task
+    if task.state and task.state.status == StepStatus.SUCCESS:
+        await TaskManager.delete_task_by_task_id(task_id)
+    else:
+        # 更新Task
+        await TaskManager.save_task(task_id, task)

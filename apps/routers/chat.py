@@ -41,13 +41,14 @@ router = APIRouter(
 async def init_task(post_body: RequestData, user_sub: str, session_id: str) -> str:
     """初始化Task"""
     # 生成group_id
-    group_id = str(uuid.uuid4()) if not post_body.group_id else post_body.group_id
-    post_body.group_id = group_id
+    if not post_body.group_id:
+        post_body.group_id = str(uuid.uuid4())
     # 创建或还原Task
     task = await TaskManager.get_task(session_id=session_id, post_body=post_body, user_sub=user_sub)
     task_id = task.id
     # 更改信息并刷新数据库
     task.runtime.question = post_body.question
+    task.ids.group_id = post_body.group_id
     await TaskManager.save_task(task_id, task)
     return task_id
 

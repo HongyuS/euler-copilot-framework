@@ -27,9 +27,9 @@ class CommentManager:
             record_group_collection = MongoDB.get_collection("record_group")
             result = await record_group_collection.aggregate(
                 [
-                    {"$match": {"_id": group_id, "records._id": record_id}},
+                    {"$match": {"_id": group_id, "records.id": record_id}},
                     {"$unwind": "$records"},
-                    {"$match": {"records._id": record_id}},
+                    {"$match": {"records.id": record_id}},
                     {"$limit": 1},
                 ],
             )
@@ -52,7 +52,7 @@ class CommentManager:
         try:
             record_group_collection = MongoDB.get_collection("record_group")
             await record_group_collection.update_one(
-                {"_id": group_id, "records._id": record_id},
+                {"_id": group_id, "records.id": record_id},
                 {"$set": {"records.$.comment": data.model_dump(by_alias=True)}},
             )
         except Exception:

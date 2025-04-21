@@ -59,6 +59,7 @@ class FlowExecutor(BaseExecutor):
     question: str = Field(description="用户输入")
     post_body_app: RequestDataApp = Field(description="请求体中的app信息")
 
+
     """Pydantic配置"""
 
     async def load_state(self) -> None:
@@ -66,7 +67,7 @@ class FlowExecutor(BaseExecutor):
         logger.info("[FlowExecutor] 加载Executor状态")
         # 尝试恢复State
         if self.task.state:
-            self.task.context = await TaskManager.get_flow_history_by_task_id(self.task.id)
+            self.task.context = await TaskManager.get_context_by_task_id(self.task.id)
         else:
             # 创建ExecutorState
             self.task.state = ExecutorState(
@@ -93,7 +94,6 @@ class FlowExecutor(BaseExecutor):
             step=queue_item,
             background=self.background,
             question=self.question,
-            history=self.history,
         )
 
         # 初始化步骤
@@ -101,9 +101,8 @@ class FlowExecutor(BaseExecutor):
         # 运行Step
         await step_runner.run_step()
 
-        # 更新Task
+        # 更新Task（已存过库）
         self.task = step_runner.task
-        await TaskManager.save_task(self.task.id, self.task)
 
 
     async def _step_process(self) -> None:

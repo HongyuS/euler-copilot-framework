@@ -29,7 +29,6 @@ class StepExecutor(BaseExecutor):
 
     step: StepQueueItem
 
-
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         extra="allow",
@@ -40,7 +39,7 @@ class StepExecutor(BaseExecutor):
         super().__init__(**kwargs)
         self.validate_flow_state(self.task)
 
-        self.history = FlowStepHistory(
+        self._history = FlowStepHistory(
             task_id=self.task.id,
             flow_id=self.task.state.flow_id, # type: ignore[arg-type]
             step_id=self.task.state.step_id, # type: ignore[arg-type]
@@ -48,6 +47,7 @@ class StepExecutor(BaseExecutor):
             input_data={},
             output_data={},
         )
+
 
     async def init(self) -> None:
         """初始化步骤"""
@@ -58,7 +58,6 @@ class StepExecutor(BaseExecutor):
         # State写入ID和运行状态
         self.task.state.step_id = self.step.step_id # type: ignore[arg-type]
         self.task.state.step_name = self.step.step.name # type: ignore[arg-type]
-        self.task.state.status = StepStatus.RUNNING # type: ignore[arg-type]
         await TaskManager.save_task(self.task.id, self.task)
 
         # 获取并验证Call类
@@ -93,7 +92,7 @@ class StepExecutor(BaseExecutor):
 
 
     async def _run_slot_filling(self) -> None:
-        """运行自动参数填充"""
+        """运行自动参数填充；相当于特殊Step，但是不存库"""
         # 判断State是否为空
         self.validate_flow_state(self.task)
 
@@ -128,10 +127,19 @@ class StepExecutor(BaseExecutor):
         async for chunk in iterator:
             result: SlotOutput = SlotOutput.model_validate(chunk.content)
 
-        # 推送填参结果
-        self.task.state.status = StepStatus.SUCCESS # type: ignore[arg-type]
+        # 如果没有填全
+        if result.remaining_schema:
+            # 状态设置为待填参
+            self.task.state.status = StepStatus.PARAM # type: ignore[arg-type]
+        else:
+            # 推送填参结果
+            self.task.state.status = StepStatus.SUCCESS # type: ignore[arg-type]
         await TaskManager.save_task(self.task.id, self.task)
         await self.push_message(EventType.STEP_OUTPUT.value, result.slot_data)
+
+        # 没完整填参，则返回
+        if self.task.state.status == StepStatus.PARAM: # type: ignore[arg-type]
+            return
 
         # 更新输入
         self.obj.input.update(result.slot_data)
@@ -183,6 +191,13 @@ class StepExecutor(BaseExecutor):
         # 进行自动参数填充
         await self._run_slot_filling()
 
+        # 更新history
+        self._history.input_data = self.obj.input
+        self._history.output_data = {}
+        # 更新状态
+        self.task.state.status = StepStatus.RUNNING # type: ignore[arg-type]
+        self._history.status = self.task.state.status # type: ignore[arg-type]
+        await TaskManager.save_task(self.task.id, self.task)
         # 推送输入
         await self.push_message(EventType.STEP_INPUT.value, self.obj.input)
 
@@ -200,9 +215,17 @@ class StepExecutor(BaseExecutor):
 
         # 更新执行状态
         self.task.state.status = StepStatus.SUCCESS # type: ignore[arg-type]
+        self._history.status = self.task.state.status # type: ignore[arg-type]
 
+        # 更新history
         if isinstance(content, str):
-            self.content = TextAddContent(text=content).model_dump(exclude_none=True, by_alias=True)
+            self._history.output_data = TextAddContent(text=content).model_dump(exclude_none=True, by_alias=True)
         else:
-            self.content = content
-        await self.push_message(EventType.STEP_OUTPUT.value, self.content)
+            self._history.output_data = content
+
+        # 更新context
+        self.task.context.append(self._history.model_dump(exclude_none=True, by_alias=True))
+        await TaskManager.save_task(self.task.id, self.task)
+
+        # 推送输出
+        await self.push_message(EventType.STEP_OUTPUT.value, self._history.output_data)

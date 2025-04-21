@@ -35,6 +35,7 @@ class CallVars(BaseModel):
     summary: str = Field(description="上下文信息")
     question: str = Field(description="改写后的用户输入")
     history: dict[str, FlowStepHistory] = Field(description="Executor中历史工具的结构化数据", default={})
+    history_order: list[str] = Field(description="Executor中历史工具的顺序", default=[])
     ids: CallIds = Field(description="Call的ID")
 
 

@@ -5,7 +5,6 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 import logging
-import uuid
 from typing import Literal
 
 from apps.entities.record import (
@@ -21,9 +20,8 @@ class RecordManager:
     """问答对相关操作"""
 
     @staticmethod
-    async def create_record_group(user_sub: str, conversation_id: str, task_id: str) -> str | None:
+    async def create_record_group(group_id: str, user_sub: str, conversation_id: str, task_id: str) -> str | None:
         """创建问答组"""
-        group_id = str(uuid.uuid4())
         record_group_collection = MongoDB.get_collection("record_group")
         conversation_collection = MongoDB.get_collection("conversation")
         record_group = RecordGroup(
@@ -146,12 +144,13 @@ class RecordManager:
         try:
             record_group_collection = MongoDB.get_collection("record_group")
             record_data = await record_group_collection.find_one(
-                {"_id": group_id, "user_sub": user_sub, "records._id": record_id},
+                {"_id": group_id, "user_sub": user_sub, "records.id": record_id},
             )
             return bool(record_data)
         except Exception:
             logger.exception("[RecordManager] 验证记录是否在组中失败")
             return False
+
 
     @staticmethod
     async def check_group_id(group_id: str, user_sub: str) -> bool:
