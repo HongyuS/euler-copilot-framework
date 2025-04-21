@@ -146,7 +146,7 @@ curl -X POST http://localhost:8000/openai/v1/chat/completions \
   }'
 ```
 
-- 测试Embedding接口
+- 测试 Embeddings 接口
 ```bash
 curl http://localhost:8090/embed \
   -X POST \
