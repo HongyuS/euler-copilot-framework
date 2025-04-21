@@ -112,7 +112,10 @@ curl http://localhost:8090/embed \
   -H "Content-Type: application/json"
 ```
 
-## 配置文件优化建议（values.yaml）
+## 修改配置文件
+```bash
+vim euler-copilot-framework_3/deploy/chart/euler_copilot/values.yaml
+```
 ```yaml
 models:
   answer:
@@ -146,7 +149,11 @@ models:
     name: bge-m3
     max_length: 8192  # 添加长度限制
 ```
-
+## 更新服务
+```bash
+helm upgrade -n euler-copilot euler-copilot .
+kubectl get pods -n euler-copilot
+```
 ## 常见问题排查
 1. **驱动加载失败**：
    - 执行`dmesg | grep npu`查看内核日志
