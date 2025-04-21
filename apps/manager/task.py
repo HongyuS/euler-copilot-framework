@@ -100,7 +100,7 @@ class TaskManager:
             record_group = await record_group_collection.aggregate([
                 {"$match": {"_id": record_group_id}},
                 {"$unwind": "$records"},
-                {"$match": {"records.record_id": record_id}},
+                {"$match": {"records.id": record_id}},
             ])
             records = await record_group.to_list(length=1)
             if not records:

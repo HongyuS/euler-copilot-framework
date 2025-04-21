@@ -151,7 +151,7 @@ async def save_data(task_id: str, user_sub: str, post_body: RequestData, used_do
         await AppCenterManager.update_recent_app(user_sub, post_body.app.app_id)
 
     # 若状态为成功，删除Task
-    if task.state and task.state.status == StepStatus.SUCCESS:
+    if not task.state or task.state.status == StepStatus.SUCCESS:
         await TaskManager.delete_task_by_task_id(task_id)
     else:
         # 更新Task

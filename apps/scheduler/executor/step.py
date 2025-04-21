@@ -39,15 +39,6 @@ class StepExecutor(BaseExecutor):
         super().__init__(**kwargs)
         self.validate_flow_state(self.task)
 
-        self._history = FlowStepHistory(
-            task_id=self.task.id,
-            flow_id=self.task.state.flow_id, # type: ignore[arg-type]
-            step_id=self.task.state.step_id, # type: ignore[arg-type]
-            status=self.task.state.status, # type: ignore[arg-type]
-            input_data={},
-            output_data={},
-        )
-
 
     async def init(self) -> None:
         """初始化步骤"""
@@ -191,12 +182,8 @@ class StepExecutor(BaseExecutor):
         # 进行自动参数填充
         await self._run_slot_filling()
 
-        # 更新history
-        self._history.input_data = self.obj.input
-        self._history.output_data = {}
         # 更新状态
         self.task.state.status = StepStatus.RUNNING # type: ignore[arg-type]
-        self._history.status = self.task.state.status # type: ignore[arg-type]
         await TaskManager.save_task(self.task.id, self.task)
         # 推送输入
         await self.push_message(EventType.STEP_INPUT.value, self.obj.input)
@@ -215,17 +202,25 @@ class StepExecutor(BaseExecutor):
 
         # 更新执行状态
         self.task.state.status = StepStatus.SUCCESS # type: ignore[arg-type]
-        self._history.status = self.task.state.status # type: ignore[arg-type]
 
         # 更新history
         if isinstance(content, str):
-            self._history.output_data = TextAddContent(text=content).model_dump(exclude_none=True, by_alias=True)
+            output_data = TextAddContent(text=content).model_dump(exclude_none=True, by_alias=True)
         else:
-            self._history.output_data = content
+            output_data = content
 
         # 更新context
-        self.task.context.append(self._history.model_dump(exclude_none=True, by_alias=True))
+        history = FlowStepHistory(
+            task_id=self.task.id,
+            flow_id=self.task.state.flow_id, # type: ignore[arg-type]
+            step_id=self.step.step_id,
+            step_name=self.step.step.name,
+            status=self.task.state.status, # type: ignore[arg-type]
+            input_data=self.obj.input,
+            output_data=output_data,
+        )
+        self.task.context.append(history.model_dump(exclude_none=True, by_alias=True))
         await TaskManager.save_task(self.task.id, self.task)
 
         # 推送输出
-        await self.push_message(EventType.STEP_OUTPUT.value, self._history.output_data)
+        await self.push_message(EventType.STEP_OUTPUT.value, output_data)

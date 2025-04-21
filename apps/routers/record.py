@@ -24,6 +24,7 @@ from apps.entities.response_data import (
     RecordListRsp,
     ResponseData,
 )
+from apps.entities.task import FlowStepHistory
 from apps.manager.conversation import ConversationManager
 from apps.manager.document import DocumentManager
 from apps.manager.record import RecordManager
@@ -87,20 +88,22 @@ async def get_record(conversation_id: str, user_sub: Annotated[str, Depends(get_
             # 获得Record关联的flow数据
             flow_list = await TaskManager.get_context_by_record_id(record_group.id, record.id)
             if flow_list:
+                first_flow = FlowStepHistory.model_validate(flow_list[0])
                 tmp_record.flow = RecordFlow(
-                    id=flow_list[0].id,
+                    id=first_flow.id,
                     recordId=record.id,
-                    flowId=flow_list[0].flow_id,
+                    flowId=first_flow.flow_id,
                     stepNum=len(flow_list),
                     steps=[],
                 )
                 for flow in flow_list:
+                    flow_step = FlowStepHistory.model_validate(flow)
                     tmp_record.flow.steps.append(
                         RecordFlowStep(
-                            stepId=flow.step_id,
-                            stepStatus=flow.status,
-                            input=flow.input_data,
-                            output=flow.output_data,
+                            stepId=flow_step.step_name,  #TODO: 此处前端应该用name
+                            stepStatus=flow_step.status,
+                            input=flow_step.input_data,
+                            output=flow_step.output_data,
                         ),
                     )
 
