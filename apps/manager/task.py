@@ -6,10 +6,16 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 
 import logging
 import uuid
+from typing import Any
 
 from apps.entities.record import RecordGroup
 from apps.entities.request_data import RequestData
-from apps.entities.task import FlowStepHistory, Task, TaskIds, TaskRuntime, TaskTokens
+from apps.entities.task import (
+    Task,
+    TaskIds,
+    TaskRuntime,
+    TaskTokens,
+)
 from apps.manager.record import RecordManager
 from apps.models.mongo import MongoDB
 
@@ -32,6 +38,7 @@ class TaskManager:
                 },
             },
         )
+
 
     @staticmethod
     async def get_task_by_conversation_id(conversation_id: str) -> Task | None:
@@ -73,15 +80,19 @@ class TaskManager:
             logger.exception("[TaskManager] 获取组ID的最后一条问答组关联的任务失败")
             return None
 
+
     @staticmethod
     async def get_task_by_task_id(task_id: str) -> Task | None:
         """根据task_id获取任务"""
         task_collection = MongoDB.get_collection("task")
         task = await task_collection.find_one({"_id": task_id})
+        if not task:
+            return None
         return Task.model_validate(task)
 
+
     @staticmethod
-    async def get_flow_history_by_record_id(record_group_id: str, record_id: str) -> list[FlowStepHistory]:
+    async def get_context_by_record_id(record_group_id: str, record_id: str) -> list[dict[str, Any]]:
         """根据record_group_id获取flow信息"""
         record_group_collection = MongoDB.get_collection("record_group")
         flow_context_collection = MongoDB.get_collection("flow_context")
@@ -99,7 +110,6 @@ class TaskManager:
             for flow_context_id in records[0]["records"]["flow"]:
                 flow_context = await flow_context_collection.find_one({"_id": flow_context_id})
                 if flow_context:
-                    flow_context = FlowStepHistory.model_validate(flow_context)
                     flow_context_list.append(flow_context)
         except Exception:
             logger.exception("[TaskManager] 获取record_id的flow信息失败")
@@ -109,33 +119,43 @@ class TaskManager:
 
 
     @staticmethod
-    async def get_flow_history_by_task_id(task_id: str, length: int = 0) -> dict[str, FlowStepHistory]:
+    async def get_context_by_task_id(task_id: str, length: int = 0) -> list[dict[str, Any]]:
         """根据task_id获取flow信息"""
         flow_context_collection = MongoDB.get_collection("flow_context")
 
-        flow_context = {}
+        flow_context = []
         try:
             async for history in flow_context_collection.find(
                 {"task_id": task_id},
             ).sort(
                 "created_at", -1,
             ).limit(length):
-                history_obj = FlowStepHistory.model_validate(history)
-                flow_context[history_obj.step_id] = history_obj
+                flow_context.extend(history)
         except Exception:
             logger.exception("[TaskManager] 获取task_id的flow信息失败")
-            return {}
+            return []
         else:
             return flow_context
 
 
     @staticmethod
-    async def save_flow_context(flow_context: list[FlowStepHistory]) -> None:
+    async def save_flow_context(task_id: str, flow_context: list[dict[str, Any]]) -> None:
         """保存flow信息到flow_context"""
         flow_context_collection = MongoDB.get_collection("flow_context")
         try:
-            flow_context_str = [flow.model_dump(by_alias=True) for flow in flow_context]
-            await flow_context_collection.insert_many(flow_context_str)
+            for history in flow_context:
+                # 查找是否存在
+                current_context = await flow_context_collection.find_one({
+                    "task_id": task_id,
+                    "_id": history["_id"],
+                })
+                if current_context:
+                    await flow_context_collection.update_one(
+                        {"_id": current_context["_id"]},
+                        {"$set": history},
+                    )
+                else:
+                    await flow_context_collection.insert_one(history)
         except Exception:
             logger.exception("[TaskManager] 保存flow执行记录失败")
 
@@ -170,6 +190,7 @@ class TaskManager:
         except Exception:
             logger.exception("[TaskManager] 通过ConversationID删除Task信息失败")
 
+
     @classmethod
     async def get_task(
         cls,
@@ -199,7 +220,21 @@ class TaskManager:
         else:
             task = await cls.get_task_by_conversation_id(post_body.conversation_id)
 
-        return await cls.create_or_update_task(post_body, user_sub, session_id, task)
+        if task:
+            return task
+        return Task(
+            _id=str(uuid.uuid4()),
+            ids=TaskIds(
+                user_sub=user_sub if user_sub else "",
+                session_id=session_id if session_id else "",
+                conversation_id=post_body.conversation_id,
+                group_id=post_body.group_id if post_body.group_id else "",
+            ),
+            state=None,
+            tokens=TaskTokens(),
+            runtime=TaskRuntime(),
+        )
+
 
     @classmethod
     async def save_task(cls, task_id: str, task: Task) -> None:
@@ -210,48 +245,5 @@ class TaskManager:
         await task_collection.update_one(
             {"_id": task_id},
             {"$set": task.model_dump(by_alias=True, exclude_none=True)},
+            upsert=True,
         )
-
-    @classmethod
-    async def create_or_update_task(
-        cls,
-        post_body: RequestData,
-        user_sub: str | None = None,
-        session_id: str | None = None,
-        task: Task | None = None,
-    ) -> Task:
-        """创建或更新任务块"""
-        # 创建新的Record
-        if not task:
-            # 任务不存在，新建Task
-            task_id = str(uuid.uuid4())
-
-            task = Task(
-                _id=task_id,
-                ids=TaskIds(
-                    user_sub=user_sub if user_sub else "",
-                    session_id=session_id if session_id else "",
-                    conversation_id=post_body.conversation_id,
-                    group_id=post_body.group_id if post_body.group_id else "",
-                ),
-                state=None,
-                tokens=TaskTokens(),
-                runtime=TaskRuntime(),
-            )
-
-            # 保存到MongoDB
-            task_collection = MongoDB.get_collection("task")
-            await task_collection.insert_one(task.model_dump(by_alias=True, exclude_none=True))
-            return task
-
-        # 任务存在，更新Task
-        task_id = task.id
-
-        # 更新MongoDB
-        task_collection = MongoDB.get_collection("task")
-        await task_collection.update_one(
-            {"_id": task_id},
-            {"$set": task.model_dump(by_alias=True, exclude_none=True)},
-        )
-
-        return task

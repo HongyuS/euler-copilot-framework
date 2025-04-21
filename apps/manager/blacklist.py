@@ -177,7 +177,7 @@ class AbuseManager:
                 [
                     {"$match": {"user_sub": user_sub}},
                     {"$unwind": "$records"},
-                    {"$match": {"records._id": record_id}},
+                    {"$match": {"records.id": record_id}},
                     {"$limit": 1},
                 ],
             )
