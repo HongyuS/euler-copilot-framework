@@ -10,7 +10,6 @@ from apps.entities.enum_var import CallOutputType
 from apps.entities.pool import NodePool
 from apps.entities.scheduler import CallInfo, CallOutputChunk, CallVars
 from apps.llm.patterns.json_gen import Json
-from apps.manager.task import TaskManager
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.call.slot.schema import SlotInput, SlotOutput
 from apps.scheduler.slot.slot import Slot as SlotProcessor
@@ -71,7 +70,9 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
     async def _init(self, call_vars: CallVars) -> SlotInput:
         """初始化"""
         self._task_id = call_vars.ids.task_id
-        self._flow_history = await TaskManager.get_flow_history_by_task_id(self._task_id, self.step_num)
+        self._flow_history = {}
+        for key in call_vars.history_order[:-self.step_num]:
+            self._flow_history[key] = call_vars.history[key]
 
         if not self.current_schema:
             return SlotInput(

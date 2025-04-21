@@ -20,9 +20,12 @@ from apps.entities.scheduler import (
     CallOutputChunk,
     CallVars,
 )
+from apps.entities.task import FlowStepHistory
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -87,6 +90,13 @@ class CoreCall(BaseModel):
             logger.error(err)
             raise ValueError(err)
 
+        history = {}
+        history_order = []
+        for item in executor.task.context:
+            item_obj = FlowStepHistory.model_validate(item)
+            history[item_obj.step_id] = item_obj
+            history_order.append(item_obj.step_id)
+
         return CallVars(
             ids=CallIds(
                 task_id=executor.task.id,
@@ -96,7 +106,8 @@ class CoreCall(BaseModel):
                 app_id=executor.task.state.app_id,
             ),
             question=executor.question,
-            history=executor.task.context,
+            history=history,
+            history_order=history_order,
             summary=executor.task.runtime.summary,
         )
 
