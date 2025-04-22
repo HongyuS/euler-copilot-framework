@@ -157,19 +157,35 @@ get_client_info_manual() {
     echo -e "${GREEN}使用配置："
     echo "Client ID: $client_id"
     echo "Client Secret: $client_secret"
-
 }
 
-# 检查语义接口是否存在
 check_directories() {
     echo -e "${BLUE}检查语义接口目录是否存在...${NC}" >&2
+
+    # 定义父目录和子目录列表
+    local PLUGINS_DIR="/home/eulercopilot/semantics"
+    local REQUIRED_OWNER="1001:1001"
+
+    # 检查并创建父目录
     if [ -d "${PLUGINS_DIR}" ]; then
         echo -e "${GREEN}目录已存在：${PLUGINS_DIR}${NC}" >&2
+	# 检查当前权限
+        local current_owner=$(stat -c "%u:%g" "${PLUGINS_DIR}" 2>/dev/null)
+        if [ "$current_owner" != "$REQUIRED_OWNER" ]; then
+            echo -e "${YELLOW}当前目录权限: ${current_owner}，正在修改为 ${REQUIRED_OWNER}...${NC}" >&2
+            if chown 1001:1001 "${PLUGINS_DIR}"; then
+                echo -e "${GREEN}目录权限已成功修改为 ${REQUIRED_OWNER}${NC}" >&2
+            else
+                echo -e "${RED}错误：无法修改目录权限到 ${REQUIRED_OWNER}${NC}" >&2
+                exit 1
+            fi
+        else
+            echo -e "${GREEN}目录权限正确（${REQUIRED_OWNER}）${NC}" >&2
+        fi
     else
         if mkdir -p "${PLUGINS_DIR}"; then
             echo -e "${GREEN}目录已创建：${PLUGINS_DIR}${NC}" >&2
-	    mkdir -p "${PLUGINS_DIR}"/app "${PLUGINS_DIR}"/service "${PLUGINS_DIR}"/call
-	    chmod -R 775 ${PLUGINS_DIR}/*
+            chown 1001:1001 "${PLUGINS_DIR}"  # 设置父目录所有者
         else
             echo -e "${RED}错误：无法创建目录 ${PLUGINS_DIR}${NC}" >&2
             exit 1
