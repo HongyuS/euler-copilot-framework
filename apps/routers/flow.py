@@ -25,6 +25,7 @@ from apps.entities.response_data import (
     ResponseData,
 )
 from apps.manager.application import AppManager
+from apps.manager.appcenter import AppCenterManager
 from apps.manager.flow import FlowManager
 from apps.service.flow import FlowService
 
@@ -151,6 +152,7 @@ async def put_flow(
             result=FlowStructurePutMsg(),
         ).model_dump(exclude_none=True, by_alias=True))
     flow = await FlowManager.get_flow_by_app_and_flow_id(app_id, flow_id)
+    await AppCenterManager.update_app_publish_status(app_id, user_sub)
     if flow is None:
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=FlowStructurePutRsp(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,

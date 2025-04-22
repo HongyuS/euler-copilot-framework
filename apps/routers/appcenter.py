@@ -306,7 +306,10 @@ async def publish_application(
 ) -> JSONResponse:
     """发布应用"""
     try:
-        await AppCenterManager.publish_app(app_id, user_sub)
+        published = await AppCenterManager.update_app_publish_status(app_id, user_sub)
+        if not published:
+            msg = "发布应用失败"
+            raise ValueError(msg)
     except ValueError:
         logger.exception("[AppCenter] 发布应用请求无效")
         return JSONResponse(
@@ -327,13 +330,13 @@ async def publish_application(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    except Exception:
+    except Exception as e:
         logger.exception("[AppCenter] 发布应用失败")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
                 code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                message="ERROR",
+                message=str(e),
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )

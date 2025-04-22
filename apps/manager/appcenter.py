@@ -265,7 +265,7 @@ class AppCenterManager:
         await app_loader.save(metadata, app_id)
 
     @staticmethod
-    async def publish_app(app_id: str, user_sub: str) -> None:
+    async def update_app_publish_status(app_id: str, user_sub: str) -> None:
         """
         发布应用
 
@@ -280,9 +280,14 @@ class AppCenterManager:
         if app_data.author != user_sub:
             msg = "Permission denied"
             raise InstancePermissionError(msg)
+        published = True
+        for flow in app_data.flows:
+            if not flow.debug:
+                published = False
+                break
         await app_collection.update_one(
             {"_id": app_id},
-            {"$set": {"published": True}},
+            {"$set": {"published": published}},
         )
         metadata = AppMetadata(
             type=MetadataType.APP,
@@ -296,11 +301,12 @@ class AppCenterManager:
             first_questions=app_data.first_questions,
             history_len=app_data.history_len,
             permission=app_data.permission,
-            published=True,
+            published=published,
             flows=app_data.flows,
         )
         app_loader = AppLoader()
         await app_loader.save(metadata, app_id)
+        return published
 
     @staticmethod
     async def modify_favorite_app(app_id: str, user_sub: str, *, favorited: bool) -> None:
