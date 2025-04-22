@@ -96,7 +96,6 @@ class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
     async def _init(self, call_vars: CallVars) -> LLMInput:
         """初始化LLM工具"""
         return LLMInput(
-            task_id=call_vars.ids.task_id,
             message=await self._prepare_message(call_vars),
         )
 
@@ -105,9 +104,12 @@ class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
         """运行LLM Call"""
         data = LLMInput(**input_data)
         try:
-            async for chunk in ReasoningLLM().call(task_id=data.task_id, messages=data.message):
+            llm = ReasoningLLM()
+            async for chunk in llm.call(messages=data.message):
                 if not chunk:
                     continue
                 yield CallOutputChunk(type=CallOutputType.TEXT, content=chunk)
+            self.tokens.input_tokens = llm.input_tokens
+            self.tokens.output_tokens = llm.output_tokens
         except Exception as e:
             raise CallError(message=f"大模型调用失败：{e!s}", data={}) from e

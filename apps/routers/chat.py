@@ -23,6 +23,7 @@ from apps.dependency import (
 )
 from apps.entities.request_data import RequestData
 from apps.entities.response_data import ResponseData
+from apps.entities.task import Task
 from apps.manager.blacklist import QuestionBlacklistManager, UserBlacklistManager
 from apps.manager.flow import FlowManager
 from apps.manager.task import TaskManager
@@ -38,19 +39,17 @@ router = APIRouter(
 )
 
 
-async def init_task(post_body: RequestData, user_sub: str, session_id: str) -> str:
+async def init_task(post_body: RequestData, user_sub: str, session_id: str) -> Task:
     """初始化Task"""
     # 生成group_id
     if not post_body.group_id:
         post_body.group_id = str(uuid.uuid4())
     # 创建或还原Task
     task = await TaskManager.get_task(session_id=session_id, post_body=post_body, user_sub=user_sub)
-    task_id = task.id
     # 更改信息并刷新数据库
     task.runtime.question = post_body.question
     task.ids.group_id = post_body.group_id
-    await TaskManager.save_task(task_id, task)
-    return task_id
+    return task
 
 
 async def chat_generator(post_body: RequestData, user_sub: str, session_id: str) -> AsyncGenerator[str, None]:
@@ -65,14 +64,14 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
             await Activity.remove_active(user_sub)
             return
 
-        task_id = await init_task(post_body, user_sub, session_id)
+        task = await init_task(post_body, user_sub, session_id)
 
         # 创建queue；由Scheduler进行关闭
         queue = MessageQueue()
-        await queue.init(task_id)
+        await queue.init()
 
         # 在单独Task中运行Scheduler，拉齐queue.get的时机
-        scheduler = Scheduler(task_id, queue, post_body)
+        scheduler = Scheduler(task, queue, post_body)
         scheduler_task = asyncio.create_task(scheduler.run())
 
         # 处理每一条消息
@@ -85,23 +84,22 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
         await scheduler_task
 
         # 获取最终答案
-        task = await TaskManager.get_task(task_id)
-        answer_text = task.runtime.answer
-        if not answer_text:
+        task = scheduler.task
+        if not task.runtime.answer:
             logger.error("[Chat] 答案为空")
             yield "data: [ERROR]\n\n"
             await Activity.remove_active(user_sub)
             return
 
         # 对结果进行敏感词检查
-        if await WordsCheck().check(answer_text) != 1:
+        if await WordsCheck().check(task.runtime.answer) != 1:
             yield "data: [SENSITIVE]\n\n"
             logger.info("[Chat] 答案包含敏感词！")
             await Activity.remove_active(user_sub)
             return
 
         # 创建新Record，存入数据库
-        await save_data(task_id, user_sub, post_body, scheduler.used_docs)
+        await save_data(task, user_sub, post_body, scheduler.used_docs)
 
         yield "data: [DONE]\n\n"
 

@@ -29,7 +29,6 @@ class RenderInput(DataBase):
     """图表工具的输入"""
 
     question: str = Field(description="用户输入")
-    task_id: str = Field(description="任务ID")
     data: list[dict[str, Any]] = Field(description="图表数据")
 
 

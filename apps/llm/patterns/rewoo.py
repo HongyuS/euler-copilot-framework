@@ -70,7 +70,6 @@ class InitPlan(CorePattern):
         binary_description = spec[binary_name][0]
         subcmd_usage = spec[binary_name][2][subcmd_name][1]
         subcmd_description = spec[binary_name][2][subcmd_name][0]
-        task_id = kwargs["task_id"]
 
         argument_list = []
         for key in spec[binary_name][2][subcmd_name][3]:
@@ -90,8 +89,11 @@ class InitPlan(CorePattern):
         ]
 
         result = ""
-        async for chunk in ReasoningLLM().call(task_id, messages, streaming=False):
+        llm = ReasoningLLM()
+        async for chunk in llm.call(messages, streaming=False):
             result += chunk
+        self.input_tokens = llm.input_tokens
+        self.output_tokens = llm.output_tokens
 
         return result
 
@@ -142,8 +144,11 @@ class PlanEvaluator(CorePattern):
         ]
 
         result = ""
-        async for chunk in ReasoningLLM().call(kwargs["task_id"], messages, streaming=False):
+        llm = ReasoningLLM()
+        async for chunk in llm.call(messages, streaming=False):
             result += chunk
+        self.input_tokens = llm.input_tokens
+        self.output_tokens = llm.output_tokens
 
         return result
 
@@ -193,7 +198,10 @@ class RePlanner(CorePattern):
         ]
 
         result = ""
-        async for chunk in ReasoningLLM().call(kwargs["task_id"], messages, streaming=False):
+        llm = ReasoningLLM()
+        async for chunk in llm.call(messages, streaming=False):
             result += chunk
+        self.input_tokens = llm.input_tokens
+        self.output_tokens = llm.output_tokens
 
         return result

@@ -90,16 +90,19 @@ class Select(CorePattern):
         """初始化Prompt"""
         super().__init__(system_prompt, user_prompt)
 
-    async def _generate_single_attempt(self, task_id: str, user_input: str, choice_list: list[str]) -> str:
+    async def _generate_single_attempt(self, user_input: str, choice_list: list[str]) -> str:
         """使用ReasoningLLM进行单次尝试"""
-        logger.info("[Select] 单次选择尝试: %s", task_id)
+        logger.info("[Select] 单次选择尝试: %s", user_input)
         messages = [
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": user_input},
         ]
         result = ""
-        async for chunk in ReasoningLLM().call(task_id, messages, streaming=False):
+        llm = ReasoningLLM()
+        async for chunk in llm.call(messages, streaming=False):
             result += chunk
+        self.input_tokens = llm.input_tokens
+        self.output_tokens = llm.output_tokens
         logger.info("[Select] 选择结果: %s", result)
 
         # 使用FunctionLLM进行参数提取
@@ -107,10 +110,10 @@ class Select(CorePattern):
         schema["properties"]["choice"]["enum"] = choice_list
 
         messages += [{"role": "assistant", "content": result}]
-        function_result = await Json().generate("", conversation=messages, spec=schema)
+        function_result = await Json().generate(conversation=messages, spec=schema)
         return function_result["choice"]
 
-    async def generate(self, task_id: str, **kwargs) -> str:  # noqa: ANN003
+    async def generate(self, **kwargs) -> str:  # noqa: ANN003
         """使用大模型做出选择"""
         logger.info("[Select] 使用LLM选择")
         max_try = 3
@@ -137,7 +140,7 @@ class Select(CorePattern):
             choice_list=choice_prompt,
         )
 
-        result_coroutine = [self._generate_single_attempt(task_id, user_input, choices_list) for _ in range(max_try)]
+        result_coroutine = [self._generate_single_attempt(user_input, choices_list) for _ in range(max_try)]
         result_list = await asyncio.gather(*result_coroutine)
 
         count = Counter(result_list)

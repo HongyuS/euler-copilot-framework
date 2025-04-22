@@ -8,7 +8,6 @@ from apps.scheduler.call.core import DataBase
 class FactsInput(DataBase):
     """提取事实工具的输入"""
 
-    task_id: str = Field(description="任务ID")
     user_sub: str = Field(description="用户ID")
     message: list[dict[str, str]] = Field(description="消息")
 

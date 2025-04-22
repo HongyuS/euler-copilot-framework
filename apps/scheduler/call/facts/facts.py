@@ -54,7 +54,6 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
         ]
 
         return FactsInput(
-            task_id=call_vars.ids.task_id,
             user_sub=call_vars.ids.user_sub,
             message=message,
         )
@@ -63,10 +62,19 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """执行工具"""
         data = FactsInput(**input_data)
+
         # 提取事实信息
-        facts = await Facts().generate(data.task_id, conversation=data.message)
+        facts_obj = Facts()
+        facts = await facts_obj.generate(conversation=data.message)
+        self.tokens.input_tokens += facts_obj.input_tokens
+        self.tokens.output_tokens += facts_obj.output_tokens
+
         # 更新用户画像
-        domain_list = await Domain().generate(data.task_id, conversation=data.message)
+        domain_obj = Domain()
+        domain_list = await domain_obj.generate(conversation=data.message)
+        self.tokens.input_tokens += domain_obj.input_tokens
+        self.tokens.output_tokens += domain_obj.output_tokens
+
         for domain in domain_list:
             await UserDomainManager.update_user_domain_by_user_sub_and_domain_name(data.user_sub, domain)
 

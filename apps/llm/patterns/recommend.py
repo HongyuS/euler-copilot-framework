@@ -112,7 +112,7 @@ class Recommend(CorePattern):
         super().__init__(system_prompt, user_prompt)
 
 
-    async def generate(self, task_id: str, **kwargs) -> list[str]:  # noqa: ANN003
+    async def generate(self, **kwargs) -> list[str]:  # noqa: ANN003
         """生成推荐问题"""
         if "user_preference" not in kwargs or not kwargs["user_preference"]:
             user_preference = "[Empty]"
@@ -136,11 +136,15 @@ class Recommend(CorePattern):
         ]
 
         result = ""
-        async for chunk in ReasoningLLM().call(task_id, messages, streaming=False, temperature=0.7):
+        llm = ReasoningLLM()
+        async for chunk in llm.call(messages, streaming=False, temperature=0.7):
             result += chunk
+        self.input_tokens = llm.input_tokens
+        self.output_tokens = llm.output_tokens
+
         messages += [{"role": "assistant", "content": result}]
 
-        question_dict = await Json().generate("", conversation=messages, spec=self.slot_schema)
+        question_dict = await Json().generate(conversation=messages, spec=self.slot_schema)
 
         if not question_dict or "predicted_questions" not in question_dict or not question_dict["predicted_questions"]:
             return []

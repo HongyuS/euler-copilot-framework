@@ -74,21 +74,22 @@ async def get_context(user_sub: str, post_body: RequestData, n: int) -> tuple[li
     return context, facts
 
 
-async def generate_facts(task: Task, question: str) -> list[str]:
+async def generate_facts(task: Task, question: str) -> tuple[Task, list[str]]:
     """生成Facts"""
     message = [
         {"role": "user", "content": question},
         {"role": "assistant", "content": task.runtime.answer},
     ]
 
-    return await Facts().generate(task.id, conversation=message)
+    facts = await Facts().generate(conversation=message)
+    task.runtime.facts = facts
+    await TaskManager.save_task(task.id, task)
+
+    return task, facts
 
 
-async def save_data(task_id: str, user_sub: str, post_body: RequestData, used_docs: list[str]) -> None:
+async def save_data(task: Task, user_sub: str, post_body: RequestData, used_docs: list[str]) -> None:
     """保存当前Executor、Task、Record等的数据"""
-    # 加密Record数据
-    task = await TaskManager.get_task(task_id)
-
     # 构造RecordContent
     record_content = RecordContent(
         question=task.runtime.question,
@@ -98,6 +99,7 @@ async def save_data(task_id: str, user_sub: str, post_body: RequestData, used_do
     )
 
     try:
+        # 加密Record数据
         encrypt_data, encrypt_config = Security.encrypt(record_content.model_dump_json(by_alias=True))
     except Exception:
         logger.exception("[Scheduler] 问答对加密错误")
@@ -119,7 +121,7 @@ async def save_data(task_id: str, user_sub: str, post_body: RequestData, used_do
         content=encrypt_data,
         key=encrypt_config,
         metadata=RecordMetadata(
-            timeCost=task.tokens.time,
+            timeCost=task.tokens.full_time,
             inputTokens=task.tokens.input_tokens,
             outputTokens=task.tokens.output_tokens,
             feature={},
@@ -152,7 +154,7 @@ async def save_data(task_id: str, user_sub: str, post_body: RequestData, used_do
 
     # 若状态为成功，删除Task
     if not task.state or task.state.status == StepStatus.SUCCESS:
-        await TaskManager.delete_task_by_task_id(task_id)
+        await TaskManager.delete_task_by_task_id(task.id)
     else:
         # 更新Task
-        await TaskManager.save_task(task_id, task)
+        await TaskManager.save_task(task.id, task)

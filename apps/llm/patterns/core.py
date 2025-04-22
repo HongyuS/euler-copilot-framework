@@ -18,6 +18,11 @@ class CorePattern(ABC):
     """用户提示词"""
     slot_schema: ClassVar[dict[str, Any]] = {}
     """输出格式的JSON Schema"""
+    input_tokens: int = 0
+    """输入Token数量"""
+    output_tokens: int = 0
+    """输出Token数量"""
+
 
     def __init__(self, system_prompt: str | None = None, user_prompt: str | None = None) -> None:
         """
@@ -40,6 +45,6 @@ class CorePattern(ABC):
         self.user_prompt = dedent(self.user_prompt).strip("\n")
 
     @abstractmethod
-    async def generate(self, task_id: str, **kwargs):  # noqa: ANN003, ANN201
+    async def generate(self, **kwargs):  # noqa: ANN003, ANN201
         """调用大模型，生成结果"""
         raise NotImplementedError

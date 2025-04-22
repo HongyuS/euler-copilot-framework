@@ -14,7 +14,6 @@ from openai.types.chat import ChatCompletionChunk
 from apps.common.config import Config
 from apps.constants import REASONING_BEGIN_TOKEN, REASONING_END_TOKEN
 from apps.llm.token import TokenCalculator
-from apps.manager.task import TaskManager
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +81,9 @@ class ReasoningContent:
 class ReasoningLLM:
     """调用用于问答的大模型"""
 
+    input_tokens: int = 0
+    output_tokens: int = 0
+
     def __init__(self) -> None:
         """判断配置文件里用了哪种大模型；初始化大模型客户端"""
         self._config = Config().get_config()
@@ -126,11 +128,11 @@ class ReasoningLLM:
             max_tokens=max_tokens or self._config.llm.max_tokens,
             temperature=temperature or self._config.llm.temperature,
             stream=True,
+            stream_options={"include_usage": True},
         )  # type: ignore[]
 
-    async def call(  # noqa: PLR0913
+    async def call(  # noqa: C901, PLR0912
         self,
-        task_id: str,
         messages: list[dict[str, str]],
         max_tokens: int | None = None,
         temperature: float | None = None,
@@ -140,7 +142,6 @@ class ReasoningLLM:
     ) -> AsyncGenerator[str, None]:
         """调用大模型，分为流式和非流式两种"""
         try:
-            input_tokens = TokenCalculator().calculate_token_length(messages)
             msg_list = self._validate_messages(messages)
         except ValueError as e:
             err = "消息格式错误"
@@ -154,6 +155,14 @@ class ReasoningLLM:
 
         try:
             async for chunk in stream:
+                # 如果包含统计信息
+                if chunk.usage:
+                    self.input_tokens = chunk.usage.prompt_tokens
+                    self.output_tokens = chunk.usage.completion_tokens
+                # 如果没有Choices
+                if not chunk.choices:
+                    continue
+
                 # 处理chunk
                 if reasoning.is_first_chunk:
                     reason, text = reasoning.process_first_chunk(chunk)
@@ -179,11 +188,14 @@ class ReasoningLLM:
             logger.info("[Reasoning] 推理内容: %s\n\n%s", reasoning_content, result)
 
             # 更新token统计
-            output_tokens = TokenCalculator().calculate_token_length(
-                [{"role": "assistant", "content": result}],
-                pure_text=True,
-            )
-            await TaskManager.update_token_summary(task_id, input_tokens, output_tokens)
+            if self.input_tokens == 0 or self.output_tokens == 0:
+                self.input_tokens = TokenCalculator().calculate_token_length(
+                    messages,
+                )
+                self.output_tokens = TokenCalculator().calculate_token_length(
+                    [{"role": "assistant", "content": result}],
+                    pure_text=True,
+                )
 
         except Exception as e:
             err = "调用大模型失败"

@@ -1,7 +1,6 @@
 """Executor基类"""
 
 import logging
-from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -43,8 +42,6 @@ class BaseExecutor(BaseModel):
         :param event_type: 事件类型
         :param data: 消息数据，如果是FLOW_START事件且data为None，则自动构建FlowStartContent
         """
-        self.validate_flow_state(self.task)
-
         if event_type == EventType.FLOW_START.value and isinstance(data, dict):
             data = FlowStartContent(
                 question=self.question,
@@ -52,9 +49,6 @@ class BaseExecutor(BaseModel):
             ).model_dump(exclude_none=True, by_alias=True)
         elif event_type == EventType.FLOW_STOP.value:
             data = {}
-        elif event_type == EventType.STEP_INPUT.value and isinstance(data, dict):
-            # 步骤开始，重置时间
-            self.task.tokens.time = round(datetime.now(UTC).timestamp(), 2)
         elif event_type == EventType.TEXT_ADD.value and isinstance(data, str):
             data=TextAddContent(text=data).model_dump(exclude_none=True, by_alias=True)
 

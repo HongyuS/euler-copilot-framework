@@ -52,7 +52,7 @@ class QuestionRewrite(CorePattern):
     }
     """最终输出的JSON Schema"""
 
-    async def generate(self, task_id: str, **kwargs) -> str:  # noqa: ANN003
+    async def generate(self, **kwargs) -> str:  # noqa: ANN003
         """问题补全与重写"""
         question = kwargs["question"]
 
@@ -62,11 +62,14 @@ class QuestionRewrite(CorePattern):
         ]
 
         result = ""
-        async for chunk in ReasoningLLM().call(task_id, messages, streaming=False):
+        llm = ReasoningLLM()
+        async for chunk in llm.call(messages, streaming=False):
             result += chunk
+        self.input_tokens = llm.input_tokens
+        self.output_tokens = llm.output_tokens
 
         messages += [{"role": "assistant", "content": result}]
-        question_dict = await Json().generate("", conversation=messages, spec=self.slot_schema)
+        question_dict = await Json().generate(conversation=messages, spec=self.slot_schema)
 
         if not question_dict or "question" not in question_dict or not question_dict["question"]:
             return question

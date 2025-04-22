@@ -8,6 +8,7 @@ import logging
 
 from apps.entities.flow import Flow, FlowError, Step
 from apps.entities.request_data import RequestDataApp
+from apps.entities.task import Task
 from apps.llm.patterns import Select
 from apps.scheduler.call.llm.schema import RAG_ANSWER_PROMPT
 from apps.scheduler.pool.pool import Pool
@@ -63,9 +64,9 @@ class PredifinedRAGFlow(Flow):
 class FlowChooser:
     """Flow选择器"""
 
-    def __init__(self, task_id: str, question: str, user_selected: RequestDataApp | None = None) -> None:
+    def __init__(self, task: Task, question: str, user_selected: RequestDataApp | None = None) -> None:
         """初始化Flow选择器"""
-        self._task_id = task_id
+        self.task = task
         self._question = question
         self._user_selected = user_selected
 
@@ -80,12 +81,16 @@ class FlowChooser:
         if not flow_list:
             return "KnowledgeBase"
 
-        logger.info("[FlowChooser] 选择任务 %s 最合适的Flow", self._task_id)
+        logger.info("[FlowChooser] 选择任务 %s 最合适的Flow", self.task.id)
         choices = [{
             "name": flow.id,
             "description": f"{flow.name}, {flow.description}",
         } for flow in flow_list]
-        return await Select().generate(self._task_id, question=self._question, choices=choices)
+        select_obj = Select()
+        top_flow = await select_obj.generate(question=self._question, choices=choices)
+        self.task.tokens.input_tokens += select_obj.input_tokens
+        self.task.tokens.output_tokens += select_obj.output_tokens
+        return top_flow
 
 
     async def choose_flow(self) -> RequestDataApp | None:

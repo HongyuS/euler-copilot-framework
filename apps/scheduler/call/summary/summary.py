@@ -18,15 +18,15 @@ from apps.entities.scheduler import (
     ExecutorBackground,
 )
 from apps.llm.patterns.executor import ExecutorSummary
-from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.summary.schema import SummaryInput, SummaryOutput
+from apps.scheduler.call.core import CoreCall, DataBase
+from apps.scheduler.call.summary.schema import SummaryOutput
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor
 
 
 
-class Summary(CoreCall, input_model=SummaryInput, output_model=SummaryOutput):
+class Summary(CoreCall, input_model=DataBase, output_model=SummaryOutput):
     """总结工具"""
 
     context: ExecutorBackground = Field(description="对话上下文")
@@ -50,17 +50,18 @@ class Summary(CoreCall, input_model=SummaryInput, output_model=SummaryOutput):
         return obj
 
 
-    async def _init(self, call_vars: CallVars) -> SummaryInput:
+    async def _init(self, call_vars: CallVars) -> DataBase:
         """初始化工具，返回输入"""
-        return SummaryInput(
-            task_id=call_vars.ids.task_id,
-        )
+        return DataBase()
 
 
-    async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
+    async def _exec(self, _input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """执行工具"""
-        data = SummaryInput(**input_data)
-        summary = await ExecutorSummary().generate(data.task_id, background=self.context)
+        summary_obj = ExecutorSummary()
+        summary = await summary_obj.generate(background=self.context)
+        self.tokens.input_tokens += summary_obj.input_tokens
+        self.tokens.output_tokens += summary_obj.output_tokens
+
         yield CallOutputChunk(type=CallOutputType.TEXT, content=summary)
 
 

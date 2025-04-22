@@ -62,11 +62,9 @@ class TaskTokens(BaseModel):
     """任务Token"""
 
     input_tokens: int = Field(description="输入Token", default=0)
-    input_delta: int = Field(description="输入Token增量", default=0)
     output_tokens: int = Field(description="输出Token", default=0)
-    output_delta: int = Field(description="输出Token增量", default=0)
-    time: float = Field(description="时间成本", default=0.0)
-    time_delta: float = Field(description="时间成本增量", default=0.0)
+    time: float = Field(description="时间点", default=0.0)
+    full_time: float = Field(description="完整时间成本", default=0.0)
 
 
 class TaskRuntime(BaseModel):

@@ -89,11 +89,8 @@ async def _push_rag_chunk(task: Task, queue: MessageQueue, content: str) -> tupl
         if not content_obj.content:
             return task, ""
 
-        # 更新Token数量; 这里input_tokens和input_delta是一样的
         task.tokens.input_tokens = content_obj.input_tokens
-        task.tokens.input_delta = content_obj.input_tokens
         task.tokens.output_tokens = content_obj.output_tokens
-        task.tokens.output_delta = content_obj.output_tokens
 
         await TaskManager.save_task(task.id, task)
         # 推送消息

@@ -6,6 +6,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 
 import asyncio
 import logging
+from datetime import UTC, datetime
 
 from apps.common.queue import MessageQueue
 from apps.entities.enum_var import EventType
@@ -14,7 +15,6 @@ from apps.entities.request_data import RequestData
 from apps.entities.scheduler import ExecutorBackground
 from apps.entities.task import Task
 from apps.manager.appcenter import AppCenterManager
-from apps.manager.task import TaskManager
 from apps.manager.user import UserManager
 from apps.scheduler.executor.flow import FlowExecutor
 from apps.scheduler.pool.pool import Pool
@@ -36,10 +36,10 @@ class Scheduler:
     Scheduler包含一个“SchedulerContext”，作用为多个Executor的“聊天会话”
     """
 
-    def __init__(self, task_id: str, queue: MessageQueue, post_body: RequestData) -> None:
+    def __init__(self, task: Task, queue: MessageQueue, post_body: RequestData) -> None:
         """初始化"""
         self.used_docs = []
-        self.task_id = task_id
+        self.task = task
 
         self.queue = queue
         self.post_body = post_body
@@ -47,17 +47,16 @@ class Scheduler:
 
     async def run(self) -> None:
         """运行调度器"""
-        task = await TaskManager.get_task(self.task_id)
         try:
             # 获取当前问答可供关联的文档
-            docs, doc_ids = await get_docs(task.ids.user_sub, self.post_body)
+            docs, doc_ids = await get_docs(self.task.ids.user_sub, self.post_body)
         except Exception:
             logger.exception("[Scheduler] 获取文档失败")
             await self.queue.close()
             return
 
         # 获取用户配置的kb_sn
-        user_info = await UserManager.get_userinfo_by_user_sub(task.ids.user_sub)
+        user_info = await UserManager.get_userinfo_by_user_sub(self.task.ids.user_sub)
         if not user_info:
             logger.error("[Scheduler] 未找到用户")
             await self.queue.close()
@@ -69,17 +68,17 @@ class Scheduler:
         # 如果是智能问答，直接执行
         logger.info("[Scheduler] 开始执行")
         if not self.post_body.app or self.post_body.app.app_id == "":
-            task = await push_init_message(task, self.queue, 3, is_flow=False)
+            self.task = await push_init_message(self.task, self.queue, 3, is_flow=False)
             await asyncio.sleep(0.1)
             for doc in docs:
                 # 保存使用的文件ID
                 self.used_docs.append(doc.id)
-                task = await push_document_message(task, self.queue, doc)
+                self.task = await push_document_message(self.task, self.queue, doc)
                 await asyncio.sleep(0.1)
 
             # 调用RAG
             logger.info("[Scheduler] 获取上下文")
-            history, _ = await get_context(task.ids.user_sub, self.post_body, 3)
+            history, _ = await get_context(self.task.ids.user_sub, self.post_body, 3)
             logger.info("[Scheduler] 调用RAG")
             rag_data = RAGQueryReq(
                 question=self.post_body.question,
@@ -89,7 +88,8 @@ class Scheduler:
                 top_k=5,
                 history=history,
             )
-            task = await push_rag_message(task, self.queue, task.ids.user_sub, rag_data)
+            self.task = await push_rag_message(self.task, self.queue, self.task.ids.user_sub, rag_data)
+            self.task.tokens.full_time = round(datetime.now(UTC).timestamp(), 2) - self.task.tokens.time
         else:
             # 查找对应的App元数据
             app_data = await AppCenterManager.fetch_app_data_by_id(self.post_body.app.app_id)
@@ -99,21 +99,20 @@ class Scheduler:
                 return
 
             # 获取上下文
-            context, facts = await get_context(task.ids.user_sub, self.post_body, app_data.history_len)
+            context, facts = await get_context(self.task.ids.user_sub, self.post_body, app_data.history_len)
 
             # 需要执行Flow
-            task = await push_init_message(task, self.queue, app_data.history_len, is_flow=True)
+            self.task = await push_init_message(self.task, self.queue, app_data.history_len, is_flow=True)
             # 组装上下文
             executor_background = ExecutorBackground(
                 conversation=context,
                 facts=facts,
             )
-            await self.run_executor(task, self.queue, self.post_body, executor_background)
+            await self.run_executor(self.queue, self.post_body, executor_background)
 
         # 更新Task，发送结束消息
         logger.info("[Scheduler] 发送结束消息")
-        await TaskManager.save_task(task.id, task)
-        await self.queue.push_output(task, event_type=EventType.DONE.value, data={})
+        await self.queue.push_output(self.task, event_type=EventType.DONE.value, data={})
         # 关闭Queue
         await self.queue.close()
 
@@ -121,7 +120,7 @@ class Scheduler:
 
 
     async def run_executor(
-        self, task: Task, queue: MessageQueue, post_body: RequestData, background: ExecutorBackground,
+        self, queue: MessageQueue, post_body: RequestData, background: ExecutorBackground,
     ) -> None:
         """构造FlowExecutor，并执行所选择的流"""
         # 读取App中所有Flow的信息
@@ -145,8 +144,9 @@ class Scheduler:
         else:
             # 如果用户没有选特定的Flow，则根据语义选择一个Flow
             logger.info("[Scheduler] 选择最合适的流")
-            flow_chooser = FlowChooser(task.id, post_body.question, app_info)
+            flow_chooser = FlowChooser(self.task, post_body.question, app_info)
             flow_id = await flow_chooser.get_top_flow()
+            self.task = flow_chooser.task
             logger.info("[Scheduler] 获取工作流定义")
             flow_data = await Pool().get_flow(app_info.app_id, flow_id)
 
@@ -161,7 +161,7 @@ class Scheduler:
         flow_exec = FlowExecutor(
             flow_id=flow_id,
             flow=flow_data,
-            task=task,
+            task=self.task,
             msg_queue=queue,
             question=post_body.question,
             post_body_app=app_info,
@@ -172,7 +172,6 @@ class Scheduler:
         logger.info("[Scheduler] 运行Executor")
         await flow_exec.load_state()
         await flow_exec.run()
+        self.task = flow_exec.task
 
-        # 更新Task
-        task = await TaskManager.get_task(task.id)
         return

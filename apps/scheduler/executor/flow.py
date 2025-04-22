@@ -7,6 +7,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 import logging
 import uuid
 from collections import deque
+from datetime import UTC, datetime
 
 from pydantic import Field
 
@@ -79,6 +80,7 @@ class FlowExecutor(BaseExecutor):
                 step_id="start",
                 step_name="开始",
             )
+        self.validate_flow_state(self.task)
         # 是否到达Flow结束终点（变量）
         self._reached_end: bool = False
         self.step_queue: deque[StepQueueItem] = deque()
@@ -86,8 +88,6 @@ class FlowExecutor(BaseExecutor):
 
     async def _invoke_runner(self, queue_item: StepQueueItem) -> None:
         """单一Step执行"""
-        self.validate_flow_state(self.task)
-
         # 创建步骤Runner
         step_runner = StepExecutor(
             msg_queue=self.msg_queue,
@@ -108,8 +108,6 @@ class FlowExecutor(BaseExecutor):
 
     async def _step_process(self) -> None:
         """单一Step执行"""
-        self.validate_flow_state(self.task)
-
         while True:
             try:
                 queue_item = self.step_queue.pop()
@@ -131,8 +129,6 @@ class FlowExecutor(BaseExecutor):
 
     async def _find_flow_next(self) -> list[StepQueueItem]:
         """在当前步骤执行前，尝试获取下一步"""
-        self.validate_flow_state(self.task)
-
         # 如果当前步骤为结束，则直接返回
         if self.task.state.step_id == "end" or not self.task.state.step_id: # type: ignore[arg-type]
             return []
@@ -163,8 +159,6 @@ class FlowExecutor(BaseExecutor):
 
         数据通过向Queue发送消息的方式传输
         """
-        self.validate_flow_state(self.task)
-
         logger.info("[FlowExecutor] 运行工作流")
         # 推送Flow开始消息
         await self.push_message(EventType.FLOW_START.value)
@@ -206,9 +200,6 @@ class FlowExecutor(BaseExecutor):
             # 执行步骤
             await self._step_process()
 
-            # 步骤结束，更新全局的Task
-            await TaskManager.save_task(self.task.id, self.task)
-
             # 查找下一个节点
             next_step = await self._find_flow_next()
             if not next_step:
@@ -225,8 +216,7 @@ class FlowExecutor(BaseExecutor):
             ))
         await self._step_process()
 
+        # FlowStop需要返回总时间，需要倒推最初的开始时间（当前时间减去当前已用总时间）
+        self.task.tokens.time = round(datetime.now(UTC).timestamp(), 2) - self.task.tokens.full_time
         # 推送Flow停止消息
         await self.push_message(EventType.FLOW_STOP.value)
-
-        # 更新全局的Task
-        await TaskManager.save_task(self.task.id, self.task)

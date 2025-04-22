@@ -39,6 +39,13 @@ class CallVars(BaseModel):
     ids: CallIds = Field(description="Call的ID")
 
 
+class CallTokens(BaseModel):
+    """Call的Tokens"""
+
+    input_tokens: int = Field(description="输入的Tokens", default=0)
+    output_tokens: int = Field(description="输出的Tokens", default=0)
+
+
 class ExecutorBackground(BaseModel):
     """Executor的背景信息"""
 

@@ -76,7 +76,7 @@ class Facts(CorePattern):
         super().__init__(system_prompt, user_prompt)
 
 
-    async def generate(self, task_id: str, **kwargs) -> list[str]:  # noqa: ANN003
+    async def generate(self, **kwargs) -> list[str]:  # noqa: ANN003
         """事实提取"""
         conversation = convert_context_to_prompt(kwargs["conversation"])
         messages = [
@@ -84,11 +84,14 @@ class Facts(CorePattern):
             {"role": "user", "content": self.user_prompt.format(conversation=conversation)},
         ]
         result = ""
-        async for chunk in ReasoningLLM().call(task_id, messages, streaming=False):
+        llm = ReasoningLLM()
+        async for chunk in llm.call(messages, streaming=False):
             result += chunk
+        self.input_tokens = llm.input_tokens
+        self.output_tokens = llm.output_tokens
 
         messages += [{"role": "assistant", "content": result}]
-        fact_dict = await Json().generate("", conversation=messages, spec=self.slot_schema)
+        fact_dict = await Json().generate(conversation=messages, spec=self.slot_schema)
 
         if not fact_dict or "facts" not in fact_dict or not fact_dict["facts"]:
             return []

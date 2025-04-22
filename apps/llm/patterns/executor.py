@@ -55,7 +55,7 @@ class ExecutorThought(CorePattern):
         super().__init__(system_prompt, user_prompt)
 
 
-    async def generate(self, task_id: str, **kwargs) -> str:  # noqa: ANN003
+    async def generate(self, **kwargs) -> str:  # noqa: ANN003
         """调用大模型，生成对话总结"""
         try:
             last_thought: str = kwargs["last_thought"]
@@ -76,9 +76,12 @@ class ExecutorThought(CorePattern):
             )},
         ]
 
+        llm = ReasoningLLM()
         result = ""
-        async for chunk in ReasoningLLM().call(task_id, messages, streaming=False, temperature=0.7):
+        async for chunk in llm.call(messages, streaming=False, temperature=0.7):
             result += chunk
+        self.input_tokens = llm.input_tokens
+        self.output_tokens = llm.output_tokens
 
         return result
 
@@ -113,7 +116,7 @@ class ExecutorSummary(CorePattern):
         """初始化Background模式"""
         super().__init__(system_prompt, user_prompt)
 
-    async def generate(self, task_id: str, **kwargs) -> str:  # noqa: ANN003
+    async def generate(self, **kwargs) -> str:  # noqa: ANN003
         """进行初始背景生成"""
         background: ExecutorBackground = kwargs["background"]
         conversation_str = convert_context_to_prompt(background.conversation)
@@ -128,7 +131,10 @@ class ExecutorSummary(CorePattern):
         ]
 
         result = ""
-        async for chunk in ReasoningLLM().call(task_id, messages, streaming=False, temperature=0.7):
+        llm = ReasoningLLM()
+        async for chunk in llm.call(messages, streaming=False, temperature=0.7):
             result += chunk
+        self.input_tokens = llm.input_tokens
+        self.output_tokens = llm.output_tokens
 
         return result.strip().strip("\n")
