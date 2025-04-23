@@ -5,7 +5,6 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 from apps.scheduler.call.api.api import API
-from apps.scheduler.call.convert.convert import Convert
 from apps.scheduler.call.graph.graph import Graph
 from apps.scheduler.call.llm.llm import LLM
 from apps.scheduler.call.rag.rag import RAG
@@ -18,7 +17,6 @@ __all__ = [
     "LLM",
     "RAG",
     "SQL",
-    "Convert",
     "Graph",
     "Suggestion",
 ]

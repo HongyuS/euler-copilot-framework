@@ -50,6 +50,8 @@ class CoreCall(BaseModel):
     name: SkipJsonSchema[str] = Field(description="Step的名称", exclude=True)
     description: SkipJsonSchema[str] = Field(description="Step的描述", exclude=True)
     node: SkipJsonSchema[NodePool | None] = Field(description="节点信息", exclude=True)
+    enable_filling: SkipJsonSchema[bool] = Field(description="是否需要进行自动参数填充", default=False, exclude=True)
+    tokens: SkipJsonSchema[CallTokens] = Field(description="Call的Tokens", default=CallTokens(), exclude=True)
     input_model: ClassVar[SkipJsonSchema[type[DataBase]]] = Field(
         description="Call的输入Pydantic类型；不包含override的模板",
         exclude=True,
@@ -62,9 +64,6 @@ class CoreCall(BaseModel):
     )
 
     to_user: bool = Field(description="是否需要将输出返回给用户", default=False)
-    enable_filling: bool = Field(description="是否需要进行自动参数填充", default=False)
-    tokens: CallTokens = Field(description="Call的Tokens", default=CallTokens())
-
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,

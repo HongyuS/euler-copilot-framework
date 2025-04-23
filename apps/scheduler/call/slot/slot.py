@@ -3,15 +3,17 @@
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any, Self
 
-import jinja2
+from jinja2 import BaseLoader
+from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
 from apps.entities.enum_var import CallOutputType
 from apps.entities.pool import NodePool
 from apps.entities.scheduler import CallInfo, CallOutputChunk, CallVars
 from apps.llm.patterns.json_gen import Json
+from apps.llm.reasoning import ReasoningLLM
 from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.slot.schema import SlotInput, SlotOutput
+from apps.scheduler.call.slot.schema import SLOT_GEN_PROMPT, SlotInput, SlotOutput
 from apps.scheduler.slot.slot import Slot as SlotProcessor
 
 if TYPE_CHECKING:
@@ -36,16 +38,46 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
 
     async def _llm_slot_fill(self, remaining_schema: dict[str, Any]) -> dict[str, Any]:
         """使用LLM填充参数"""
+        env = SandboxedEnvironment(
+            loader=BaseLoader(),
+            autoescape=False,
+            trim_blocks=True,
+            lstrip_blocks=True,
+        )
+        template = env.from_string(SLOT_GEN_PROMPT)
+
         conversation = [
-            {"role": "user", "content": rf"""
-                背景信息摘要: {self.summary}
-
-                事实信息: {self.facts}
-
-                历史输出（JSON）: {self._flow_history}
-            """},
+            {"role": "system", "content": ""},
+            {"role": "user", "content": template.render(
+                current_tool={
+                    "name": self.name,
+                    "description": self.description,
+                },
+                schema=remaining_schema,
+                history_data=self._flow_history,
+                summary=self.summary,
+                question=self._question,
+                facts=self.facts,
+            )},
         ]
 
+        # 使用大模型进行尝试
+        reasoning = ReasoningLLM()
+        answer = ""
+        async for chunk in reasoning.call(messages=conversation, streaming=False):
+            answer += chunk
+        self.tokens.input_tokens += reasoning.input_tokens
+        self.tokens.output_tokens += reasoning.output_tokens
+
+        conversation = [
+            {"role": "user", "content": f"""
+                    用户问题：{self._question}
+
+                    参考数据：
+                    {answer}
+                """,
+            },
+        ]
         return await Json().generate(
             conversation=conversation,
             spec=remaining_schema,
@@ -68,9 +100,10 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
 
     async def _init(self, call_vars: CallVars) -> SlotInput:
         """初始化"""
-        self._flow_history = {}
+        self._flow_history = []
+        self._question = call_vars.question
         for key in call_vars.history_order[:-self.step_num]:
-            self._flow_history[key] = call_vars.history[key]
+            self._flow_history += [call_vars.history[key]]
 
         if not self.current_schema:
             return SlotInput(

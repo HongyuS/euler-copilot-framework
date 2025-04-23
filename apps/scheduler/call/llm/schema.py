@@ -8,14 +8,20 @@ from apps.scheduler.call.core import DataBase
 
 LLM_CONTEXT_PROMPT = dedent(
     r"""
-        以下是对用户和AI间对话的简短总结：
-        {{ summary }}
+        以下是对用户和AI间对话的简短总结，在<summary>中给出：
+        <summary>
+            {{ summary }}
+        </summary>
 
-        你作为AI，在回答用户的问题前，需要获取必要信息。为此，你调用了以下工具，并获得了输出：
+        你作为AI，在回答用户的问题前，需要获取必要的信息。为此，你调用了一些工具，并获得了它们的输出：
+        工具的输出数据将在<tool_data>中给出， 其中<name>为工具的名称，<output>为工具的输出数据。
         <tool_data>
             {% for tool in history_data %}
-                <name>{{ tool.step_id }}</name>
-                <output>{{ tool.output_data }}</output>
+                <tool>
+                    <name>{{ tool.step_name }}</name>
+                    <description>{{ tool.step_description }}</description>
+                    <output>{{ tool.output_data }}</output>
+                </tool>
             {% endfor %}
         </tool_data>
     """,
