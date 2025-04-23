@@ -115,7 +115,7 @@ class TaskManager:
             ).sort(
                 "created_at", -1,
             ).limit(length):
-                flow_context.extend(history)
+                flow_context += [history]
         except Exception:
             logger.exception("[TaskManager] 获取task_id的flow信息失败")
             return []

@@ -58,7 +58,10 @@ class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
         )
 
         # 上下文信息
-        step_history = list(call_vars.history.values())[-self.step_history_size :]
+        step_history = []
+        for ids in call_vars.history_order[-self.step_history_size:]:
+            step_history += [call_vars.history[ids]]
+
         if self.enable_context:
             context_tmpl = env.from_string(LLM_CONTEXT_PROMPT)
             context_prompt = context_tmpl.render(

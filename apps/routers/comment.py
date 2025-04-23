@@ -41,7 +41,7 @@ async def add_comment(post_body: AddCommentData, user_sub: Annotated[str, Depend
 
     comment_data = RecordComment(
         comment=post_body.comment,
-        dislike_reason=post_body.dislike_reason,
+        dislike_reason=post_body.dislike_reason.split(";")[:-1],
         reason_link=post_body.reason_link,
         reason_description=post_body.reason_description,
         feedback_time=round(datetime.now(tz=UTC).timestamp(), 3),

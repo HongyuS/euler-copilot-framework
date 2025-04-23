@@ -9,8 +9,8 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from apps.common.config import Config
-from apps.entities.enum_var import CommentType
 from apps.entities.appcenter import AppData
+from apps.entities.enum_var import CommentType
 from apps.entities.flow_topology import FlowItem
 
 
@@ -130,7 +130,7 @@ class AddCommentData(BaseModel):
     record_id: str
     group_id: str
     comment: CommentType
-    dislike_reason: list[str] = Field(default=[], max_length=10)
+    dislike_reason: str = Field(default="", max_length=200)
     reason_link: str = Field(default="", max_length=200)
     reason_description: str = Field(default="", max_length=500)
 

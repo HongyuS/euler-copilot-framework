@@ -27,6 +27,7 @@ class FlowStepHistory(BaseModel):
     flow_name: str = Field(description="Flow名称")
     step_id: str = Field(description="当前步骤名称")
     step_name: str = Field(description="当前步骤名称")
+    step_description: str = Field(description="当前步骤描述")
     status: StepStatus = Field(description="当前步骤状态")
     input_data: dict[str, Any] = Field(description="当前Step执行的输入", default={})
     output_data: dict[str, Any] = Field(description="当前Step执行后的结果", default={})

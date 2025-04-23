@@ -87,38 +87,37 @@ class StepExecutor(BaseExecutor):
         # 暂存旧数据
         current_step_id = self.task.state.step_id # type: ignore[arg-type]
         current_step_name = self.task.state.step_name # type: ignore[arg-type]
-        current_step_status = self.task.state.status # type: ignore[arg-type]
 
         # 更新State
         self.task.state.step_id = str(uuid.uuid4()) # type: ignore[arg-type]
         self.task.state.step_name = "自动参数填充" # type: ignore[arg-type]
         self.task.state.status = StepStatus.RUNNING # type: ignore[arg-type]
         self.task.tokens.time = round(datetime.now(UTC).timestamp(), 2)
-        # 准备参数
-        params = {
-            "data": self.obj.input,
-            "current_schema": self.obj.input_model.model_json_schema(
-                override=self.node.override_input if self.node and self.node.override_input else {},
-            ),
-        }
 
         # 初始化填参
-        slot_obj = await Slot.instance(self, self.node, **params)
+        slot_obj = await Slot.instance(
+            self,
+            self.node,
+            data=self.obj.input,
+            current_schema=self.obj.input_model.model_json_schema(
+                override=self.node.override_input if self.node and self.node.override_input else {},
+            ),
+        )
         # 推送填参消息
         await self.push_message(EventType.STEP_INPUT.value, slot_obj.input)
         # 运行填参
         iterator = slot_obj.exec(self, slot_obj.input)
         async for chunk in iterator:
             result: SlotOutput = SlotOutput.model_validate(chunk.content)
+        self.task.tokens.input_tokens += slot_obj.tokens.input_tokens
+        self.task.tokens.output_tokens += slot_obj.tokens.output_tokens
 
-        # 如果没有填全
+        # 如果没有填全，则状态设置为待填参
         if result.remaining_schema:
-            # 状态设置为待填参
             self.task.state.status = StepStatus.PARAM # type: ignore[arg-type]
         else:
-            # 推送填参结果
             self.task.state.status = StepStatus.SUCCESS # type: ignore[arg-type]
-        await self.push_message(EventType.STEP_OUTPUT.value, result.slot_data)
+        await self.push_message(EventType.STEP_OUTPUT.value, result.model_dump(by_alias=True, exclude_none=True))
 
         # 更新输入
         self.obj.input.update(result.slot_data)
@@ -126,7 +125,6 @@ class StepExecutor(BaseExecutor):
         # 恢复State
         self.task.state.step_id = current_step_id # type: ignore[arg-type]
         self.task.state.step_name = current_step_name # type: ignore[arg-type]
-        self.task.state.status = current_step_status # type: ignore[arg-type]
         self.task.tokens.input_tokens += self.obj.tokens.input_tokens
         self.task.tokens.output_tokens += self.obj.tokens.output_tokens
 
@@ -207,6 +205,7 @@ class StepExecutor(BaseExecutor):
             flow_name=self.task.state.flow_name, # type: ignore[arg-type]
             step_id=self.step.step_id,
             step_name=self.step.step.name,
+            step_description=self.step.step.description,
             status=self.task.state.status, # type: ignore[arg-type]
             input_data=self.obj.input,
             output_data=output_data,
