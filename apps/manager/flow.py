@@ -317,8 +317,6 @@ class FlowManager:
         :return: 如果相等则返回True，否则返回False
         """
         # 基本属性比较
-        if flow_config_1.description != flow_config_2.description:
-            return False
         if len(flow_config_1.steps) != len(flow_config_2.steps):
             return False
         if len(flow_config_1.edges) != len(flow_config_2.edges):
