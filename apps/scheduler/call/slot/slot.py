@@ -47,7 +47,6 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
         ]
 
         return await Json().generate(
-            self._task_id,
             conversation=conversation,
             spec=remaining_schema,
         )
@@ -69,7 +68,6 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
 
     async def _init(self, call_vars: CallVars) -> SlotInput:
         """初始化"""
-        self._task_id = call_vars.ids.task_id
         self._flow_history = {}
         for key in call_vars.history_order[:-self.step_num]:
             self._flow_history[key] = call_vars.history[key]

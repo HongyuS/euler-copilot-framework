@@ -43,7 +43,6 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
 
     async def _init(self, call_vars: CallVars) -> RAGInput:
         """初始化RAG工具"""
-        self._task_id = call_vars.ids.task_id
         return RAGInput(
             content=call_vars.question,
             kb_sn=self.knowledge_base,
@@ -55,8 +54,11 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """调用RAG工具"""
         data = RAGInput(**input_data)
-        question = await QuestionRewrite().generate(self._task_id, question=data.content)
+        question_obj = QuestionRewrite()
+        question = await question_obj.generate(question=data.content)
         data.content = question
+        self.tokens.input_tokens += question_obj.input_tokens
+        self.tokens.output_tokens += question_obj.output_tokens
 
         url = Config().get_config().rag.rag_service.rstrip("/") + "/chunk/get"
         headers = {

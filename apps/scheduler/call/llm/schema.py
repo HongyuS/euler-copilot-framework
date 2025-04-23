@@ -99,7 +99,6 @@ RAG_ANSWER_PROMPT = dedent(
 class LLMInput(DataBase):
     """定义LLM工具调用的输入"""
 
-    task_id: str = Field(description="任务ID")
     message: list[dict[str, str]] = Field(description="输入给大模型的消息列表")
 
 

@@ -149,7 +149,7 @@ class Json(CorePattern):
         return new_spec
 
 
-    async def generate(self, _task_id: str, **kwargs) -> dict[str, Any]:  # noqa: ANN003
+    async def generate(self, **kwargs) -> dict[str, Any]:  # noqa: ANN003
         """调用大模型，生成JSON参数"""
         spec: dict[str, Any] = kwargs["spec"]
         strict = kwargs.get("strict", True)

@@ -61,7 +61,7 @@ class Domain(CorePattern):
         super().__init__(system_prompt, user_prompt)
 
 
-    async def generate(self, task_id: str, **kwargs) -> list[str]:  # noqa: ANN003
+    async def generate(self, **kwargs) -> list[str]:  # noqa: ANN003
         """从问答中提取领域信息"""
         conversation = convert_context_to_prompt(kwargs["conversation"])
         messages = [
@@ -70,12 +70,15 @@ class Domain(CorePattern):
         ]
 
         result = ""
-        async for chunk in ReasoningLLM().call(task_id, messages, streaming=False):
+        llm = ReasoningLLM()
+        async for chunk in llm.call(messages, streaming=False):
             result += chunk
+        self.input_tokens = llm.input_tokens
+        self.output_tokens = llm.output_tokens
 
         messages += [
             {"role": "assistant", "content": result},
         ]
 
-        output = await Json().generate("", conversation=messages, spec=self.slot_schema)
+        output = await Json().generate(conversation=messages, spec=self.slot_schema)
         return output.get("keywords", [])

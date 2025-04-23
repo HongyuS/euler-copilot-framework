@@ -23,13 +23,12 @@ class MessageQueue:
 
     _heartbeat_interval: float = 3.0
 
-    async def init(self, task_id: str) -> None:
+    async def init(self) -> None:
         """
         异步初始化消息队列
 
-        :param task_id: 任务ID
+        :param task: 任务
         """
-        self._task_id = task_id
         self._queue = asyncio.Queue()
         self._close = False
         self._heartbeat_task = asyncio.get_event_loop().create_task(self._heartbeat())
@@ -46,8 +45,8 @@ class MessageQueue:
 
         metadata = MessageMetadata(
             timeCost=step_time,
-            inputTokens=task.tokens.input_delta,
-            outputTokens=task.tokens.output_delta,
+            inputTokens=task.tokens.input_tokens,
+            outputTokens=task.tokens.output_tokens,
         )
 
         if task.state:

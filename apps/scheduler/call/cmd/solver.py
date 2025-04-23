@@ -58,7 +58,7 @@ class Solver:
         {description}
 
         严格按照JSON Schema格式输出，不要添加或编造字段。""".format(objective=question, description=description)
-        return await Json().generate("", question=gen_input, background="Empty.", spec=spec)
+        return await Json().generate(question=gen_input, background="Empty.", spec=spec)
 
 
     @staticmethod

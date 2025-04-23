@@ -15,9 +15,11 @@ from pydantic.json_schema import SkipJsonSchema
 from apps.entities.enum_var import CallOutputType
 from apps.entities.pool import NodePool
 from apps.entities.scheduler import (
+    CallError,
     CallIds,
     CallInfo,
     CallOutputChunk,
+    CallTokens,
     CallVars,
 )
 from apps.entities.task import FlowStepHistory
@@ -61,6 +63,8 @@ class CoreCall(BaseModel):
 
     to_user: bool = Field(description="是否需要将输出返回给用户", default=False)
     enable_filling: bool = Field(description="是否需要进行自动参数填充", default=False)
+    tokens: CallTokens = Field(description="Call的Tokens", default=CallTokens())
+
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -110,6 +114,42 @@ class CoreCall(BaseModel):
             history_order=history_order,
             summary=executor.task.runtime.summary,
         )
+
+
+    @staticmethod
+    def _extract_history_variables(path: str, history: dict[str, FlowStepHistory]) -> Any:
+        """
+        提取History中的变量
+
+        :param path: 路径，格式为：step_id/key/to/variable
+        :param history: Step历史，即call_vars.history
+        :return: 变量
+        """
+        split_path = path.split("/")
+        if split_path[0] not in history:
+            err = f"[CoreCall] 步骤{split_path[0]}不存在"
+            logger.error(err)
+            raise CallError(
+                message=err,
+                data={
+                    "step_id": split_path[0],
+                },
+            )
+
+        data = history[split_path[0]].output_data
+        for key in split_path[1:]:
+            if key not in data:
+                err = f"[CoreCall] 输出Key {key} 不存在"
+                logger.error(err)
+                raise CallError(
+                    message=err,
+                    data={
+                        "step_id": split_path[0],
+                        "key": key,
+                    },
+                )
+            data = data[key]
+        return data
 
 
     @classmethod

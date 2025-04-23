@@ -79,7 +79,6 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
         """初始化"""
         from apps.manager.appcenter import AppCenterManager
 
-        self._task_id = call_vars.ids.task_id
         self._history_questions = await self._get_history_questions(
             call_vars.ids.user_sub,
             self.conversation_id,
@@ -143,8 +142,8 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
             if config.question:
                 question = config.question
             else:
-                questions = await Recommend().generate(
-                    self._task_id,
+                recommend_obj = Recommend()
+                questions = await recommend_obj.generate(
                     conversation=self.context,
                     user_preference=user_domain,
                     history_questions=self._history_questions,
@@ -152,6 +151,8 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
                     tool_description=self._avaliable_flows[config.flow_id],
                 )
                 question = questions[random.randint(0, len(questions) - 1)]  # noqa: S311
+                self.tokens.input_tokens += recommend_obj.input_tokens
+                self.tokens.output_tokens += recommend_obj.output_tokens
 
             yield CallOutputChunk(
                 type=CallOutputType.DATA,
@@ -166,14 +167,16 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
 
 
         while pushed_questions < self.num:
-            recommended_questions = await Recommend().generate(
-                self._task_id,
+            recommend_obj = Recommend()
+            recommended_questions = await recommend_obj.generate(
                 conversation=self.context,
                 user_preference=user_domain,
                 history_questions=self._history_questions,
                 tool_name=self._flow_id,
                 tool_description=self._avaliable_flows[self._flow_id],
             )
+            self.tokens.input_tokens += recommend_obj.input_tokens
+            self.tokens.output_tokens += recommend_obj.output_tokens
 
             # 只会关联当前flow
             for question in recommended_questions:

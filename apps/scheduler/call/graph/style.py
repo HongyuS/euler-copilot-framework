@@ -88,7 +88,7 @@ class RenderStyle(CorePattern):
         """初始化RenderStyle Prompt"""
         super().__init__(system_prompt, user_prompt)
 
-    async def generate(self, task_id: str, **kwargs) -> dict[str, Any]:  # noqa: ANN003
+    async def generate(self, **kwargs) -> dict[str, Any]:  # noqa: ANN003
         """使用LLM选择图表样式"""
         question = kwargs["question"]
 
@@ -98,12 +98,15 @@ class RenderStyle(CorePattern):
             {"role": "user", "content": self.user_prompt.format(question=question)},
         ]
         result = ""
-        async for chunk in ReasoningLLM().call(task_id, messages, streaming=False):
+        llm = ReasoningLLM()
+        async for chunk in llm.call(messages, streaming=False):
             result += chunk
+        self.input_tokens = llm.input_tokens
+        self.output_tokens = llm.output_tokens
 
         messages += [
             {"role": "assistant", "content": result},
         ]
 
         # 使用FunctionLLM模型进行提取参数
-        return await Json().generate("", conversation=messages, spec=self.slot_schema)
+        return await Json().generate(conversation=messages, spec=self.slot_schema)

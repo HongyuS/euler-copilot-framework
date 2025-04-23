@@ -25,21 +25,6 @@ logger = logging.getLogger(__name__)
 class TaskManager:
     """从数据库中获取任务信息"""
 
-    @classmethod
-    async def update_token_summary(cls, task_id: str, input_num: int, output_num: int) -> None:
-        """更新对应task_id的Token统计数据"""
-        task_collection = MongoDB.get_collection("task")
-        await task_collection.update_one(
-            {"_id": task_id},
-            {
-                "$inc": {
-                    "tokens.input_tokens": input_num,
-                    "tokens.output_tokens": output_num,
-                },
-            },
-        )
-
-
     @staticmethod
     async def get_task_by_conversation_id(conversation_id: str) -> Task | None:
         """获取对话ID的最后一条问答组关联的任务"""
@@ -165,7 +150,9 @@ class TaskManager:
         """通过task_id删除Task信息"""
         task_collection = MongoDB.get_collection("task")
         try:
-            await task_collection.delete_one({"_id": task_id})
+            task = await task_collection.find_one({"_id": task_id}, {"_id": 1})
+            if task:
+                await task_collection.delete_one({"_id": task_id})
         except Exception:
             logger.exception("[TaskManager] 通过task_id删除Task信息失败")
 

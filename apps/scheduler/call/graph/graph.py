@@ -26,7 +26,7 @@ from apps.scheduler.call.graph.style import RenderStyle
 class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
     """Render Call，用于将SQL Tool查询出的数据转换为图表"""
 
-    dataset_key: str = Field(description="图表的数据来源（字段名）")
+    dataset_key: str = Field(description="图表的数据来源（字段名）", default="")
 
 
     @classmethod
@@ -47,12 +47,14 @@ class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
             raise CallError(message=f"图表模板读取失败：{e!s}", data={}) from e
 
         # 获取数据
-        needed_history = call_vars.history.values()
+        if not self.dataset_key:
+            last_step_id = call_vars.history_order[-1]
+            self.dataset_key = f"{last_step_id}/dataset"
+        data = self._extract_history_variables(self.dataset_key, call_vars.history)
 
         return RenderInput(
             question=call_vars.question,
-            task_id=call_vars.ids.task_id,
-            data=self.data,
+            data=data,
         )
 
 
@@ -84,7 +86,11 @@ class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
         self._option_template["dataset"]["source"] = processed_data
 
         try:
-            llm_output = await RenderStyle().generate(data.task_id, question=data.question)
+            style_obj = RenderStyle()
+            llm_output = await style_obj.generate(question=data.question)
+            self.tokens.input_tokens += style_obj.input_tokens
+            self.tokens.output_tokens += style_obj.output_tokens
+
             add_style = llm_output.get("additional_style", "")
             self._parse_options(column_num, llm_output["chart_type"], add_style, llm_output["scale_type"])
         except Exception as e:
