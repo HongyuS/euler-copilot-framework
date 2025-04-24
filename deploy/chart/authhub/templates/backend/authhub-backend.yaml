@@ -64,12 +64,10 @@ spec:
           image: {{ .Values.authhub.secret_inject.image | default (printf "%s/neocopilot/secret_inject:dev-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
           volumeMounts:
-            - mountPath: /secrets/mysql-password
-              name: authhub-secret-vl
-              subPath: mysql-password
-            - mountPath: /secrets/redis-password
+            - mountPath: /db-secrets
               name: euler-copilot-database-vl
-              subPath: redis-password
+            - mountPath: /authhub-secrets
+              name: authhub-secret-vl
             - mountPath: /config/aops-config.yml
               name: authhub-config
               subPath: aops-config.yml
