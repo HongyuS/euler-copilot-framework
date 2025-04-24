@@ -8,11 +8,11 @@ metadata:
 spec:
   storageClassName: {{ default "local-path" .Values.globals.storageClass }}
   capacity:
-    storage: {{ default "5Gi" .Values.storage.framework_semantics.size }}
+    storage: {{ default "5Gi" .Values.storage.frameworkSemantics.size }}
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: {{ default "/home/eulercopilot/semantics" .Values.storage.framework_semantics.path }}
+    path: {{ default "/home/eulercopilot/semantics" .Values.storage.frameworkSemantics.path }}
 
 ---
 apiVersion: v1
@@ -26,5 +26,5 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: {{ default "5Gi" .Values.storage.framework_semantics.size }}
+      storage: {{ default "5Gi" .Values.storage.frameworkSemantics.size }}
 {{- end -}}

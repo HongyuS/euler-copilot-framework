@@ -1,12 +1,13 @@
-"""BTDL：命令行组装器
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+BTDL：命令行组装器
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import string
 from typing import Any, Literal, Optional
 
 from apps.llm.patterns.select import Select
-from apps.scheduler.vector import DocumentWrapper, VectorDB
 
 
 class CommandlineAssembler:

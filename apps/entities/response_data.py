@@ -1,15 +1,24 @@
-"""FastAPI 返回数据结构
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
-from typing import Any, Optional
+FastAPI 返回数据结构
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+from typing import Any
 
 from pydantic import BaseModel, Field
 
+from apps.entities.appcenter import AppCenterCardItem, AppData
 from apps.entities.collection import Blacklist, Document
-from apps.entities.enum import DocumentStatus
-from apps.entities.plugin import PluginData
+from apps.entities.enum_var import DocumentStatus
+from apps.entities.flow_topology import (
+    FlowItem,
+    NodeMetaDataItem,
+    NodeServiceItem,
+    PositionItem,
+)
 from apps.entities.record import RecordData
+from apps.entities.user import UserInfo
 
 
 class ResponseData(BaseModel):
@@ -17,44 +26,21 @@ class ResponseData(BaseModel):
 
     code: int
     message: str
-    result: dict[str, Any]
-
-
-class _GetAuthKeyMsg(BaseModel):
-    """GET /api/auth/key Result数据结构"""
-
-    api_key_exists: bool
-
-
-class GetAuthKeyRsp(ResponseData):
-    """GET /api/auth/key 返回数据结构"""
-
-    result: _GetAuthKeyMsg
-
-
-class PostAuthKeyMsg(BaseModel):
-    """POST /api/auth/key Result数据结构"""
-
-    api_key: str
-
-
-class PostAuthKeyRsp(ResponseData):
-    """POST /api/auth/key 返回数据结构"""
-
-    result: PostAuthKeyMsg
+    result: Any
 
 
 class PostClientSessionMsg(BaseModel):
     """POST /api/client/session Result数据结构"""
 
     session_id: str
-    user_sub: Optional[str] = None
+    user_sub: str | None = None
 
 
 class PostClientSessionRsp(ResponseData):
     """POST /api/client/session 返回数据结构"""
 
     result: PostClientSessionMsg
+
 
 class AuthUserMsg(BaseModel):
     """GET /api/auth/user Result数据结构"""
@@ -73,16 +59,6 @@ class HealthCheckRsp(BaseModel):
     """GET /health_check 返回数据结构"""
 
     status: str
-
-class GetPluginListMsg(BaseModel):
-    """GET /api/plugin Result数据结构"""
-
-    plugins: list[PluginData]
-
-class GetPluginListRsp(ResponseData):
-    """GET /api/plugin 返回数据结构"""
-
-    result: GetPluginListMsg
 
 
 class GetBlacklistUserMsg(BaseModel):
@@ -112,10 +88,13 @@ class GetBlacklistQuestionRsp(ResponseData):
 class ConversationListItem(BaseModel):
     """GET /api/conversation Result数据结构"""
 
-    conversation_id: str
+    conversation_id: str = Field(alias="conversationId")
     title: str
-    doc_count: int
-    created_time: str
+    doc_count: int = Field(alias="docCount")
+    created_time: str = Field(alias="createdTime")
+    app_id: str = Field(alias="appId")
+    debug: bool = Field(alias="debug")
+
 
 class ConversationListMsg(BaseModel):
     """GET /api/conversation Result数据结构"""
@@ -129,16 +108,29 @@ class ConversationListRsp(ResponseData):
     result: ConversationListMsg
 
 
+class DeleteConversationMsg(BaseModel):
+    """DELETE /api/conversation Result数据结构"""
+
+    conversation_id_list: list[str] = Field(alias="conversationIdList")
+
+
+class DeleteConversationRsp(ResponseData):
+    """DELETE /api/conversation 返回数据结构"""
+
+    result: DeleteConversationMsg
+
+
 class AddConversationMsg(BaseModel):
     """POST /api/conversation Result数据结构"""
 
-    conversation_id: str
+    conversation_id: str = Field(alias="conversationId")
 
 
 class AddConversationRsp(ResponseData):
     """POST /api/conversation 返回数据结构"""
 
     result: AddConversationMsg
+
 
 class UpdateConversationRsp(ResponseData):
     """POST /api/conversation 返回数据结构"""
@@ -150,6 +142,7 @@ class RecordListMsg(BaseModel):
     """GET /api/record/{conversation_id} Result数据结构"""
 
     records: list[RecordData]
+
 
 class RecordListRsp(ResponseData):
     """GET /api/record/{conversation_id} 返回数据结构"""
@@ -202,6 +195,7 @@ class UploadDocumentMsg(BaseModel):
 
     documents: list[UploadDocumentMsgItem]
 
+
 class UploadDocumentRsp(ResponseData):
     """POST /api/document/{conversation_id} 返回数据结构"""
 
@@ -225,7 +219,237 @@ class GetKnowledgeIDMsg(BaseModel):
 
     kb_id: str
 
+
 class GetKnowledgeIDRsp(ResponseData):
     """GET /api/knowledge 返回数据结构"""
 
     result: GetKnowledgeIDMsg
+
+
+class BaseAppOperationMsg(BaseModel):
+    """基础应用操作Result数据结构"""
+
+    app_id: str = Field(..., alias="appId", description="应用ID")
+
+
+class BaseAppOperationRsp(ResponseData):
+    """基础应用操作返回数据结构"""
+
+    result: BaseAppOperationMsg
+
+
+class GetAppPropertyMsg(AppData):
+    """GET /api/app/{appId} Result数据结构"""
+
+    app_id: str = Field(..., alias="appId", description="应用ID")
+    published: bool = Field(..., description="是否已发布")
+
+
+class GetAppPropertyRsp(ResponseData):
+    """GET /api/app/{appId} 返回数据结构"""
+
+    result: GetAppPropertyMsg
+
+
+class ModFavAppMsg(BaseModel):
+    """PUT /api/app/{appId} Result数据结构"""
+
+    app_id: str = Field(..., alias="appId", description="应用ID")
+    favorited: bool = Field(..., description="是否已收藏")
+
+
+class ModFavAppRsp(ResponseData):
+    """PUT /api/app/{appId} 返回数据结构"""
+
+    result: ModFavAppMsg
+
+
+class GetAppListMsg(BaseModel):
+    """GET /api/app Result数据结构"""
+
+    page_number: int = Field(..., alias="currentPage", description="当前页码")
+    app_count: int = Field(..., alias="totalApps", description="总应用数")
+    applications: list[AppCenterCardItem] = Field(..., description="应用列表")
+
+
+class GetAppListRsp(ResponseData):
+    """GET /api/app 返回数据结构"""
+
+    result: GetAppListMsg
+
+
+class RecentAppListItem(BaseModel):
+    """GET /api/app/recent 列表项数据结构"""
+
+    app_id: str = Field(..., alias="appId", description="应用ID")
+    name: str = Field(..., description="应用名称")
+
+
+class RecentAppList(BaseModel):
+    """GET /api/app/recent Result数据结构"""
+
+    applications: list[RecentAppListItem] = Field(..., description="最近使用的应用列表")
+
+
+class GetRecentAppListRsp(ResponseData):
+    """GET /api/app/recent 返回数据结构"""
+
+    result: RecentAppList
+
+
+class ServiceCardItem(BaseModel):
+    """语义接口中心：服务卡片数据结构"""
+
+    service_id: str = Field(..., alias="serviceId", description="服务ID")
+    name: str = Field(..., description="服务名称")
+    description: str = Field(..., description="服务简介")
+    icon: str = Field(..., description="服务图标")
+    author: str = Field(..., description="服务作者")
+    favorited: bool = Field(..., description="是否已收藏")
+
+
+class ServiceApiData(BaseModel):
+    """语义接口中心：服务 API 接口属性数据结构"""
+
+    name: str = Field(..., description="接口名称")
+    path: str = Field(..., description="接口路径")
+    description: str = Field(..., description="接口描述")
+
+
+class BaseServiceOperationMsg(BaseModel):
+    """语义接口中心：基础服务操作Result数据结构"""
+
+    service_id: str = Field(..., alias="serviceId", description="服务ID")
+
+
+class GetServiceListMsg(BaseModel):
+    """GET /api/service Result数据结构"""
+
+    current_page: int = Field(..., alias="currentPage", description="当前页码")
+    total_count: int = Field(..., alias="totalCount", description="总服务数")
+    services: list[ServiceCardItem] = Field(..., description="解析后的服务列表")
+
+
+class GetServiceListRsp(ResponseData):
+    """GET /api/service 返回数据结构"""
+
+    result: GetServiceListMsg = Field(..., title="Result")
+
+
+class UpdateServiceMsg(BaseModel):
+    """语义接口中心：服务属性数据结构"""
+
+    service_id: str = Field(..., alias="serviceId", description="服务ID")
+    name: str = Field(..., description="服务名称")
+    apis: list[ServiceApiData] = Field(..., description="解析后的接口列表")
+
+
+class UpdateServiceRsp(ResponseData):
+    """POST /api/service 返回数据结构"""
+
+    result: UpdateServiceMsg = Field(..., title="Result")
+
+
+class GetServiceDetailMsg(BaseModel):
+    """GET /api/service/{serviceId} Result数据结构"""
+
+    service_id: str = Field(..., alias="serviceId", description="服务ID")
+    name: str = Field(..., description="服务名称")
+    apis: list[ServiceApiData] | None = Field(default=None, description="解析后的接口列表")
+    data: dict[str, Any] | None = Field(default=None, description="YAML 内容数据对象")
+
+
+class GetServiceDetailRsp(ResponseData):
+    """GET /api/service/{serviceId} 返回数据结构"""
+
+    result: GetServiceDetailMsg = Field(..., title="Result")
+
+
+class DeleteServiceRsp(ResponseData):
+    """DELETE /api/service/{serviceId} 返回数据结构"""
+
+    result: BaseServiceOperationMsg = Field(..., title="Result")
+
+
+class ModFavServiceMsg(BaseModel):
+    """PUT /api/service/{serviceId} Result数据结构"""
+
+    service_id: str = Field(..., alias="serviceId", description="服务ID")
+    favorited: bool = Field(..., description="是否已收藏")
+
+
+class ModFavServiceRsp(ResponseData):
+    """PUT /api/service/{serviceId} 返回数据结构"""
+
+    result: ModFavServiceMsg = Field(..., title="Result")
+
+
+class NodeServiceListMsg(BaseModel):
+    """GET /api/flow/service result"""
+
+    services: list[NodeServiceItem] = Field(description="服务列表", default=[])
+
+
+class NodeServiceListRsp(ResponseData):
+    """GET /api/flow/service 返回数据结构"""
+
+    result: NodeServiceListMsg
+
+
+class NodeMetaDataRsp(ResponseData):
+    """GET /api/flow/service/node 返回数据结构"""
+
+    result: NodeMetaDataItem
+
+
+class FlowStructureGetMsg(BaseModel):
+    """GET /api/flow result"""
+
+    flow: FlowItem = Field(default=FlowItem())
+
+
+class FlowStructureGetRsp(ResponseData):
+    """GET /api/flow 返回数据结构"""
+
+    result: FlowStructureGetMsg
+
+
+class PutFlowReq(BaseModel):
+    """创建/修改流拓扑结构"""
+
+    flow: FlowItem
+    focus_point: PositionItem = Field(alias="focusPoint", default=PositionItem())
+
+
+class FlowStructurePutMsg(BaseModel):
+    """PUT /api/flow result"""
+
+    flow: FlowItem = Field(default=FlowItem())
+
+
+class FlowStructurePutRsp(ResponseData):
+    """PUT /api/flow 返回数据结构"""
+
+    result: FlowStructurePutMsg
+
+
+class FlowStructureDeleteMsg(BaseModel):
+    """DELETE /api/flow/ result"""
+
+    flow_id: str = Field(alias="flowId", default="")
+
+
+class FlowStructureDeleteRsp(ResponseData):
+    """DELETE /api/flow/ 返回数据结构"""
+
+    result: FlowStructureDeleteMsg
+
+class UserGetMsp(BaseModel):
+    """GET /api/user result"""
+
+    user_info_list : list[UserInfo] = Field(alias="userInfoList", default=[])
+
+class UserGetRsp(ResponseData):
+    """GET /api/user 返回数据结构"""
+
+    result: UserGetMsp

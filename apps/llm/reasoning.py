@@ -1,49 +1,109 @@
-"""问答大模型调用
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+问答大模型调用
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+import logging
 from collections.abc import AsyncGenerator
-from typing import Optional
+from dataclasses import dataclass
 
-import tiktoken
 from openai import AsyncOpenAI
+from openai.types.chat import ChatCompletionChunk
 
-from apps.common.config import config
-from apps.common.singleton import Singleton
-from apps.constants import LOGGER, REASONING_BEGIN_TOKEN, REASONING_END_TOKEN
-from apps.manager.task import TaskManager
+from apps.common.config import Config
+from apps.constants import REASONING_BEGIN_TOKEN, REASONING_END_TOKEN
+from apps.llm.token import TokenCalculator
+
+logger = logging.getLogger(__name__)
 
 
-class ReasoningLLM(metaclass=Singleton):
+@dataclass
+class ReasoningContent:
+    """推理内容处理类"""
+
+    content: str = ""
+    is_reasoning: bool = False
+    reasoning_type: str = ""
+    is_first_chunk: bool = True
+
+    def process_first_chunk(self, chunk: ChatCompletionChunk) -> tuple[str, str]:
+        """处理第一个chunk"""
+        reason = ""
+        text = ""
+
+        if (
+            hasattr(chunk.choices[0].delta, "reasoning_content")
+            and chunk.choices[0].delta.reasoning_content is not None  # type: ignore[attr-defined]
+        ):
+            reason = "<think>" + chunk.choices[0].delta.reasoning_content  # type: ignore[attr-defined]
+            self.reasoning_type = "args"
+            self.is_reasoning = True
+        else:
+            for token in REASONING_BEGIN_TOKEN:
+                if token == (chunk.choices[0].delta.content or ""):
+                    reason = "<think>"
+                    self.reasoning_type = "tokens"
+                    self.is_reasoning = True
+                    break
+
+        self.is_first_chunk = False
+        return reason, text
+
+    def process_chunk(self, chunk: ChatCompletionChunk) -> tuple[str, str]:
+        """处理普通chunk"""
+        reason = ""
+        text = ""
+
+        if not self.is_reasoning:
+            text = chunk.choices[0].delta.content or ""
+            return reason, text
+
+        if self.reasoning_type == "args":
+            if hasattr(chunk.choices[0].delta, "reasoning_content"):
+                reason = chunk.choices[0].delta.reasoning_content or ""  # type: ignore[attr-defined]
+            else:
+                self.is_reasoning = False
+                reason = "</think>"
+        elif self.reasoning_type == "tokens":
+            for token in REASONING_END_TOKEN:
+                if token == (chunk.choices[0].delta.content or ""):
+                    self.is_reasoning = False
+                    reason = "</think>"
+                    text = ""
+                    break
+            if self.is_reasoning:
+                reason = chunk.choices[0].delta.content or ""
+
+        return reason, text
+
+
+class ReasoningLLM:
     """调用用于问答的大模型"""
 
-    _encoder = tiktoken.get_encoding("cl100k_base")
+    input_tokens: int = 0
+    output_tokens: int = 0
 
     def __init__(self) -> None:
         """判断配置文件里用了哪种大模型；初始化大模型客户端"""
-        if not config["LLM_KEY"]:
+        self._config = Config().get_config()
+        self._init_client()
+
+    def _init_client(self) -> None:
+        """初始化OpenAI客户端"""
+        if not self._config.llm.key:
             self._client = AsyncOpenAI(
-                base_url=config["LLM_URL"],
+                base_url=self._config.llm.endpoint,
             )
             return
 
-        self._client =  AsyncOpenAI(
-            api_key=config["LLM_KEY"],
-            base_url=config["LLM_URL"],
+        self._client = AsyncOpenAI(
+            api_key=self._config.llm.key,
+            base_url=self._config.llm.endpoint,
         )
 
-    def _calculate_token_length(self, messages: list[dict[str, str]], *, pure_text: bool = False) -> int:
-        """使用ChatGPT的cl100k tokenizer，估算Token消耗量"""
-        result = 0
-        if not pure_text:
-            result += 3 * (len(messages) + 1)
-
-        for msg in messages:
-            result += len(self._encoder.encode(msg["content"]))
-
-        return result
-
-    def _validate_messages(self, messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    @staticmethod
+    def _validate_messages(messages: list[dict[str, str]]) -> list[dict[str, str]]:
         """验证消息格式是否正确"""
         if messages[0]["role"] != "system":
             # 添加默认系统消息
@@ -55,107 +115,89 @@ class ReasoningLLM(metaclass=Singleton):
 
         return messages
 
-    async def call(self, task_id: str, messages: list[dict[str, str]],  # noqa: C901, PLR0912
-                   max_tokens: Optional[int] = None, temperature: Optional[float] = None,
-                   *, streaming: bool = True, result_only: bool = True) -> AsyncGenerator[str, None]:
-        """调用大模型，分为流式和非流式两种"""
-        input_tokens = self._calculate_token_length(messages)
-        try:
+    async def _create_stream(
+        self,
+        messages: list[dict[str, str]],
+        max_tokens: int | None,
+        temperature: float | None,
+    ) -> AsyncGenerator[ChatCompletionChunk, None]:
+        """创建流式响应"""
+        return await self._client.chat.completions.create(
+            model=self._config.llm.model,
+            messages=messages,  # type: ignore[]
+            max_tokens=max_tokens or self._config.llm.max_tokens,
+            temperature=temperature or self._config.llm.temperature,
+            stream=True,
+            stream_options={"include_usage": True},
+        )  # type: ignore[]
 
+    async def call(  # noqa: C901, PLR0912
+        self,
+        messages: list[dict[str, str]],
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+        *,
+        streaming: bool = True,
+        result_only: bool = True,
+    ) -> AsyncGenerator[str, None]:
+        """调用大模型，分为流式和非流式两种"""
+        try:
             msg_list = self._validate_messages(messages)
         except ValueError as e:
-            err = f"消息格式错误：{e}"
+            err = "消息格式错误"
+            logger.exception(err)
             raise ValueError(err) from e
 
-        if max_tokens is None:
-            max_tokens = config["LLM_MAX_TOKENS"]
-        if temperature is None:
-            temperature = config["LLM_TEMPERATURE"]
-
-        stream = await self._client.chat.completions.create(
-            model=config["LLM_MODEL"],
-            messages=msg_list,     # type: ignore[]
-            max_tokens=max_tokens,
-            temperature=temperature,
-            stream=True,
-        )     # type: ignore[]
-
+        stream = await self._create_stream(msg_list, max_tokens, temperature)
+        reasoning = ReasoningContent()
         reasoning_content = ""
         result = ""
 
-        is_first_chunk = True
-        is_reasoning = False
-        reasoning_type = ""
+        try:
+            async for chunk in stream:
+                # 如果包含统计信息
+                if chunk.usage:
+                    self.input_tokens = chunk.usage.prompt_tokens
+                    self.output_tokens = chunk.usage.completion_tokens
+                # 如果没有Choices
+                if not chunk.choices:
+                    continue
 
-        async for chunk in stream:
-            # 当前Chunk内的信息
-            reason = ""
-            text = ""
-
-            if is_first_chunk:
-                if hasattr(chunk.choices[0].delta, "reasoning_content"):
-                    reason = "<think>" + chunk.choices[0].delta.reasoning_content or ""
-                    reasoning_type = "args"
-                    is_reasoning = True
+                # 处理chunk
+                if reasoning.is_first_chunk:
+                    reason, text = reasoning.process_first_chunk(chunk)
                 else:
-                    for token in REASONING_BEGIN_TOKEN:
-                        if token == (chunk.choices[0].delta.content or ""):
-                            reason = "<think>"
-                            reasoning_type = "tokens"
-                            is_reasoning = True
-                            break
+                    reason, text = reasoning.process_chunk(chunk)
 
-            # 当前已经不是第一个Chunk了
-            is_first_chunk = False
+                # 推送消息
+                if streaming:
+                    if reason and not result_only:
+                        yield reason
+                    if text:
+                        yield text
 
-            # 当前是正常问答
-            if not is_reasoning:
-                text = chunk.choices[0].delta.content or ""
+                # 整理结果
+                reasoning_content += reason
+                result += text
 
-            # 当前处于推理状态
-            if not is_first_chunk and is_reasoning:
-                # 如果推理内容用特殊参数传递
-                if reasoning_type == "args":
-                    # 还在推理
-                    if hasattr(chunk.choices[0].delta, "reasoning_content"):
-                        reason = chunk.choices[0].delta.reasoning_content or ""
-                    # 推理结束
-                    else:
-                        is_reasoning = False
-                        reason = "</think>"
+            if not streaming:
+                if not result_only:
+                    yield reasoning_content
+                yield result
 
-                # 如果推理内容用特殊token传递
-                elif reasoning_type == "tokens":
-                    # 结束推理
-                    for token in REASONING_END_TOKEN:
-                        if token == (chunk.choices[0].delta.content or ""):
-                            is_reasoning = False
-                            reason = "</think>"
-                            text = ""
-                            break
-                    # 还在推理
-                    if is_reasoning:
-                        reason = chunk.choices[0].delta.content or ""
+            logger.info("[Reasoning] 推理内容: %s\n\n%s", reasoning_content, result)
 
-            # 推送消息
-            if streaming:
-                # 如果需要推送推理内容
-                if reason and not result_only:
-                    yield reason
+            # 更新token统计
+            if self.input_tokens == 0 or self.output_tokens == 0:
+                self.input_tokens = TokenCalculator().calculate_token_length(
+                    messages,
+                )
+                self.output_tokens = TokenCalculator().calculate_token_length(
+                    [{"role": "assistant", "content": result}],
+                    pure_text=True,
+                )
 
-                # 推送text
-                yield text
-
-            # 整理结果
-            reasoning_content += reason
-            result += text
-
-        if not streaming:
-            if not result_only:
-                yield reasoning_content
-            yield result
-
-        LOGGER.info(f"推理LLM：{reasoning_content}\n\n{result}")
-
-        output_tokens = self._calculate_token_length([{"role": "assistant", "content": result}], pure_text=True)
-        await TaskManager.update_token_summary(task_id, input_tokens, output_tokens)
+        except Exception as e:
+            err = "调用大模型失败"
+            logger.exception(err)
+            raise RuntimeError(err) from e

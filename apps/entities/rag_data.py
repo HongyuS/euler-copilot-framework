@@ -1,8 +1,10 @@
-"""请求RAG相关接口时，使用的数据类型
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
-from typing import Literal, Optional
+请求RAG相关接口时，使用的数据类型
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -13,7 +15,7 @@ class RAGQueryReq(BaseModel):
     question: str
     history: list[dict[str, str]] = []
     language: str = "zh"
-    kb_sn: Optional[str] = None
+    kb_sn: str | None = None
     top_k: int = 5
     fetch_source: bool = False
     document_ids: list[str] = []

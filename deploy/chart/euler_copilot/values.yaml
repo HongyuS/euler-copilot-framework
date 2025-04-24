@@ -13,34 +13,37 @@ models:
   # 用于问答的大模型；需要为OpenAI兼容接口
   answer:
     # [必填] 接口URL（无需带上“v1”后缀）
-    url: 
+    endpoint: 
     # [必填] 接口API Key；默认置空
     key: 
     # [必填] 模型名称
     name: 
     # [必填] 模型最大上下文数；建议>=8192
-    ctx_length: 8192
+    ctxLength: 8192
     # 模型最大输出长度，建议>=2048
-    max_tokens: 2048
+    maxTokens: 2048
   # 用于Function Call的模型；建议使用特定推理框架
-  functioncall:
+  functionCall:
     # 推理框架类型，默认为ollama
     # 可用的框架类型：["vllm", "sglang", "ollama", "openai"]
     backend: 
     # 模型地址；不填则与问答模型一致
-    url: 
+    endpoint: 
     # API Key；不填则与问答模型一致
     key: 
     # 模型名称；不填则与问答模型一致
     name: 
     # 模型最大上下文数；不填则与问答模型一致
-    ctx_length:
+    ctxLength:
     # 模型最大输出长度；不填则与问答模型一致
-    max_tokens: 
+    maxTokens: 
   # 用于数据向量化（Embedding）的模型
   embedding:
-    # [必填] Embedding URL（无需带上“v1”后缀）
-    url: 
+    # 推理框架类型，默认为openai
+    # [必填] Embedding接口类型：["openai", "mindie"]
+    type:
+    # [必填] Embedding URL（需要带上“v1”后缀）
+    endpoint: 
     # [必填] Embedding 模型API Key
     key: 
     # [必填] Embedding 模型名称
@@ -48,27 +51,12 @@ models:
 
 # 登录设置
 login:
-  # 登录类型；默认为authhub
-  # 可用的类型：["authhub", "oidc", "linux", "bypass"]
-  type: 
-  # 固定UID设置，仅在type为bypass时有效
-  uid: 
-  # 客户端ID设置，仅在type为authhub和oidc时有效
+  # 客户端ID设置，仅在type为authhub时有效
   client:
     # [必填] 客户端ID
     id:
     # [必填] 客户端密钥
     secret:
-  # OIDC设置，仅在type为oidc时有效
-  oidc:
-    # OIDC AccessToken获取地址
-    token_url: 
-    # OIDC UserToken获取地址
-    user_url: 
-    # OIDC RefreshToken地址
-    refresh_url: 
-    # OIDC登录跳转地址
-    redirect: 
 
 # 域名设置
 domain:
@@ -80,7 +68,7 @@ domain:
 # 存储设置
 storage:
   # 语义接口
-  framework_semantics:
+  frameworkSemantics:
     # 语义接口地址
     path:
     # 语义接口存储大小，默认为5GB
@@ -88,7 +76,7 @@ storage:
 
 euler_copilot:
   # 配置文件工具
-  secret_inject:
+  secretInject:
     # 镜像设置；默认为hub.oepkgs.net/neocopilot/secret_inject:dev-x86
     # 镜像标签：["dev-x86", "dev-arm"]
     image: 
@@ -96,8 +84,8 @@ euler_copilot:
   framework:
     # [必填] 是否部署Framework后端框架服务
     enabled: true
-    # 镜像设置；默认为hub.oepkgs.net/neocopilot/euler-copilot-framework:0.9.4-x86
-    # 镜像标签：["0.9.4-x86", "0.9.4-arm"]
+    # 镜像设置；默认为hub.oepkgs.net/neocopilot/euler-copilot-framework:0.9.5-x86
+    # 镜像标签：["0.9.5-x86", "0.9.5-arm"]
     image:
     # 容器根目录只读
     readOnly:
@@ -113,8 +101,8 @@ euler_copilot:
   web:
     # [必填] 是否部署Web前端用户界面
     enabled: true
-    # 镜像设置；默认为hub.oepkgs.net/neocopilot/euler-copilot-web:0.9.4-x86
-    # 镜像标签：["0.9.4-x86", "0.9.4-arm"]
+    # 镜像设置；默认为hub.oepkgs.net/neocopilot/euler-copilot-web:0.9.5-x86
+    # 镜像标签：["0.9.5-x86", "0.9.5-arm"]
     image:
     # 容器根目录只读
     readOnly:
@@ -134,8 +122,8 @@ euler_copilot:
   rag_web:
     # [必填] 是否部署RAG Web前端用户界面
     enabled: true
-    # 镜像设置；默认为hub.oepkgs.net/neocopilot/data_chain_web:0.9.4-x86
-    # 镜像标签：["0.9.4-x86", "0.9.4-arm"]
+    # 镜像设置；默认为hub.oepkgs.net/neocopilot/data_chain_web:0.9.5-x86
+    # 镜像标签：["0.9.5-x86", "0.9.5-arm"]
     image:
     # 容器根目录只读
     readOnly:
@@ -155,8 +143,8 @@ euler_copilot:
   rag:
     # [必填] 是否部署RAG后端服务
     enabled: true
-    # 镜像设置；默认为hub.oepkgs.net/neocopilot/data_chain_back_end:0.9.4-x86
-    # 镜像标签：["0.9.4-x86", "0.9.4-arm"]
+    # 镜像设置；默认为hub.oepkgs.net/neocopilot/data_chain_back_end:0.9.5-x86
+    # 镜像标签：["0.9.5-x86", "0.9.5-arm"]
     image:
     # 容器根目录只读
     readOnly:

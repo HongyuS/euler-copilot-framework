@@ -1,14 +1,19 @@
-"""对话 Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
-import uuid
-from typing import Any, Optional
+对话 Manager
 
-from apps.constants import LOGGER
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+import logging
+import uuid
+from datetime import UTC, datetime
+from typing import Any
+
 from apps.entities.collection import Conversation
 from apps.manager.task import TaskManager
 from apps.models.mongo import MongoDB
+
+logger = logging.getLogger(__name__)
 
 
 class ConversationManager:
@@ -19,13 +24,16 @@ class ConversationManager:
         """根据用户ID获取对话列表，按时间由近到远排序"""
         try:
             conv_collection = MongoDB.get_collection("conversation")
-            return [Conversation(**conv) async for conv in conv_collection.find({"user_sub": user_sub}).sort({"created_at": 1})]
-        except Exception as e:
-            LOGGER.info(f"[ConversationManager] Get conversation by user_sub failed: {e}")
+            return [
+                Conversation(**conv)
+                async for conv in conv_collection.find({"user_sub": user_sub, "debug": False}).sort({"created_at": 1})
+            ]
+        except Exception:
+            logger.exception("[ConversationManager] 通过用户ID获取对话失败")
         return []
 
     @staticmethod
-    async def get_conversation_by_conversation_id(user_sub: str, conversation_id: str) -> Optional[Conversation]:
+    async def get_conversation_by_conversation_id(user_sub: str, conversation_id: str) -> Conversation | None:
         """通过ConversationID查询对话信息"""
         try:
             conv_collection = MongoDB.get_collection("conversation")
@@ -33,28 +41,44 @@ class ConversationManager:
             if not result:
                 return None
             return Conversation.model_validate(result)
-        except Exception as e:
-            LOGGER.info(f"[ConversationManager] Get conversation by conversation_id failed: {e}")
+        except Exception:
+            logger.exception("[ConversationManager] 通过ConversationID获取对话失败")
             return None
 
     @staticmethod
-    async def add_conversation_by_user_sub(user_sub: str) -> Optional[Conversation]:
-        """通过用户ID查询历史记录"""
+    async def add_conversation_by_user_sub(user_sub: str, app_id: str, *, debug: bool) -> Conversation | None:
+        """通过用户ID新建对话"""
         conversation_id = str(uuid.uuid4())
         conv = Conversation(
             _id=conversation_id,
             user_sub=user_sub,
+            app_id=app_id,
+            debug=debug if debug else False,
         )
         try:
             async with MongoDB.get_session() as session, await session.start_transaction():
                 conv_collection = MongoDB.get_collection("conversation")
                 await conv_collection.insert_one(conv.model_dump(by_alias=True), session=session)
                 user_collection = MongoDB.get_collection("user")
-                await user_collection.update_one({"_id": user_sub}, {"$push": {"conversations": conversation_id}}, session=session)
-                await session.commit_transaction()
+                update_data: dict[str, dict[str, Any]] = {
+                    "$push": {"conversations": conversation_id},
+                }
+                if app_id:
+                    # 非调试模式下更新应用使用情况
+                    if not debug:
+                        update_data["$set"] = {
+                            f"app_usage.{app_id}.last_used": round(datetime.now(UTC).timestamp(), 3),
+                        }
+                        update_data["$inc"] = {f"app_usage.{app_id}.count": 1}
+                    await user_collection.update_one(
+                        {"_id": user_sub},
+                        update_data,
+                        session=session,
+                    )
+                    await session.commit_transaction()
                 return conv
-        except Exception as e:
-            LOGGER.info(f"[ConversationManager] Add conversation by user_sub failed: {e}")
+        except Exception:
+            logger.exception("[ConversationManager] 新建对话失败")
             return None
 
     @staticmethod
@@ -66,10 +90,11 @@ class ConversationManager:
                 {"_id": conversation_id, "user_sub": user_sub},
                 {"$set": data},
             )
-            return result.modified_count > 0
-        except Exception as e:
-            LOGGER.info(f"[ConversationManager] Update conversation by conversation_id failed: {e}")
+        except Exception:
+            logger.exception("[ConversationManager] 更新对话失败")
             return False
+        else:
+            return result.modified_count > 0
 
     @staticmethod
     async def delete_conversation_by_conversation_id(user_sub: str, conversation_id: str) -> bool:
@@ -79,15 +104,20 @@ class ConversationManager:
         record_group_collection = MongoDB.get_collection("record_group")
         try:
             async with MongoDB.get_session() as session, await session.start_transaction():
-                conversation_data = await conv_collection.find_one_and_delete({"_id": conversation_id, "user_sub": user_sub}, session=session)
+                conversation_data = await conv_collection.find_one_and_delete(
+                    {"_id": conversation_id, "user_sub": user_sub}, session=session,
+                )
                 if not conversation_data:
                     return False
 
-                await user_collection.update_one({"_id": user_sub}, {"$pull": {"conversations": conversation_id}}, session=session)
+                await user_collection.update_one(
+                    {"_id": user_sub}, {"$pull": {"conversations": conversation_id}}, session=session,
+                )
                 await record_group_collection.delete_many({"conversation_id": conversation_id}, session=session)
                 await session.commit_transaction()
+        except Exception:
+            logger.exception("[ConversationManager] 删除对话失败")
+            return False
+        else:
             await TaskManager.delete_tasks_by_conversation_id(conversation_id)
             return True
-        except Exception as e:
-            LOGGER.info(f"[ConversationManager] Delete conversation by conversation_id failed: {e}")
-            return False

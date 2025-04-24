@@ -1,77 +1,117 @@
-"""Scheduler中，关于Flow的逻辑
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
-from typing import Optional
+Scheduler中，关于Flow的逻辑
 
-from apps.entities.task import RequestDataPlugin
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+import logging
+
+from apps.entities.flow import Flow, FlowError, Step
+from apps.entities.request_data import RequestDataApp
+from apps.entities.task import Task
 from apps.llm.patterns import Select
+from apps.scheduler.call.llm.schema import RAG_ANSWER_PROMPT
 from apps.scheduler.pool.pool import Pool
 
+logger = logging.getLogger(__name__)
 
-async def choose_flow(task_id: str, question: str, origin_plugin_list: list[RequestDataPlugin]) -> tuple[str, Optional[RequestDataPlugin]]:
-    """依据用户的输入和选择，构造对应的Flow。
 
-    - 当用户没有选择任何Plugin时，直接进行智能问答
-    - 当用户选择auto时，自动识别最合适的n个Plugin，并在其中挑选flow
-    - 当用户选择Plugin时，在plugin内挑选最适合的flow
+class PredifinedRAGFlow(Flow):
+    """预定义的RAG Flow"""
 
-    :param question: 用户输入（用户问题）
-    :param origin_plugin_list: 用户选择的插件，可以一次选择多个
-    :result: 经LLM选择的Plugin ID和Flow ID
-    """
-    # 去掉无效的插件选项：plugin_id为空
-    plugin_ids = []
-    flow_ids = []
-    for item in origin_plugin_list:
-        if not item.plugin_id:
-            continue
-        plugin_ids.append(item.plugin_id)
-        if item.flow_id:
-            flow_ids.append(item)
+    name: str = "KnowledgeBase"
+    description: str = "当上述工具无法直接解决用户问题时，使用知识库进行回答。"
+    on_error: FlowError = FlowError(use_llm=True)
+    steps: dict[str, Step] = ({  # noqa: RUF012
+        "start": Step(
+            name="start",
+            description="开始",
+            type="Empty",
+            node="Empty",
+        ),
+        "rag": Step(
+            name="查询知识库",
+            description="根据用户问题，查询知识库",
+            type="RAG",
+            node="RAG",
+            params={
+                "kb_sn": "default",
+                "top_k": 5,
+                "retrieval_mode": "chunk",
+            },
+        ),
+        "llm": Step(
+            name="使用大模型",
+            description="调用大模型，生成答案",
+            type="LLM",
+            node="LLM",
+            params={
+                "temperature": 0.7,
+                "enable_context": True,
+                "system_prompt": "",
+                "user_prompt": RAG_ANSWER_PROMPT,
+            },
+        ),
+        "end": Step(
+            name="end",
+            description="结束",
+            type="Empty",
+            node="Empty",
+        ),
+    })
 
-    # 用户什么都不选，直接智能问答
-    if len(plugin_ids) == 0:
-        return "", None
 
-    # 用户只选了auto
-    if len(plugin_ids) == 1 and plugin_ids[0] == "auto":
-        # 用户要求自动识别
-        plugin_top = Pool().get_k_plugins(question)
-        # 聚合插件的Flow
-        plugin_ids = [str(plugin.name) for plugin in plugin_top]
+class FlowChooser:
+    """Flow选择器"""
 
-    # 用户固定了Flow的ID
-    if len(flow_ids) > 0:
-        # 直接使用对应的Flow，不选择
-        return plugin_ids[0], flow_ids[0]
+    def __init__(self, task: Task, question: str, user_selected: RequestDataApp | None = None) -> None:
+        """初始化Flow选择器"""
+        self.task = task
+        self._question = question
+        self._user_selected = user_selected
 
-    # 用户选了插件
-    flows = Pool().get_k_flows(question, plugin_ids)
 
-    # 使用大模型选择Top1 Flow
-    flow_list = [{
-        "name": str(item.plugin) + "/" + str(item.name),
-        "description": str(item.description),
-    } for item in flows]
+    async def get_top_flow(self) -> str:
+        """获取Top1 Flow"""
+        # 获取所选应用的所有Flow
+        if not self._user_selected or not self._user_selected.app_id:
+            return "KnowledgeBase"
 
-    if len(plugin_ids) == 1 and plugin_ids[0] == "auto":
-        # 用户选择自动识别时，包含智能问答
-        flow_list += [{
-            "name": "KnowledgeBase",
-            "description": "当上述工具无法直接解决用户问题时，使用知识库进行回答。",
-        }]
+        flow_list = await Pool().get_flow_metadata(self._user_selected.app_id)
+        if not flow_list:
+            return "KnowledgeBase"
 
-    # 返回top1 Flow的ID
-    selected_id = await Select().generate(task_id=task_id, choices=flow_list, question=question)
-    if selected_id == "KnowledgeBase":
-        return "", None
+        logger.info("[FlowChooser] 选择任务 %s 最合适的Flow", self.task.id)
+        choices = [{
+            "name": flow.id,
+            "description": f"{flow.name}, {flow.description}",
+        } for flow in flow_list]
+        select_obj = Select()
+        top_flow = await select_obj.generate(question=self._question, choices=choices)
+        self.task.tokens.input_tokens += select_obj.input_tokens
+        self.task.tokens.output_tokens += select_obj.output_tokens
+        return top_flow
 
-    plugin_id = selected_id.split("/")[0]
-    flow_id = selected_id.split("/")[1]
-    return plugin_id, RequestDataPlugin(
-        plugin_id=plugin_id,
-        flow_id=flow_id,
-        params={},
-        auth={},
-    )
+
+    async def choose_flow(self) -> RequestDataApp | None:
+        """
+        依据用户的输入和选择，构造对应的Flow。
+
+        - 当用户没有选择任何app时，直接进行智能问答
+        - 当用户选择了特定的app时，在plugin内挑选最适合的flow
+        """
+        if not self._user_selected or not self._user_selected.app_id:
+            return None
+
+        if self._user_selected.flow_id:
+            return self._user_selected
+
+        top_flow = await self.get_top_flow()
+        if top_flow == "KnowledgeBase":
+            return None
+
+        return RequestDataApp(
+            appId=self._user_selected.app_id,
+            flowId=top_flow,
+            params={},
+        )

@@ -1,20 +1,22 @@
 #!/bin/bash
-set -euo pipefail
 
-# 定义颜色代码
-RED='\e[31m'
-GREEN='\e[32m'
-YELLOW='\e[33m'
-BLUE='\e[34m'
 MAGENTA='\e[35m'
 CYAN='\e[36m'
+BLUE='\e[34m'
+GREEN='\e[32m'
+YELLOW='\e[33m'
+RED='\e[31m'
 RESET='\e[0m'
 
 # 初始化全局变量
 OS_ID=""
 ARCH=""
-OLLAMA_BIN_PATH="/usr/local/bin/ollama"
+OLLAMA_BIN_PATH="/usr/bin/ollama"
+OLLAMA_LIB_DIR="/usr/lib/ollama"
+OLLAMA_DATA_DIR="/var/lib/ollama"
 SERVICE_FILE="/etc/systemd/system/ollama.service"
+LOCAL_DIR="/home/eulercopilot/tools"
+LOCAL_TGZ="ollama-linux-${ARCH}.tgz"
 
 # 带时间戳的输出函数
 log() {
@@ -29,6 +31,22 @@ log() {
     *) color=${RESET} ;;
   esac
   echo -e "${color}[$(date '+%Y-%m-%d %H:%M:%S')] $level: $*${RESET}"
+}
+
+# 网络连接检查
+check_network() {
+  local install_url=$(get_ollama_url)
+  local domain=$(echo "$install_url" | awk -F/ '{print $3}')
+  local test_url="http://$domain"
+
+  log "INFO" "检查网络连接 ($domain)..."
+  if curl --silent --head --fail --connect-timeout 5 --max-time 10 "$test_url" >/dev/null 2>&1; then
+    log "INFO" "网络连接正常"
+    return 0
+  else
+    log "WARNING" "无法连接互联网"
+    return 1
+  fi
 }
 
 # 操作系统检测
@@ -50,6 +68,7 @@ detect_os() {
     armv7l)  ARCH="armv7" ;;
     *)       log "ERROR" "不支持的架构: $ARCH"; exit 1 ;;
   esac
+  LOCAL_TGZ="ollama-linux-${ARCH}.tgz"
   log "INFO" "系统架构: $ARCH"
 }
 
@@ -69,7 +88,7 @@ install_dependencies() {
         exit 1
       fi
       ;;
-    centos|rhel|fedora|openEuler)
+    centos|rhel|fedora|openEuler|kylin)
       if ! yum install -y "${deps[@]}"; then
         log "ERROR" "YUM依赖安装失败"
         exit 1
@@ -85,79 +104,73 @@ install_dependencies() {
 
 # 获取Ollama下载地址
 get_ollama_url() {
-  local version="2025.0330"
-  echo "https://repo.oepkgs.net/openEuler/rpm/openEuler-24.03-LTS/contrib/oedp/$version/ollama-linux-$ARCH.tgz"
+  echo "https://repo.oepkgs.net/openEuler/rpm/openEuler-22.03-LTS/contrib/eulercopilot/tools/$ARCH/ollama-linux-$ARCH.tgz"
 }
 
-# 安装Ollama
 install_ollama() {
   log "INFO" "步骤3/8：安装Ollama核心..."
   local install_url=$(get_ollama_url)
   local tmp_file="/tmp/ollama-${ARCH}.tgz"
-  local extract_dir="/tmp/ollama-extract"
-
-  # 清理旧安装
-  if [ -x "$OLLAMA_BIN_PATH" ]; then
+  # 增强清理逻辑
+  if [ -x "$OLLAMA_BIN_PATH" ] || [ -x "/usr/local/bin/ollama" ]; then
     log "WARNING" "发现已存在的Ollama安装，版本: $($OLLAMA_BIN_PATH --version)"
     read -p "是否重新安装？[y/N] " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-      log "INFO" "清理旧安装..."
-      rm -f "$OLLAMA_BIN_PATH"
+        log "WARNING" "发现已存在的Ollama安装，正在清理..."
+        systemctl stop ollama 2>/dev/null || true
+        systemctl disable ollama 2>/dev/null || true
+	rm -rf ${SERVICE_FILE} 2>/dev/null
+	rm $(which ollama) 2>/dev/null
+        rm -rf ${OLLAMA_LIB_DIR} 2>/dev/null
+        rm -rf ${OLLAMA_DATA_DIR} 2>/dev/null
+        rm -rf /run/ollama 2>/dev/null
+        userdel ollama 2>/dev/null || true
+	groupdel ollama 2>/dev/null || true
     else
-      return 0
+        return 0
     fi
   fi
-
-  # 确保目标目录存在
-  mkdir -p "${OLLAMA_BIN_PATH%/*}"
-
-  log "INFO" "下载安装包: $install_url"
-  if ! wget --show-progress -q -O "$tmp_file" "$install_url"; then
-    log "ERROR" "下载失败，请检查：\n1.网络连接\n2.URL有效性: $install_url"
-    exit 1
+    # 增强安装包处理
+  local actual_tgz_path=""
+  if [ -f "${LOCAL_DIR}/${LOCAL_TGZ}" ]; then
+    log "INFO" "使用本地安装包: ${LOCAL_DIR}/${LOCAL_TGZ}"
+    actual_tgz_path="${LOCAL_DIR}/${LOCAL_TGZ}"
+  else
+    if ! check_network; then
+      log "ERROR" "网络不可用且未找到本地安装包"
+      log "INFO" "请预先下载${LOCAL_TGZ}并放置${LOCAL_DIR}"
+      exit 1
+    fi
+    log "INFO" "下载安装包: ${install_url}"
+    if ! wget --show-progress -q -O "${tmp_file}" "${install_url}"; then
+      log "ERROR" "下载失败，退出码: $?"
+      exit 1
+    fi
+    actual_tgz_path="${tmp_file}"
   fi
 
-  # 验证压缩包完整性
-  if ! tar -tzf "$tmp_file" &>/dev/null; then
-    log "ERROR" "压缩包损坏或格式不正确"
-    exit 1
-  fi
-
-  # 创建临时解压目录
-  mkdir -p "$extract_dir"
-  
-  log "INFO" "解压文件到临时目录..."
-  if ! tar -xzf "$tmp_file" -C "$extract_dir"; then
+  log "INFO" "解压文件到系统目录/usr..."
+  if ! tar -xzvf "$actual_tgz_path" -C /usr/; then
     log "ERROR" "解压失败，可能原因：\n1.文件损坏\n2.磁盘空间不足\n3.权限问题"
     exit 1
   fi
 
-  # 查找可执行文件（处理可能的子目录结构）
-  local extracted_bin=$(find "$extract_dir" -type f -name ollama -executable -print -quit)
-  
-  if [ -z "$extracted_bin" ]; then
-    log "ERROR" "在压缩包中未找到可执行文件，压缩包结构可能已变更"
-    log "DEBUG" "压缩包内容列表："
-    tar -tzf "$tmp_file" | while read -r line; do
-      log "DEBUG" "-> $line"
-    done
-    exit 1
-  fi
-
-  log "INFO" "移动文件到系统目录: $OLLAMA_BIN_PATH"
-  mv -f "$extracted_bin" "$OLLAMA_BIN_PATH"
-  
-  # 权限设置
   chmod +x "$OLLAMA_BIN_PATH"
-  rm -rf "$tmp_file" "$extract_dir"
-  
   if [ ! -x "$OLLAMA_BIN_PATH" ]; then
     log "ERROR" "安装后验证失败：可执行文件不存在"
     exit 1
   fi
-  
   log "SUCCESS" "Ollama核心安装完成，版本: $($OLLAMA_BIN_PATH --version || echo '未知')"
+    # 新增：创建兼容性符号链接
+  if [ ! -L "/usr/local/bin/ollama" ]; then
+    ln -sf "$OLLAMA_BIN_PATH" "/usr/local/bin/ollama"
+    log "INFO" "已创建符号链接：/usr/local/bin/ollama → $OLLAMA_BIN_PATH"
+  fi
+
+  # 设置库路径
+  echo "${OLLAMA_LIB_DIR}" > /etc/ld.so.conf.d/ollama.conf
+  ldconfig
 }
 
 fix_user() {
@@ -233,21 +246,20 @@ fix_user() {
   log "SUCCESS" "用户配置修复完成"
 }
 
-# 服务配置
 fix_service() {
   log "INFO" "步骤5/8：配置系统服务..."
-  cat > "$SERVICE_FILE" <<EOF
+  cat > "${SERVICE_FILE}" <<EOF
 [Unit]
 Description=Ollama Service
 After=network-online.target
 
 [Service]
-Environment="OLLAMA_MODELS=/var/lib/ollama/.ollama/models"
+Environment="OLLAMA_MODELS=${OLLAMA_DATA_DIR}/.ollama/models"
 Environment="OLLAMA_HOST=0.0.0.0:11434"
-ExecStart=$OLLAMA_BIN_PATH serve
+ExecStart=${OLLAMA_BIN_PATH} serve
 User=ollama
 Group=ollama
-Restart=on-failure
+Restart=failure
 RestartSec=5
 WorkingDirectory=/var/lib/ollama
 RuntimeDirectory=ollama
@@ -267,64 +279,33 @@ EOF
   log "SUCCESS" "服务配置更新完成"
 }
 
-
 # 重启服务
 restart_service() {
   log "INFO" "步骤6/8: 重启服务..."
-  
+
   # 确保服务停止
   systemctl stop ollama || true
-  
+
   # 确保运行时目录存在
   mkdir -p /run/ollama
   chown ollama:ollama /run/ollama
   chmod 755 /run/ollama
-  
+
   # 启动服务
   systemctl start ollama
   systemctl enable ollama
-  
+
   log "SUCCESS" "服务重启完成"
 }
 
-# 服务健康检查
-health_check() {
-  log "INFO" "步骤7/8：执行健康检查..."
-  local retries=3
-  local timeout=5
-
-  # 启动服务
-  if ! systemctl is-active ollama &>/dev/null; then
-    systemctl enable --now ollama || {
-      log "ERROR" "服务启动失败"
-      journalctl -u ollama -n 20 --no-pager
-      exit 1
-    }
-  fi
-
-  # 等待服务就绪
-  for i in $(seq 1 $retries); do
-    if curl -s http://localhost:11434 &>/dev/null; then
-      log "SUCCESS" "服务健康检查通过"
-      return 0
-    fi
-    log "WARNING" "等待服务响应 (尝试 $i/$retries)..."
-    sleep $timeout
-  done
-
-  log "ERROR" "服务未响应，可能问题：\n1.端口冲突\n2.启动超时\n3.权限问题"
-  journalctl -u ollama -n 50 --no-pager
-  exit 1
-}
 
 # 最终验证
 final_check() {
-  log "INFO" "步骤8/8：执行最终验证..."
+  log "INFO" "步骤7/8：执行最终验证..."
   if ! command -v ollama &>/dev/null; then
     log "ERROR" "Ollama未正确安装"
     exit 1
   fi
-
   if ! ollama list &>/dev/null; then
     log "ERROR" "服务连接失败，请检查：\n1.服务状态: systemctl status ollama\n2.端口监听: ss -tuln | grep 11434"
     exit 1
@@ -335,7 +316,6 @@ final_check() {
 
 ### 主执行流程 ###
 main() {
-  # 权限检查
   if [[ $EUID -ne 0 ]]; then
     log "ERROR" "请使用sudo运行此脚本"
     exit 1
@@ -348,7 +328,6 @@ main() {
   fix_user
   fix_service
   restart_service
-  health_check
   if final_check; then
       echo -e "${MAGENTA}=== Ollama安装成功 ===${RESET}"
   else

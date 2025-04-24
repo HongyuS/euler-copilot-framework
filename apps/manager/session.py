@@ -1,66 +1,76 @@
-"""浏览器Session Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+浏览器Session Manager
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import base64
 import hashlib
 import hmac
+import logging
 import secrets
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
 
-from apps.common.config import config
-from apps.constants import LOGGER
+from apps.common.config import Config
+from apps.entities.config import FixedUserConfig
+from apps.entities.session import Session
+from apps.exceptions import LoginSettingsError, SessionError
 from apps.manager.blacklist import UserBlacklistManager
-from apps.models.redis import RedisConnectionPool
+from apps.models.mongo import MongoDB
+
+logger = logging.getLogger(__name__)
 
 
 class SessionManager:
     """浏览器Session管理"""
 
     @staticmethod
-    async def create_session(ip: Optional[str] = None, extra_keys: Optional[dict[str, Any]] = None) -> str:
+    async def create_session(ip: str | None = None, user_sub: str | None = None) -> str:
         """创建浏览器Session"""
         if not ip:
             err = "用户IP错误！"
             raise ValueError(err)
 
         session_id = secrets.token_hex(16)
-        data = {
-            "ip": ip,
-        }
-        if config["DISABLE_LOGIN"]:
-            data.update({
-                "user_sub": config["DEFAULT_USER"],
-            })
+        data = Session(
+            _id=session_id,
+            ip=ip,
+            expired_at=datetime.now(UTC) + timedelta(minutes=Config().get_config().fastapi.session_ttl),
+        )
+        if Config().get_config().login.provider == "disable":
+            login_settings = Config().get_config().login.settings
+            if not isinstance(login_settings, FixedUserConfig):
+                err = "固定用户配置错误！"
+                raise LoginSettingsError(err)
+            data.user_sub = login_settings.user_id
 
-        if extra_keys is not None:
-            data.update(extra_keys)
-        async with RedisConnectionPool.get_redis_connection().pipeline(transaction=True) as pipe:
-            try:
-                pipe.hmset(session_id, data)
-                pipe.expire(session_id, config["SESSION_TTL"] * 60)
-                await pipe.execute()
-            except Exception as e:
-                LOGGER.error(f"Session error: {e}")
+        if user_sub is not None:
+            data.user_sub = user_sub
+
+        try:
+            collection = MongoDB().get_collection("session")
+            await collection.insert_one(data.model_dump(exclude_none=True, by_alias=True))
+            await collection.create_index(
+                "expired_at", expireAfterSeconds=0,
+            )
+        except Exception as e:
+            err = "创建浏览器Session失败"
+            logger.exception("[SessionManager] %s", err)
+            raise SessionError(err) from e
         return session_id
 
     @staticmethod
-    async def delete_session(session_id: str) -> bool:
+    async def delete_session(session_id: str) -> None:
         """删除浏览器Session"""
         if not session_id:
-            return True
-        async with RedisConnectionPool.get_redis_connection().pipeline(transaction=True) as pipe:
-            try:
-                pipe.exists(session_id)
-                result = await pipe.execute()
-                if not result[0]:
-                    return True
-                pipe.delete(session_id)
-                result = await pipe.execute()
-                return result[0] != 1
-            except Exception as e:
-                LOGGER.error(f"Delete session error: {e}")
-                return False
+            return
+        try:
+            collection = MongoDB().get_collection("session")
+            await collection.delete_one({"_id": session_id})
+        except Exception as e:
+            err = "删除浏览器Session失败"
+            logger.exception("[SessionManager] %s", err)
+            raise SessionError(err) from e
 
     @staticmethod
     async def get_session(session_id: str, session_ip: str) -> str:
@@ -68,54 +78,60 @@ class SessionManager:
         if not session_id:
             return await SessionManager.create_session(session_ip)
 
-        async with RedisConnectionPool.get_redis_connection().pipeline(transaction=True) as pipe:
-            try:
-                pipe.hget(session_id, "ip")
-                pipe.expire(session_id, config["SESSION_TTL"] * 60)
-                await pipe.execute()
-            except Exception as e:
-                LOGGER.error(f"Read session error: {e}")
+        ip = None
+        try:
+            collection = MongoDB().get_collection("session")
+            data = await collection.find_one({"_id": session_id})
+            if not data:
+                return await SessionManager.create_session(session_ip)
+            ip = Session(**data).ip
+        except Exception as e:
+            err = "读取浏览器Session失败"
+            logger.exception("[SessionManager] %s", err)
+            raise SessionError(err) from e
 
+        if not ip or ip != session_ip:
+            return await SessionManager.create_session(session_ip)
         return session_id
 
     @staticmethod
     async def verify_user(session_id: str) -> bool:
         """验证用户是否在Session中"""
-        async with RedisConnectionPool.get_redis_connection().pipeline(transaction=True) as pipe:
-            try:
-                pipe.hexists(session_id, "user_sub")
-                pipe.expire(session_id, config["SESSION_TTL"] * 60)
-                result = await pipe.execute()
-                return result[0]
-            except Exception as e:
-                LOGGER.error(f"User not in session: {e}")
+        try:
+            collection = MongoDB().get_collection("session")
+            data = await collection.find_one({"_id": session_id})
+            if not data:
                 return False
+            return Session(**data).user_sub is not None
+        except Exception as e:
+            err = "用户不在Session中"
+            logger.exception("[SessionManager] %s", err)
+            raise SessionError(err) from e
 
     @staticmethod
-    async def get_user(session_id: str) -> Optional[str]:
+    async def get_user(session_id: str) -> str | None:
         """从Session中获取用户"""
-        async with RedisConnectionPool.get_redis_connection().pipeline(transaction=True) as pipe:
-            try:
-                pipe.hget(session_id, "user_sub")
-                pipe.expire(session_id, config["SESSION_TTL"] * 60)
-                result = await pipe.execute()
-                user_sub = result[0].decode()
-            except Exception as e:
-                LOGGER.error(f"Get user from session error: {e}")
+        try:
+            collection = MongoDB().get_collection("session")
+            data = await collection.find_one({"_id": session_id})
+            if not data:
                 return None
+            user_sub = Session(**data).user_sub
+        except Exception as e:
+            err = "从Session中获取用户失败"
+            logger.exception("[SessionManager] %s", err)
+            raise SessionError(err) from e
 
         # 查询黑名单
-        if await UserBlacklistManager.check_blacklisted_users(user_sub):
-            LOGGER.error("User in session blacklisted.")
-            async with RedisConnectionPool.get_redis_connection().pipeline(transaction=True) as pipe:
-                try:
-                    pipe.hdel(session_id, "user_sub")
-                    pipe.expire(session_id, config["SESSION_TTL"] * 60)
-                    await pipe.execute()
-                    return None
-                except Exception as e:
-                    LOGGER.error(f"Delete user from session error: {e}")
-                    return None
+        if user_sub and await UserBlacklistManager.check_blacklisted_users(user_sub):
+            logger.error("用户在Session黑名单中")
+            try:
+                await collection.delete_one({"_id": session_id})
+            except Exception as e:
+                err = "从Session中删除用户失败"
+                logger.exception("[SessionManager] %s", err)
+                raise SessionError(err) from e
+            return None
 
         return user_sub
 
@@ -124,19 +140,18 @@ class SessionManager:
         """创建CSRF Token"""
         rand = secrets.token_hex(8)
 
-        async with RedisConnectionPool.get_redis_connection().pipeline(transaction=True) as pipe:
-            try:
-                pipe.hset(session_id, "nonce", rand)
-                pipe.expire(session_id, config["SESSION_TTL"] * 60)
-                await pipe.execute()
-            except Exception as e:
-                err = f"Create csrf token from session error: {e}"
-                raise RuntimeError(err) from e
+        try:
+            collection = MongoDB().get_collection("session")
+            await collection.update_one({"_id": session_id}, {"$set": {"nonce": rand}})
+        except Exception as e:
+            err = "创建CSRF Token失败"
+            logger.exception("[SessionManager] %s", err)
+            raise SessionError(err) from e
 
         csrf_value = f"{session_id}{rand}"
         csrf_b64 = base64.b64encode(bytes.fromhex(csrf_value))
 
-        jwt_key = base64.b64decode(config["JWT_KEY"])
+        jwt_key = base64.b64decode(Config().get_config().security.jwt_key)
         hmac_processor = hmac.new(key=jwt_key, msg=csrf_b64, digestmod=hashlib.sha256)
         signature = base64.b64encode(hmac_processor.digest())
 
@@ -156,23 +171,25 @@ class SessionManager:
 
         first_part = base64.b64decode(token_msg[0]).hex()
         current_session_id = first_part[:32]
-        LOGGER.error(f"current_session_id: {current_session_id}, session_id: {session_id}")
+        logger.error("current_session_id: %s, session_id: %s", current_session_id, session_id)
         if current_session_id != session_id:
             return False
 
         current_nonce = first_part[32:]
-        async with RedisConnectionPool.get_redis_connection().pipeline(transaction=True) as pipe:
-            try:
-                pipe.hget(current_session_id, "nonce")
-                pipe.expire(current_session_id, config["SESSION_TTL"] * 60)
-                result = await pipe.execute()
-                nonce = result[0].decode()
-                if nonce != current_nonce:
-                    return False
-            except Exception as e:
-                LOGGER.error(f"Get csrf token from session error: {e}")
+        try:
+            collection = MongoDB().get_collection("session")
+            data = await collection.find_one({"_id": session_id})
+            if not data:
+                return False
+            nonce = Session(**data).nonce
+            if nonce != current_nonce:
+                return False
+        except Exception as e:
+            err = "从Session中获取CSRF Token失败"
+            logger.exception("[SessionManager] %s", err)
+            raise SessionError(err) from e
 
-        jwt_key = base64.b64decode(config["JWT_KEY"])
+        jwt_key = base64.b64decode(Config().get_config().security.jwt_key)
         hmac_obj = hmac.new(key=jwt_key, msg=token_msg[0].encode("utf-8"), digestmod=hashlib.sha256)
         signature = hmac_obj.digest()
         current_signature = base64.b64decode(token_msg[1])

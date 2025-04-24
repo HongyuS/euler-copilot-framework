@@ -1,23 +1,29 @@
-"""用户鉴权
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+用户鉴权
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+import logging
+
 from fastapi import Depends, Response
 from fastapi.security import OAuth2PasswordBearer
 from starlette import status
 from starlette.exceptions import HTTPException
 from starlette.requests import HTTPConnection
 
-from apps.common.config import config
+from apps.common.config import Config
 from apps.common.oidc import oidc_provider
 from apps.manager.api_key import ApiKeyManager
 from apps.manager.session import SessionManager
 
+logger = logging.getLogger(__name__)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 async def _verify_oidc_auth(request: HTTPConnection, response: Response) -> str:
-    """验证OIDC认证状态并获取用户信息
+    """
+    验证OIDC认证状态并获取用户信息
 
     :param request: HTTP请求
     :return: 用户信息字典
@@ -49,14 +55,12 @@ async def _verify_oidc_auth(request: HTTPConnection, response: Response) -> str:
         current_session = request.cookies["ECSESSION"]
         await SessionManager.delete_session(current_session)
     except Exception:
-        pass
+        logger.exception("[VerifySessionMiddleware] 删除session失败")
 
-    current_session = await SessionManager.create_session(user_host, extra_keys={
-        "user_sub": user_sub,
-    })
+    current_session = await SessionManager.create_session(user_host, user_sub)
 
     # 设置cookie
-    if config["COOKIE_MODE"] == "DEBUG":
+    if Config().get_config().deploy.cookie == "DEBUG":
         response.set_cookie(
             "ECSESSION",
             current_session,
@@ -65,9 +69,9 @@ async def _verify_oidc_auth(request: HTTPConnection, response: Response) -> str:
         response.set_cookie(
             "ECSESSION",
             current_session,
-            max_age=config["SESSION_TTL"] * 60,
+            max_age=Config().get_config().fastapi.session_ttl * 60,
             secure=True,
-            domain=config["DOMAIN"],
+            domain=Config().get_config().fastapi.domain,
             httponly=True,
             samesite="strict",
         )
@@ -76,10 +80,11 @@ async def _verify_oidc_auth(request: HTTPConnection, response: Response) -> str:
 
 
 async def verify_user(request: HTTPConnection, response: Response) -> None:
-    """验证Session是否已鉴权；未鉴权则抛出HTTP 401；接口级dependence
+    """
+    验证Session是否已鉴权；未鉴权则抛出HTTP 401；接口级dependence
 
     :param request: HTTP请求
-    :return:
+    :return: None
     """
     session_id = request.cookies["ECSESSION"]
     if await SessionManager.verify_user(session_id):
@@ -89,7 +94,8 @@ async def verify_user(request: HTTPConnection, response: Response) -> None:
 
 
 async def get_session(request: HTTPConnection) -> str:
-    """验证Session是否已鉴权，并返回Session ID；未鉴权则抛出HTTP 401；参数级dependence
+    """
+    验证Session是否已鉴权，并返回Session ID；未鉴权则抛出HTTP 401；参数级dependence
 
     :param request: HTTP请求
     :return: Session ID
@@ -101,7 +107,8 @@ async def get_session(request: HTTPConnection) -> str:
 
 
 async def get_user(request: HTTPConnection, response: Response) -> str:
-    """验证Session是否已鉴权；若已鉴权，查询对应的user_sub；若未鉴权，抛出HTTP 401；参数级dependence
+    """
+    验证Session是否已鉴权；若已鉴权，查询对应的user_sub；若未鉴权，抛出HTTP 401；参数级dependence
 
     :param request: HTTP请求体
     :return: 用户sub
@@ -116,7 +123,8 @@ async def get_user(request: HTTPConnection, response: Response) -> str:
 
 
 async def verify_api_key(api_key: str = Depends(oauth2_scheme)) -> None:
-    """验证API Key是否有效；无效则抛出HTTP 401；接口级dependence
+    """
+    验证API Key是否有效；无效则抛出HTTP 401；接口级dependence
 
     :param api_key: API Key
     :return:
@@ -126,7 +134,8 @@ async def verify_api_key(api_key: str = Depends(oauth2_scheme)) -> None:
 
 
 async def get_user_by_api_key(api_key: str = Depends(oauth2_scheme)) -> str:
-    """验证API Key是否有效；若有效，返回对应的user_sub；若无效，抛出HTTP 401；参数级dependence
+    """
+    验证API Key是否有效；若有效，返回对应的user_sub；若无效，抛出HTTP 401；参数级dependence
 
     :param api_key: API Key
     :return: 用户sub

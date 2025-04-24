@@ -25,3 +25,13 @@ class OIDCProviderBase:
     async def oidc_logout(cls, token: str) -> None:
         """触发OIDC的登出"""
         raise NotImplementedError
+
+    @classmethod
+    async def get_access_token_url(cls) -> str:
+        """获取OIDC 访问Token URL"""
+        raise NotImplementedError
+
+    @classmethod
+    async def get_redirect_url(cls) -> str:
+        """获取OIDC 重定向URL"""
+        raise NotImplementedError

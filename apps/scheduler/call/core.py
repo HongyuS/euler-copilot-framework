@@ -1,48 +1,194 @@
-"""Core Call类，定义了所有Call的抽象类和基础参数。
+"""
+Core Call类，定义了所有Call的抽象类和基础参数。
 
 所有Call类必须继承此类，并实现所有方法。
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
-from abc import ABC, abstractmethod
-from typing import Any, ClassVar
 
-from pydantic import BaseModel
+import logging
+from collections.abc import AsyncGenerator
+from typing import TYPE_CHECKING, Any, ClassVar, Self
 
-from apps.entities.plugin import CallResult, SysCallVars
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.json_schema import SkipJsonSchema
+
+from apps.entities.enum_var import CallOutputType
+from apps.entities.pool import NodePool
+from apps.entities.scheduler import (
+    CallError,
+    CallIds,
+    CallInfo,
+    CallOutputChunk,
+    CallTokens,
+    CallVars,
+)
+from apps.entities.task import FlowStepHistory
+
+if TYPE_CHECKING:
+    from apps.scheduler.executor.step import StepExecutor
 
 
-class AdditionalParams(BaseModel):
-    """Call的额外参数"""
+logger = logging.getLogger(__name__)
 
 
+class DataBase(BaseModel):
+    """所有Call的输入基类"""
 
-class CoreCall(ABC):
-    """Call抽象类。所有Call必须继承此类，并实现所有方法。"""
+    @classmethod
+    def model_json_schema(cls, override: dict[str, Any] | None = None, **kwargs: Any) -> dict[str, Any]:
+        """通过override参数，动态填充Schema内容"""
+        schema = super().model_json_schema(**kwargs)
+        if override:
+            for key, value in override.items():
+                schema["properties"][key] = value
+        return schema
 
-    name: str = ""
-    description: str = ""
-    params_schema: ClassVar[dict[str, Any]] = {}
+
+class CoreCall(BaseModel):
+    """所有Call的父类，所有Call必须继承此类。"""
+
+    name: SkipJsonSchema[str] = Field(description="Step的名称", exclude=True)
+    description: SkipJsonSchema[str] = Field(description="Step的描述", exclude=True)
+    node: SkipJsonSchema[NodePool | None] = Field(description="节点信息", exclude=True)
+    enable_filling: SkipJsonSchema[bool] = Field(description="是否需要进行自动参数填充", default=False, exclude=True)
+    tokens: SkipJsonSchema[CallTokens] = Field(description="Call的Tokens", default=CallTokens(), exclude=True)
+    input_model: ClassVar[SkipJsonSchema[type[DataBase]]] = Field(
+        description="Call的输入Pydantic类型；不包含override的模板",
+        exclude=True,
+        frozen=True,
+    )
+    output_model: ClassVar[SkipJsonSchema[type[DataBase]]] = Field(
+        description="Call的输出Pydantic类型；不包含override的模板",
+        exclude=True,
+        frozen=True,
+    )
+
+    to_user: bool = Field(description="是否需要将输出返回给用户", default=False)
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        extra="allow",
+    )
 
 
-    @abstractmethod
-    def __init__(self, syscall_vars: SysCallVars, **kwargs) -> None:  # noqa: ANN003
-        """初始化Call，并对参数进行解析。
+    def __init_subclass__(cls, input_model: type[DataBase], output_model: type[DataBase], **kwargs: Any) -> None:
+        """初始化子类"""
+        super().__init_subclass__(**kwargs)
+        cls.input_model = input_model
+        cls.output_model = output_model
 
-        :param syscall_vars: Call所需的固定参数。此处的参数为系统提供。
-        :param kwargs: Call所需的额外参数。此处的参数为Flow开发者填充。
+
+    @classmethod
+    def info(cls) -> CallInfo:
+        """返回Call的名称和描述"""
+        err = "[CoreCall] 必须手动实现info方法"
+        raise NotImplementedError(err)
+
+
+    @staticmethod
+    def _assemble_call_vars(executor: "StepExecutor") -> CallVars:
+        """组装CallVars"""
+        if not executor.task.state:
+            err = "[CoreCall] 当前ExecutorState为空"
+            logger.error(err)
+            raise ValueError(err)
+
+        history = {}
+        history_order = []
+        for item in executor.task.context:
+            item_obj = FlowStepHistory.model_validate(item)
+            history[item_obj.step_id] = item_obj
+            history_order.append(item_obj.step_id)
+
+        return CallVars(
+            ids=CallIds(
+                task_id=executor.task.id,
+                flow_id=executor.task.state.flow_id,
+                session_id=executor.task.ids.session_id,
+                user_sub=executor.task.ids.user_sub,
+                app_id=executor.task.state.app_id,
+            ),
+            question=executor.question,
+            history=history,
+            history_order=history_order,
+            summary=executor.task.runtime.summary,
+        )
+
+
+    @staticmethod
+    def _extract_history_variables(path: str, history: dict[str, FlowStepHistory]) -> Any:
         """
-        # 使用此种方式进行params校验
-        self._syscall_vars = syscall_vars
-        self._params = AdditionalParams.model_validate(kwargs)
-        # 在此初始化Slot Schema
-        self.slot_schema: dict[str, Any] = {}
+        提取History中的变量
 
-
-    @abstractmethod
-    async def call(self, slot_data: dict[str, Any]) -> CallResult:
-        """运行Call。
-
-        :param slot_data: Call的参数槽。此处的参数槽为用户通过大模型交互式填充。
-        :return: Dict类型的数据。返回值中"output"为工具的原始返回信息（有格式字符串）；"message"为工具经LLM处理后的返回信息（字符串）。也可以带有其他字段，其他字段将起到额外的说明和信息传递作用。
+        :param path: 路径，格式为：step_id/key/to/variable
+        :param history: Step历史，即call_vars.history
+        :return: 变量
         """
-        raise NotImplementedError
+        split_path = path.split("/")
+        if split_path[0] not in history:
+            err = f"[CoreCall] 步骤{split_path[0]}不存在"
+            logger.error(err)
+            raise CallError(
+                message=err,
+                data={
+                    "step_id": split_path[0],
+                },
+            )
+
+        data = history[split_path[0]].output_data
+        for key in split_path[1:]:
+            if key not in data:
+                err = f"[CoreCall] 输出Key {key} 不存在"
+                logger.error(err)
+                raise CallError(
+                    message=err,
+                    data={
+                        "step_id": split_path[0],
+                        "key": key,
+                    },
+                )
+            data = data[key]
+        return data
+
+
+    @classmethod
+    async def instance(cls, executor: "StepExecutor", node: NodePool | None, **kwargs: Any) -> Self:
+        """实例化Call类"""
+        obj = cls(
+            name=executor.step.step.name,
+            description=executor.step.step.description,
+            node=node,
+            **kwargs,
+        )
+
+        await obj._set_input(executor)
+        return obj
+
+
+    async def _set_input(self, executor: "StepExecutor") -> None:
+        """获取Call的输入"""
+        self._sys_vars = self._assemble_call_vars(executor)
+        input_data = await self._init(self._sys_vars)
+        self.input = input_data.model_dump(by_alias=True, exclude_none=True)
+
+
+    async def _init(self, call_vars: CallVars) -> DataBase:
+        """初始化Call类，并返回Call的输入"""
+        err = "[CoreCall] 初始化方法必须手动实现"
+        raise NotImplementedError(err)
+
+
+    async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
+        """Call类实例的流式输出方法"""
+        yield CallOutputChunk(type=CallOutputType.TEXT, content="")
+
+
+    async def _after_exec(self, input_data: dict[str, Any]) -> None:
+        """Call类实例的执行后方法"""
+
+
+    async def exec(self, executor: "StepExecutor", input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
+        """Call类实例的执行方法"""
+        async for chunk in self._exec(input_data):
+            yield chunk
+        await self._after_exec(input_data)

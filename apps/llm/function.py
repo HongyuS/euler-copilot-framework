@@ -1,62 +1,78 @@
-"""FunctionCall的大模型调用
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
-import json
-from typing import Any, Union
-import re
-import ollama
-import openai
-import sglang
-from asyncer import asyncify
-from sglang.lang.chat_template import get_chat_template
+用于FunctionCall的大模型
 
-from apps.common.config import config
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+import json
+from typing import Any
+
+from asyncer import asyncify
+
+from apps.common.config import Config
+from apps.constants import REASONING_BEGIN_TOKEN, REASONING_END_TOKEN
 from apps.scheduler.json_schema import build_regex_from_schema
 
 
 class FunctionLLM:
     """用于FunctionCall的模型"""
 
-    _client: Union[sglang.RuntimeEndpoint, openai.AsyncOpenAI, ollama.AsyncClient]
+    _client: Any
 
     def __init__(self) -> None:
-        """初始化用于FunctionCall的模型
+        """
+        初始化用于FunctionCall的模型
 
         目前支持：
         - sglang
         - vllm
+        - ollama
         """
-        if config["SCHEDULER_BACKEND"] == "sglang":
-            if not config["SCHEDULER_API_KEY"]:
-                self._client = sglang.RuntimeEndpoint(config["SCHEDULER_URL"])
+        if Config().get_config().function_call.backend == "sglang":
+            import sglang
+            from sglang.lang.chat_template import get_chat_template
+
+            if not Config().get_config().function_call.api_key:
+                self._client = sglang.RuntimeEndpoint(Config().get_config().function_call.endpoint)
             else:
-                self._client = sglang.RuntimeEndpoint(config["SCHEDULER_URL"], api_key=config["SCHEDULER_API_KEY"])
+                self._client = sglang.RuntimeEndpoint(
+                    Config().get_config().function_call.endpoint, api_key=Config().get_config().function_call.api_key,
+                )
             self._client.chat_template = get_chat_template("chatml")
-            sglang.set_default_backend(self._client)
-        if config["SCHEDULER_BACKEND"] == "vllm" or config["SCHEDULER_BACKEND"] == "openai":
-            if not config["SCHEDULER_API_KEY"]:
-                self._client = openai.AsyncOpenAI(base_url=config["SCHEDULER_URL"])
+
+        if (
+            Config().get_config().function_call.backend == "vllm"
+            or Config().get_config().function_call.backend == "openai"
+        ):
+            import openai
+
+            if not Config().get_config().function_call.api_key:
+                self._client = openai.AsyncOpenAI(base_url=Config().get_config().function_call.endpoint + "/v1")
             else:
                 self._client = openai.AsyncOpenAI(
-                    base_url=config["SCHEDULER_URL"],
-                    api_key=config["SCHEDULER_API_KEY"],
+                    base_url=Config().get_config().function_call.endpoint + "/v1",
+                    api_key=Config().get_config().function_call.api_key,
                 )
-        if config["SCHEDULER_BACKEND"] == "ollama":
-            if not config["SCHEDULER_API_KEY"]:
-                self._client = ollama.AsyncClient(host=config["SCHEDULER_URL"])
+
+        if Config().get_config().function_call.backend == "ollama":
+            import ollama
+
+            if not Config().get_config().function_call.api_key:
+                self._client = ollama.AsyncClient(host=Config().get_config().function_call.endpoint)
             else:
                 self._client = ollama.AsyncClient(
-                    host=config["SCHEDULER_URL"],
+                    host=Config().get_config().function_call.endpoint,
                     headers={
-                        "Authorization": f"Bearer {config['SCHEDULER_API_KEY']}",
+                        "Authorization": f"Bearer {Config().get_config().function_call.api_key}",
                     },
                 )
 
     @staticmethod
-    @sglang.function
-    def _call_sglang(s, messages: list[dict[str, Any]], schema: dict[str, Any], max_tokens: int, temperature: float) -> None:  # noqa: ANN001
-        """构建sglang需要的执行函数
+    def _sglang_func(
+        s, messages: list[dict[str, Any]], schema: dict[str, Any], max_tokens: int, temperature: float,  # noqa: ANN001
+    ) -> None:
+        """
+        构建sglang需要的执行函数
 
         :param s: sglang context
         :param messages: 历史消息
@@ -66,27 +82,33 @@ class FunctionLLM:
         """
         for msg in messages:
             if msg["role"] == "user":
-                s += sglang.user(msg["content"])
+                s += s.user(msg["content"])
             elif msg["role"] == "assistant":
-                s += sglang.assistant(msg["content"])
+                s += s.assistant(msg["content"])
             elif msg["role"] == "system":
-                s += sglang.system(msg["content"])
+                s += s.system(msg["content"])
             else:
                 err_msg = f"Unknown message role: {msg['role']}"
                 raise ValueError(err_msg)
 
         # 如果Schema为空，认为是直接问答，不加输出限制
         if not schema:
-            s += sglang.assistant(sglang.gen(name="output", max_tokens=max_tokens, temperature=temperature))
+            s += s.assistant(s.gen(name="output", max_tokens=max_tokens, temperature=temperature))
         else:
-            s += sglang.assistant(sglang.gen(name="output", regex=build_regex_from_schema(json.dumps(schema)),
-                                  max_tokens=max_tokens, temperature=temperature))
+            s += s.assistant(
+                s.gen(
+                    name="output",
+                    regex=build_regex_from_schema(json.dumps(schema)),
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                ),
+            )
 
     async def _call_vllm(
-            self, messages: list[dict[str, Any]],
-            schema: dict[str, Any],
-            max_tokens: int, temperature: float) -> str:
-        """调用vllm模型生成JSON
+        self, messages: list[dict[str, Any]], schema: dict[str, Any], max_tokens: int, temperature: float,
+    ) -> str:
+        """
+        调用vllm模型生成JSON
 
         :param messages: 历史消息列表
         :param schema: 输出JSON Schema
@@ -94,7 +116,7 @@ class FunctionLLM:
         :param temperature: 大模型温度
         :return: 生成的JSON
         """
-        model = config["SCHEDULER_MODEL"]
+        model = Config().get_config().function_call.model
         if not model:
             err_msg = "未设置FuntionCall所用模型！"
             raise ValueError(err_msg)
@@ -111,18 +133,32 @@ class FunctionLLM:
         if schema:
             param["extra_body"] = {"guided_json": schema}
 
-        chat = await self._client.chat.completions.create(**param)  # type: ignore[]
+        chat = await self._client.chat.completions.create(**param)
 
+        reasoning = False
         result = ""
         async for chunk in chat:
-            result += chunk.choices[0].delta.content or ""
-        return result
+            chunk_str = chunk.choices[0].delta.content or ""
+            for token in REASONING_BEGIN_TOKEN:
+                if token in chunk_str:
+                    reasoning = True
+                    break
+
+            for token in REASONING_END_TOKEN:
+                if token in chunk_str:
+                    reasoning = False
+                    chunk_str = ""
+                    break
+
+            if not reasoning:
+                result += chunk_str
+        return result.strip().strip(" ").strip("\n")
 
     async def _call_openai(
-            self, messages: list[dict[str, Any]],
-            schema: dict[str, Any],
-            max_tokens: int, temperature: float) -> str:
-        """调用openai模型生成JSON
+        self, messages: list[dict[str, Any]], schema: dict[str, Any], max_tokens: int, temperature: float,
+    ) -> str:
+        """
+        调用openai模型生成JSON
 
         :param messages: 历史消息列表
         :param schema: 输出JSON Schema
@@ -130,7 +166,7 @@ class FunctionLLM:
         :param temperature: 大模型温度
         :return: 生成的JSON
         """
-        model = config["SCHEDULER_MODEL"]
+        model = Config().get_config().function_call.model
         if not model:
             err_msg = "未设置FuntionCall所用模型！"
             raise ValueError(err_msg)
@@ -154,7 +190,7 @@ class FunctionLLM:
             param["tools"] = [tool_data]
             param["tool_choice"] = "required"
 
-        response = await self._client.chat.completions.create(**param)  # type: ignore[]
+        response = await self._client.chat.completions.create(**param)
         try:
             ans = response.choices[0].message.tool_calls[0].function.arguments or ""
         except IndexError:
@@ -162,10 +198,10 @@ class FunctionLLM:
         return ans
 
     async def _call_ollama(
-            self, messages: list[dict[str, Any]],
-            schema: dict[str, Any],
-            max_tokens: int, temperature: float) -> str:
-        """调用ollama模型生成JSON
+        self, messages: list[dict[str, Any]], schema: dict[str, Any], max_tokens: int, temperature: float,
+    ) -> str:
+        """
+        调用ollama模型生成JSON
 
         :param messages: 历史消息列表
         :param schema: 输出JSON Schema
@@ -174,7 +210,7 @@ class FunctionLLM:
         :return: 生成的对话回复
         """
         param = {
-            "model": config["SCHEDULER_MODEL"],
+            "model": Config().get_config().function_call.model,
             "messages": messages,
             "options": {
                 "temperature": temperature,
@@ -186,32 +222,50 @@ class FunctionLLM:
         if schema:
             param["format"] = schema
 
-        response = await self._client.chat(**param)     # type: ignore[]
+        response = await self._client.chat(**param)
         return response.message.content or ""
 
+    async def _call_sglang(
+        self, messages: list[dict[str, Any]], schema: dict[str, Any], max_tokens: int, temperature: float,
+    ) -> str:
+        """
+        调用sglang模型生成JSON
+
+        :param messages: 历史消息
+        :param schema: 输出JSON Schema
+        :param max_tokens: 最大Token长度
+        :param temperature: 大模型温度
+        :return: 生成的JSON
+        """
+        # 构造sglang执行函数
+        import sglang
+
+        sglang.set_default_backend(self._client)
+
+        sglang_func = sglang.function(self._sglang_func)
+        state = await asyncify(sglang_func.run)(messages, schema, max_tokens, temperature)  # type: ignore[arg-type]
+        return state["output"]
+
     async def call(self, **kwargs) -> str:  # noqa: ANN003
-        """调用FunctionCall小模型
+        """
+        调用FunctionCall小模型
 
         暂不开放流式输出
         """
-        if config["SCHEDULER_BACKEND"] == "vllm":
+        if Config().get_config().function_call.backend == "vllm":
             json_str = await self._call_vllm(**kwargs)
 
-        elif config["SCHEDULER_BACKEND"] == "sglang":
-            state = await asyncify(FunctionLLM._call_sglang.run)(**kwargs)
-            json_str = state["output"]
+        elif Config().get_config().function_call.backend == "sglang":
+            json_str = await self._call_sglang(**kwargs)
 
-        elif config["SCHEDULER_BACKEND"] == "ollama":
+        elif Config().get_config().function_call.backend == "ollama":
             json_str = await self._call_ollama(**kwargs)
+
+        elif Config().get_config().function_call.backend == "openai":
+            json_str = await self._call_openai(**kwargs)
 
         else:
             err = "未知的Function模型后端"
             raise ValueError(err)
-        json_str = re.sub(r'<think>.*?</think>', '', json_str, flags=re.DOTALL)
-        st=json_str.find('{')
-        en=json_str.rfind('}')
-        json_str=json_str[st:en+1]
-        if st==-1 or en==-1:
-            err = "json生成失败"
-            raise ValueError(err)
-        return json_str.strip()
+
+        return json_str

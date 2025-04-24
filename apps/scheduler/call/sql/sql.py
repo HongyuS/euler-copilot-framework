@@ -1,0 +1,150 @@
+"""
+SQL工具。
+
+用于调用外置的Chat2DB工具的API，获得SQL语句；再在PostgreSQL中执行SQL语句，获得数据。
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+import logging
+from collections.abc import AsyncGenerator
+from typing import Any
+
+import aiohttp
+from fastapi import status
+from pydantic import Field
+
+from apps.common.config import Config
+from apps.entities.enum_var import CallOutputType
+from apps.entities.scheduler import (
+    CallError,
+    CallInfo,
+    CallOutputChunk,
+    CallVars,
+)
+from apps.scheduler.call.core import CoreCall
+from apps.scheduler.call.sql.schema import SQLInput, SQLOutput
+
+logger = logging.getLogger(__name__)
+
+
+class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
+    """SQL工具。用于调用外置的Chat2DB工具的API，获得SQL语句；再在PostgreSQL中执行SQL语句，获得数据。"""
+
+    database_url: str = Field(description="数据库连接地址")
+    table_name_list: list[str] = Field(description="表名列表",default=[])
+    top_k: int = Field(description="生成SQL语句数量",default=5)
+    use_llm_enhancements: bool = Field(description="是否使用大模型增强", default=False)
+
+
+    @classmethod
+    def info(cls) -> CallInfo:
+        """返回Call的名称和描述"""
+        return CallInfo(name="SQL查询", description="使用大模型生成SQL语句，用于查询数据库中的结构化数据")
+
+
+    async def _init(self, call_vars: CallVars) -> SQLInput:
+        """初始化SQL工具。"""
+        return SQLInput(
+            question=call_vars.question,
+        )
+
+
+    async def _generate_sql(self, data: SQLInput) -> list[dict[str, Any]]:
+        """生成SQL语句列表"""
+        post_data = {
+            "database_url": self.database_url,
+            "table_name_list": self.table_name_list,
+            "question": data.question,
+            "topk": self.top_k,
+            "use_llm_enhancements": self.use_llm_enhancements,
+        }
+        headers = {"Content-Type": "application/json"}
+
+        sql_list = []
+        retry = 0
+        max_retry = 3
+
+        while retry < max_retry and len(sql_list) < self.top_k:
+            try:
+                async with aiohttp.ClientSession() as session, session.post(
+                    Config().get_config().extra.sql_url + "/database/sql",
+                    headers=headers,
+                    json=post_data,
+                    timeout=aiohttp.ClientTimeout(total=60),
+                ) as response:
+                    if response.status == status.HTTP_200_OK:
+                        result = await response.json()
+                        if result["code"] == status.HTTP_200_OK:
+                            sql_list.extend(result["result"]["sql_list"])
+                    else:
+                        text = await response.text()
+                        logger.error("[SQL] 生成失败：%s", text)
+                        retry += 1
+            except Exception:
+                logger.exception("[SQL] 生成失败")
+                retry += 1
+
+        return sql_list
+
+
+    async def _execute_sql(
+        self,
+        sql_list: list[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]] | None, str | None]:
+        """执行SQL语句并返回结果"""
+        headers = {"Content-Type": "application/json"}
+
+        for sql_dict in sql_list:
+            try:
+                async with aiohttp.ClientSession() as session, session.post(
+                    Config().get_config().extra.sql_url + "/sql/execute",
+                    headers=headers,
+                    json={
+                        "database_id": sql_dict["database_id"],
+                        "sql": sql_dict["sql"],
+                    },
+                    timeout=aiohttp.ClientTimeout(total=60),
+                ) as response:
+                    if response.status == status.HTTP_200_OK:
+                        result = await response.json()
+                        if result["code"] == status.HTTP_200_OK:
+                            return result["result"], sql_dict["sql"]
+                    else:
+                        text = await response.text()
+                        logger.error("[SQL] 调用失败：%s", text)
+            except Exception:
+                logger.exception("[SQL] 调用失败")
+
+        return None, None
+
+
+    async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
+        """运行SQL工具"""
+        data = SQLInput(**input_data)
+
+        # 生成SQL语句
+        sql_list = await self._generate_sql(data)
+        if not sql_list:
+            raise CallError(
+                message="SQL查询错误：无法生成有效的SQL语句！",
+                data={},
+            )
+
+        # 执行SQL语句
+        sql_exec_results, sql_exec = await self._execute_sql(sql_list)
+        if sql_exec_results is None or sql_exec is None:
+            raise CallError(
+                message="SQL查询错误：SQL语句执行失败！",
+                data={},
+            )
+
+        # 返回结果
+        data = SQLOutput(
+            dataset=sql_exec_results,
+            sql=sql_exec,
+        ).model_dump(exclude_none=True, by_alias=True)
+
+        yield CallOutputChunk(
+            content=data,
+            type=CallOutputType.DATA,
+        )

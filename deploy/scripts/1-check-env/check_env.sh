@@ -1,10 +1,13 @@
 #!/bin/bash
-
 # 颜色定义
 COLOR_INFO='\033[34m'     # 蓝色信息
 COLOR_SUCCESS='\033[32m'  # 绿色成功
 COLOR_ERROR='\033[31m'    # 红色错误
+COLOR_WARNING='\033[33m'  # 黄色警告
 COLOR_RESET='\033[0m'     # 重置颜色
+
+# 全局模式标记
+OFFLINE_MODE=false
 
 function check_user {
     if [[ $(id -u) -ne 0 ]]; then
@@ -16,7 +19,7 @@ function check_user {
 
 function check_version {
     local current_version_id="$1"
-    local supported_versions=("${@:2}") 
+    local supported_versions=("${@:2}")
 
     echo -e "${COLOR_INFO}[Info] 当前操作系统版本为：$current_version_id${COLOR_RESET}"
     for version_id in "${supported_versions[@]}"; do
@@ -101,9 +104,14 @@ function check_dns {
         return 0
     fi
 
-    echo -e "${COLOR_ERROR}[Error] DNS未配置，自动设置为8.8.8.8${COLOR_RESET}"
-    set_dns "8.8.8.8"
-    return $?
+    if $OFFLINE_MODE; then
+        echo -e "${COLOR_WARNING}[Warning] 离线模式：请手动配置内部DNS服务器${COLOR_RESET}"
+        return 0
+    else
+        echo -e "${COLOR_ERROR}[Error] DNS未配置，自动设置为8.8.8.8${COLOR_RESET}"
+        set_dns "8.8.8.8"
+        return $?
+    fi
 }
 
 function set_dns {
@@ -147,32 +155,28 @@ check_disk_space() {
     local DIR="$1"
     local THRESHOLD="$2"
 
-    # 获取当前磁盘使用百分比
     local USAGE=$(df --output=pcent "$DIR" | tail -n 1 | sed 's/%//g' | tr -d ' ')
 
-    # 检查是否超过阈值
     if [ "$USAGE" -ge "$THRESHOLD" ]; then
-        echo -e "${COLOR_INFO}[Info] 警告: $DIR 的磁盘使用率已达到 ${USAGE}%，超过阈值 ${THRESHOLD}%${COLOR_RESET}。"
+        echo -e "${COLOR_WARNING}[Warning] $DIR 的磁盘使用率已达到 ${USAGE}%，超过阈值 ${THRESHOLD}%${COLOR_RESET}"
         return 1
     else
-        echo -e "${COLOR_INFO}$DIR 的磁盘使用率为 ${USAGE}%，低于阈值 ${THRESHOLD}%。${COLOR_RESET}"
+        echo -e "${COLOR_INFO}[Info] $DIR 的磁盘使用率为 ${USAGE}%，低于阈值 ${THRESHOLD}%${COLOR_RESET}"
         return 0
     fi
 }
 
 function check_network {
     echo -e "${COLOR_INFO}[Info] 检查网络连接...${COLOR_RESET}"
-    if ! command -v curl &> /dev/null; then
-        echo -e "${COLOR_INFO}[Info] 安装curl...${COLOR_RESET}"
-        yum install -y curl || { echo -e "${COLOR_ERROR}[Error] curl安装失败${COLOR_RESET}"; return 1; }
-    fi
-
-    if ! curl -IsSf --connect-timeout 5 www.baidu.com &> /dev/null; then
+    
+    # 使用TCP检查代替curl
+    if timeout 5 bash -c 'cat < /dev/null > /dev/tcp/www.baidu.com/80' 2>/dev/null; then
+        echo -e "${COLOR_SUCCESS}[Success] 网络连接正常${COLOR_RESET}"
+        return 0
+    else
         echo -e "${COLOR_ERROR}[Error] 无法访问外部网络${COLOR_RESET}"
         return 1
     fi
-    echo -e "${COLOR_SUCCESS}[Success] 网络连接正常${COLOR_RESET}"
-    return 0
 }
 
 function check_selinux {
@@ -189,26 +193,51 @@ function check_firewall {
     return 0
 }
 
+function prepare_offline {
+    echo -e "${COLOR_INFO}[Info] 准备离线部署环境..."
+    mkdir -p /home/eulercopilot/images
+    mkdir -p /home/eulercopilot/tools
+    mkdir -p /home/eulercopilot/models
+    echo -e "1. 请确保已上传离线安装镜像至/home/eulercopilot/images"
+    echo -e "2. 请确认本地软件仓库已配置"
+    echo -e "3. 所有工具包提前下载到本地目录/home/eulercopilot/tools"
+    echo -e "4. 所有模型文件提前下载到本地目录/home/eulercopilot/models${COLOR_RESET}"
+}
+
 function main {
     check_user || return 1
     check_os_version || return 1
     check_hostname || return 1
+    
+    # 网络检查与模式判断
+    if check_network; then
+        OFFLINE_MODE=false
+    else
+        OFFLINE_MODE=true
+        echo -e "${COLOR_WARNING}[Warning] 切换到离线部署模式${COLOR_RESET}"
+        prepare_offline
+    fi
+
     check_dns || return 1
     check_ram || return 1
     check_disk_space "/" 70
 
-    # 根据返回值处理逻辑
     if [ $? -eq 1 ]; then
-        echo -e "${COLOR_INFO}需要清理磁盘空间！${COLOR_RESET}"
+        echo -e "${COLOR_WARNING}[Warning] 需要清理磁盘空间！${COLOR_RESET}"
     else
-        echo -e "${COLOR_SUCCESS}磁盘空间正常。${COLOR_RESET}"
+        echo -e "${COLOR_SUCCESS}[Success] 磁盘空间正常${COLOR_RESET}"
     fi
-    check_network || return 1
+
     check_selinux || return 1
     check_firewall || return 1
 
+    # 最终部署提示
     echo -e "\n${COLOR_SUCCESS}#####################################"
-    echo -e "#     环境检查全部通过，可以开始部署     #"
+    if $OFFLINE_MODE; then
+        echo -e "#   环境检查完成，准备离线部署     #"
+    else
+        echo -e "#   环境检查完成，准备在线部署     #"
+    fi
     echo -e "#####################################${COLOR_RESET}"
     return 0
 }

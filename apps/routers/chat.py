@@ -1,9 +1,11 @@
-"""FastAPI 聊天接口
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+FastAPI 聊天接口
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import asyncio
-import traceback
+import logging
 import uuid
 from collections.abc import AsyncGenerator
 from typing import Annotated
@@ -13,7 +15,6 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from apps.common.queue import MessageQueue
 from apps.common.wordscheck import WordsCheck
-from apps.constants import LOGGER
 from apps.dependency import (
     get_session,
     get_user,
@@ -22,20 +23,33 @@ from apps.dependency import (
 )
 from apps.entities.request_data import RequestData
 from apps.entities.response_data import ResponseData
-from apps.manager import (
-    QuestionBlacklistManager,
-    TaskManager,
-    UserBlacklistManager,
-)
+from apps.entities.task import Task
+from apps.manager.blacklist import QuestionBlacklistManager, UserBlacklistManager
+from apps.manager.flow import FlowManager
+from apps.manager.task import TaskManager
 from apps.scheduler.scheduler import Scheduler
+from apps.scheduler.scheduler.context import save_data
 from apps.service.activity import Activity
 
 RECOMMEND_TRES = 5
-
+logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/api",
     tags=["chat"],
 )
+
+
+async def init_task(post_body: RequestData, user_sub: str, session_id: str) -> Task:
+    """初始化Task"""
+    # 生成group_id
+    if not post_body.group_id:
+        post_body.group_id = str(uuid.uuid4())
+    # 创建或还原Task
+    task = await TaskManager.get_task(session_id=session_id, post_body=post_body, user_sub=user_sub)
+    # 更改信息并刷新数据库
+    task.runtime.question = post_body.question
+    task.ids.group_id = post_body.group_id
+    return task
 
 
 async def chat_generator(post_body: RequestData, user_sub: str, session_id: str) -> AsyncGenerator[str, None]:
@@ -44,71 +58,63 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
         await Activity.set_active(user_sub)
 
         # 敏感词检查
-        if await WordsCheck.check(post_body.question) != 1:
+        if await WordsCheck().check(post_body.question) != 1:
             yield "data: [SENSITIVE]\n\n"
-            LOGGER.info(msg="问题包含敏感词！")
+            logger.info("[Chat] 问题包含敏感词！")
             await Activity.remove_active(user_sub)
             return
 
-        # 生成group_id
-        group_id = str(uuid.uuid4()) if not post_body.group_id else post_body.group_id
-
-        # 创建或还原Task
-        task = await TaskManager.get_task(session_id=session_id, post_body=post_body)
-        task_id = task.record.task_id
-
-        task.record.group_id = group_id
-        post_body.group_id = group_id
-        await TaskManager.set_task(task_id, task)
+        task = await init_task(post_body, user_sub, session_id)
 
         # 创建queue；由Scheduler进行关闭
         queue = MessageQueue()
-        await queue.init(task_id, enable_heartbeat=True)
+        await queue.init()
 
         # 在单独Task中运行Scheduler，拉齐queue.get的时机
-        scheduler = Scheduler(task_id, queue)
-        scheduler_task = asyncio.create_task(scheduler.run(user_sub, session_id, post_body))
+        scheduler = Scheduler(task, queue, post_body)
+        scheduler_task = asyncio.create_task(scheduler.run())
 
         # 处理每一条消息
-        async for event in queue.get():
-            if event[:6] == "[DONE]":
+        async for content in queue.get():
+            if content[:6] == "[DONE]":
                 break
 
-            yield "data: " + event + "\n\n"
-
+            yield "data: " + content + "\n\n"
         # 等待Scheduler运行完毕
-        await asyncio.gather(scheduler_task)
+        await scheduler_task
 
         # 获取最终答案
-        task = await TaskManager.get_task(task_id)
-        answer_text = task.record.content.answer
-        if not answer_text:
-            LOGGER.error(msg="Answer is empty")
+        task = scheduler.task
+        if not task.runtime.answer:
+            logger.error("[Chat] 答案为空")
             yield "data: [ERROR]\n\n"
             await Activity.remove_active(user_sub)
             return
 
         # 对结果进行敏感词检查
-        if await WordsCheck.check(answer_text) != 1:
+        if await WordsCheck().check(task.runtime.answer) != 1:
             yield "data: [SENSITIVE]\n\n"
-            LOGGER.info(msg="答案包含敏感词！")
+            logger.info("[Chat] 答案包含敏感词！")
             await Activity.remove_active(user_sub)
             return
 
         # 创建新Record，存入数据库
-        await scheduler.save_state(user_sub, post_body)
-        # 保存Task，从task_map中删除task
-        await TaskManager.save_task(task_id)
+        await save_data(task, user_sub, post_body, scheduler.used_docs)
 
         yield "data: [DONE]\n\n"
 
-    except Exception as e:
-        LOGGER.error(msg=f"生成答案失败：{e!s}\n{traceback.format_exc()}")
+        if post_body.app and post_body.app.flow_id:
+            await FlowManager.update_flow_debug_by_app_and_flow_id(
+                post_body.app.app_id,
+                post_body.app.flow_id,
+                debug=True,
+            )
+
+    except Exception:
+        logger.exception("[Chat] 生成答案失败")
         yield "data: [ERROR]\n\n"
 
     finally:
-        if scheduler_task:
-            scheduler_task.cancel()
         await Activity.remove_active(user_sub)
 
 
@@ -143,8 +149,11 @@ async def chat(
 async def stop_generation(user_sub: Annotated[str, Depends(get_user)]):  # noqa: ANN201
     """停止生成"""
     await Activity.remove_active(user_sub)
-    return JSONResponse(status_code=status.HTTP_200_OK, content=ResponseData(
-        code=status.HTTP_200_OK,
-        message="stop generation success",
-        result={},
-    ).model_dump(exclude_none=True, by_alias=True))
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=ResponseData(
+            code=status.HTTP_200_OK,
+            message="stop generation success",
+            result={},
+        ).model_dump(exclude_none=True, by_alias=True),
+    )
