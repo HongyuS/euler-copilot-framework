@@ -90,7 +90,7 @@ class FlowManager:
                     # TODO: 由于现在没有动态表单，所以暂时使用Slot的create_empty_slot方法
                     parameters = {
                         "input_parameters": Slot(params_schema).create_empty_slot(),
-                        "output_parameters": output_schema,
+                        "output_parameters": Slot(output_schema).extract_type_desc_from_schema(),
                     }
                 except Exception:
                     logger.exception("[FlowManager] generate_from_schema 失败")
@@ -267,7 +267,7 @@ class FlowManager:
                     output_parameters = {}
                 parameters = {
                     "input_parameters": input_parameters,
-                    "output_parameters": output_parameters,
+                    "output_parameters": Slot(output_parameters).extract_type_desc_from_schema(),
                 }
                 node_item = NodeItem(
                     stepId=node_id,
