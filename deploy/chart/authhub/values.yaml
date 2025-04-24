@@ -24,7 +24,7 @@ authhub:
   secret_inject:
     # 镜像设置；默认为hub.oepkgs.net/neocopilot/secret_inject:dev-x86
     # 镜像标签：["dev-x86", "dev-arm"]
-    image: 
+    image:
 
   web:
     # [必填] 是否部署AuthHub前端服务

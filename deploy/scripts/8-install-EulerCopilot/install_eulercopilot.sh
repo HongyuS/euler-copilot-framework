@@ -164,11 +164,24 @@ check_directories() {
 
     # 定义父目录和子目录列表
     local PLUGINS_DIR="/home/eulercopilot/semantics"
-    local SUB_DIRS=("app" "service" "call")
+    local REQUIRED_OWNER="1001:1001"
 
     # 检查并创建父目录
     if [ -d "${PLUGINS_DIR}" ]; then
         echo -e "${GREEN}目录已存在：${PLUGINS_DIR}${NC}" >&2
+	# 检查当前权限
+        local current_owner=$(stat -c "%u:%g" "${PLUGINS_DIR}" 2>/dev/null)
+        if [ "$current_owner" != "$REQUIRED_OWNER" ]; then
+            echo -e "${YELLOW}当前目录权限: ${current_owner}，正在修改为 ${REQUIRED_OWNER}...${NC}" >&2
+            if chown 1001:1001 "${PLUGINS_DIR}"; then
+                echo -e "${GREEN}目录权限已成功修改为 ${REQUIRED_OWNER}${NC}" >&2
+            else
+                echo -e "${RED}错误：无法修改目录权限到 ${REQUIRED_OWNER}${NC}" >&2
+                exit 1
+            fi
+        else
+            echo -e "${GREEN}目录权限正确（${REQUIRED_OWNER}）${NC}" >&2
+        fi
     else
         if mkdir -p "${PLUGINS_DIR}"; then
             echo -e "${GREEN}目录已创建：${PLUGINS_DIR}${NC}" >&2
@@ -178,22 +191,6 @@ check_directories() {
             exit 1
         fi
     fi
-
-    # 遍历检查子目录
-    for sub_dir in "${SUB_DIRS[@]}"; do
-        local target_dir="${PLUGINS_DIR}/${sub_dir}"
-        if [ -d "${target_dir}" ]; then
-            echo -e "${GREEN}目录已存在：${target_dir}${NC}" >&2
-        else
-            if mkdir -p "${target_dir}"; then
-                echo -e "${GREEN}目录已创建：${target_dir}${NC}" >&2
-                chown 1001:1001 "${target_dir}"  # 设置子目录所有者
-            else
-                echo -e "${RED}错误：无法创建目录 ${target_dir}${NC}" >&2
-                exit 1
-            fi
-        fi
-    done
 }
 
 uninstall_eulercopilot() {
