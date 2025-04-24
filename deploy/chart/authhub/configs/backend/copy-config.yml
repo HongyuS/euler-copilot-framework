@@ -1,7 +1,19 @@
 copy:
-  - from: /config
-    to: /config-rw
+  - from: /config/aops-config.yaml
+    to: /config-rw/aops-config.yaml
     mode:
       uid: 0
       gid: 0
       mode: "0o650"
+    secrets:
+      - /db-secrets
+      - /authhub-secrets
+  - from: /config/conf.d/authhub.yaml
+    to: /config-rw/conf.d/authhub.yaml
+    mode:
+      uid: 0
+      gid: 0
+      mode: "0o650"
+    secrets:
+      - /db-secrets
+      - /authhub-secrets
