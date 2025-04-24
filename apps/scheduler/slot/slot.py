@@ -193,6 +193,36 @@ class Slot:
 
         return _generate_example(self._schema)
 
+    def extract_type_desc_from_schema(self) -> dict[str, str]:
+        """从JSON Schema中提取类型描述"""
+
+        def _extract_type_desc(schema_node: dict[str, Any]) -> None:
+            if "type" not in schema_node and "anyOf" not in schema_node:
+                return None
+            data = {"type": schema_node.get("type", ""), "description": schema_node.get("description", "")}
+            if "anyOf" in schema_node:
+                data["type"] = "anyOf"
+            # 处理类型为 object 的节点
+            if "anyOf" in schema_node:
+                data["items"] = {}
+                type_index = 0
+                for sub_schema in schema_node["anyOf"]:
+                    sub_result = _extract_type_desc(sub_schema)
+                    type_index += 1
+                    if sub_result:
+                        data["items"]["type_"+str(type_index)] = sub_result
+            if schema_node.get("type", "") == "object":
+                data["items"] = {}
+                for key, val in schema_node.get("properties", {}).items():
+                    data["items"][key] = _extract_type_desc(val)
+
+            # 处理类型为 array 的节点
+            if schema_node.get("type", "") == "array":
+                items_schema = schema_node.get("items", {})
+                data["items"] = _extract_type_desc(items_schema)
+            return data
+        return _extract_type_desc(self._schema)
+
     def _flatten_schema(self, schema: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
         """将JSON Schema扁平化"""
         result = {}
