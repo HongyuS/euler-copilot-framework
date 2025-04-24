@@ -1,12 +1,16 @@
-"""浏览器Session校验
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+浏览器Session校验
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+from typing import Any
+
 from fastapi import Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 
-from apps.common.config import config
+from apps.common.config import Config
 from apps.manager.session import SessionManager
 
 BYPASS_LIST = [
@@ -53,18 +57,18 @@ class VerifySessionMiddleware(BaseHTTPMiddleware):
         if "ECSESSION" in response.headers.get("set-cookie", ""):
             return
 
-        cookie_params = {
+        cookie_params: dict[str, Any] = {
             "key": "ECSESSION",
             "value": session_id,
-            "domain": config["DOMAIN"],
+            "domain": Config().get_config().fastapi.domain,
         }
 
-        if config["COOKIE_MODE"] != "DEBUG":
+        if Config().get_config().deploy.cookie != "DEBUG":
             cookie_params.update({
                 "httponly": True,
                 "secure": True,
                 "samesite": "strict",
-                "max_age": config["SESSION_TTL"] * 60,
+                "max_age": Config().get_config().fastapi.session_ttl * 60,
             })
 
         response.set_cookie(**cookie_params)

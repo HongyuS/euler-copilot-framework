@@ -10,7 +10,8 @@ spec:
   selector:
     app: framework
   ports:
-    - port: 8002
+    - name: framework
+      port: 8002
       targetPort: 8002
       nodePort: {{ default nil .Values.euler_copilot.framework.service.nodePort }}
 
@@ -38,7 +39,7 @@ spec:
         fsGroup: 1001
       containers:
         - name: framework
-          image: {{ .Values.euler_copilot.framework.image | default (printf "%s/neocopilot/euler-copilot-framework:0.9.4-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
+          image: {{ .Values.euler_copilot.framework.image | default (printf "%s/neocopilot/euler-copilot-framework:0.9.5-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }} 
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
           ports:
             - containerPort: 8002
@@ -54,14 +55,14 @@ spec:
           env:
             - name: TZ
               value: "Asia/Shanghai"
-            - name: PROD
-              value: "enable"
+            - name: CONFIG
+              value: "/app/config/config.toml"
           volumeMounts:
-            - mountPath: /euler-copilot-frame/config
+            - mountPath: /app/config
               name: framework-shared
             - mountPath: /tmp
               name: framework-tmp-volume
-            - mountPath: /euler-copilot-frame/apps/plugin
+            - mountPath: /app/data
               name: framework-semantics-vl
           securityContext:
             readOnlyRootFilesystem: {{ default false .Values.euler_copilot.framework.readOnly }}
@@ -80,47 +81,34 @@ spec:
               {{ toYaml .Values.euler_copilot.framework.resourceLimits | nindent 14 }}
       initContainers:
         - name: framework-copy
-          image: {{ .Values.euler_copilot.secret_inject.image | default (printf "%s/neocopilot/secret_inject:dev-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
+          image: {{ .Values.euler_copilot.secretInject.image | default (printf "%s/neocopilot/secret_inject:dev-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
+          command:
+            - python3
+            - ./main.py
+            - --config
+            - config.yaml
+            - --copy
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            runAsUser: 1001
+            runAsGroup: 1001
+            runAsNonRoot: true
           volumeMounts:
-            - mountPath: /config/.env
+            - mountPath: /config/config.toml
               name: framework-config
-              subPath: .env
+              subPath: config.toml
             - mountPath: /app/config.yaml
               name: framework-config
               subPath: copy-config.yaml
             - mountPath: /config-rw
               name: framework-shared
-            - mountPath: /secrets/redis-password
+            - mountPath: /db-secrets
               name: database-secrets
-              subPath: redis-password
-            - mountPath: /secrets/mongo-password
-              name: database-secrets
-              subPath: mongo-password
-            - mountPath: /secrets/minio-password
-              name: database-secrets
-              subPath: minio-password
-            - mountPath: /secrets/pgsql-password
-              name: database-secrets
-              subPath: pgsql-password
-            - mountPath: /secrets/halfKey1
+            - mountPath: /system-secrets
               name: system-secrets
-              subPath: halfKey1
-            - mountPath: /secrets/halfKey2
-              name: system-secrets
-              subPath: halfKey2
-            - mountPath: /secrets/halfKey3
-              name: system-secrets
-              subPath: halfKey3
-            - mountPath: /secrets/jwtKey
-              name: system-secrets
-              subPath: jwtKey
-            - mountPath: /secrets/clientId
-              name: system-secrets
-              subPath: clientId
-            - mountPath: /secrets/clientSecret
-              name: system-secrets
-              subPath: clientSecret
       volumes:
         - name: framework-config
           configMap:

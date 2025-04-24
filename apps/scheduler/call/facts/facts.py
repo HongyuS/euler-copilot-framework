@@ -1,0 +1,98 @@
+"""提取事实工具"""
+
+from collections.abc import AsyncGenerator
+from typing import TYPE_CHECKING, Any, Self
+
+from pydantic import Field
+
+from apps.entities.enum_var import CallOutputType
+from apps.entities.pool import NodePool
+from apps.entities.scheduler import CallInfo, CallOutputChunk, CallVars
+from apps.llm.patterns.domain import Domain
+from apps.llm.patterns.facts import Facts
+from apps.manager.user_domain import UserDomainManager
+from apps.scheduler.call.core import CoreCall
+from apps.scheduler.call.facts.schema import FactsInput, FactsOutput
+
+if TYPE_CHECKING:
+    from apps.scheduler.executor.step import StepExecutor
+
+
+class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
+    """提取事实工具"""
+
+    answer: str = Field(description="用户输入")
+
+
+    @classmethod
+    def info(cls) -> CallInfo:
+        """返回Call的名称和描述"""
+        return CallInfo(name="提取事实", description="从对话上下文和文档片段中提取事实。")
+
+
+    @classmethod
+    async def instance(cls, executor: "StepExecutor", node: NodePool | None, **kwargs: Any) -> Self:
+        """初始化工具"""
+        obj = cls(
+            answer=executor.task.runtime.answer,
+            name=executor.step.step.name,
+            description=executor.step.step.description,
+            node=node,
+            **kwargs,
+        )
+
+        await obj._set_input(executor)
+        return obj
+
+
+    async def _init(self, call_vars: CallVars) -> FactsInput:
+        """初始化工具"""
+        # 组装必要变量
+        message = [
+            {"role": "user", "content": call_vars.question},
+            {"role": "assistant", "content": self.answer},
+        ]
+
+        return FactsInput(
+            user_sub=call_vars.ids.user_sub,
+            message=message,
+        )
+
+
+    async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
+        """执行工具"""
+        data = FactsInput(**input_data)
+
+        # 提取事实信息
+        facts_obj = Facts()
+        facts = await facts_obj.generate(conversation=data.message)
+        self.tokens.input_tokens += facts_obj.input_tokens
+        self.tokens.output_tokens += facts_obj.output_tokens
+
+        # 更新用户画像
+        domain_obj = Domain()
+        domain_list = await domain_obj.generate(conversation=data.message)
+        self.tokens.input_tokens += domain_obj.input_tokens
+        self.tokens.output_tokens += domain_obj.output_tokens
+
+        for domain in domain_list:
+            await UserDomainManager.update_user_domain_by_user_sub_and_domain_name(data.user_sub, domain)
+
+        yield CallOutputChunk(
+            type=CallOutputType.DATA,
+            content=FactsOutput(
+                facts=facts,
+                domain=domain_list,
+            ).model_dump(by_alias=True, exclude_none=True),
+        )
+
+
+    async def exec(self, executor: "StepExecutor", input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
+        """执行工具"""
+        async for chunk in self._exec(input_data):
+            content = chunk.content
+            if not isinstance(content, dict):
+                err = "[FactsCall] 工具输出格式错误"
+                raise TypeError(err)
+            executor.task.runtime.facts = FactsOutput.model_validate(content).facts
+            yield chunk

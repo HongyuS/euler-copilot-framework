@@ -1,18 +1,28 @@
-"""主程序
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+主程序
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 from __future__ import annotations
 
-from apscheduler.schedulers.background import BackgroundScheduler
+import asyncio
+import logging
+
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from rich.console import Console
+from rich.logging import RichHandler
 
-from apps.common.config import config
-from apps.cron.delete_user import DeleteUserCron
+from apps.common.config import Config
+from apps.common.wordscheck import WordsCheck
 from apps.dependency.session import VerifySessionMiddleware
+from apps.llm.token import TokenCalculator
+from apps.models.lance import LanceDB
 from apps.routers import (
     api_key,
+    appcenter,
     auth,
     blacklist,
     chat,
@@ -20,18 +30,21 @@ from apps.routers import (
     comment,
     conversation,
     document,
+    flow,
     health,
     knowledge,
-    plugin,
     record,
+    service,
+    user,
 )
+from apps.scheduler.pool.pool import Pool
 
 # 定义FastAPI app
-app = FastAPI(docs_url=None, redoc_url=None)
+app = FastAPI(redoc_url=None)
 # 定义FastAPI全局中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[config["DOMAIN"]],
+    allow_origins=[Config().get_config().fastapi.domain],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -41,16 +54,44 @@ app.add_middleware(VerifySessionMiddleware)
 app.include_router(conversation.router)
 app.include_router(auth.router)
 app.include_router(api_key.router)
+app.include_router(appcenter.router)
+app.include_router(service.router)
 app.include_router(comment.router)
 app.include_router(record.router)
 app.include_router(health.router)
-app.include_router(plugin.router)
 app.include_router(chat.router)
 app.include_router(client.router)
 app.include_router(blacklist.router)
 app.include_router(document.router)
 app.include_router(knowledge.router)
-# 初始化后台定时任务
-scheduler = BackgroundScheduler()
-scheduler.start()
-scheduler.add_job(DeleteUserCron.delete_user, "cron", hour=3)
+app.include_router(flow.router)
+app.include_router(user.router)
+
+# logger配置
+LOGGER_FORMAT = "%(funcName)s() - %(message)s"
+DATE_FORMAT = "%y-%b-%d %H:%M:%S"
+logging.basicConfig(
+    level=logging.INFO,
+    format=LOGGER_FORMAT,
+    datefmt=DATE_FORMAT,
+    handlers=[RichHandler(rich_tracebacks=True, console=Console(
+        color_system="256",
+        width=160,
+    ))],
+)
+
+
+async def init_resources() -> None:
+    """初始化必要资源"""
+    WordsCheck()
+    await LanceDB().init()
+    await Pool().init()
+    TokenCalculator()
+
+# 运行
+if __name__ == "__main__":
+    # 初始化必要资源
+    asyncio.run(init_resources())
+
+    # 启动FastAPI
+    uvicorn.run(app, host="0.0.0.0", port=8002, log_level="info", log_config=None)

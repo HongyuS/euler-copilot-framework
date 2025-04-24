@@ -5,15 +5,15 @@ copy:
       uid: 1001
       gid: 1001
       mode: "0o650"
-  - from: /config/prompt.yaml
-    to: /config-rw/prompt.yaml
+    secrets:
+      - /db-secrets
+      - /system-secrets
+  - from: /config/.env-sql
+    to: /config-rw/.env-sql
     mode:
       uid: 1001
       gid: 1001
       mode: "0o650"
-  - from: /config/stop_words.txt
-    to: /config-rw/stop_words.txt
-    mode:
-      uid: 1001
-      gid: 1001
-      mode: "0o650"
+    secrets:
+      - /db-secrets
+      - /system-secrets

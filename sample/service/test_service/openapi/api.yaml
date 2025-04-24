@@ -1,0 +1,37 @@
+openapi: 3.1.0
+info:
+  version: 1.0.0
+  title: "文档标题"
+
+servers:
+  - url: "http://any.value"
+
+paths:
+  /url:
+    post:
+      summary: "API的自定义名称"
+      description: "API的描述信息"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              description: "API请求体的总描述"
+              properties:
+                data:
+                  type: string
+                  example: "字段的样例值"
+                  description: "字段的描述信息"
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                description: "API返回体的总描述"
+                properties:
+                  name:
+                    type: string
+                    example: "字段的样例值"
+                    description: "字段的描述信息"
+                    pattern: "[\\d].\\d"

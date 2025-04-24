@@ -1,7 +1,9 @@
-"""FastAPI 用户资产库路由
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+FastAPI 用户资产库路由
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
@@ -31,7 +33,7 @@ router = APIRouter(
         status.HTTP_404_NOT_FOUND: {"model": ResponseData},
     },
 )
-async def get_kb_id(user_sub: Annotated[str, Depends(get_user)]):  # noqa: ANN201
+async def get_kb_id(user_sub: Annotated[str, Depends(get_user)]) -> JSONResponse:
     """获取当前用户的知识库ID"""
     kb_id = await KnowledgeBaseManager.get_kb_id(user_sub)
     kb_id_str = "" if kb_id is None else kb_id
@@ -46,7 +48,7 @@ async def get_kb_id(user_sub: Annotated[str, Depends(get_user)]):  # noqa: ANN20
 
 
 @router.post("", response_model=ResponseData)
-async def change_kb_id(post_body: PostKnowledgeIDData, user_sub: Annotated[str, Depends(get_user)]):  # noqa: ANN201
+async def change_kb_id(post_body: PostKnowledgeIDData, user_sub: Annotated[str, Depends(get_user)]) -> JSONResponse:
     """修改当前用户的知识库ID"""
     result = await KnowledgeBaseManager.change_kb_id(user_sub, post_body.kb_id)
     if not result:

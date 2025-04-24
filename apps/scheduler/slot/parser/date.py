@@ -1,7 +1,10 @@
-"""日期解析器
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+日期解析器
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
+import logging
 from datetime import datetime
 from typing import Any
 
@@ -9,12 +12,12 @@ import pytz
 from jionlp import parse_time
 from jsonschema import TypeChecker
 
-from apps.constants import LOGGER
-from apps.entities.enum import SlotType
-from apps.scheduler.slot.parser.core import SlotParser
+from apps.entities.enum_var import SlotType
+
+logger = logging.getLogger(__name__)
 
 
-class SlotDateParser(SlotParser):
+class SlotDateParser:
     """日期解析器"""
 
     type: SlotType = SlotType.TYPE
@@ -23,7 +26,8 @@ class SlotDateParser(SlotParser):
 
     @classmethod
     def convert(cls, data: str, **kwargs) -> tuple[str, str]:  # noqa: ANN003
-        """将日期字符串转换为日期对象
+        """
+        将日期字符串转换为日期对象
 
         返回的格式：(开始时间, 结束时间)
         """
@@ -32,7 +36,7 @@ class SlotDateParser(SlotParser):
         if "time" in result:
             start_time, end_time = result["time"]
         else:
-            LOGGER.error(f"Date解析失败: {data}")
+            logger.error("Date解析失败: %s", data)
             return data, data
 
         try:
@@ -42,15 +46,15 @@ class SlotDateParser(SlotParser):
 
             end_time = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S").astimezone(pytz.timezone("Asia/Shanghai"))
             end_time = end_time.strftime(time_format)
-        except Exception as e:
-            LOGGER.error(f"Date解析失败: {data}; 错误: {e!s}")
+        except Exception:
+            logger.exception("[Slot] Date解析失败: %s", data)
             return data, data
 
         return start_time, end_time
 
 
     @classmethod
-    def type_validate(cls, _checker: TypeChecker, instance: Any) -> bool:  # noqa: ANN401
+    def type_validate(cls, _checker: TypeChecker, instance: Any) -> bool:
         """生成对应类型的验证器"""
         if not isinstance(instance, str):
             return False
@@ -58,6 +62,7 @@ class SlotDateParser(SlotParser):
         try:
             parse_time(instance)
         except Exception:
+            logger.exception("[Slot] Date解析失败: %s", instance)
             return False
 
         return True

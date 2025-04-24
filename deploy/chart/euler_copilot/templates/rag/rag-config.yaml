@@ -7,10 +7,6 @@ metadata:
 data:
   .env: |-
 {{ tpl (.Files.Get "configs/rag/.env") . | indent 4}}
-  prompt.yaml: |-
-{{ tpl (.Files.Get "configs/rag/prompt.yaml") . | indent 4}}
-  stop_words.txt: |-
-{{ tpl (.Files.Get "configs/rag/stop_words.txt") . | indent 4}}
-  copy-config.yaml: |-
-{{ tpl (.Files.Get "configs/rag/copy-config.yaml") . | indent 4}}
+  .env-sql: |-
+{{ tpl (.Files.Get "configs/rag/.env-sql") . | indent 4}}
 {{- end -}}

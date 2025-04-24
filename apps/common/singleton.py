@@ -1,20 +1,19 @@
-"""给类开启全局单例模式
+"""单例模式"""
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
-"""
-from multiprocessing import Lock
+import threading
 from typing import Any, ClassVar
 
 
-class Singleton(type):
-    """用于实现全局单例的MetaClass"""
+class SingletonMeta(type):
+    """单例元类"""
 
     _instances: ClassVar[dict[type, Any]] = {}
-    _lock = Lock()
+    _lock: ClassVar[threading.Lock] = threading.Lock()
 
     def __call__(cls, *args, **kwargs):  # noqa: ANN002, ANN003, ANN204
-        """实现单例模式"""
-        if cls not in cls._instances:
-            with cls._lock:
-                cls._instances[cls] = super().__call__(*args, **kwargs)
+        """获取单例"""
+        with cls._lock:
+            if cls not in cls._instances:
+                instance = super().__call__(*args, **kwargs)
+                cls._instances[cls] = instance
         return cls._instances[cls]

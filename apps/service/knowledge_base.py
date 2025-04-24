@@ -1,11 +1,13 @@
-"""文件上传至RAG，作为临时语料
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+文件上传至RAG，作为临时语料
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import aiohttp
 from fastapi import status
 
-from apps.common.config import config
+from apps.common.config import Config
 from apps.entities.collection import Document
 from apps.entities.rag_data import (
     RAGFileParseReq,
@@ -13,9 +15,10 @@ from apps.entities.rag_data import (
     RAGFileStatusRspItem,
 )
 
-_RAG_DOC_PARSE_URI = config["RAG_HOST"].rstrip("/") + "/doc/temporary/parser"
-_RAG_DOC_STATUS_URI = config["RAG_HOST"].rstrip("/") + "/doc/temporary/status"
-_RAG_DOC_DELETE_URI = config["RAG_HOST"].rstrip("/") + "/doc/temporary/delete"
+rag_host = Config().get_config().rag.rag_service
+_RAG_DOC_PARSE_URI = rag_host.rstrip("/") + "/doc/temporary/parser"
+_RAG_DOC_STATUS_URI = rag_host.rstrip("/") + "/doc/temporary/status"
+_RAG_DOC_DELETE_URI = rag_host.rstrip("/") + "/doc/temporary/delete"
 
 class KnowledgeBaseService:
     """知识库服务"""

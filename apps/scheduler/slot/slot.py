@@ -1,23 +1,29 @@
-"""参数槽位管理
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+参数槽位管理
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 import json
+import logging
 import traceback
 from collections.abc import Mapping
-from copy import deepcopy
-from typing import Any, Optional, Union
+from typing import Any
 
 from jsonschema import Draft7Validator
 from jsonschema.exceptions import ValidationError
 from jsonschema.protocols import Validator
 from jsonschema.validators import extend
 
-from apps.constants import LOGGER
-from apps.entities.plugin import CallResult
-from apps.llm.patterns.json import Json
-from apps.scheduler.slot.parser import SlotDateParser, SlotTimestampParser
+from apps.scheduler.slot.parser import (
+    SlotConstParser,
+    SlotDateParser,
+    SlotDefaultParser,
+    SlotTimestampParser,
+)
 from apps.scheduler.slot.util import escape_path, patch_json
+
+logger = logging.getLogger(__name__)
 
 # 各类检查器
 _TYPE_CHECKER = [
@@ -25,15 +31,25 @@ _TYPE_CHECKER = [
     SlotTimestampParser,
 ]
 _FORMAT_CHECKER = []
-_KEYWORD_CHECKER = {}
-# 类型转换器
-_CONVERTER = [
+_KEYWORD_CHECKER = {
+    "const": SlotConstParser.keyword_validate,
+    "default": SlotDefaultParser.keyword_validate,
+}
+
+# 各类转换器
+_TYPE_CONVERTER = [
     SlotDateParser,
     SlotTimestampParser,
 ]
+_KEYWORD_CONVERTER = {
+    "const": SlotConstParser,
+    "default": SlotDefaultParser,
+}
+
 
 class Slot:
-    """参数槽
+    """
+    参数槽
 
     （1）检查提供的JSON和JSON Schema的有效性
     （2）找到不满足要求的JSON字段，并提取成平铺的JSON，交由前端处理
@@ -62,7 +78,6 @@ class Slot:
         self._validator = self._validator_cls(schema)
         self._schema = schema
 
-
     @staticmethod
     def _construct_validator() -> type[Validator]:
         """构造JSON Schema验证器"""
@@ -76,61 +91,107 @@ class Slot:
         for checker in _FORMAT_CHECKER:
             format_checker = format_checker.redefine(checker.type, checker.type_validate)
 
-        return extend(Draft7Validator, type_checker=type_checker, format_checker=format_checker, validators=_KEYWORD_CHECKER)
+        return extend(
+            Draft7Validator, type_checker=type_checker, format_checker=format_checker, validators=_KEYWORD_CHECKER,
+        )
 
-
-    @staticmethod
-    def _process_json_value(json_value: Any, spec_data: dict[str, Any]) -> Any:  # noqa: ANN401, C901, PLR0911, PLR0912
-        """使用递归的方式对JSON返回值进行处理
-
-        :param json_value: 返回值中的字段
-        :param spec_data: 返回值字段对应的JSON Schema
-        :return: 处理后的这部分返回值字段
-        """
-        if "allOf" in spec_data:
-            processed_dict = {}
-            for item in spec_data["allOf"]:
-                processed_dict.update(Slot._process_json_value(json_value, item))
-            return processed_dict
-
-        for key in ("anyOf", "oneOf"):
-            if key in spec_data:
-                for item in spec_data[key]:
-                    processed_dict = Slot._process_json_value(json_value, item)
-                    if processed_dict is not None:
-                        return processed_dict
-
-        if "type" in spec_data:
-            if spec_data["type"] == "array" and isinstance(json_value, list):
-                return [Slot._process_json_value(item, spec_data["items"]) for item in json_value]
-            if spec_data["type"] == "object" and isinstance(json_value, dict):
-                processed_dict = {}
-                for key, val in json_value.items():
-                    if key not in spec_data["properties"]:
-                        processed_dict[key] = val
-                        continue
-                    processed_dict[key] = Slot._process_json_value(val, spec_data["properties"][key])
-                return processed_dict
-
-            for converter in _CONVERTER:
-                # 如果是自定义类型
-                if converter.name == spec_data["type"]:
-                    # 如果类型有附加字段
-                    if converter.name in spec_data:
-                        return converter.convert(json_value, **spec_data[converter.name])
-                    return converter.convert(json_value)
-
-        return json_value
-
-
-    def process_json(self, json_data: Union[str, dict[str, Any]]) -> dict[str, Any]:
+    def process_json(self, json_data: str | dict[str, Any]) -> dict[str, Any]:  # noqa: C901
         """将提供的JSON数据进行处理"""
         if isinstance(json_data, str):
             json_data = json.loads(json_data)
 
-        # 遍历JSON，处理每一个字段
-        return Slot._process_json_value(json_data, self._schema)
+        def _process_json_value(json_value: Any, spec_data: dict[str, Any]) -> Any:  # noqa: C901, PLR0911, PLR0912
+            """
+            使用递归的方式对JSON返回值进行处理
 
+            :param json_value: 返回值中的字段
+            :param spec_data: 返回值字段对应的JSON Schema
+            :return: 处理后的这部分返回值字段
+            """
+            if "allOf" in spec_data:
+                processed_dict = {}
+                for item in spec_data["allOf"]:
+                    processed_dict.update(_process_json_value(json_value, item))
+                return processed_dict
+
+            for key in ("anyOf", "oneOf"):
+                if key in spec_data:
+                    for item in spec_data[key]:
+                        processed_dict = _process_json_value(json_value, item)
+                        if processed_dict is not None:
+                            return processed_dict
+
+            if "type" in spec_data:
+                if spec_data["type"] == "array" and isinstance(json_value, list):
+                    # 若Schema不标准，则不进行处理
+                    if "items" not in spec_data:
+                        return json_value
+                    # Schema标准
+                    return [_process_json_value(item, spec_data["items"]) for item in json_value]
+                if spec_data["type"] == "object" and isinstance(json_value, dict):
+                    # 若Schema不标准，则不进行处理
+                    if "properties" not in spec_data:
+                        return json_value
+                    # Schema标准
+                    processed_dict = {}
+                    for key, val in json_value.items():
+                        if key not in spec_data["properties"]:
+                            processed_dict[key] = val
+                            continue
+                        processed_dict[key] = _process_json_value(val, spec_data["properties"][key])
+                    return processed_dict
+
+                for converter in _TYPE_CONVERTER:
+                    # 如果是自定义类型
+                    if converter.name == spec_data["type"]:
+                        # 如果类型有附加字段
+                        if converter.name in spec_data:
+                            return converter.convert(json_value, **spec_data[converter.name])
+                        return converter.convert(json_value)
+
+            return json_value
+
+        # 遍历JSON，处理每一个字段
+        return _process_json_value(json_data, self._schema)
+
+    def create_empty_slot(self) -> dict[str, Any]:
+        """创建一个空的槽位"""
+        def _generate_example(schema_node: dict) -> Any:  # noqa: PLR0911
+            if "default" in schema_node:
+                return schema_node["default"]
+
+            if "type" not in schema_node:
+                return None
+
+            # 处理类型为 object 的节点
+            if schema_node["type"] == "object":
+                data = {}
+                properties = schema_node.get("properties", {})
+                for name, schema in properties.items():
+                    data[name] = _generate_example(schema)
+                return data
+
+            # 处理类型为 array 的节点
+            if schema_node["type"] == "array":
+                items_schema = schema_node.get("items", {})
+                return [_generate_example(items_schema)]
+
+            # 处理类型为 string 的节点
+            if schema_node["type"] == "string":
+                return ""
+
+            # 处理类型为 number 或 integer 的节点
+            if schema_node["type"] in ["number", "integer"]:
+                return 0
+
+            # 处理类型为 boolean 的节点
+            if schema_node["type"] == "boolean":
+                return False
+
+            # 处理其他类型或未定义类型
+            return None
+
+        return _generate_example(self._schema)
 
     def _flatten_schema(self, schema: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
         """将JSON Schema扁平化"""
@@ -157,7 +218,6 @@ class Slot:
 
         return result, required
 
-
     def _strip_error(self, error: ValidationError) -> tuple[dict[str, Any], list[str]]:
         """裁剪发生错误的JSON Schema，并返回可能的附加路径"""
         # required的错误是在上层抛出的，需要裁剪schema
@@ -167,7 +227,7 @@ class Slot:
                 # 注意：此处与Validator文本有关，注意版本问题
                 key = error.message.split("'")[1]
             except IndexError:
-                LOGGER.error(f"Invalid error message: {error.message}")
+                logger.exception("[Slot] 错误信息不合法: %s", error.message)
                 return {}, []
 
             # 如果字段存在，则返回裁剪后的schema
@@ -178,18 +238,17 @@ class Slot:
                 return schema, [key]
 
             # 如果字段不存在，则返回空
-            LOGGER.error(f"Invalid error schema: {error.schema}")
+            logger.exception("[Slot] 错误schema不合法: %s", error.schema)
             return {}, []
 
         # 默认无需裁剪
         if isinstance(error.schema, Mapping):
             return dict(error.schema.items()), []
 
-        LOGGER.error(f"Invalid error schema: {error.schema}")
+        logger.exception("[Slot] 错误schema不合法: %s", error.schema)
         return {}, []
 
-
-    def convert_json(self, json_data: Union[str, dict[str, Any]]) -> dict[str, Any]:
+    def convert_json(self, json_data: str | dict[str, Any]) -> dict[str, Any]:
         """将用户手动填充的参数专为真实JSON"""
         json_dict = json.loads(json_data) if isinstance(json_data, str) else json_data
 
@@ -208,7 +267,6 @@ class Slot:
         final_json.update(plain_data)
 
         return final_json
-
 
     def check_json(self, json_data: dict[str, Any]) -> dict[str, Any]:
         """检测槽位是否合法、是否填充完成"""
@@ -236,52 +294,3 @@ class Slot:
             return schema_template
 
         return {}
-
-
-    @staticmethod
-    async def _llm_generate(task_id: str, question: str, thought: str, previous_output: Optional[CallResult], remaining_schema: dict[str, Any]) -> dict[str, Any]:
-        """使用LLM生成JSON参数"""
-        # 组装工具消息
-        conversation = [
-            {"role": "user", "content": question},
-            {"role": "assistant", "content": thought},
-        ]
-
-        if previous_output is not None:
-            tool_str = f"""I used a tool to get extra information from other sources. \
-                The output of the tool is "{previous_output.message}", with data `{json.dumps(previous_output.output, ensure_ascii=False)}`.
-                The schema of the output is `{json.dumps(previous_output.output_schema, ensure_ascii=False)}`, which contains description of the output.
-                """
-
-            conversation.append({"role": "tool", "content": tool_str})
-
-        return await Json().generate(task_id, conversation=conversation, spec=remaining_schema, strict=False)
-
-
-    async def process(self, previous_json: dict[str, Any], new_json: dict[str, Any], llm_params: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-        """对参数槽进行综合处理，返回剩余的JSON Schema和填充后的JSON"""
-        # 将用户手动填充的参数专为真实JSON
-        slot_data = self.convert_json(new_json)
-        # 合并
-        result_json = deepcopy(previous_json)
-        result_json.update(slot_data)
-        # 检测槽位是否合法、是否填充完成
-        remaining_slot = self.check_json(result_json)
-        # 如果还有未填充的部分，则尝试使用LLM生成
-        if remaining_slot:
-            generated_slot = await Slot._llm_generate(
-                llm_params["task_id"],
-                llm_params["question"],
-                llm_params["thought"],
-                llm_params["previous_output"],
-                remaining_slot,
-            )
-            # 合并
-            generated_slot = self.convert_json(generated_slot)
-            result_json.update(generated_slot)
-            # 再次检查槽位
-            remaining_slot = self.check_json(result_json)
-            return remaining_slot, result_json
-
-        return {}, result_json
-

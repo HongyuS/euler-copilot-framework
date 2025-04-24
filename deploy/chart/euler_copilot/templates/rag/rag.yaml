@@ -10,9 +10,13 @@ spec:
   selector:
     app: rag
   ports:
-    - port: 9988
+    - name: rag
+      port: 9988
       targetPort: 9988
       nodePort: {{ default nil .Values.euler_copilot.rag.service.nodePort }}
+    - name: rag-sql
+      port: 9015
+      targetPort: 9015
 
 ---
 apiVersion: apps/v1
@@ -35,10 +39,21 @@ spec:
         app: rag
     spec:
       automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 1001
       containers:
         - name: rag
-          image: {{ .Values.euler_copilot.rag.image | default (printf "%s/neocopilot/data_chain_back_end:0.9.4-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
+          image: {{ .Values.euler_copilot.rag.image | default (printf "%s/neocopilot/data_chain_back_end:0.9.5-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
+          securityContext:
+            readOnlyRootFilesystem: {{ default false .Values.euler_copilot.framework.readOnly }}
+            capabilities:
+              drop:
+                - ALL
+            runAsUser: 1001
+            runAsGroup: 1001
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
           ports:
             - containerPort: 9988
               protocol: TCP
@@ -54,8 +69,12 @@ spec:
             - name: TZ
               value: "Asia/Shanghai"
           volumeMounts:
-            - mountPath: /rag-service/data_chain/common
+            - mountPath: /rag-service/data_chain/common/.env
               name: rag-shared
+              subPath: .env
+            - mountPath: /rag-service/chat2db/common/.env
+              name: rag-shared
+              subPath: .env-sql
           resources:
             requests:
               cpu: 0.25
@@ -64,44 +83,37 @@ spec:
               {{ toYaml .Values.euler_copilot.rag.resourceLimits | nindent 14 }}
       initContainers:
         - name: rag-copy-secret
-          image: {{ .Values.euler_copilot.secret_inject.image | default (printf "%s/neocopilot/secret_inject:dev-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
+          image: {{ .Values.euler_copilot.secretInject.image | default (printf "%s/neocopilot/secret_inject:dev-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
+          command:
+            - python3
+            - ./main.py
+            - --config
+            - config.yaml
+            - --copy
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
+            runAsUser: 1001
+            runAsGroup: 1001
+            runAsNonRoot: true
           volumeMounts:
             - mountPath: /config/.env
               name: rag-config-vl
               subPath: .env
-            - mountPath: /config/stop_words.txt
+            - mountPath: /config/.env-sql
               name: rag-config-vl
-              subPath: stop_words.txt
-            - mountPath: /config/prompt.yaml
-              name: rag-config-vl
-              subPath: prompt.yaml
+              subPath: .env-sql
             - mountPath: /app/config.yaml
               name: rag-config-vl
               subPath: copy-config.yaml
             - mountPath: /config-rw
               name: rag-shared
-            - mountPath: /secrets/redis-password
+            - mountPath: /db-secrets
               name: database-secret
-              subPath: redis-password
-            - mountPath: /secrets/minio-password
-              name: database-secret
-              subPath: minio-password
-            - mountPath: /secrets/pgsql-password
-              name: database-secret
-              subPath: pgsql-password
-            - mountPath: /secrets/halfKey1
+            - mountPath: /system-secrets
               name: system-secret
-              subPath: halfKey1
-            - mountPath: /secrets/halfKey2
-              name: system-secret
-              subPath: halfKey2
-            - mountPath: /secrets/halfKey3
-              name: system-secret
-              subPath: halfKey3
-            - mountPath: /secrets/csrfKey
-              name: system-secret
-              subPath: csrfKey
       volumes:
         - name: rag-config-vl
           configMap:
@@ -116,4 +128,3 @@ spec:
           emptyDir:
             medium: Memory
 {{- end -}}
-

@@ -1,148 +1,100 @@
 """消息队列模块"""
 import asyncio
 import json
+import logging
 from collections.abc import AsyncGenerator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from redis.exceptions import ResponseError
-
-from apps.constants import LOGGER
-from apps.entities.enum import EventType, StepStatus
+from apps.entities.enum_var import EventType
 from apps.entities.message import (
     HeartbeatData,
     MessageBase,
     MessageFlow,
     MessageMetadata,
 )
-from apps.entities.task import TaskBlock
-from apps.manager.task import TaskManager
-from apps.models.redis import RedisConnectionPool
+from apps.entities.task import Task
+
+logger = logging.getLogger(__name__)
 
 
 class MessageQueue:
-    """包装SimpleQueue，加入组装消息、自动心跳等机制"""
+    """使用asyncio.Queue实现的消息队列"""
 
     _heartbeat_interval: float = 3.0
 
-
-    async def init(self, task_id: str, *, enable_heartbeat: bool = False) -> None:
-        """异步初始化消息队列
-
-        :param task_id: 任务ID
-        :param enable_heartbeat: 是否开启自动心跳机制
+    async def init(self) -> None:
         """
-        self._task_id = task_id
-        self._stream_name = f"TaskMq_{task_id}"
-        self._group_name = f"TaskMq_{task_id}_group"
-        self._consumer_name = "consumer"
+        异步初始化消息队列
+
+        :param task: 任务
+        """
+        self._queue = asyncio.Queue()
         self._close = False
+        self._heartbeat_task = asyncio.get_event_loop().create_task(self._heartbeat())
 
-        if enable_heartbeat:
-            self._heartbeat_task = asyncio.create_task(self._heartbeat())
-
-
-    async def push_output(self, event_type: EventType, data: dict[str, Any]) -> None:
+    async def push_output(self, task: Task, event_type: str, data: dict[str, Any]) -> None:
         """组装用于向用户（前端/Shell端）输出的消息"""
-        client = RedisConnectionPool.get_redis_connection()
-
-        if event_type == EventType.DONE:
-            await client.publish(self._stream_name, "[DONE]")
+        if event_type == EventType.DONE.value:
+            await self._queue.put("[DONE]")
             return
 
-        tcb: TaskBlock = await TaskManager.get_task(self._task_id)
+        # 计算当前Step时间
+        step_time = round((datetime.now(UTC).timestamp() - task.tokens.time), 3)
+        step_time = max(step_time, 0)
 
-        # 计算创建Task到现在的时间
-        used_time = round((datetime.now(timezone.utc).timestamp() - tcb.record.metadata.time), 2)
         metadata = MessageMetadata(
-            time=used_time,
-            input_tokens=tcb.record.metadata.input_tokens,
-            output_tokens=tcb.record.metadata.output_tokens,
+            timeCost=step_time,
+            inputTokens=task.tokens.input_tokens,
+            outputTokens=task.tokens.output_tokens,
         )
 
-        if tcb.flow_state:
-            history_ids = tcb.new_context
-            if not history_ids:
-                # 如果new_history为空，则说明是第一次执行，创建一个空值
-                flow = MessageFlow(
-                    plugin_id=tcb.flow_state.plugin_id,
-                    flow_id=tcb.flow_state.name,
-                    step_name="start",
-                    step_status=StepStatus.RUNNING,
-                    step_progress="",
-                )
-            else:
-                # 如果new_history不为空，则说明是继续执行，使用最后一个FlowHistory
-                history = tcb.flow_context[tcb.flow_state.step_name]
-
-                flow = MessageFlow(
-                    plugin_id=history.plugin_id,
-                    flow_id=history.flow_id,
-                    step_name=history.step_name,
-                    step_status=history.status,
-                    step_progress=history.step_order,
-                )
+        if task.state:
+            # 如果使用了Flow
+            flow = MessageFlow(
+                appId=task.state.app_id,
+                flowId=task.state.flow_id,
+                stepId=task.state.step_id,
+                stepName=task.state.step_name,
+                stepStatus=task.state.status,
+            )
         else:
             flow = None
 
         message = MessageBase(
             event=event_type,
-            id=tcb.record.id,
-            group_id=tcb.record.group_id,
-            conversation_id=tcb.record.conversation_id,
-            task_id=tcb.record.task_id,
+            id=task.ids.record_id,
+            groupId=task.ids.group_id,
+            conversationId=task.ids.conversation_id,
+            taskId=task.id,
             metadata=metadata,
             flow=flow,
             content=data,
         )
 
-        while True:
-            try:
-                group_info = await client.xinfo_groups(self._stream_name)
-                if not group_info[0]["pending"]:
-                    break
-                await asyncio.sleep(0.1)
-            except Exception as e:
-                LOGGER.error(f"[Queue] Get group info failed: {e}")
-                break
-
-        await client.xadd(self._stream_name, {"data": json.dumps(message.model_dump(by_alias=True, exclude_none=True), ensure_ascii=False)})
-
+        await self._queue.put(json.dumps(message.model_dump(by_alias=True, exclude_none=True), ensure_ascii=False))
 
     async def get(self) -> AsyncGenerator[str, None]:
         """从Queue中获取消息；变为async generator"""
-        client = RedisConnectionPool.get_redis_connection()
-
-        try:
-            await client.xgroup_create(self._stream_name, self._group_name, id="0", mkstream=True)
-        except ResponseError:
-            LOGGER.warning(f"[Queue] Task {self._task_id} group {self._group_name} already exists.")
-
         while True:
-            if self._close:
-                # 注意：这里进行实际的关闭操作
-                await client.xgroup_destroy(self._stream_name, self._group_name)
-                await client.delete(self._stream_name)
+            if self._close and self._queue.empty():
                 break
 
-            # 获取消息
-            message = await client.xreadgroup(self._group_name, self._consumer_name, streams={self._stream_name: ">"}, count=1, block=1000)
-            # 检查消息是否合法
-            if not message:
-                continue
-
-            # 获取消息ID和消息
-            message_id, message = message[0][1][0]
-            if message and isinstance(message, dict):
-                yield message[b"data"].decode("utf-8")
-                await client.xack(self._stream_name, self._group_name, message_id)
-
+            try:
+                message = self._queue.get_nowait()
+                yield message
+            except asyncio.QueueEmpty:
+                await asyncio.sleep(0.02)
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                logger.exception("[Queue] 获取消息失败")
+                break
 
     async def _heartbeat(self) -> None:
         """组装用于向用户（前端/Shell端）输出的心跳"""
         heartbeat_template = HeartbeatData()
         heartbeat_msg = json.dumps(heartbeat_template.model_dump(by_alias=True), ensure_ascii=False)
-        client = RedisConnectionPool.get_redis_connection()
 
         while True:
             # 如果关闭，则停止心跳
@@ -152,15 +104,10 @@ class MessageQueue:
             # 等待一个间隔
             await asyncio.sleep(self._heartbeat_interval)
 
-            # 查看是否已清空REL
-            group_info = await client.xinfo_groups(self._stream_name)
-            if group_info[0]["pending"]:
-                continue
-
-            # 添加心跳消息，得到ID
-            await client.xadd(self._stream_name, {"data": heartbeat_msg})
-
+            # 添加心跳消息
+            await self._queue.put(heartbeat_msg)
 
     async def close(self) -> None:
         """关闭消息队列"""
         self._close = True
+        self._heartbeat_task.cancel()

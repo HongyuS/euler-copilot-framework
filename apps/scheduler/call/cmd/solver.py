@@ -1,12 +1,12 @@
 """命令行解析器
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 import copy
 import re
 from typing import Any
 
-from apps.llm.patterns.json import Json
+from apps.llm.patterns.json_gen import Json
 from apps.scheduler.call.cmd.assembler import CommandlineAssembler
 
 
@@ -14,7 +14,8 @@ class Solver:
     """解析命令行生成器"""
 
     @staticmethod
-    async def _get_option(agent_input: str, collection_name: str, binary_name: str, subcmd_name: str, spec: dict[str, Any]):
+    async def _get_option(agent_input: str, collection_name: str, binary_name: str, subcmd_name: str, spec: dict[str, Any]) -> tuple[str, str]:
+        """选择最匹配的命令行参数"""
         # 选择最匹配的Global Options
         global_options = CommandlineAssembler.get_data("global_option", agent_input, collection_name, binary_name, num=2)
         # 选择最匹配的Options
@@ -57,7 +58,7 @@ class Solver:
         {description}
 
         严格按照JSON Schema格式输出，不要添加或编造字段。""".format(objective=question, description=description)
-        return await Json().generate("", question=gen_input, background="Empty.", spec=spec)
+        return await Json().generate(question=gen_input, background="Empty.", spec=spec)
 
 
     @staticmethod

@@ -1,7 +1,9 @@
-"""FastAPI 健康检查接口
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 """
+FastAPI 健康检查接口
+
+Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""
+
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
@@ -14,7 +16,7 @@ router = APIRouter(
 
 
 @router.get("", response_model=HealthCheckRsp)
-def health_check():  # noqa: ANN201
+def health_check() -> JSONResponse:
     """健康检查接口"""
     return JSONResponse(status_code=status.HTTP_200_OK, content=HealthCheckRsp(
         status="ok",
