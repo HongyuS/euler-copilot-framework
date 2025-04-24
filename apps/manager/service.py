@@ -221,19 +221,17 @@ class ServiceCenterManager:
         """获取服务数据"""
         # 验证用户权限
         service_collection = MongoDB.get_collection("service")
-        match_conditions = {
+        match_conditions = [
             {"author": user_sub},
-            {
-                "permission.type": PermissionType.PUBLIC.value
-            },
+            {"permission.type": PermissionType.PUBLIC.value},
             {
                 "$and": [
                     {"permission.type": PermissionType.PROTECTED.value},
-                    {"permission.users": {"$in": [user_sub]}},
+                    {"permission.users": user_sub},
                 ],
-            }
-        }
-        query = {"$and": [{"service_id": service_id}, {"$or": match_conditions}]}
+            },
+        ]
+        query = {"$and": [{"_id": service_id}, {"$or": match_conditions}]}
         db_service = await service_collection.find_one(query)
         if not db_service:
             msg = "Service not found"
@@ -256,7 +254,18 @@ class ServiceCenterManager:
     ) -> ServiceMetadata:
         """获取服务元数据"""
         service_collection = MongoDB.get_collection("service")
-        db_service = await service_collection.find_one({"_id": service_id, "author": user_sub})
+        match_conditions = [
+            {"author": user_sub},
+            {"permission.type": PermissionType.PUBLIC.value},
+            {
+                "$and": [
+                    {"permission.type": PermissionType.PROTECTED.value},
+                    {"permission.users": user_sub},
+                ],
+            },
+        ]
+        query = {"$and": [{"_id": service_id}, {"$or": match_conditions}]}
+        db_service = await service_collection.find_one(query)
         if not db_service:
             msg = "Service not found"
             raise ServiceIDError(msg)
