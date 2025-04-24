@@ -256,7 +256,20 @@ class ServiceCenterManager:
     ) -> ServiceMetadata:
         """获取服务元数据"""
         service_collection = MongoDB.get_collection("service")
-        db_service = await service_collection.find_one({"_id": service_id, "author": user_sub})
+        match_conditions = {
+            {"author": user_sub},
+            {
+                "permission.type": PermissionType.PUBLIC.value
+            },
+            {
+                "$and": [
+                    {"permission.type": PermissionType.PROTECTED.value},
+                    {"permission.users": {"$in": [user_sub]}},
+                ],
+            }
+        }
+        query = {"$and": [{"service_id": service_id}, {"$or": match_conditions}]}
+        db_service = await service_collection.find_one(query)
         if not db_service:
             msg = "Service not found"
             raise ServiceIDError(msg)
