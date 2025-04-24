@@ -101,14 +101,14 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
         # 创建新Record，存入数据库
         await save_data(task, user_sub, post_body, scheduler.used_docs)
 
-        yield "data: [DONE]\n\n"
-
         if post_body.app and post_body.app.flow_id:
             await FlowManager.update_flow_debug_by_app_and_flow_id(
                 post_body.app.app_id,
                 post_body.app.flow_id,
                 debug=True,
             )
+
+        yield "data: [DONE]\n\n"
 
     except Exception:
         logger.exception("[Chat] 生成答案失败")

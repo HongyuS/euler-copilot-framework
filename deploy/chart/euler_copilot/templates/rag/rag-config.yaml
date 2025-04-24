@@ -9,4 +9,6 @@ data:
 {{ tpl (.Files.Get "configs/rag/.env") . | indent 4}}
   .env-sql: |-
 {{ tpl (.Files.Get "configs/rag/.env-sql") . | indent 4}}
+  copy-config.yaml: |-
+{{ tpl (.Files.Get "configs/rag/copy-config.yaml") . | indent 4}}
 {{- end -}}
