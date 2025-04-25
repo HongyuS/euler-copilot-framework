@@ -54,10 +54,10 @@ temperature = {{ default 0.7 .Values.models.answer.temperature }}
 
 [function_call]
 backend = '{{ default "ollama" .Values.models.functionCall.backend }}'
-endpoint = '{{ .Values.models.functionCall.endpoint }}'
-model = '{{ .Values.models.functionCall.model }}'
-api_key = '{{ .Values.models.functionCall.key }}'
-max_tokens = {{ default .Values.models.answer.maxTokens .Values.models.functionCall.maxTokens }}
+endpoint = '{{ default .Values.models.answer.endpoint .Values.models.functionCall.endpoint }}'
+model = '{{ default .Values.models.answer.name .Values.models.functionCall.name }}'
+api_key = '{{ default .Values.models.answer.key .Values.models.functionCall.key }}'
+max_tokens = '{{ default .Values.models.answer.maxTokens .Values.models.functionCall.maxTokens }}'
 temperature = {{ default 0.7 .Values.models.functionCall.temperature }}
 
 [check]
