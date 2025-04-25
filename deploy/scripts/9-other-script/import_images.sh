@@ -168,7 +168,7 @@ check_images() {
         "hub.oepkgs.net/neocopilot/data_chain_web:${version}-arm"
         "hub.oepkgs.net/neocopilot/authhub:0.9.3-arm"
         "hub.oepkgs.net/neocopilot/authhub-web:0.9.3-arm"
-        "hub.oepkgs.net/neocopilot/pgsql-empty:pg16-arm"
+        "hub.oepkgs.net/neocopilot/opengauss:latest-arm"
         "hub.oepkgs.net/neocopilot/redis:7.4-alpine-arm"
         "hub.oepkgs.net/neocopilot/mysql:8-arm"
         "hub.oepkgs.net/neocopilot/minio:empty-arm"

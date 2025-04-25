@@ -47,7 +47,7 @@ show_restart_menu() {
     echo "4) minio"
     echo "5) mongo"
     echo "6) mysql"
-    echo "7) pgsql"
+    echo "7) opengauss"
     echo "8) rag"
     echo "9) rag-web"
     echo "10) redis"
@@ -294,7 +294,7 @@ while true; do
                     4)  service="minio" ;;
                     5)  service="mongo" ;;
                     6)  service="mysql" ;;
-                    7)  service="pgsql" ;;
+                    7)  service="opengauss" ;;
                     8)  service="rag" ;;
                     9)  service="rag-web" ;;
                     10) service="redis" ;;
