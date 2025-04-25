@@ -60,25 +60,22 @@ spec:
             limits:
               {{ toYaml .Values.authhub.backend.resourceLimits | nindent 14 }}
       initContainers:
-        - name: authhub-backend-copy-secret
+        - name: authback-copy
           image: {{ .Values.authhub.secret_inject.image | default (printf "%s/neocopilot/secret_inject:dev-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
+          command:
+            - python3
+            - ./main.py
+            - --config
+            - /config/copy-config.yml
+            - --copy
           volumeMounts:
             - mountPath: /db-secrets
               name: euler-copilot-database-vl
             - mountPath: /authhub-secrets
               name: authhub-secret-vl
-            - mountPath: /config/aops-config.yml
-              name: authhub-config
-              subPath: aops-config.yml
-            - mountPath: /config/conf.d/authhub.yml
-              name: authhub-config
-              subPath: authhub.yml
             - mountPath: /config-rw
               name: authhub-shared
-            - mountPath: /app/config.yaml
-              name: authhub-config
-              subPath: copy-config.yml
       volumes:
         - name: authhub-shared
           emptyDir:
@@ -86,6 +83,13 @@ spec:
         - name: authhub-config
           configMap:
             name: authhub-backend-config
+            items:
+              - key: aops-config.yml
+                path: aops-config.yml
+              - key: authhub.yml
+                path: conf.d/authhub.yml
+              - key: copy-config.yml
+                path: copy-config.yml
         - name: authhub-secret-vl
           secret:
             secretName: authhub-secret
