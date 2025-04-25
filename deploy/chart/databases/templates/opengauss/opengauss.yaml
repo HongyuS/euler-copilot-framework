@@ -1,43 +1,43 @@
-{{- if .Values.databases.pgsql.enabled -}}
+{{- if .Values.databases.opengauss.enabled -}}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: pgsql-db
+  name: opengauss-db
   namespace: {{ .Release.Namespace }}
 spec:
-  type: {{ default "ClusterIP" .Values.databases.pgsql.service.type }}
+  type: {{ default "ClusterIP" .Values.databases.opengauss.service.type }}
   selector:
-    app: pgsql
+    app: opengauss
   ports:
     - port: 5432
       targetPort: 5432
-      nodePort: {{ default nil .Values.databases.pgsql.service.nodePort }}
+      nodePort: {{ default nil .Values.databases.opengauss.service.nodePort }}
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pgsql-deploy
+  name: opengauss-deploy
   namespace: {{ .Release.Namespace }}
   labels:
-    app: pgsql
+    app: opengauss
 spec:
   replicas: {{ default 1 .Values.globals.replicaCount }}
   selector:
     matchLabels:
-      app: pgsql
+      app: opengauss
   template:
     metadata:
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/pgsql/pgsql-config.yaml") . | sha256sum }}
+        checksum/config: {{ include (print $.Template.BasePath "/opengauss/opengauss-config.yaml") . | sha256sum }}
       labels:
-        app: pgsql
+        app: opengauss
     spec:
       automountServiceAccountToken: false
       containers:
-        - name: pgsql
-          image: {{ .Values.databases.pgsql.image | default (printf "%s/neocopilot/pgsql-empty:pg16-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
+        - name: opengauss
+          image: {{ default "hub.oepkgs.net/neocopilot/opengauss:latest-arm" .Values.databases.opengauss.image }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
           ports:
             - containerPort: 5432
@@ -45,6 +45,7 @@ spec:
           livenessProbe:
             exec:
               command:
+                - gs_guc reload -D /var/lib/opengauss/data -c "behavior_compat_options='accept_empty_str'"
                 - pg_isready
                 - -d postgres -U postgres
             failureThreshold: 5
@@ -53,32 +54,33 @@ spec:
           env:
             - name: TZ
               value: "Asia/Shanghai"
-            - name: POSTGRES_DB
+            - name: GS_DB
               value: "postgres"
-            - name: POSTGRES_USER
+            - name: GS_USERNAME
               value: "postgres"
-            - name: POSTGRES_PASSWORD
+            - name: GS_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: euler-copilot-database
-                  key: pgsql-password
+                  key: gauss-password
           volumeMounts:
-            - mountPath: /var/lib/postgresql/data
-              name: pgsql-data
+            - mountPath: /var/lib/opengauss/data
+              name: opengauss-data
             - mountPath: /docker-entrypoint-initdb.d/init.sql
-              name: pgsql-init
+              name: opengauss-init
               subPath: init.sql
           resources:
             requests:
               cpu: 0.25
               memory: 512Mi
             limits:
-                {{ toYaml .Values.databases.pgsql.resourceLimits | nindent 14 }}
+                {{ toYaml .Values.databases.opengauss.resourceLimits | indent 4 | trim }}
       volumes:
-        - name: pgsql-data
+        - name: opengauss-data
           persistentVolumeClaim:
-            claimName: pgsql-storage
-        - name: pgsql-init
+            claimName: opengauss-storage
+        - name: opengauss-init
           configMap:
-            name: pgsql-config
+            name: opengauss-config
 {{- end -}}
+
