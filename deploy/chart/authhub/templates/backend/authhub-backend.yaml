@@ -76,6 +76,8 @@ spec:
               name: authhub-secret-vl
             - mountPath: /config-rw
               name: authhub-shared
+            - mountPath: /config
+              name: authhub-config
       volumes:
         - name: authhub-shared
           emptyDir:
