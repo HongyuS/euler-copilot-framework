@@ -1,0 +1,13 @@
+{{- if .Values.databases.opengauss.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opengauss-config
+  namespace: {{ .Release.Namespace }}
+data:
+  init.sql: |
+    CREATE EXTENSION chparser;
+    CREATE TEXT SEARCH CONFIGURATION chparser (PARSER = chparser);
+    ALTER TEXT SEARCH CONFIGURATION chparser ADD MAPPING FOR n,v,a,i,e,l WITH simple;    
+{{- end -}}
+
