@@ -17,7 +17,7 @@ storage:
   # MongoDB存储大小，默认为10GB
   mongo:
   # 向量数据库存储大小，默认为10GB
-  pgsql:
+  opengauss:
 
 # 域名设置
 domain:
@@ -75,11 +75,11 @@ databases:
       type:
       # 当类型为nodePort时，填写主机的端口号
       nodePort: 
-  pgsql:
+  opengauss:
     # [必填] 是否部署PostgreSQL实例
     enabled: true
-    # 镜像设置，默认为hub.oepkgs.net/neocopilot/pgsql-empty:pg16-x86
-    # 镜像版本： ["pg16-x86", "pg16-arm"]
+    # 镜像设置，默认为hub.oepkgs.net/neocopilot/opengauss:latest-x86
+    # 镜像版本： ["latest-x86", "latest-arm"]
     image:
     # 性能限制设置
     resourceLimits: {}
