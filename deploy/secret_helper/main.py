@@ -33,7 +33,8 @@ if __name__ == "__main__":
             config = yaml.safe_load(f)
 
         for copy_config in config["copy"]:
-            copy(copy_config["from"], copy_config["to"], copy_config["mode"], copy_config["secrets"])
+            secrets = copy_config.get("secrets", [])
+            copy(copy_config["from"], copy_config["to"], copy_config["mode"], secrets)
 
         sys.exit(0)
 

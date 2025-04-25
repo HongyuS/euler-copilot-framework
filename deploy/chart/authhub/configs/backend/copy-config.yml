@@ -1,6 +1,6 @@
 copy:
-  - from: /config/aops-config.yaml
-    to: /config-rw/aops-config.yaml
+  - from: /config/aops-config.yml
+    to: /config-rw/aops-config.yml
     mode:
       uid: 0
       gid: 0
@@ -8,8 +8,8 @@ copy:
     secrets:
       - /db-secrets
       - /authhub-secrets
-  - from: /config/conf.d/authhub.yaml
-    to: /config-rw/conf.d/authhub.yaml
+  - from: /config/conf.d/authhub.yml
+    to: /config-rw/conf.d/authhub.yml
     mode:
       uid: 0
       gid: 0

@@ -28,6 +28,8 @@ def copy_file(file: Path, out_path: Path, secrets: dict[str, str]) -> None:
     if secrets:
         for key, value in secrets.items():
             data = data.replace(r"${" + key + "}", value)
+    # 确保父文件夹存在
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8") as f:
         f.write(data)
 
