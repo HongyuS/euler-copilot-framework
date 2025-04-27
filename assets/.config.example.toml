@@ -14,7 +14,6 @@ app_secret = ''
 
 [fastapi]
 domain = 'www.eulercopilot.local'
-session_ttl = 30
 csrf = false
 
 [security]

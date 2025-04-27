@@ -11,6 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 
 from apps.common.config import Config
+from apps.constants import SESSION_TTL
 from apps.manager.session import SessionManager
 
 BYPASS_LIST = [
@@ -68,7 +69,7 @@ class VerifySessionMiddleware(BaseHTTPMiddleware):
                 "httponly": True,
                 "secure": True,
                 "samesite": "strict",
-                "max_age": Config().get_config().fastapi.session_ttl * 60,
+                "max_age": SESSION_TTL * 60,
             })
 
         response.set_cookie(**cookie_params)

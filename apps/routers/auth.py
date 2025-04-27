@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 
 from apps.common.config import Config
 from apps.common.oidc import oidc_provider
+from apps.constants import SESSION_TTL
 from apps.dependency import get_user, verify_csrf_token, verify_user
 from apps.entities.collection import Audit
 from apps.entities.response_data import (
@@ -98,7 +99,7 @@ async def oidc_login(request: Request, code: str, redirect_index: str | None = N
         response.set_cookie(
             "_csrf_tk",
             new_csrf_token,
-            max_age=Config().get_config().fastapi.session_ttl * 60,
+            max_age=SESSION_TTL * 60,
             secure=True,
             domain=Config().get_config().fastapi.domain,
             samesite="strict",
@@ -106,7 +107,7 @@ async def oidc_login(request: Request, code: str, redirect_index: str | None = N
         response.set_cookie(
             "ECSESSION",
             current_session,
-            max_age=Config().get_config().fastapi.session_ttl * 60,
+            max_age=SESSION_TTL * 60,
             secure=True,
             domain=Config().get_config().fastapi.domain,
             httponly=True,
@@ -145,7 +146,7 @@ async def logout(request: Request, response: Response, user_sub: Annotated[str, 
     response.set_cookie(
         "ECSESSION",
         new_session,
-        max_age=Config().get_config().fastapi.session_ttl * 60,
+        max_age=SESSION_TTL * 60,
         httponly=True,
         secure=True,
         samesite="strict",

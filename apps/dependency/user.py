@@ -14,6 +14,7 @@ from starlette.requests import HTTPConnection
 
 from apps.common.config import Config
 from apps.common.oidc import oidc_provider
+from apps.constants import SESSION_TTL
 from apps.manager.api_key import ApiKeyManager
 from apps.manager.session import SessionManager
 
@@ -69,7 +70,7 @@ async def _verify_oidc_auth(request: HTTPConnection, response: Response) -> str:
         response.set_cookie(
             "ECSESSION",
             current_session,
-            max_age=Config().get_config().fastapi.session_ttl * 60,
+            max_age=SESSION_TTL * 60,
             secure=True,
             domain=Config().get_config().fastapi.domain,
             httponly=True,

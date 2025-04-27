@@ -12,6 +12,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 from apps.common.config import Config
+from apps.constants import SESSION_TTL
 from apps.entities.config import FixedUserConfig
 from apps.entities.session import Session
 from apps.exceptions import LoginSettingsError, SessionError
@@ -35,7 +36,7 @@ class SessionManager:
         data = Session(
             _id=session_id,
             ip=ip,
-            expired_at=datetime.now(UTC) + timedelta(minutes=Config().get_config().fastapi.session_ttl),
+            expired_at=datetime.now(UTC) + timedelta(minutes=SESSION_TTL),
         )
         if Config().get_config().login.provider == "disable":
             login_settings = Config().get_config().login.settings

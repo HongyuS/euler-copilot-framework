@@ -7,6 +7,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 from fastapi import HTTPException, Request, Response, status
 
 from apps.common.config import Config
+from apps.constants import SESSION_TTL
 from apps.manager.session import SessionManager
 
 
@@ -26,10 +27,10 @@ async def verify_csrf_token(request: Request, response: Response) -> Response | 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Renew CSRF token failed.")
 
     if Config().get_config().deploy.cookie == "DEBUG":
-        response.set_cookie("_csrf_tk", new_csrf_token, max_age=Config().get_config().fastapi.session_ttl * 60,
+        response.set_cookie("_csrf_tk", new_csrf_token, max_age=SESSION_TTL * 60,
                             domain=Config().get_config().fastapi.domain)
     else:
-        response.set_cookie("_csrf_tk", new_csrf_token, max_age=Config().get_config().fastapi.session_ttl * 60,
+        response.set_cookie("_csrf_tk", new_csrf_token, max_age=SESSION_TTL * 60,
                             secure=True, domain=Config().get_config().fastapi.domain, samesite="strict")
     return response
 
