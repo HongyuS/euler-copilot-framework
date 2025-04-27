@@ -37,7 +37,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: opengauss
-          image: image: {{ .Values.databases.opengauss.image | default (printf "%s/neocopilot/opengauss:latest-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
+          image: {{ .Values.databases.opengauss.image | default (printf "%s/neocopilot/opengauss:latest-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
           ports:
             - containerPort: 5432
