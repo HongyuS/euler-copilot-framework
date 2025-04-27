@@ -4,7 +4,7 @@
 Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
-import aiohttp
+import httpx
 from fastapi import status
 
 from apps.common.config import Config
@@ -36,9 +36,10 @@ class KnowledgeBaseService:
         ]
         post_data = RAGFileParseReq(document_list=rag_docs).model_dump(exclude_none=True, by_alias=True)
 
-        async with aiohttp.ClientSession() as session, session.post(_RAG_DOC_PARSE_URI, json=post_data) as resp:
-            resp_data = await resp.json()
-            if resp.status != status.HTTP_200_OK:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(_RAG_DOC_PARSE_URI, json=post_data)
+            resp_data = resp.json()
+            if resp.status_code != status.HTTP_200_OK:
                 return []
             return resp_data["data"]
 
@@ -46,9 +47,10 @@ class KnowledgeBaseService:
     async def delete_doc_from_rag(doc_ids: list[str]) -> list[str]:
         """删除文件"""
         post_data = {"ids": doc_ids}
-        async with aiohttp.ClientSession() as session, session.post(_RAG_DOC_DELETE_URI, json=post_data) as resp:
-            resp_data = await resp.json()
-            if resp.status != status.HTTP_200_OK:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(_RAG_DOC_DELETE_URI, json=post_data)
+            resp_data = resp.json()
+            if resp.status_code != status.HTTP_200_OK:
                 return []
             return resp_data["data"]
 
@@ -56,8 +58,9 @@ class KnowledgeBaseService:
     async def get_doc_status_from_rag(doc_ids: list[str]) -> list[RAGFileStatusRspItem]:
         """获取文件状态"""
         post_data = {"ids": doc_ids}
-        async with aiohttp.ClientSession() as session, session.post(_RAG_DOC_STATUS_URI, json=post_data) as resp:
-            resp_data = await resp.json()
-            if resp.status != status.HTTP_200_OK:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(_RAG_DOC_STATUS_URI, json=post_data)
+            resp_data = resp.json()
+            if resp.status_code != status.HTTP_200_OK:
                 return []
             return [RAGFileStatusRspItem.model_validate(item) for item in resp_data["data"]]

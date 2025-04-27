@@ -8,7 +8,7 @@ import logging
 from collections.abc import AsyncGenerator
 from typing import Any, Literal
 
-import aiohttp
+import httpx
 from fastapi import status
 from pydantic import Field
 
@@ -65,11 +65,13 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
             "Content-Type": "application/json",
         }
 
-        # 发送 GET 请求
-        async with aiohttp.ClientSession() as session, session.post(url, headers=headers, json=input_data) as response:
+        # 发送请求
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, json=input_data)
+
             # 检查响应状态码
-            if response.status == status.HTTP_200_OK:
-                result = await response.json()
+            if response.status_code == status.HTTP_200_OK:
+                result = response.json()
                 chunk_list = result["data"]
 
                 corpus = []
@@ -86,14 +88,14 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
                 )
                 return
 
-            text = await response.text()
+            text = response.text
             logger.error("[RAG] 调用失败：%s", text)
 
             raise CallError(
                 message=f"rag调用失败：{text}",
                 data={
                     "question": data.content,
-                    "status": response.status,
+                    "status": response.status_code,
                     "text": text,
                 },
             )

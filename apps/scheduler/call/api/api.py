@@ -7,10 +7,10 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 import json
 import logging
 from collections.abc import AsyncGenerator
+from functools import partial
 from typing import Any
 
-import aiohttp
-from aiohttp.client import _RequestContextManager
+import httpx
 from fastapi import status
 from pydantic import Field
 from pydantic.json_schema import SkipJsonSchema
@@ -99,8 +99,7 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """调用API，然后返回LLM解析后的数据"""
-        self._session = aiohttp.ClientSession()
-        self._timeout = aiohttp.ClientTimeout(total=self.timeout)
+        self._client = httpx.AsyncClient(timeout=self.timeout)
         input_obj = APIInput.model_validate(input_data)
         try:
             result = await self._call_api(input_obj)
@@ -109,10 +108,10 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
                 content=result.model_dump(exclude_none=True, by_alias=True),
             )
         finally:
-            await self._session.close()
+            await self._client.aclose()
 
-    async def _make_api_call(self, data: APIInput, files: aiohttp.FormData) -> _RequestContextManager:
-        """组装API请求Session"""
+    async def _make_api_call(self, data: APIInput, files: dict[str, tuple[str, bytes, str]]) -> httpx.Response:
+        """组装API请求"""
         # 获取必要参数
         if self._auth:
             req_header, req_cookie, req_params = await self._apply_auth()
@@ -121,16 +120,45 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
             req_cookie = {}
             req_params = {}
 
+        # 创建请求工厂
+        request_factory = partial(
+            self._client.request,
+            method=self.method,
+            url=self.url,
+            cookies=req_cookie,
+        )
+
+        # 根据HTTP方法创建请求
         if self.method in [HTTPMethod.GET.value, HTTPMethod.DELETE.value]:
-            return await self._handle_query_request(data, req_header, req_cookie, req_params)
+            # GET/DELETE 请求处理
+            req_params.update(data.query)
+            return await request_factory(params=req_params)
 
         if self.method in [HTTPMethod.POST.value, HTTPMethod.PUT.value, HTTPMethod.PATCH.value]:
-            return await self._handle_body_request(data, files, req_header, req_cookie)
+            # POST/PUT/PATCH 请求处理
+            if not self.content_type:
+                raise CallError(message="API接口的Content-Type未指定", data={})
 
-        raise CallError(
-            message="API接口的HTTP Method不支持",
-            data={},
-        )
+            # 根据Content-Type设置请求参数
+            req_body = data.body
+            req_header.update({"Content-Type": self.content_type})
+
+            # 根据Content-Type决定如何发送请求体
+            content_type_handlers = {
+                ContentType.JSON.value: lambda body, _: {"json": body},
+                ContentType.FORM_URLENCODED.value: lambda body, _: {"data": body},
+                ContentType.MULTIPART_FORM_DATA.value: lambda body, files: {"data": body, "files": files},
+            }
+
+            handler = content_type_handlers.get(self.content_type)
+            if not handler:
+                raise CallError(message="API接口的Content-Type不支持", data={})
+
+            request_kwargs = {}
+            request_kwargs.update(handler(req_body, files))
+            return await request_factory(**request_kwargs)
+
+        raise CallError(message="API接口的HTTP Method不支持", data={})
 
     async def _apply_auth(self) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
         """应用认证信息到请求参数中"""
@@ -160,93 +188,24 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
 
         return req_header, req_cookie, req_params
 
-    async def _handle_query_request(
-        self, data: APIInput, req_header: dict[str, str], req_cookie: dict[str, str], req_params: dict[str, str],
-    ) -> _RequestContextManager:
-        """处理GET和DELETE请求"""
-        req_params.update(data.query)
-        return self._session.request(
-            self.method,
-            self.url,
-            params=req_params,
-            headers=req_header,
-            cookies=req_cookie,
-            timeout=self._timeout,
-        )
-
-    async def _handle_body_request(
-        self, data: APIInput, files: aiohttp.FormData, req_header: dict[str, str], req_cookie: dict[str, str],
-    ) -> _RequestContextManager:
-        """处理POST、PUT和PATCH请求"""
-        if not self.content_type:
-            raise CallError(
-                message="API接口的Content-Type未指定",
-                data={},
-            )
-
-        req_body = data.body
-
-        if self.content_type in [ContentType.FORM_URLENCODED.value, ContentType.MULTIPART_FORM_DATA.value]:
-            return await self._handle_form_request(req_body, files, req_header, req_cookie)
-
-        if self.content_type == ContentType.JSON.value:
-            return await self._handle_json_request(req_body, req_header, req_cookie)
-
-        raise CallError(
-            message="API接口的Content-Type不支持",
-            data={},
-        )
-
-    async def _handle_form_request(
-        self,
-        req_body: dict[str, Any],
-        form_data: aiohttp.FormData,
-        req_header: dict[str, str],
-        req_cookie: dict[str, str],
-    ) -> _RequestContextManager:
-        """处理表单类型的请求"""
-        for key, val in req_body.items():
-            form_data.add_field(key, val)
-
-        return self._session.request(
-            self.method,
-            self.url,
-            data=form_data,
-            headers=req_header,
-            cookies=req_cookie,
-            timeout=self._timeout,
-        )
-
-    async def _handle_json_request(
-        self, req_body: dict[str, Any], req_header: dict[str, str], req_cookie: dict[str, str],
-    ) -> _RequestContextManager:
-        """处理JSON类型的请求"""
-        return self._session.request(
-            self.method,
-            self.url,
-            json=req_body,
-            headers=req_header,
-            cookies=req_cookie,
-            timeout=self._timeout,
-        )
-
     async def _call_api(self, final_data: APIInput) -> APIOutput:
         """实际调用API，并处理返回值"""
         # 获取必要参数
         logger.info("[API] 调用接口 %s，请求数据为 %s", self.url, final_data)
 
-        session_context = await self._make_api_call(final_data, aiohttp.FormData())
-        async with session_context as response:
-            if response.status not in SUCCESS_HTTP_CODES:
-                text = f"API发生错误：API返回状态码{response.status}, 原因为{response.reason}。"
-                logger.error(text)
-                raise CallError(
-                    message=text,
-                    data={"api_response_data": await response.text()},
-                )
+        files = {}  # httpx需要使用字典格式的files参数
+        response = await self._make_api_call(final_data, files)
 
-            response_status = response.status
-            response_data = await response.text()
+        if response.status_code not in SUCCESS_HTTP_CODES:
+            text = f"API发生错误：API返回状态码{response.status_code}, 原因为{response.reason_phrase}。"
+            logger.error(text)
+            raise CallError(
+                message=text,
+                data={"api_response_data": response.text},
+            )
+
+        response_status = response.status_code
+        response_data = response.text
 
         logger.info("[API] 调用接口 %s，结果为 %s", self.url, response_data)
 

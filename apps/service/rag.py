@@ -8,7 +8,7 @@ import json
 import logging
 from collections.abc import AsyncGenerator
 
-import aiohttp
+import httpx
 from fastapi import status
 
 from apps.common.config import Config
@@ -32,20 +32,19 @@ class RAG:
 
 
         # asyncio HTTP请求
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=300)) as session, session.post(
-            url, headers=headers, data=payload, ssl=False,
-        ) as response:
-            if response.status != status.HTTP_200_OK:
-                logger.error("[RAG] RAG服务返回错误码: %s\n%s", response.status, await response.text())
+        async with (
+            httpx.AsyncClient(timeout=300, verify=False) as client,  # noqa: S501
+            client.stream("POST", url, headers=headers, content=payload) as response,
+        ):
+            if response.status_code != status.HTTP_200_OK:
+                logger.error("[RAG] RAG服务返回错误码: %s\n%s", response.status_code, await response.aread())
                 return
 
-            async for line in response.content:
-                line_str = line.decode("utf-8")
-
+            async for line in response.aiter_lines():
                 if not await Activity.is_active(user_sub):
                     return
 
-                if "data: [DONE]" in line_str:
+                if "data: [DONE]" in line:
                     return
 
-                yield line_str
+                yield line
