@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-import aiohttp
+import httpx
 from fastapi import status
 
 from apps.common.config import Config
@@ -39,19 +39,22 @@ class OpenEulerOIDCProvider(OIDCProviderBase):
             "code": code,
         }
         url = await cls.get_access_token_url()
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded",
-        }
-        result = None
-        async with (
-            aiohttp.ClientSession() as session,
-            session.post(url, headers=headers, data=data, timeout=aiohttp.ClientTimeout(total=10)) as resp,
-        ):
-            if resp.status != status.HTTP_200_OK:
-                err = f"[OpenEuler] 获取OIDC Token失败: {resp.status}，完整输出: {await resp.text()}"
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                url,
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                data=data,
+                timeout=10.0,
+            )
+            if resp.status_code != status.HTTP_200_OK:
+                err = f"[OpenEuler] 获取OIDC Token失败: {resp.status_code}，完整输出: {resp.text}"
                 raise RuntimeError(err)
-            logger.info("[OpenEuler] 获取OIDC Token成功: %s", await resp.text())
-            result = await resp.json()
+            logger.info("[OpenEuler] 获取OIDC Token成功: %s", resp.text)
+            result = resp.json()
+
         return {
             "access_token": result["access_token"],
             "refresh_token": result["refresh_token"],
@@ -67,20 +70,20 @@ class OpenEulerOIDCProvider(OIDCProviderBase):
             err = "Access token is empty."
             raise RuntimeError(err)
         url = login_config.host_inner.rstrip("/") + "/oneid/oidc/user"
-        headers = {
-            "Authorization": access_token,
-        }
 
-        result = None
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp,
-        ):
-            if resp.status != status.HTTP_200_OK:
-                err = f"[OpenEuler] 获取OIDC用户失败: {resp.status}，完整输出: {await resp.text()}"
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                url,
+                headers={
+                    "Authorization": access_token,
+                },
+                timeout=10.0,
+            )
+            if resp.status_code != status.HTTP_200_OK:
+                err = f"[OpenEuler] 获取OIDC用户失败: {resp.status_code}，完整输出: {resp.text}"
                 raise RuntimeError(err)
-            logger.info("[OpenEuler] 获取OIDC用户成功: %s", await resp.text())
-            result = await resp.json()
+            logger.info("[OpenEuler] 获取OIDC用户成功: %s", resp.text)
+            result = resp.json()
 
         if not result["phone_number_verified"]:
             err = "Could not validate credentials."

@@ -7,7 +7,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 import logging
 from datetime import UTC, datetime, timedelta
 
-import aiohttp
+import httpx
 from fastapi import status
 
 from apps.common.config import Config
@@ -109,16 +109,16 @@ class TokenManager:
                 err = "Refresh token均过期，需要重新登录"
                 raise RuntimeError(err)
 
-        async with aiohttp.ClientSession() as session:
-            response = await session.post(
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
                 url=access_token_url,
                 json={
                     "client_id": oidc_config.app_id,
                     "access_token": oidc_access_token,
                 },
             )
-            ret = await response.json()
-            if response.status != status.HTTP_200_OK:
+            ret = response.json()
+            if response.status_code != status.HTTP_200_OK:
                 logger.error("[TokenManager] 获取 %s 插件所需的token失败", plugin_name)
                 return None
 
