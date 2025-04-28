@@ -24,7 +24,7 @@ from apps.models.mongo import MongoDB
 from apps.scheduler.util import yaml_enum_presenter, yaml_str_presenter
 
 logger = logging.getLogger(__name__)
-
+BASE_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "app"
 
 class FlowLoader:
     """工作流加载器"""
@@ -105,9 +105,7 @@ class FlowLoader:
         logger.info("[FlowLoader] 应用 %s：加载工作流 %s...", flow_id, app_id)
 
         # 构建工作流文件路径
-        flow_path = (
-            Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / app_id / "flow" / f"{flow_id}.yaml"
-        )
+        flow_path = BASE_PATH / app_id / "flow" / f"{flow_id}.yaml"
         if not await flow_path.exists():
             logger.error("[FlowLoader] 应用 %s：工作流文件 %s 不存在", app_id, flow_path)
             return None
@@ -146,9 +144,7 @@ class FlowLoader:
 
     async def save(self, app_id: str, flow_id: str, flow: Flow) -> None:
         """保存工作流"""
-        flow_path = (
-            Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / app_id / "flow" / f"{flow_id}.yaml"
-        )
+        flow_path = BASE_PATH / app_id / "flow" / f"{flow_id}.yaml"
         if not await flow_path.parent.exists():
             await flow_path.parent.mkdir(parents=True)
 
@@ -177,9 +173,7 @@ class FlowLoader:
 
     async def delete(self, app_id: str, flow_id: str) -> bool:
         """删除指定工作流文件"""
-        flow_path = (
-            Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / app_id / "flow" / f"{flow_id}.yaml"
-        )
+        flow_path = BASE_PATH / app_id / "flow" / f"{flow_id}.yaml"
         # 确保目标为文件且存在
         if await flow_path.exists():
             try:
@@ -229,14 +223,7 @@ class FlowLoader:
                 },
                 upsert=True,
             )
-            flow_path = (
-                Path(Config().get_config().deploy.data_dir)
-                / "semantics"
-                / "app"
-                / app_id
-                / "flow"
-                / f"{metadata.id}.yaml"
-            )
+            flow_path = BASE_PATH / app_id / "flow" / f"{metadata.id}.yaml"
             async with aiofiles.open(flow_path, "rb") as f:
                 new_hash = sha256(await f.read()).hexdigest()
 
