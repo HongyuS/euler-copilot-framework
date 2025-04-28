@@ -60,6 +60,10 @@ function check_os_version {
             local supported_versions=("V22")
             check_version "$version" "${supported_versions[@]}"
             ;;
+        "kylin")
+            local supported_versions=("V10")
+            check_version "$version" "${supported_versions[@]}"
+            ;;
         *)
             echo -e "${COLOR_ERROR}[Error] 发行版不受支持，脚本将退出${COLOR_RESET}"
             return 1
