@@ -22,6 +22,7 @@ from apps.scheduler.pool.loader.metadata import MetadataLoader, MetadataType
 from apps.scheduler.pool.loader.openapi import OpenAPILoader
 
 logger = logging.getLogger(__name__)
+BASE_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "service"
 
 
 class ServiceLoader:
@@ -29,7 +30,7 @@ class ServiceLoader:
 
     async def load(self, service_id: str, hashes: dict[str, str]) -> None:
         """加载单个Service"""
-        service_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id
+        service_path = BASE_PATH / service_id
         # 载入元数据
         metadata = await MetadataLoader().load_one(service_path / "metadata.yaml")
         if not isinstance(metadata, ServiceMetadata):
@@ -52,7 +53,7 @@ class ServiceLoader:
 
     async def save(self, service_id: str, metadata: ServiceMetadata, data: dict) -> None:
         """在文件系统上保存Service，并更新数据库"""
-        service_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id
+        service_path = BASE_PATH / service_id
         # 创建文件夹
         if not await service_path.exists():
             await service_path.mkdir(parents=True, exist_ok=True)
@@ -91,7 +92,7 @@ class ServiceLoader:
             logger.exception("[ServiceLoader] 删除数据库失败")
 
         if not is_reload:
-            path = Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id
+            path = BASE_PATH / service_id
             if await path.exists():
                 shutil.rmtree(path)
 

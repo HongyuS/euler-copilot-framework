@@ -20,6 +20,7 @@ from apps.models.lance import LanceDB
 from apps.models.mongo import MongoDB
 
 logger = logging.getLogger(__name__)
+BASE_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "call"
 
 
 class CallLoader:
@@ -55,7 +56,7 @@ class CallLoader:
         """加载单个Call package"""
         call_metadata = []
 
-        call_dir = Path(Config().get_config().deploy.data_dir) / "semantics" / "call" / call_dir_name
+        call_dir = BASE_PATH / call_dir_name
         if not (call_dir / "__init__.py").exists():
             logger.info("[CallLoader] 模块 %s 不存在__init__.py文件，尝试自动创建。", call_dir)
             try:
@@ -104,7 +105,7 @@ class CallLoader:
 
     async def _load_all_user_call(self) -> list[CallPool]:
         """加载Python Call"""
-        call_dir = Path(Config().get_config().deploy.data_dir) / "semantics" / "call"
+        call_dir = BASE_PATH
         call_metadata = []
 
         # 载入父包
@@ -138,7 +139,7 @@ class CallLoader:
         await self._delete_from_db(call_name)
 
         # 从Python中卸载模块
-        call_dir = Path(Config().get_config().deploy.data_dir) / "semantics" / "call" / call_name
+        call_dir = BASE_PATH / call_name
         if call_dir.exists():
             module_name = f"call.{call_name}"
             if module_name in sys.modules:

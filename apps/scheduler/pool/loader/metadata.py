@@ -20,6 +20,7 @@ from apps.entities.flow import (
 from apps.scheduler.util import yaml_str_presenter
 
 logger = logging.getLogger(__name__)
+BASE_PATH = Path(Config().get_config().deploy.data_dir) / "semantics"
 
 
 class MetadataLoader:
@@ -80,13 +81,9 @@ class MetadataLoader:
 
         # 检查资源路径
         if metadata_type == MetadataType.APP.value:
-            resource_path = (
-                Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / resource_id / "metadata.yaml"
-            )
+            resource_path = BASE_PATH / "app" / resource_id / "metadata.yaml"
         elif metadata_type == MetadataType.SERVICE.value:
-            resource_path = (
-                Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / resource_id / "metadata.yaml"
-            )
+            resource_path = BASE_PATH / "service" / resource_id / "metadata.yaml"
         else:
             err = f"[MetadataLoader] metadata_type类型错误: {metadata_type}"
             logger.error(err)

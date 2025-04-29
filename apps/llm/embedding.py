@@ -19,7 +19,7 @@ class Embedding:
     @classmethod
     async def _get_openai_embedding(cls, text: list[str]) -> list[list[float]]:
         """访问OpenAI兼容的Embedding API，获得向量化数据"""
-        api = Config().get_config().embedding.endpoint + "/v1/embeddings"
+        api = Config().get_config().embedding.endpoint + "/embeddings"
         data = {
             "input": text,
             "model": Config().get_config().embedding.model,
