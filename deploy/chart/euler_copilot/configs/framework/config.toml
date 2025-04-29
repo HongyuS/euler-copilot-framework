@@ -46,7 +46,7 @@ secret_key = '${minio-password}'
 secure = false
 
 [llm]
-endpoint = '{{ .Values.models.answer.endpoint }}/v1'
+endpoint = '{{ .Values.models.answer.endpoint }}'
 key = '{{ .Values.models.answer.key }}'
 model = '{{ .Values.models.answer.name }}'
 max_tokens = {{ default 8192 .Values.models.answer.maxTokens }}
