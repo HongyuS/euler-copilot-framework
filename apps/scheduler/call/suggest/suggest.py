@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionOutput):
     """问题推荐"""
 
-    to_user: SkipJsonSchema[bool] = Field(default=True, description="是否将推荐的问题推送给用户")
+    to_user: bool = Field(default=True, description="是否将推荐的问题推送给用户")
 
     configs: list[SingleFlowSuggestionConfig] = Field(description="问题推荐配置", default=[])
     num: int = Field(default=3, ge=1, le=6, description="推荐问题的总数量（必须大于等于configs中涉及的Flow的数量）")
