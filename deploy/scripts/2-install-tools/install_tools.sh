@@ -103,18 +103,18 @@ function check_arch {
 install_basic_tools() {
     # 安装基础工具
     echo "Installing tar, vim, curl, wget..."
-    yum install -y tar vim curl wget
+    yum install -y tar vim curl wget python3
 
     # 检查 pip 是否已安装
-    if ! command -v pip &> /dev/null; then
+    if ! command -v pip3 &> /dev/null; then
         echo -e "pip could not be found, installing python3-pip..."
         yum install -y python3-pip
     else
         echo -e "pip is already installed."
     fi
 
-    echo "Installing requests ruamel.yaml with pip..."
-    if ! pip install \
+    echo "Installing requests ruamel.yaml with pip3..."
+    if ! pip3 install \
         --disable-pip-version-check \
         --retries 3 \
         --timeout 60 \
