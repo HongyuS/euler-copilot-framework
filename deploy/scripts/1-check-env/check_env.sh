@@ -34,7 +34,7 @@ function check_version {
 }
 
 function check_os_version {
-    local id=$(grep -E "^ID=" /etc/os-release | cut -d '"' -f 2)
+    local id=$(grep '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')
     local version=$(grep -E "^VERSION_ID=" /etc/os-release | cut -d '"' -f 2)
 
     echo -e "${COLOR_INFO}[Info] 当前发行版为：$id${COLOR_RESET}"

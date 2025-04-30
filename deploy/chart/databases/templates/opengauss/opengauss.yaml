@@ -44,10 +44,7 @@ spec:
               protocol: TCP
           livenessProbe:
             exec:
-              command:
-                - gs_guc reload -D /var/lib/opengauss/data -c "behavior_compat_options='accept_empty_str'"
-                - pg_isready
-                - -d postgres -U postgres
+              command: ["/bin/bash", "/docker-entrypoint-initdb.d/post-init.sh"]
             failureThreshold: 5
             initialDelaySeconds: 60
             periodSeconds: 90
@@ -63,12 +60,19 @@ spec:
                 secretKeyRef:
                   name: euler-copilot-database
                   key: gauss-password
+            - name: GAUSSLOG
+              value: /var/log/opengauss
           volumeMounts:
             - mountPath: /var/lib/opengauss/data
               name: opengauss-data
             - mountPath: /docker-entrypoint-initdb.d/init.sql
               name: opengauss-init
               subPath: init.sql
+            - mountPath: /docker-entrypoint-initdb.d/post-init.sh
+              name: opengauss-init
+              subPath: post-init.sh
+            - mountPath: /var/log/opengauss
+              name: opengauss-log
           resources:
             requests:
               cpu: 0.25
@@ -82,5 +86,8 @@ spec:
         - name: opengauss-init
           configMap:
             name: opengauss-config
+            defaultMode: 0744
+        - name: opengauss-log
+          emptyDir: {}
 {{- end -}}
 
