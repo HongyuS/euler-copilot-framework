@@ -88,7 +88,7 @@ install_dependencies() {
         exit 1
       fi
       ;;
-    centos|rhel|fedora|openEuler|kylin)
+    centos|rhel|fedora|openEuler|kylin|uos)
       if ! yum install -y "${deps[@]}"; then
         log "ERROR" "YUM依赖安装失败"
         exit 1
