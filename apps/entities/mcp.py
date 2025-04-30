@@ -25,6 +25,7 @@ class MCPServerConfig(BaseModel):
     description: str = Field(description="MCP 服务器自然语言描述")
     type: MCPType = Field(description="MCP 服务器类型", default=MCPType.STDIO)
     is_active: bool = Field(description="MCP 服务器是否启用", default=False, alias="isActive")
+    auto_install: bool = Field(description="是否自动安装MCP服务器", default=True, alias="autoInstall")
     icon_path: str = Field(description="MCP 服务器图标路径")
     env: dict[str, str] = Field(description="MCP 服务器环境变量")
 
