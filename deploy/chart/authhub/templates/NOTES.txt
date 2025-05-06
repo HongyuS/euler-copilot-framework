@@ -1,5 +1,5 @@
-感谢您使用EulerCopilot！
-当前为EulerCopilot 0.9.5版本。
+感谢您使用openEuler Intelligence！
+当前为0.9.5版本。
 当前Chart的功能为：AuthHub统一登录系统部署。
 
 说明：
