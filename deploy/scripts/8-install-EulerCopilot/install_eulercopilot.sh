@@ -244,7 +244,7 @@ modify_yaml() {
       --set "models.answer.endpoint=http://$host:11434" \
       --set "models.answer.key=sk-123456" \
       --set "models.answer.name=deepseek-llm-7b-chat:latest" \
-      --set "models.embedding.endpoint=http://$host:11434" \
+      --set "models.embedding.endpoint=http://$host:11434/v1" \
       --set "models.embedding.key=sk-123456" \
       --set "models.embedding.name=bge-m3:latest" \
       --set "login.client.id=${client_id}" \
