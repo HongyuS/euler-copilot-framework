@@ -58,12 +58,12 @@ async def get_session(request: HTTPConnection) -> str:
     if not session_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="[VerifySessionMiddleware] Session ID 不存在",
+            detail="Session ID 不存在",
         )
     if not await SessionManager.verify_user(session_id):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="[VerifySessionMiddleware] Session ID 鉴权失败",
+            detail="Session ID 鉴权失败",
         )
     return session_id
 
@@ -79,14 +79,14 @@ async def get_user(request: HTTPConnection) -> str:
     if not session_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="[VerifySessionMiddleware] Session ID 不存在",
+            detail="Session ID 不存在",
         )
 
     user_sub = await SessionManager.get_user(session_id)
     if not user_sub:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="[VerifySessionMiddleware] Session ID 鉴权失败",
+            detail="Session ID 鉴权失败",
         )
 
     request.state.user_sub = user_sub
