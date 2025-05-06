@@ -83,7 +83,6 @@ async def oidc_login(request: Request, code: str) -> HTMLResponse:
     await UserManager.update_userinfo_by_user_sub(user_sub)
 
     current_session = await SessionManager.create_session(user_host, user_sub)
-    new_csrf_token = await SessionManager.create_csrf_token(current_session)
 
     data = Audit(
         user_sub=user_sub,
@@ -108,15 +107,13 @@ async def oidc_login(request: Request, code: str) -> HTMLResponse:
     <script>
         try {{
             const sessionId = "{current_session}";
-            const csrfToken = "{new_csrf_token}";
             const targetOrigin = {target_origin_js};
 
             if (window.opener && window.opener !== window) {{
-                console.log('发送认证信息到主窗口:', {{ sessionId, csrfToken }}, '目标源:', targetOrigin);
+                console.log('发送认证信息到主窗口:', {{ sessionId }}, '目标源:', targetOrigin);
                 window.opener.postMessage({{
                     type: 'auth_success',
-                    session_id: sessionId,
-                    csrf_token: csrfToken
+                    session_id: sessionId
                 }}, targetOrigin);
 
                 document.getElementById('message').innerText = "登录成功，窗口即将自动关闭…";
