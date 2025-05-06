@@ -24,7 +24,7 @@ jwt_key = '${jwtKey}'
 
 [embedding]
 type = '{{ default "openai" .Values.models.embedding.type }}'
-endpoint = '{{ .Values.models.embedding.endpoint }}/v1'
+endpoint = '{{ .Values.models.embedding.endpoint }}'
 api_key = '{{ .Values.models.embedding.key }}'
 model = '{{ default "bge-m3" .Values.models.embedding.model }}'
 
