@@ -42,7 +42,7 @@ models:
     # 推理框架类型，默认为openai
     # [必填] Embedding接口类型：["openai", "mindie"]
     type:
-    # [必填] Embedding URL（需要带上“v1”后缀）
+    # [必填] Embedding URL（无需带上“v1”后缀）
     endpoint: 
     # [必填] Embedding 模型API Key
     key: 

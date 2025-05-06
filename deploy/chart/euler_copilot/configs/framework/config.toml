@@ -25,7 +25,7 @@ jwt_key = '${jwtKey}'
 
 [embedding]
 type = '{{ default "openai" .Values.models.embedding.type }}'
-endpoint = '{{ .Values.models.embedding.endpoint }}'
+endpoint = '{{ .Values.models.embedding.endpoint }}/v1'
 api_key = '{{ .Values.models.embedding.key }}'
 model = '{{ default "bge-m3" .Values.models.embedding.model }}'
 
@@ -46,7 +46,7 @@ secret_key = '${minio-password}'
 secure = false
 
 [llm]
-endpoint = '{{ .Values.models.answer.endpoint }}'
+endpoint = '{{ .Values.models.answer.endpoint }}/v1'
 key = '{{ .Values.models.answer.key }}'
 model = '{{ .Values.models.answer.name }}'
 max_tokens = {{ default 8192 .Values.models.answer.maxTokens }}
