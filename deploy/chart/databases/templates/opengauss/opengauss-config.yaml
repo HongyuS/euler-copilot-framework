@@ -8,6 +8,9 @@ data:
   init.sql: |
     CREATE EXTENSION chparser;
     CREATE TEXT SEARCH CONFIGURATION chparser (PARSER = chparser);
-    ALTER TEXT SEARCH CONFIGURATION chparser ADD MAPPING FOR n,v,a,i,e,l WITH simple;    
+    ALTER TEXT SEARCH CONFIGURATION chparser ADD MAPPING FOR n,v,a,i,e,l WITH simple;
+  post-init.sh: |
+    #!/bin/bash
+    su - omm -c "gs_guc reload -D /var/lib/opengauss/data -c \"behavior_compat_options = 'accept_empty_str'\""
 {{- end -}}
 
