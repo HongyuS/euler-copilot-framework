@@ -12,7 +12,7 @@ import pytz
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency import get_user, verify_csrf_token, verify_user
+from apps.dependency import get_user, verify_user
 from apps.entities.collection import Audit, Conversation
 from apps.entities.request_data import (
     DeleteConversationData,
@@ -139,7 +139,7 @@ async def get_conversation_list(user_sub: Annotated[str, Depends(get_user)]) -> 
     )
 
 
-@router.post("", dependencies=[Depends(verify_csrf_token)], response_model=AddConversationRsp)
+@router.post("", response_model=AddConversationRsp)
 async def add_conversation(
     user_sub: Annotated[str, Depends(get_user)],
     app_id: Annotated[str, Query(..., alias="appId")] = "",
@@ -182,7 +182,7 @@ async def add_conversation(
     )
 
 
-@router.put("", response_model=UpdateConversationRsp, dependencies=[Depends(verify_csrf_token)])
+@router.put("", response_model=UpdateConversationRsp)
 async def update_conversation(
     post_body: ModifyConversationData,
     conversation_id: Annotated[str, Query(..., alias="conversationId")],
@@ -240,7 +240,7 @@ async def update_conversation(
     )
 
 
-@router.delete("", response_model=ResponseData, dependencies=[Depends(verify_csrf_token)])
+@router.delete("", response_model=ResponseData)
 async def delete_conversation(
     request: Request,
     post_body: DeleteConversationData,

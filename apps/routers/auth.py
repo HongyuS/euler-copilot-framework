@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from apps.common.config import Config
 from apps.common.oidc import oidc_provider
-from apps.dependency import get_session, get_user, verify_csrf_token, verify_user
+from apps.dependency import get_session, get_user, verify_user
 from apps.entities.collection import Audit
 from apps.entities.response_data import (
     AuthUserMsg,
@@ -230,7 +230,7 @@ async def userinfo(
 
 @router.post(
     "/update_revision_number",
-    dependencies=[Depends(verify_user), Depends(verify_csrf_token)],
+    dependencies=[Depends(verify_user)],
     response_model=AuthUserRsp,
     responses={
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": ResponseData},
