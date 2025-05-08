@@ -2,8 +2,8 @@
 """MCP 相关数据结构"""
 
 from enum import Enum
-from typing import Any
 
+from lancedb.pydantic import LanceModel, Vector
 from pydantic import BaseModel, Field
 
 
@@ -49,41 +49,18 @@ class MCPConfig(BaseModel):
     ] = Field(description="MCP 服务器配置", alias="mcpServers")
 
 
-class MCPMessageType(str, Enum):
-    """MCP 消息类型"""
+class MCPCollection(BaseModel):
+    """MCP相关信息，存储在MongoDB的 ``mcp`` 集合中"""
 
-    INIT = "initialize"
-    TOOL_LIST = "tools/list"
-    TOOL_CALL = "tools/call"
-    PING = "ping"
-
-
-class MCPRPCBase(BaseModel):
-    """MCP RPC 基础"""
-
-    jsonrpc: str = Field(description="JSON-RPC 版本", default="2.0")
-    id: str = Field(description="MCP 消息 ID")
+    id: str = Field(description="MCP ID", alias="_id")
+    name: str = Field(description="MCP 自然语言名称")
+    description: str = Field(description="MCP 自然语言描述")
+    type: MCPType = Field(description="MCP 类型")
+    activated: list[str] = Field(description="激活该MCP的用户ID列表")
 
 
-class MCPRequest(MCPRPCBase):
-    """MCP 请求基础"""
+class MCPVector(LanceModel):
+    """MCP向量化数据，存储在LanceDB的 ``mcp`` 表中"""
 
-    method: MCPMessageType = Field(description="MCP 消息类型")
-    params: dict[str, Any] | None = Field(description="MCP 消息参数", default=None)
-
-
-class MCPResponseError(BaseModel):
-    """MCP 响应错误"""
-
-    code: int = Field(description="MCP 错误码")
-    message: str = Field(description="MCP 错误消息")
-    data: dict[str, Any] | None = Field(description="MCP 错误数据")
-
-
-class MCPResponse(BaseModel):
-    """MCP 响应基础"""
-
-    jsonrpc: str = Field(description="JSON-RPC 版本", default="2.0")
-    id: str = Field(description="MCP 消息 ID")
-    result: dict[str, Any] | None = Field(description="MCP 消息结果", default=None)
-    error: MCPResponseError | None = Field(description="MCP 消息错误", default=None)
+    id: str = Field(description="MCP ID")
+    embedding: Vector(dim=1024) = Field(description="MCP描述的向量信息")  # type: ignore[call-arg]
