@@ -1,8 +1,8 @@
-# EulerCopilot 大模型应用平台
+# openEuler 智能化解决方案
 
 #### 介绍
 
-EulerCopilot 是一款基于openEuler原生os构建的大模型应用平台，主要有以下几个核心功能：
+openEuler智能化解决方案（openEuler Intelligence） 是一个基于openEuler操作系统的大模型应用平台，主要有以下几个核心功能：
 
 - 多路增强RAG：单路->多路，检索后综合优选，回答更准确40%->90%;
 - 知识库管理：可视化、全流程覆盖、多用户空间保障数据隐私安全;

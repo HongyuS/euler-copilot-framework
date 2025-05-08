@@ -1,8 +1,5 @@
-"""
-Call 加载器
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""Call 加载器"""
 
 import importlib
 import logging
@@ -12,6 +9,7 @@ from pathlib import Path
 
 import apps.scheduler.call as system_call
 from apps.common.config import Config
+from apps.common.singleton import SingletonMeta
 from apps.entities.enum_var import CallType
 from apps.entities.pool import CallPool, NodePool
 from apps.entities.vector import CallPoolVector
@@ -23,7 +21,7 @@ logger = logging.getLogger(__name__)
 BASE_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "call"
 
 
-class CallLoader:
+class CallLoader(metaclass=SingletonMeta):
     """
     Call 加载器
 

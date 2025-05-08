@@ -23,6 +23,8 @@ from apps.entities.scheduler import (
     CallVars,
 )
 from apps.entities.task import FlowStepHistory
+from apps.llm.function import FunctionLLM
+from apps.llm.reasoning import ReasoningLLM
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor
@@ -192,3 +194,22 @@ class CoreCall(BaseModel):
         async for chunk in self._exec(input_data):
             yield chunk
         await self._after_exec(input_data)
+
+
+    async def _llm(self, messages: list[dict[str, Any]]) -> str:
+        """Call可直接使用的LLM非流式调用"""
+        result = ""
+        llm = ReasoningLLM()
+        async for chunk in llm.call(messages, streaming=False):
+            result += chunk
+        self.input_tokens = llm.input_tokens
+        self.output_tokens = llm.output_tokens
+        return result
+
+
+    async def _json(self, messages: list[dict[str, Any]], schema: type[BaseModel]) -> BaseModel:
+        """Call可直接使用的JSON生成"""
+        json = FunctionLLM()
+        schema_dict = schema.model_json_schema()
+        result = await json.call(messages=messages, schema=schema_dict)
+        return schema.model_validate(result)

@@ -20,6 +20,7 @@ from apps.scheduler.pool.loader import (
     AppLoader,
     CallLoader,
     FlowLoader,
+    MCPLoader,
     ServiceLoader,
 )
 
@@ -27,11 +28,23 @@ logger = logging.getLogger(__name__)
 
 
 class Pool(metaclass=SingletonMeta):
-    """资源池"""
+    """
+    资源池
+
+    在Framework启动时，执行全局的载入流程；同时在内存中维持部分变量，满足MCP、Call等含Python类的模块能够驻留在内存中。
+    """
 
     @staticmethod
     async def check_dir() -> None:
-        """检查文件夹是否存在"""
+        """
+        检查必要的文件夹是否存在
+
+        检查 ``data_dir`` 目录下是否存在 ``semantics/`` 目录，
+        并检查是否存在 ``app/``、``service/``、``call/``、``mcp/`` 目录。
+        如果目录不存在，则自动创建目录。
+
+        :return: 无
+        """
         root_dir = Config().get_config().deploy.data_dir.rstrip("/") + "/semantics/"
         if not await Path(root_dir + "app").exists():
             logger.warning("[Pool] App目录%s不存在，创建中", root_dir + "app")
@@ -42,10 +55,33 @@ class Pool(metaclass=SingletonMeta):
         if not await Path(root_dir + "call").exists():
             logger.warning("[Pool] Call目录%s不存在，创建中", root_dir + "call")
             await Path(root_dir + "call").mkdir(parents=True, exist_ok=True)
+        if not await Path(root_dir + "mcp").exists():
+            logger.warning("[Pool] MCP目录%s不存在，创建中", root_dir + "mcp")
+            await Path(root_dir + "mcp").mkdir(parents=True, exist_ok=True)
+
+
+    def __init__(self) -> None:
+        """创建Pool在内存中驻留的变量"""
+        self.mcp = MCPLoader()
+        self.call = CallLoader()
 
 
     async def init(self) -> None:
-        """加载全部文件系统内的资源"""
+        """
+        加载全部文件系统内的资源
+
+        包含：
+
+        - 检查文件变动
+        - 载入Call
+        - 载入Service
+        - 载入App
+        - 载入MCP
+
+        这一流程在Framework启动时执行。
+
+        :return: 无
+        """
         # 检查文件夹是否存在
         await self.check_dir()
 
@@ -90,6 +126,11 @@ class Pool(metaclass=SingletonMeta):
             hash_key = Path("app/" + app).as_posix()
             if hash_key in checker.hashes:
                 await app_loader.load(app, checker.hashes[hash_key])
+
+        # 载入MCP
+        logger.info("[Pool] 载入MCP")
+        await self.mcp.init_all_template()
+        await self.mcp.load_all_user()
 
 
     async def get_flow_metadata(self, app_id: str) -> list[AppFlow]:
