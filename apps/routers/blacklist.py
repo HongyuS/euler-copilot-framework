@@ -9,7 +9,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency.csrf import verify_csrf_token
 from apps.dependency.user import get_user, verify_user
 from apps.entities.request_data import (
     AbuseProcessRequest,
@@ -55,7 +54,7 @@ async def get_blacklist_user(page: int = 0):  # noqa: ANN201
     ).model_dump(exclude_none=True, by_alias=True))
 
 
-@router.post("/user", dependencies=[Depends(verify_csrf_token)], response_model=ResponseData)
+@router.post("/user", response_model=ResponseData)
 async def change_blacklist_user(request: UserBlacklistRequest):  # noqa: ANN201
     """操作黑名单用户"""
     # 拉黑用户
@@ -102,7 +101,7 @@ async def get_blacklist_question(page: int = 0):  # noqa: ANN201
         result=GetBlacklistQuestionMsg(question_list=question_list),
     ).model_dump(exclude_none=True, by_alias=True))
 
-@router.post("/question", dependencies=[Depends(verify_csrf_token)], response_model=ResponseData)
+@router.post("/question", response_model=ResponseData)
 async def change_blacklist_question(request: QuestionBlacklistRequest):  # noqa: ANN201
     """黑名单问题检测或操作"""
     # 删问题
@@ -135,7 +134,7 @@ async def change_blacklist_question(request: QuestionBlacklistRequest):  # noqa:
     ).model_dump(exclude_none=True, by_alias=True))
 
 
-@router.post("/complaint", dependencies=[Depends(verify_csrf_token)], response_model=ResponseData)
+@router.post("/complaint", response_model=ResponseData)
 async def abuse_report(request: AbuseRequest, user_sub: Annotated[str, Depends(get_user)]):  # noqa: ANN201
     """用户实施举报"""
     result = await AbuseManager.change_abuse_report(
@@ -173,7 +172,7 @@ async def get_abuse_report(page: int = 0):  # noqa: ANN201
         result=GetBlacklistQuestionMsg(question_list=result),
     ).model_dump(exclude_none=True, by_alias=True))
 
-@router.post("/abuse", dependencies=[Depends(verify_csrf_token)], response_model=ResponseData)
+@router.post("/abuse", response_model=ResponseData)
 async def change_abuse_report(request: AbuseProcessRequest):  # noqa: ANN201
     """对被举报问答对进行操作"""
     if request.is_deletion:

@@ -26,7 +26,6 @@ from apps.routers import (
     auth,
     blacklist,
     chat,
-    client,
     comment,
     conversation,
     document,
@@ -60,7 +59,6 @@ app.include_router(comment.router)
 app.include_router(record.router)
 app.include_router(health.router)
 app.include_router(chat.router)
-app.include_router(client.router)
 app.include_router(blacklist.router)
 app.include_router(document.router)
 app.include_router(knowledge.router)

@@ -55,7 +55,6 @@ class FastAPIConfig(BaseModel):
     """FastAPI配置"""
 
     domain: str = Field(description="当前实例的域名")
-    csrf: bool = Field(description="是否启用CSRF Token功能", default=False)
 
 
 class MinioConfig(BaseModel):

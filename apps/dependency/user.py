@@ -6,15 +6,12 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 
 import logging
 
-from fastapi import Depends, Response
+from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from starlette import status
 from starlette.exceptions import HTTPException
 from starlette.requests import HTTPConnection
 
-from apps.common.config import Config
-from apps.common.oidc import oidc_provider
-from apps.constants import SESSION_TTL
 from apps.manager.api_key import ApiKeyManager
 from apps.manager.session import SessionManager
 
@@ -22,76 +19,32 @@ logger = logging.getLogger(__name__)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
-async def _verify_oidc_auth(request: HTTPConnection, response: Response) -> str:
+async def _get_session_id_from_request(request: HTTPConnection) -> str | None:
     """
-    验证OIDC认证状态并获取用户信息
+    从请求中获取 session_id
 
     :param request: HTTP请求
-    :return: 用户信息字典
-    :raises: HTTPException 当OIDC验证失败时
+    :return: session_id
     """
-    try:
-        tokens = await oidc_provider.get_login_status(request.cookies)
-    except Exception as err:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="[OIDC] 检查OIDC登录状态失败") from err
+    session_id = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        session_id = auth_header.split(" ", 1)[1]
+    elif "ECSESSION" in request.cookies:
+        # Fallback for potential other uses or transition period
+        session_id = request.cookies["ECSESSION"]
 
-    if not tokens:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="[OIDC] 检查OIDC登录状态失败")
-
-    try:
-        user_info = await oidc_provider.get_oidc_user(tokens["access_token"])
-    except Exception as err:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="[OIDC] 获取用户信息失败") from err
-
-    if not user_info:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="[OIDC] 获取用户信息失败")
-
-    # 创建新的session
-    if request.client is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="[OIDC] 获取登录IP失败")
-
-    user_sub = user_info["user_sub"]
-    user_host = request.client.host
-    try:
-        current_session = request.cookies["ECSESSION"]
-        await SessionManager.delete_session(current_session)
-    except Exception:
-        logger.exception("[VerifySessionMiddleware] 删除session失败")
-
-    current_session = await SessionManager.create_session(user_host, user_sub)
-
-    # 设置cookie
-    if Config().get_config().deploy.cookie == "DEBUG":
-        response.set_cookie(
-            "ECSESSION",
-            current_session,
-        )
-    else:
-        response.set_cookie(
-            "ECSESSION",
-            current_session,
-            max_age=SESSION_TTL * 60,
-            secure=True,
-            domain=Config().get_config().fastapi.domain,
-            httponly=True,
-            samesite="strict",
-        )
-
-    return user_sub
+    return session_id
 
 
-async def verify_user(request: HTTPConnection, response: Response) -> None:
+async def verify_user(request: HTTPConnection) -> None:
     """
     验证Session是否已鉴权；未鉴权则抛出HTTP 401；接口级dependence
 
     :param request: HTTP请求
     :return: None
     """
-    session_id = request.cookies["ECSESSION"]
-    if await SessionManager.verify_user(session_id):
-        return
-
-    await _verify_oidc_auth(request, response)
+    request.state.session_id = await get_session(request)
 
 
 async def get_session(request: HTTPConnection) -> str:
@@ -101,26 +54,44 @@ async def get_session(request: HTTPConnection) -> str:
     :param request: HTTP请求
     :return: Session ID
     """
-    session_id = request.cookies["ECSESSION"]
+    session_id = await _get_session_id_from_request(request)
+    if not session_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session ID 不存在",
+        )
     if not await SessionManager.verify_user(session_id):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication Error.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session ID 鉴权失败",
+        )
     return session_id
 
 
-async def get_user(request: HTTPConnection, response: Response) -> str:
+async def get_user(request: HTTPConnection) -> str:
     """
     验证Session是否已鉴权；若已鉴权，查询对应的user_sub；若未鉴权，抛出HTTP 401；参数级dependence
 
     :param request: HTTP请求体
     :return: 用户sub
     """
-    session_id = request.cookies["ECSESSION"]
+    session_id = await _get_session_id_from_request(request)
+    if not session_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session ID 不存在",
+        )
 
-    user = await SessionManager.get_user(session_id)
-    if user:
-        return user
+    user_sub = await SessionManager.get_user(session_id)
+    if not user_sub:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session ID 鉴权失败",
+        )
 
-    return await _verify_oidc_auth(request, response)
+    request.state.user_sub = user_sub
+    request.state.session_id = session_id
+    return user_sub
 
 
 async def verify_api_key(api_key: str = Depends(oauth2_scheme)) -> None:

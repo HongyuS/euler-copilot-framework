@@ -5,9 +5,9 @@ Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 """
 
 import logging
+import re
 import uuid
 from datetime import UTC, datetime
-import re
 from typing import Any
 
 from apps.entities.appcenter import AppCenterCardItem, AppData
@@ -265,7 +265,7 @@ class AppCenterManager:
         await app_loader.save(metadata, app_id)
 
     @staticmethod
-    async def update_app_publish_status(app_id: str, user_sub: str) -> None:
+    async def update_app_publish_status(app_id: str, user_sub: str) -> bool:
         """
         发布应用
 

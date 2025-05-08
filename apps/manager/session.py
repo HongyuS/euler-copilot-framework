@@ -4,9 +4,6 @@
 Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
-import base64
-import hashlib
-import hmac
 import logging
 import secrets
 from datetime import UTC, datetime, timedelta
@@ -135,64 +132,3 @@ class SessionManager:
             return None
 
         return user_sub
-
-    @staticmethod
-    async def create_csrf_token(session_id: str) -> str:
-        """创建CSRF Token"""
-        rand = secrets.token_hex(8)
-
-        try:
-            collection = MongoDB().get_collection("session")
-            await collection.update_one({"_id": session_id}, {"$set": {"nonce": rand}})
-        except Exception as e:
-            err = "创建CSRF Token失败"
-            logger.exception("[SessionManager] %s", err)
-            raise SessionError(err) from e
-
-        csrf_value = f"{session_id}{rand}"
-        csrf_b64 = base64.b64encode(bytes.fromhex(csrf_value))
-
-        jwt_key = base64.b64decode(Config().get_config().security.jwt_key)
-        hmac_processor = hmac.new(key=jwt_key, msg=csrf_b64, digestmod=hashlib.sha256)
-        signature = base64.b64encode(hmac_processor.digest())
-
-        csrf_b64 = csrf_b64.decode("utf-8")
-        signature = signature.decode("utf-8")
-        return f"{csrf_b64}.{signature}"
-
-    @staticmethod
-    async def verify_csrf_token(session_id: str, token: str) -> bool:
-        """验证CSRF Token"""
-        if not token:
-            return False
-
-        token_msg = token.split(".")
-        if len(token_msg) != 2:  # noqa: PLR2004
-            return False
-
-        first_part = base64.b64decode(token_msg[0]).hex()
-        current_session_id = first_part[:32]
-        logger.error("current_session_id: %s, session_id: %s", current_session_id, session_id)
-        if current_session_id != session_id:
-            return False
-
-        current_nonce = first_part[32:]
-        try:
-            collection = MongoDB().get_collection("session")
-            data = await collection.find_one({"_id": session_id})
-            if not data:
-                return False
-            nonce = Session(**data).nonce
-            if nonce != current_nonce:
-                return False
-        except Exception as e:
-            err = "从Session中获取CSRF Token失败"
-            logger.exception("[SessionManager] %s", err)
-            raise SessionError(err) from e
-
-        jwt_key = base64.b64decode(Config().get_config().security.jwt_key)
-        hmac_obj = hmac.new(key=jwt_key, msg=token_msg[0].encode("utf-8"), digestmod=hashlib.sha256)
-        signature = hmac_obj.digest()
-        current_signature = base64.b64decode(token_msg[1])
-
-        return hmac.compare_digest(signature, current_signature)

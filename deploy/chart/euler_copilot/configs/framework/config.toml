@@ -14,7 +14,6 @@ app_secret = '${clientSecret}'
 
 [fastapi]
 domain = '{{ default "www.eulercopilot.local" .Values.domain.euler_copilot }}'
-csrf = false
 
 [security]
 half_key1 = '${halfKey1}'

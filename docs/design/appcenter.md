@@ -96,5 +96,4 @@ AppCenter 是 openEuler Copilot Framework 的应用中心模块, 主要提供以
 ## 6. 安全性设计
 
 - 接口鉴权: 依赖 `verify_user` 中间件进行用户认证
-- CSRF 防护: 使用 `verify_csrf_token` 中间件
 - 权限控制: 应用删除、发布等操作需验证用户身份

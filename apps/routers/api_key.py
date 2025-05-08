@@ -9,7 +9,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency.csrf import verify_csrf_token
 from apps.dependency.user import get_user, verify_user
 from apps.entities.api_key import GetAuthKeyRsp, PostAuthKeyMsg, PostAuthKeyRsp
 from apps.entities.response_data import ResponseData
@@ -35,7 +34,7 @@ async def check_api_key_existence(user_sub: Annotated[str, Depends(get_user)]) -
     ).model_dump(exclude_none=True, by_alias=True))
 
 
-@router.post("", dependencies=[Depends(verify_csrf_token)], responses={
+@router.post("", responses={
     400: {"model": ResponseData},
 }, response_model=PostAuthKeyRsp)
 async def manage_api_key(action: str, user_sub: Annotated[str, Depends(get_user)]) -> JSONResponse:

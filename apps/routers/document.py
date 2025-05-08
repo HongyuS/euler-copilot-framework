@@ -9,7 +9,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency import get_user, verify_csrf_token, verify_user
+from apps.dependency import get_user, verify_user
 from apps.entities.enum_var import DocumentStatus
 from apps.entities.response_data import (
     ConversationDocumentItem,
@@ -32,7 +32,7 @@ router = APIRouter(
 )
 
 
-@router.post("/{conversation_id}", dependencies=[Depends(verify_csrf_token)])
+@router.post("/{conversation_id}")
 async def document_upload(  # noqa: ANN201
     conversation_id: str,
     documents: Annotated[list[UploadFile], File(...)],

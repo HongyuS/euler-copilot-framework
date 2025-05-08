@@ -10,7 +10,6 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, Path, Query, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency.csrf import verify_csrf_token
 from apps.dependency.user import get_user, verify_user
 from apps.entities.appcenter import AppFlowInfo, AppPermissionData
 from apps.entities.enum_var import SearchType
@@ -96,7 +95,7 @@ async def get_applications(  # noqa: PLR0913
     )
 
 
-@router.post("", dependencies=[Depends(verify_csrf_token)], response_model=BaseAppOperationRsp | ResponseData)
+@router.post("", response_model=BaseAppOperationRsp | ResponseData)
 async def create_or_update_application(
     request: Annotated[CreateAppRequest, Body(...)],
     user_sub: Annotated[str, Depends(get_user)],
@@ -249,7 +248,6 @@ async def get_application(
 
 @router.delete(
     "/{appId}",
-    dependencies=[Depends(verify_csrf_token)],
     response_model=BaseAppOperationRsp | ResponseData,
 )
 async def delete_application(
@@ -299,7 +297,7 @@ async def delete_application(
     )
 
 
-@router.post("/{appId}", dependencies=[Depends(verify_csrf_token)], response_model=BaseAppOperationRsp)
+@router.post("/{appId}", response_model=BaseAppOperationRsp)
 async def publish_application(
     app_id: Annotated[str, Path(..., alias="appId", description="应用ID")],
     user_sub: Annotated[str, Depends(get_user)],
@@ -307,9 +305,6 @@ async def publish_application(
     """发布应用"""
     try:
         published = await AppCenterManager.update_app_publish_status(app_id, user_sub)
-        if not published:
-            msg = "发布应用失败"
-            raise ValueError(msg)
     except ValueError:
         logger.exception("[AppCenter] 发布应用请求无效")
         return JSONResponse(
@@ -340,6 +335,9 @@ async def publish_application(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
+    if not published:
+        msg = "发布应用失败"
+        raise ValueError(msg)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=BaseAppOperationRsp(
@@ -350,7 +348,7 @@ async def publish_application(
     )
 
 
-@router.put("/{appId}", dependencies=[Depends(verify_csrf_token)], response_model=ModFavAppRsp | ResponseData)
+@router.put("/{appId}", response_model=ModFavAppRsp | ResponseData)
 async def modify_favorite_application(
     app_id: Annotated[str, Path(..., alias="appId", description="应用ID")],
     request: Annotated[ModFavAppRequest, Body(...)],

@@ -7,7 +7,6 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency.csrf import verify_csrf_token
 from apps.dependency.user import verify_user
 from apps.entities.request_data import PostDomainData
 from apps.entities.response_data import ResponseData
@@ -17,7 +16,6 @@ router = APIRouter(
     prefix="/api/domain",
     tags=["domain"],
     dependencies=[
-        Depends(verify_csrf_token),
         Depends(verify_user),
     ],
 )
