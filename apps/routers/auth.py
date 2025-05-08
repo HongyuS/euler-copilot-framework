@@ -5,12 +5,13 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 import logging
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 
-from apps.common.config import Config
 from apps.common.oidc import oidc_provider
 from apps.dependency import get_session, get_user, verify_user
 from apps.entities.collection import Audit
@@ -32,6 +33,8 @@ router = APIRouter(
 )
 logger = logging.getLogger(__name__)
 
+templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates")
+
 
 @router.get("/login")
 async def oidc_login(request: Request, code: str) -> HTMLResponse:
@@ -51,26 +54,17 @@ async def oidc_login(request: Request, code: str) -> HTMLResponse:
             await oidc_provider.set_token(user_sub, token["access_token"], token["refresh_token"])
     except Exception as e:
         logger.exception("User login failed")
-        error_html = """<!DOCTYPE html>
-<html><head><title>登录失败</title></head>
-<body>
-<h1>登录失败</h1>
-<p>无法验证登录信息，请关闭本窗口并重试。</p>
-</body></html>"""
-        if "auth error" in str(e):
-            return HTMLResponse(content=error_html, status_code=status.HTTP_400_BAD_REQUEST)
-        return HTMLResponse(content=error_html, status_code=status.HTTP_403_FORBIDDEN)
+        status_code = status.HTTP_400_BAD_REQUEST if "auth error" in str(e) else status.HTTP_403_FORBIDDEN
+        return templates.TemplateResponse(
+            "login_failed.html.j2",
+            {"request": request, "reason": "无法验证登录信息，请关闭本窗口并重试。"},
+            status_code=status_code,
+        )
 
     user_host = request.client.host if request.client else None
 
     if not user_sub:
         logger.error("OIDC no user_sub associated.")
-        error_html = """<!DOCTYPE html>
-<html><head><title>登录失败</title></head>
-<body>
-<h1>登录失败</h1>
-<p>未能获取用户信息，请关闭本窗口并重试。</p>
-</body></html>"""
         data = Audit(
             http_method="get",
             module="auth",
@@ -78,7 +72,11 @@ async def oidc_login(request: Request, code: str) -> HTMLResponse:
             message="/api/auth/login: OIDC no user_sub associated.",
         )
         await AuditLogManager.add_audit_log(data)
-        return HTMLResponse(content=error_html, status_code=status.HTTP_403_FORBIDDEN)
+        return templates.TemplateResponse(
+            "login_failed.html.j2",
+            {"request": request, "reason": "未能获取用户信息，请关闭本窗口并重试。"},
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
 
     await UserManager.update_userinfo_by_user_sub(user_sub)
 
@@ -93,47 +91,10 @@ async def oidc_login(request: Request, code: str) -> HTMLResponse:
     )
     await AuditLogManager.add_audit_log(data)
 
-    web_domain = Config().get_config().fastapi.domain
-    scheme = "https" if Config().get_config().deploy.mode != "debug" else "http"
-    target_origin_url = f"{scheme}://{web_domain}"
-    target_origin_js = f"'{target_origin_url}'"
-
-    html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>登录成功</title>
-    <script>
-        try {{
-            const sessionId = "{current_session}";
-            const targetOrigin = {target_origin_js};
-
-            if (window.opener && window.opener !== window) {{
-                console.log('发送认证信息到主窗口:', {{ sessionId }}, '目标源:', targetOrigin);
-                window.opener.postMessage({{
-                    type: 'auth_success',
-                    session_id: sessionId
-                }}, targetOrigin);
-
-                document.getElementById('message').innerText = "登录成功，窗口即将自动关闭…";
-                setTimeout(window.close, 1500);
-            }} else {{
-                console.warn('未找到 window.opener 或 opener 等于自身，无法 postMessage。');
-                document.getElementById('message').innerText = "登录成功，但未能自动返回主页面，请手动关闭本窗口。";
-            }}
-        }} catch (e) {{
-            console.error("postMessage 脚本出错:", e);
-            document.getElementById('message').innerText = "登录流程发生异常，请关闭本窗口并重试。";
-        }}
-    </script>
-</head>
-<body>
-    <h1 id="message">正在处理登录…</h1>
-</body>
-</html>
-"""
-    return HTMLResponse(content=html_content)
+    return templates.TemplateResponse(
+        "login_success.html.j2",
+        {"request": request, "current_session": current_session},
+    )
 
 
 # 用户主动logout
