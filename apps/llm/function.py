@@ -17,8 +17,6 @@ from apps.scheduler.json_schema import build_regex_from_schema
 class FunctionLLM:
     """用于FunctionCall的模型"""
 
-    _client: Any
-
     def __init__(self) -> None:
         """
         初始化用于FunctionCall的模型
@@ -27,43 +25,44 @@ class FunctionLLM:
         - sglang
         - vllm
         - ollama
+        - openai
         """
-        if Config().get_config().function_call.backend == "sglang":
+        # 暂存config；这里可以替代为从其他位置获取
+        self._config = Config().get_config().function_call
+
+        if self._config.backend == "sglang":
             import sglang
             from sglang.lang.chat_template import get_chat_template
 
-            if not Config().get_config().function_call.api_key:
-                self._client = sglang.RuntimeEndpoint(Config().get_config().function_call.endpoint)
+            if not self._config.api_key:
+                self._client = sglang.RuntimeEndpoint(self._config.endpoint)
             else:
                 self._client = sglang.RuntimeEndpoint(
-                    Config().get_config().function_call.endpoint, api_key=Config().get_config().function_call.api_key,
+                    self._config.endpoint, api_key=self._config.api_key,
                 )
             self._client.chat_template = get_chat_template("chatml")
 
-        if (
-            Config().get_config().function_call.backend == "vllm"
-            or Config().get_config().function_call.backend == "openai"
-        ):
+        if self._config.backend in {"vllm", "openai"}:
             import openai
 
-            if not Config().get_config().function_call.api_key:
-                self._client = openai.AsyncOpenAI(base_url=Config().get_config().function_call.endpoint + "/v1")
+            if not self._config.api_key:
+                self._client = openai.AsyncOpenAI(base_url=self._config.endpoint + "/v1")
             else:
                 self._client = openai.AsyncOpenAI(
-                    base_url=Config().get_config().function_call.endpoint + "/v1",
-                    api_key=Config().get_config().function_call.api_key,
+                    base_url=self._config.endpoint + "/v1",
+                    api_key=self._config.api_key,
                 )
 
-        if Config().get_config().function_call.backend == "ollama":
+        if self._config.backend == "ollama":
             import ollama
 
-            if not Config().get_config().function_call.api_key:
-                self._client = ollama.AsyncClient(host=Config().get_config().function_call.endpoint)
+            if not self._config.api_key:
+                self._client = ollama.AsyncClient(host=self._config.endpoint)
             else:
                 self._client = ollama.AsyncClient(
-                    host=Config().get_config().function_call.endpoint,
+                    host=self._config.endpoint,
                     headers={
-                        "Authorization": f"Bearer {Config().get_config().function_call.api_key}",
+                        "Authorization": f"Bearer {self._config.api_key}",
                     },
                 )
 
@@ -116,7 +115,7 @@ class FunctionLLM:
         :param temperature: 大模型温度
         :return: 生成的JSON
         """
-        model = Config().get_config().function_call.model
+        model = self._config.model
         if not model:
             err_msg = "未设置FuntionCall所用模型！"
             raise ValueError(err_msg)
@@ -133,7 +132,7 @@ class FunctionLLM:
         if schema:
             param["extra_body"] = {"guided_json": schema}
 
-        chat = await self._client.chat.completions.create(**param)
+        chat = await self._client.chat.completions.create(**param) # type: ignore[arg-type]
 
         reasoning = False
         result = ""
@@ -166,7 +165,7 @@ class FunctionLLM:
         :param temperature: 大模型温度
         :return: 生成的JSON
         """
-        model = Config().get_config().function_call.model
+        model = self._config.model
         if not model:
             err_msg = "未设置FuntionCall所用模型！"
             raise ValueError(err_msg)
@@ -190,7 +189,7 @@ class FunctionLLM:
             param["tools"] = [tool_data]
             param["tool_choice"] = "required"
 
-        response = await self._client.chat.completions.create(**param)
+        response = await self._client.chat.completions.create(**param) # type: ignore[arg-type]
         try:
             ans = response.choices[0].message.tool_calls[0].function.arguments or ""
         except IndexError:
@@ -210,7 +209,7 @@ class FunctionLLM:
         :return: 生成的对话回复
         """
         param = {
-            "model": Config().get_config().function_call.model,
+            "model": self._config.model,
             "messages": messages,
             "options": {
                 "temperature": temperature,
@@ -222,7 +221,7 @@ class FunctionLLM:
         if schema:
             param["format"] = schema
 
-        response = await self._client.chat(**param)
+        response = await self._client.chat(**param) # type: ignore[arg-type]
         return response.message.content or ""
 
     async def _call_sglang(
@@ -240,32 +239,40 @@ class FunctionLLM:
         # 构造sglang执行函数
         import sglang
 
-        sglang.set_default_backend(self._client)
+        sglang.set_default_backend(self._client) # type: ignore[arg-type]
 
         sglang_func = sglang.function(self._sglang_func)
         state = await asyncify(sglang_func.run)(messages, schema, max_tokens, temperature)  # type: ignore[arg-type]
         return state["output"]
 
-    async def call(self, **kwargs) -> str:  # noqa: ANN003
+
+    async def call(self, **kwargs) -> dict[str, Any]:  # noqa: ANN003
         """
         调用FunctionCall小模型
 
         暂不开放流式输出
         """
-        if Config().get_config().function_call.backend == "vllm":
+        # 检查max_tokens和temperature是否设置
+        if "max_tokens" not in kwargs or kwargs["max_tokens"] is None:
+            kwargs["max_tokens"] = self._config.max_tokens
+        if "temperature" not in kwargs or kwargs["temperature"] is None:
+            kwargs["temperature"] = self._config.temperature
+
+
+        if self._config.backend == "vllm":
             json_str = await self._call_vllm(**kwargs)
 
-        elif Config().get_config().function_call.backend == "sglang":
+        elif self._config.backend == "sglang":
             json_str = await self._call_sglang(**kwargs)
 
-        elif Config().get_config().function_call.backend == "ollama":
+        elif self._config.backend == "ollama":
             json_str = await self._call_ollama(**kwargs)
 
-        elif Config().get_config().function_call.backend == "openai":
+        elif self._config.backend == "openai":
             json_str = await self._call_openai(**kwargs)
 
         else:
             err = "未知的Function模型后端"
             raise ValueError(err)
 
-        return json_str
+        return json.loads(json_str)

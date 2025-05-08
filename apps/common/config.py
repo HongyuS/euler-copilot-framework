@@ -22,7 +22,7 @@ class Config(metaclass=SingletonMeta):
         """读取配置文件；当PROD环境变量设置时，配置文件将在读取后删除"""
         config_file = os.getenv("CONFIG")
         if config_file is None:
-            config_file = "./config/config.toml"
+            config_file = Path(__file__).parents[2] / "config" / "config.toml"
         self._config = ConfigModel.model_validate(toml.load(config_file))
 
         if os.getenv("PROD"):

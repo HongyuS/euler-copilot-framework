@@ -71,8 +71,7 @@ class ServiceCenterManager:
         if search_type == SearchType.AUTHOR:
             if keyword is not None and keyword not in user_sub:
                 return [], 0
-            else:
-                keyword = user_sub
+            keyword = user_sub
         base_filter = {"author": user_sub}
         filters = ServiceCenterManager._build_filters(base_filter, search_type, keyword) if keyword else base_filter
         service_pools, total_count = await ServiceCenterManager._search_service(filters, page, page_size)
