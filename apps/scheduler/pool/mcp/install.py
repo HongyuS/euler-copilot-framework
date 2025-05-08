@@ -1,0 +1,128 @@
+"""MCP 安装"""
+
+import logging
+from asyncio import subprocess
+
+from anyio import Path
+
+from apps.common.config import Config
+from apps.entities.mcp import MCPServerStdioConfig
+
+logger = logging.getLogger(__name__)
+MCP_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "mcp"
+
+
+async def install_uvx(mcp_id: str, config: MCPServerStdioConfig) -> MCPServerStdioConfig:
+    """
+    安装使用uvx包管理器的MCP服务
+
+    安装在 ``template`` 目录下，会作为可拷贝的MCP模板
+
+    :param str mcp_id: MCP模板ID
+    :param MCPServerStdioConfig config: MCP配置
+    :return: MCP配置
+    :rtype: MCPServerStdioConfig
+    :raises ValueError: 未找到MCP Server对应的Python包
+    """
+    # 创建文件夹
+    mcp_path = MCP_PATH / "template" / mcp_id / "project"
+    await mcp_path.mkdir(parents=True, exist_ok=True)
+
+    # 找到包名
+    package = ""
+    for arg in config.args:
+        if  "--" not in arg:
+            package = arg
+            break
+
+    if not package:
+        err = "未找到包名"
+        logger.error(err)
+        raise ValueError(err)
+
+    # 初始化uv项目
+    pipe = await subprocess.create_subprocess_exec(
+        "uv",
+        "init",
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        cwd=mcp_path,
+    )
+    _, stdout = await pipe.communicate()
+    if pipe.returncode != 0:
+        err = f"[MCPLoader] 初始化 uv 项目失败: {stdout.decode()}"
+        logger.error(err)
+        raise ValueError(err)
+    logger.info("[MCPLoader] 初始化 uv 项目成功: %s; %s", mcp_path, stdout.decode())
+
+    # 安装Python包
+    pipe = await subprocess.create_subprocess_exec(
+        "uv",
+        "add",
+        package,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        cwd=mcp_path,
+    )
+    _, stdout = await pipe.communicate()
+    if pipe.returncode != 0:
+        err = f"[MCPLoader] 安装 {package} 失败: {stdout.decode()}"
+        logger.error(err)
+        raise ValueError(err)
+    logger.info("[MCPLoader] 安装 %s 成功: %s; %s", package, mcp_path, stdout.decode())
+
+    # 更新配置
+    config.command = "uv"
+    config.args = ["run", *config.args]
+
+    return config
+
+
+async def install_npx(mcp_id: str, config: MCPServerStdioConfig) -> MCPServerStdioConfig:
+    """
+    安装使用npx包管理器的MCP服务
+
+    安装在 ``template`` 目录下，会作为可拷贝的MCP模板
+
+    :param str mcp_id: MCP模板ID
+    :param MCPServerStdioConfig config: MCP配置
+    :return: MCP配置
+    :rtype: MCPServerStdioConfig
+    :raises ValueError: 未找到MCP Server对应的npm包
+    """
+    mcp_path = MCP_PATH / "template" / mcp_id / "project"
+    await mcp_path.mkdir(parents=True, exist_ok=True)
+
+    # 查找package name
+    package = ""
+    for arg in config.args:
+        if "--" not in arg:
+            package = arg
+            break
+
+    if not package:
+        err = "未找到包名"
+        logger.error(err)
+        raise ValueError(err)
+
+    # 安装NPM包
+    pipe = await subprocess.create_subprocess_exec(
+        "npm",
+        "install",
+        package,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        cwd=mcp_path,
+    )
+    _, stdout = await pipe.communicate()
+    if pipe.returncode != 0:
+        err = f"[MCPLoader] 安装 {package} 失败: {stdout.decode()}"
+        logger.error(err)
+        raise ValueError(err)
+    logger.info("[MCPLoader] 安装 %s 成功: %s; %s", package, mcp_path, stdout.decode())
+
+    # 更新配置
+    config.command = "npm"
+    config.args = ["exec", *config.args]
+
+    return config
