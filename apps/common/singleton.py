@@ -8,7 +8,9 @@ class SingletonMeta(type):
     """单例元类"""
 
     _instances: ClassVar[dict[type, Any]] = {}
+    """单例实例字典"""
     _lock: ClassVar[threading.Lock] = threading.Lock()
+    """锁"""
 
     def __call__(cls, *args, **kwargs):  # noqa: ANN002, ANN003, ANN204
         """获取单例"""
