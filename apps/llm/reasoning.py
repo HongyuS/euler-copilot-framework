@@ -7,6 +7,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 import logging
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionChunk
@@ -14,6 +15,9 @@ from openai.types.chat import ChatCompletionChunk
 from apps.common.config import Config
 from apps.constants import REASONING_BEGIN_TOKEN, REASONING_END_TOKEN
 from apps.llm.token import TokenCalculator
+
+if TYPE_CHECKING:
+    from apps.entities.config import LLMConfig
 
 logger = logging.getLogger(__name__)
 
@@ -86,20 +90,20 @@ class ReasoningLLM:
 
     def __init__(self) -> None:
         """判断配置文件里用了哪种大模型；初始化大模型客户端"""
-        self._config = Config().get_config()
+        self._config: LLMConfig = Config().get_config().llm
         self._init_client()
 
     def _init_client(self) -> None:
         """初始化OpenAI客户端"""
-        if not self._config.llm.key:
+        if not self._config.key:
             self._client = AsyncOpenAI(
-                base_url=self._config.llm.endpoint,
+                base_url=self._config.endpoint,
             )
             return
 
         self._client = AsyncOpenAI(
-            api_key=self._config.llm.key,
-            base_url=self._config.llm.endpoint,
+            api_key=self._config.key,
+            base_url=self._config.endpoint,
         )
 
     @staticmethod
@@ -123,10 +127,10 @@ class ReasoningLLM:
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         """创建流式响应"""
         return await self._client.chat.completions.create(
-            model=self._config.llm.model,
+            model=self._config.model,
             messages=messages,  # type: ignore[]
-            max_tokens=max_tokens or self._config.llm.max_tokens,
-            temperature=temperature or self._config.llm.temperature,
+            max_tokens=max_tokens or self._config.max_tokens,
+            temperature=temperature or self._config.temperature,
             stream=True,
             stream_options={"include_usage": True},
         )  # type: ignore[]
@@ -141,6 +145,12 @@ class ReasoningLLM:
         result_only: bool = True,
     ) -> AsyncGenerator[str, None]:
         """调用大模型，分为流式和非流式两种"""
+        # 检查max_tokens和temperature
+        if max_tokens is None:
+            max_tokens = self._config.max_tokens
+        if temperature is None:
+            temperature = self._config.temperature
+
         try:
             msg_list = self._validate_messages(messages)
         except ValueError as e:
