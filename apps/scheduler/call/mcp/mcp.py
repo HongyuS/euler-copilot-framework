@@ -1,8 +1,5 @@
-"""
-MCP工具
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""MCP工具"""
 
 from apps.entities.scheduler import CallInfo
 from apps.scheduler.call.core import CoreCall
@@ -14,7 +11,12 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
 
     @classmethod
     def info(cls) -> CallInfo:
-        """返回Call的名称和描述"""
+        """
+        返回Call的名称和描述
+
+        :return: Call的名称和描述
+        :rtype: CallInfo
+        """
         return CallInfo(name="MCP", description="调用MCP Server，执行工具")
 
 
