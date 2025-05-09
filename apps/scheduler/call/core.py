@@ -1,8 +1,8 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
-Core Call类，定义了所有Call的抽象类和基础参数。
+Core Call类是定义了所有Call都应具有的方法和参数的PyDantic类。
 
-所有Call类必须继承此类，并实现所有方法。
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+所有Call类必须继承此类，并根据需求重载方法。
 """
 
 import logging
@@ -47,13 +47,17 @@ class DataBase(BaseModel):
 
 
 class CoreCall(BaseModel):
-    """所有Call的父类，所有Call必须继承此类。"""
+    """所有Call的父类，包含通用的逻辑"""
 
     name: SkipJsonSchema[str] = Field(description="Step的名称", exclude=True)
     description: SkipJsonSchema[str] = Field(description="Step的描述", exclude=True)
     node: SkipJsonSchema[NodePool | None] = Field(description="节点信息", exclude=True)
     enable_filling: SkipJsonSchema[bool] = Field(description="是否需要进行自动参数填充", default=False, exclude=True)
-    tokens: SkipJsonSchema[CallTokens] = Field(description="Call的Tokens", default=CallTokens(), exclude=True)
+    tokens: SkipJsonSchema[CallTokens] = Field(
+        description="Call的输入输出Tokens信息",
+        default=CallTokens(),
+        exclude=True,
+    )
     input_model: ClassVar[SkipJsonSchema[type[DataBase]]] = Field(
         description="Call的输入Pydantic类型；不包含override的模板",
         exclude=True,

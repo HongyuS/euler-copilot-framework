@@ -31,7 +31,7 @@ async def install_uvx(mcp_id: str, config: MCPServerStdioConfig) -> MCPServerStd
     # 找到包名
     package = ""
     for arg in config.args:
-        if  "--" not in arg:
+        if not arg.startswith("-"):
             package = arg
             break
 
@@ -69,7 +69,7 @@ async def install_uvx(mcp_id: str, config: MCPServerStdioConfig) -> MCPServerStd
         err = f"[MCPLoader] 安装 {package} 失败: {stdout.decode()}"
         logger.error(err)
         raise ValueError(err)
-    logger.info("[MCPLoader] 安装 %s 成功: %s; %s", package, mcp_path, stdout.decode())
+    logger.info("[MCPLoader] 安装 %s 成功: %s; %s", package, mcp_path, stdout.decode() if stdout else "（无输出信息）")
 
     # 更新配置
     config.command = "uv"
@@ -96,7 +96,7 @@ async def install_npx(mcp_id: str, config: MCPServerStdioConfig) -> MCPServerStd
     # 查找package name
     package = ""
     for arg in config.args:
-        if "--" not in arg:
+        if not arg.startswith("-"):
             package = arg
             break
 
@@ -119,7 +119,7 @@ async def install_npx(mcp_id: str, config: MCPServerStdioConfig) -> MCPServerStd
         err = f"[MCPLoader] 安装 {package} 失败: {stdout.decode()}"
         logger.error(err)
         raise ValueError(err)
-    logger.info("[MCPLoader] 安装 %s 成功: %s; %s", package, mcp_path, stdout.decode())
+    logger.info("[MCPLoader] 安装 %s 成功: %s; %s", package, mcp_path, stdout.decode() if stdout else "（无输出信息）")
 
     # 更新配置
     config.command = "npm"

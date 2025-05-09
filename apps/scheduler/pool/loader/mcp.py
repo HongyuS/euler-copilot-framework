@@ -40,6 +40,23 @@ class MCPLoader(metaclass=SingletonMeta):
     data: ClassVar[dict[str, dict[str, StdioMCPClient | SSEMCPClient]]] = {}
     """MCP客户端数据，在内存中存储；用户ID -> MCP ID -> MCP Client"""
 
+    @staticmethod
+    async def _check_dir() -> None:
+        """
+        检查MCP目录是否存在
+
+        :return: 无
+        """
+        if not await (MCP_PATH / "template").exists() or not await (MCP_PATH / "template").is_dir():
+            logger.warning("[MCPLoader] template目录不存在，创建中")
+            await (MCP_PATH / "template").unlink(missing_ok=True)
+            await (MCP_PATH / "template").mkdir(parents=True, exist_ok=True)
+
+        if not await (MCP_PATH / "users").exists() or not await (MCP_PATH / "users").is_dir():
+            logger.warning("[MCPLoader] users目录不存在，创建中")
+            await (MCP_PATH / "users").unlink(missing_ok=True)
+            await (MCP_PATH / "users").mkdir(parents=True, exist_ok=True)
+
 
     @staticmethod
     async def _load_config(config_path: Path) -> MCPConfig:
@@ -50,7 +67,7 @@ class MCPLoader(metaclass=SingletonMeta):
         :return: MCP配置
         :raises FileNotFoundError: 如果配置文件不存在，则抛出异常
         """
-        if not config_path.exists():
+        if not await config_path.exists():
             err = f"MCP配置文件不存在: {config_path}"
             logger.error(err)
             raise FileNotFoundError(err)
@@ -59,10 +76,14 @@ class MCPLoader(metaclass=SingletonMeta):
         f_content = json.loads(await f.read())
         await f.aclose()
 
-        return MCPConfig(**f_content)
+        return MCPConfig.model_validate(f_content)
 
 
-    async def init_one_template(self, mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig) -> None:
+    async def init_one_template(
+            self,
+            mcp_id: str,
+            config: MCPServerSSEConfig | MCPServerStdioConfig,
+    ) -> MCPServerSSEConfig | MCPServerStdioConfig | None:
         """
         初始化MCP模板
 
@@ -75,7 +96,7 @@ class MCPLoader(metaclass=SingletonMeta):
         # 跳过自动安装
         if not config.auto_install:
             logger.info("[MCPLoader] autoInstall为False，跳过自动安装: %s", mcp_id)
-            return
+            return None
 
         # 自动安装
         if isinstance(config, MCPServerStdioConfig):
@@ -86,20 +107,16 @@ class MCPLoader(metaclass=SingletonMeta):
                 config = await install_npx(mcp_id, config)
         else:
             logger.info("[MCPLoader] SSE方式的MCP模板，无法自动安装: %s", mcp_id)
-            return
+            return None
 
         # 将配置保存到config.json
         logger.info("[MCPLoader] 更新MCP模板配置: %s", mcp_id)
 
         config.auto_install = False
-        config_path = MCP_PATH / "template" / mcp_id / "config.json"
-        f = await config_path.open("w", encoding="utf-8")
-        config_dict = config.model_dump()
-        await f.write(json.dumps(config_dict, indent=4, ensure_ascii=False))
-        await f.aclose()
+        return config
 
 
-    async def init_all_template(self) -> None:
+    async def _init_all_template(self) -> None:
         """
         初始化所有MCP模板
 
@@ -111,21 +128,30 @@ class MCPLoader(metaclass=SingletonMeta):
         # 遍历所有模板
         async for mcp_dir in template_path.iterdir():
             # 目录非法
-            if not mcp_dir.is_dir():
+            if not await mcp_dir.is_dir():
                 logger.warning("[MCPLoader] 跳过非目录: %s", mcp_dir)
                 continue
 
             # 检查配置文件是否存在
             config_path = mcp_dir / "config.json"
-            if not config_path.exists():
+            if not await config_path.exists():
                 logger.warning("[MCPLoader] 跳过没有配置文件的MCP模板: %s", mcp_dir)
                 continue
 
             # 读取配置并加载
             config = await self._load_config(config_path)
-            for server in config.mcp_servers.values():
-                await self.init_one_template(mcp_dir.name, server)
-                await self._insert_template_db(mcp_dir.name, server)
+            for server_id, server in config.mcp_servers.items():
+                server_config = await self.init_one_template(mcp_dir.name, server)
+                if server_config:
+                    await self._insert_template_db(mcp_dir.name, server_config)
+                    config.mcp_servers[server_id] = server_config
+
+            # 保存配置
+            f = await config_path.open("w+", encoding="utf-8")
+            config_data = config.model_dump(by_alias=True, exclude_none=True)
+            await f.write(json.dumps(config_data, indent=4, ensure_ascii=False))
+            await f.aclose()
+
 
     async def _insert_template_db(self, mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig) -> None:
         """
@@ -135,7 +161,15 @@ class MCPLoader(metaclass=SingletonMeta):
         :param MCPServerSSEConfig | MCPServerStdioConfig config: MCP配置
         :return: 无
         """
-        pass
+        mcp_collection = MongoDB.get_collection("mcp")
+        await mcp_collection.insert_one(
+            MCPCollection(
+                _id=mcp_id,
+                name=config.name,
+                description=config.description,
+                type=config.type,
+            ).model_dump(by_alias=True, exclude_none=True),
+        )
 
     async def save_one_template(self, mcp_id: str, config: MCPConfig) -> None:
         """
@@ -180,7 +214,7 @@ class MCPLoader(metaclass=SingletonMeta):
 
         return mcp_dict
 
-    async def load_all_user(self) -> dict[str, dict[str, SSEMCPClient | StdioMCPClient]]:
+    async def _load_all_user(self) -> dict[str, dict[str, SSEMCPClient | StdioMCPClient]]:
         """
         加载所有用户的所有MCP配置
 
@@ -275,7 +309,6 @@ class MCPLoader(metaclass=SingletonMeta):
         # 更新数据库
         await self._activate_template_db(user_sub, mcp_id)
 
-
     async def user_deactive_template(self, user_sub: str, mcp_id: str) -> None:
         """
         取消激活MCP模板
@@ -295,3 +328,13 @@ class MCPLoader(metaclass=SingletonMeta):
 
         # 更新数据库
         await self._deactivate_template_db(user_sub, mcp_id)
+
+    async def init(self) -> None:
+        """
+        初始化MCP加载器
+
+        :return: 无
+        """
+        await self._check_dir()
+        await self._init_all_template()
+        await self._load_all_user()

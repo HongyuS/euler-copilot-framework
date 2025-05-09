@@ -13,12 +13,11 @@ from apps.entities.mcp import (
 )
 
 logger = logging.getLogger(__name__)
-sqids = Sqids()
+sqids = Sqids(min_length=10)
 DEFAULT_STDIO = MCPServerStdioConfig(
     name="MCP服务名称",
     description="MCP服务描述",
     type=MCPType.STDIO,
-    icon_path="icon.png",
     command="uvx",
     args=[
         "your_package",
@@ -33,7 +32,6 @@ DEFAULT_SSE = MCPServerSSEConfig(
     name="MCP服务名称",
     description="MCP服务描述",
     type=MCPType.SSE,
-    icon_path="icon.png",
     url="http://test.domain/sse",
     env={
         "EXAMPLE_HEADER": "example_value",

@@ -9,8 +9,8 @@ class SingletonMeta(type):
 
     _instances: ClassVar[dict[type, Any]] = {}
     """单例实例字典"""
-    _lock: ClassVar[threading.Lock] = threading.Lock()
-    """锁"""
+    _lock: ClassVar[threading.RLock] = threading.RLock()
+    """可重入锁"""
 
     def __call__(cls, *args, **kwargs):  # noqa: ANN002, ANN003, ANN204
         """获取单例"""
@@ -18,4 +18,4 @@ class SingletonMeta(type):
             if cls not in cls._instances:
                 instance = super().__call__(*args, **kwargs)
                 cls._instances[cls] = instance
-        return cls._instances[cls]
+            return cls._instances[cls]

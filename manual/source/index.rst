@@ -7,3 +7,4 @@ openEuler Intelligence Framework 文档
 
    pool/index
    models/index
+   call/index
