@@ -1,11 +1,15 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MCP 相关数据结构"""
 
+import random
 from enum import Enum
+from typing import Any
 
 from lancedb.pydantic import LanceModel, Vector
 from pydantic import BaseModel, Field
+from sqids.sqids import Sqids
 
+sqids = Sqids(min_length=10)
 
 class MCPType(str, Enum):
     """MCP 类型"""
@@ -21,10 +25,11 @@ class MCPServerConfig(BaseModel):
     name: str = Field(description="MCP 服务器自然语言名称")
     description: str = Field(description="MCP 服务器自然语言描述")
     type: MCPType = Field(description="MCP 服务器类型", default=MCPType.STDIO)
-    is_active: bool = Field(description="MCP 服务器是否启用", default=False, alias="isActive")
+    disabled: bool = Field(description="MCP 服务器是否禁用", default=False)
     auto_install: bool = Field(description="是否自动安装MCP服务器", default=True, alias="autoInstall")
-    icon_path: str = Field(description="MCP 服务器图标路径")
-    env: dict[str, str] = Field(description="MCP 服务器环境变量")
+    icon_path: str = Field(description="MCP 服务器图标路径", default="", alias="iconPath")
+    env: dict[str, str] = Field(description="MCP 服务器环境变量", default={})
+    auto_approve: list[str] = Field(description="自动批准的MCP工具ID列表", default=[], alias="autoApprove")
 
 
 class MCPServerStdioConfig(MCPServerConfig):
@@ -49,6 +54,14 @@ class MCPConfig(BaseModel):
     ] = Field(description="MCP 服务器配置", alias="mcpServers")
 
 
+class MCPTool(BaseModel):
+    """MCP工具"""
+
+    id: str = Field(description="MCP工具ID")
+    name: str = Field(description="MCP工具名称")
+    description: str = Field(description="MCP工具描述")
+    input_schema: dict[str, Any] = Field(description="MCP工具输入参数")
+
 class MCPCollection(BaseModel):
     """MCP相关信息，存储在MongoDB的 ``mcp`` 集合中"""
 
@@ -56,7 +69,8 @@ class MCPCollection(BaseModel):
     name: str = Field(description="MCP 自然语言名称")
     description: str = Field(description="MCP 自然语言描述")
     type: MCPType = Field(description="MCP 类型")
-    activated: list[str] = Field(description="激活该MCP的用户ID列表")
+    activated: list[str] = Field(description="激活该MCP的用户ID列表", default=[])
+    tools: list[MCPTool] = Field(description="MCP工具列表", default=[])
 
 
 class MCPVector(LanceModel):
@@ -64,3 +78,15 @@ class MCPVector(LanceModel):
 
     id: str = Field(description="MCP ID")
     embedding: Vector(dim=1024) = Field(description="MCP描述的向量信息")  # type: ignore[call-arg]
+
+
+class MCPToolVector(LanceModel):
+    """MCP工具向量化数据，存储在LanceDB的 ``mcp_tool`` 表中"""
+
+    id: str = Field(
+        description="主键",
+        default_factory=lambda: sqids.encode([random.randint(0, 1000000) for _ in range(5)]),  # noqa: S311
+    )
+    tool_id: str = Field(description="工具ID")
+    mcp_id: str = Field(description="MCP ID")
+    embedding: Vector(dim=1024) = Field(description="MCP工具描述的向量信息")  # type: ignore[call-arg]
