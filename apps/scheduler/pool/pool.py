@@ -46,17 +46,21 @@ class Pool(metaclass=SingletonMeta):
         :return: 无
         """
         root_dir = Config().get_config().deploy.data_dir.rstrip("/") + "/semantics/"
-        if not await Path(root_dir + "app").exists():
+        if not await Path(root_dir + "app").exists() or not await Path(root_dir + "app").is_dir():
             logger.warning("[Pool] App目录%s不存在，创建中", root_dir + "app")
+            await Path(root_dir + "app").unlink(missing_ok=True)
             await Path(root_dir + "app").mkdir(parents=True, exist_ok=True)
-        if not await Path(root_dir + "service").exists():
+        if not await Path(root_dir + "service").exists() or not await Path(root_dir + "service").is_dir():
             logger.warning("[Pool] Service目录%s不存在，创建中", root_dir + "service")
+            await Path(root_dir + "service").unlink(missing_ok=True)
             await Path(root_dir + "service").mkdir(parents=True, exist_ok=True)
-        if not await Path(root_dir + "call").exists():
+        if not await Path(root_dir + "call").exists() or not await Path(root_dir + "call").is_dir():
             logger.warning("[Pool] Call目录%s不存在，创建中", root_dir + "call")
+            await Path(root_dir + "call").unlink(missing_ok=True)
             await Path(root_dir + "call").mkdir(parents=True, exist_ok=True)
-        if not await Path(root_dir + "mcp").exists():
+        if not await Path(root_dir + "mcp").exists() or not await Path(root_dir + "mcp").is_dir():
             logger.warning("[Pool] MCP目录%s不存在，创建中", root_dir + "mcp")
+            await Path(root_dir + "mcp").unlink(missing_ok=True)
             await Path(root_dir + "mcp").mkdir(parents=True, exist_ok=True)
 
 
@@ -87,7 +91,7 @@ class Pool(metaclass=SingletonMeta):
 
         # 加载Call
         logger.info("[Pool] 载入Call")
-        await CallLoader().load()
+        await self.call.load()
 
         # 检查文件变动
         logger.info("[Pool] 检查文件变动")
@@ -129,8 +133,7 @@ class Pool(metaclass=SingletonMeta):
 
         # 载入MCP
         logger.info("[Pool] 载入MCP")
-        await self.mcp.init_all_template()
-        await self.mcp.load_all_user()
+        await self.mcp.init()
 
 
     async def get_flow_metadata(self, app_id: str) -> list[AppFlow]:
