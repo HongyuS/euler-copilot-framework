@@ -6,6 +6,7 @@ from lancedb.index import HnswSq
 
 from apps.common.config import Config
 from apps.common.singleton import SingletonMeta
+from apps.entities.mcp import MCPVector
 from apps.entities.vector import (
     CallPoolVector,
     FlowPoolVector,
@@ -48,6 +49,11 @@ class LanceDB(metaclass=SingletonMeta):
         await self._engine.create_table(
             "node",
             schema=NodePoolVector,
+            exist_ok=True,
+        )
+        await self._engine.create_table(
+            "mcp",
+            schema=MCPVector,
             exist_ok=True,
         )
 
