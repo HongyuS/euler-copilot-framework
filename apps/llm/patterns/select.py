@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 class Select(CorePattern):
     """通过投票选择最佳答案"""
 
+    system_prompt: str = "You are a helpful assistant."
+    """系统提示词"""
+
     user_prompt: str = r"""
         <instructions>
             <instruction>
