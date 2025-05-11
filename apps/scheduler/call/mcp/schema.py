@@ -11,11 +11,14 @@ from apps.scheduler.call.core import DataBase
 class MCPInput(DataBase):
     """MCP Call输入"""
 
-    mcp_ids: list[str] = Field(description="MCP Server的ID列表")
+    mcp_ids: list[str] = Field(description="MCP Server ID列表；将在这些MCP Server中选择最合适的1个")
+    avaliable_tools: dict[str, list[str]] = Field(description="可用的工具ID列表；将选择其中之一运行")
 
 
 class MCPOutput(DataBase):
     """MCP Call输出"""
 
+    tool_id: str = Field(description="MCP Server的工具ID")
+    tool_description: str = Field(description="MCP Server的工具描述")
     message: str = Field(description="MCP Server的自然语言输出")
     data: dict[str, Any] = Field(description="MCP Server的数据输出")
