@@ -6,7 +6,7 @@ from lancedb.index import HnswSq
 
 from apps.common.config import Config
 from apps.common.singleton import SingletonMeta
-from apps.entities.mcp import MCPVector
+from apps.entities.mcp import MCPToolVector, MCPVector
 from apps.entities.vector import (
     CallPoolVector,
     FlowPoolVector,
@@ -56,6 +56,12 @@ class LanceDB(metaclass=SingletonMeta):
             schema=MCPVector,
             exist_ok=True,
         )
+        await self._engine.create_table(
+            "mcp_tool",
+            schema=MCPToolVector,
+            exist_ok=True,
+        )
+
 
     async def get_table(self, table_name: str) -> lancedb.AsyncTable:
         """
@@ -66,6 +72,7 @@ class LanceDB(metaclass=SingletonMeta):
         :rtype: lancedb.AsyncTable
         """
         return await self._engine.open_table(table_name)
+
 
     async def create_index(self, table_name: str) -> None:
         """

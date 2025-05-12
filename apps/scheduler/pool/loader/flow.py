@@ -250,4 +250,6 @@ class FlowLoader:
                 embedding=service_embedding[0],
             ),
         ]
-        await table.add(vector_data)
+        await table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
+            vector_data,
+        )

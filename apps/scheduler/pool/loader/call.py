@@ -206,7 +206,9 @@ class CallLoader(metaclass=SingletonMeta):
                     embedding=vec,
                 ),
             )
-        await table.add(vector_data)
+        await table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
+            vector_data,
+        )
 
     async def load(self) -> None:
         """初始化Call信息"""

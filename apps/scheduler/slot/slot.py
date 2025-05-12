@@ -196,9 +196,9 @@ class Slot:
     def extract_type_desc_from_schema(self) -> dict[str, str]:
         """从JSON Schema中提取类型描述"""
 
-        def _extract_type_desc(schema_node: dict[str, Any]) -> None:
+        def _extract_type_desc(schema_node: dict[str, Any]) -> dict[str, Any]:
             if "type" not in schema_node and "anyOf" not in schema_node:
-                return None
+                return {}
             data = {"type": schema_node.get("type", ""), "description": schema_node.get("description", "")}
             if "anyOf" in schema_node:
                 data["type"] = "anyOf"

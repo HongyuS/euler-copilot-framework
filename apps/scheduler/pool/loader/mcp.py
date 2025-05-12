@@ -4,7 +4,7 @@
 import json
 import logging
 import shutil
-from hashlib import sha256
+from hashlib import md5
 from typing import ClassVar
 
 import asyncer
@@ -17,6 +17,8 @@ from apps.entities.mcp import (
     MCPConfig,
     MCPServerSSEConfig,
     MCPServerStdioConfig,
+    MCPTool,
+    MCPToolVector,
     MCPType,
     MCPVector,
 )
@@ -79,11 +81,11 @@ class MCPLoader(metaclass=SingletonMeta):
         return MCPConfig.model_validate(f_content)
 
 
-    async def init_one_template(
+    async def _install_template(
             self,
             mcp_id: str,
             config: MCPServerSSEConfig | MCPServerStdioConfig,
-    ) -> MCPServerSSEConfig | MCPServerStdioConfig | None:
+    ) -> MCPServerSSEConfig | MCPServerStdioConfig:
         """
         初始化MCP模板
 
@@ -110,6 +112,32 @@ class MCPLoader(metaclass=SingletonMeta):
 
         config.auto_install = False
         return config
+
+
+    async def init_one_template(self, mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig) -> None:
+        """
+        初始化单个MCP模板
+
+        :param str mcp_id: MCP模板ID
+        :param MCPServerSSEConfig | MCPServerStdioConfig config: MCP配置
+        :return: 无
+        """
+        # 安装MCP模板
+        new_server_config = await self._install_template(mcp_id, config)
+        new_config = MCPConfig(
+            mcpServers={
+                mcp_id: new_server_config,
+            },
+        )
+
+        # 更新数据库
+        await self._insert_template_db(mcp_id, config)
+
+        # 保存config
+        f = await (MCP_PATH / "template" / mcp_id / "config.json").open("w+", encoding="utf-8")
+        config_data = new_config.model_dump(by_alias=True, exclude_none=True)
+        await f.write(json.dumps(config_data, indent=4, ensure_ascii=False))
+        await f.aclose()
 
 
     async def _init_all_template(self) -> None:
@@ -146,16 +174,7 @@ class MCPLoader(metaclass=SingletonMeta):
             # 初始化第一个MCP Server
             server_id, server = next(iter(config.mcp_servers.items()))
             logger.info("[MCPLoader] 初始化MCP模板: %s", mcp_dir.as_posix())
-            server_config = await self.init_one_template(mcp_dir.name, server)
-            if server_config:
-                await self._insert_template_db(mcp_dir.name, server_config)
-                config.mcp_servers[server_id] = server_config
-
-            # 保存配置
-            f = await config_path.open("w+", encoding="utf-8")
-            config_data = config.model_dump(by_alias=True, exclude_none=True)
-            await f.write(json.dumps(config_data, indent=4, ensure_ascii=False))
-            await f.aclose()
+            await self.init_one_template(mcp_dir.name, server)
 
 
     async def _create_client(
@@ -185,7 +204,11 @@ class MCPLoader(metaclass=SingletonMeta):
         return client
 
 
-    async def _get_template_tool(self, mcp_id: str) -> str:
+    async def _get_template_tool(
+            self,
+            mcp_id: str,
+            config: MCPServerSSEConfig | MCPServerStdioConfig,
+    ) -> list[MCPTool]:
         """
         获取MCP模板的工具列表
 
@@ -193,9 +216,17 @@ class MCPLoader(metaclass=SingletonMeta):
         :return: 工具列表
         :rtype: list[str]
         """
-        config_path = MCP_PATH / "template" / mcp_id / "config.json"
-        config = await self._load_config(config_path)
-        return [tool.id for tool in config.tools]
+        client = await self._create_client(None, mcp_id, config)
+        tool_list = []
+        for item in client.tools:
+            tool_list += [MCPTool(
+                id=md5(f"{mcp_id}/{item.name}".encode()).hexdigest(),  # noqa: S324
+                name=item.name,
+                description=item.description or "",
+                input_schema=item.inputSchema,
+            )]
+        await client.stop()
+        return tool_list
 
 
     async def _insert_template_db(self, mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig) -> None:
@@ -206,29 +237,48 @@ class MCPLoader(metaclass=SingletonMeta):
         :param MCPServerSSEConfig | MCPServerStdioConfig config: MCP配置
         :return: 无
         """
-        mcp_json = json.dumps(
-            config.model_dump(by_alias=True, exclude_none=True),
-            indent=4,
-            ensure_ascii=False,
-        ).encode("utf-8")
+        # 获取工具列表
+        tool_list = await self._get_template_tool(mcp_id, config)
+
+        # 基本信息插入数据库
         mcp_collection = MongoDB.get_collection("mcp")
-        await mcp_collection.insert_one(
-            MCPCollection(
-                _id=mcp_id,
-                name=config.name,
-                description=config.description,
-                type=config.type,
-                hash=sha256(mcp_json).hexdigest(),
-            ).model_dump(by_alias=True, exclude_none=True),
+        await mcp_collection.update_one(
+            {"_id": mcp_id},
+            {
+                "$set": MCPCollection(
+                    _id=mcp_id,
+                    name=config.name,
+                    description=config.description,
+                    type=config.type,
+                    tools=tool_list,
+                ).model_dump(by_alias=True, exclude_none=True),
+            },
+            upsert=True,
         )
+
+        # 服务本身向量化
         embedding = await Embedding.get_embedding([config.description])
         mcp_table = await LanceDB().get_table("mcp")
-        await mcp_table.add([
+        await mcp_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute([
             MCPVector(
                 id=mcp_id,
-                embedding=embedding,
+                embedding=embedding[0],
             ),
         ])
+
+        # 工具向量化
+        mcp_tool_table = await LanceDB().get_table("mcp_tool")
+        tool_desc_list = [tool.description for tool in tool_list]
+        tool_embedding = await Embedding.get_embedding(tool_desc_list)
+        for tool, embedding in zip(tool_list, tool_embedding, strict=True):
+            await mcp_tool_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute([
+                MCPToolVector(
+                    id=tool.id,
+                    mcp_id=mcp_id,
+                    embedding=embedding,
+                ),
+            ])
+        await LanceDB().create_index("mcp_tool")
 
 
     async def save_one(self, user_sub: str | None, mcp_id: str, config: MCPConfig) -> None:
@@ -341,6 +391,7 @@ class MCPLoader(metaclass=SingletonMeta):
             {"$pull": {"activated": user_sub}},
         )
 
+
     async def user_active_template(self, user_sub: str, mcp_id: str) -> None:
         """
         用户激活MCP模板
@@ -424,6 +475,7 @@ class MCPLoader(metaclass=SingletonMeta):
         """
         删除无效的MCP在数据库中的记录
 
+        :param list[str] deleted_mcp_list: 被删除的MCP列表
         :return: 无
         """
         # 从MongoDB中移除
