@@ -280,54 +280,48 @@ class Slot:
         return {}, []
 
 
-    def _assemble_patch(  # noqa: C901
+    def _assemble_patch(
             self,
             key: str,
             json_data: Any,
             val: Any,
-            schema: dict[str, Any] | None = None,
+            schema: dict[str, Any],
     ) -> list[dict[str, Any]]:
         """将用户手动填充的参数专为真实JSON"""
         patch_list = []
-        key_parents = key.split("/")
+        key_path = key.split("/")
 
         current_path = "/"
         current_schema = schema
-        for parent in key_parents:
-            if parent == "":
+        for path in key_path:
+            if path == "":
                 continue
             # 如果是数字，访问元素
-            if parent.isdigit() and isinstance(json_data, list):
+            if path.isdigit() and isinstance(json_data, list):
                 try:
-                    json_data = json_data[int(parent)]
-                    if current_schema and "items" in current_schema:
-                        current_schema = current_schema["items"]
-                except IndexError:
+                    json_data = json_data[int(path)]
+                    current_schema = current_schema["items"]
+                except (IndexError, KeyError):
                     # 检测当前数组元素的类型，并建一个空值
-                    if current_schema and "items" in current_schema:
-                        empty_value = self._generate_example(current_schema["items"])
-                        patch_list.append({"op": "add", "path": current_path + "-", "value": empty_value})
-                        json_data = empty_value
-                        current_schema = current_schema["items"]
-                    else:
-                        patch_list.append({"op": "add", "path": current_path + "-", "value": []})
-                        json_data = []
+                    empty_value = self._generate_example(current_schema["items"])
+                    patch_list.append({"op": "add", "path": current_path + "-", "value": [empty_value]})
+                    json_data = empty_value
+                    current_schema = current_schema["items"]
             # 如果是字符串，访问对象
             elif isinstance(json_data, dict):
                 try:
-                    json_data = json_data[parent]
-                    if current_schema and "properties" in current_schema and parent in current_schema["properties"]:
-                        current_schema = current_schema["properties"][parent]
-                except KeyError:
-                    patch_list.append({"op": "add", "path": current_path + "/" + parent, "value": {}})
+                    json_data = json_data[path]
+                    current_schema = current_schema["properties"][path]
+                except (KeyError, IndexError):
+                    patch_list.append({"op": "add", "path": current_path + "/" + path, "value": {}})
                     json_data = {}
-                    if current_schema and "properties" in current_schema and parent in current_schema["properties"]:
-                        current_schema = current_schema["properties"][parent]
+                    current_schema = current_schema["properties"][path]
             else:
-                err = f"错误的路径: {key}"
+                err = f"[Slot] 错误的路径: {key}"
                 logger.exception(err)
                 raise ValueError(err)
-            current_path += parent + "/"
+
+            current_path = current_path + path + "/"
 
         patch_list.append({"op": "add", "path": key, "value": val})
         return patch_list
