@@ -295,9 +295,11 @@ class Slot:
         current_schema = schema
         for path in key_path:
             if path == "":
+                # 空路径，跳过
                 continue
-            if current_path == key:
-                patch_list.append({"op": "add", "path": current_path, "value": val})
+            if (current_path + path) == key:
+                # 当前路径与key相同，直接返回
+                patch_list.append({"op": "add", "path": current_path + path, "value": val})
                 return patch_list
 
             # 如果是数字，访问元素
@@ -327,7 +329,7 @@ class Slot:
 
             current_path = current_path + path + "/"
 
-        return []
+        return patch_list
 
 
     def convert_json(self, json_data: str | dict[str, Any]) -> dict[str, Any]:
