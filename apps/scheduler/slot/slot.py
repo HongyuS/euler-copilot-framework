@@ -296,6 +296,10 @@ class Slot:
         for path in key_path:
             if path == "":
                 continue
+            if current_path == key:
+                patch_list.append({"op": "add", "path": current_path, "value": val})
+                return patch_list
+
             # 如果是数字，访问元素
             if path.isdigit() and isinstance(json_data, list):
                 try:
@@ -313,7 +317,7 @@ class Slot:
                     json_data = json_data[path]
                     current_schema = current_schema["properties"][path]
                 except (KeyError, IndexError):
-                    patch_list.append({"op": "add", "path": current_path + "/" + path, "value": {}})
+                    patch_list.append({"op": "add", "path": current_path + path, "value": {}})
                     json_data = {}
                     current_schema = current_schema["properties"][path]
             else:
@@ -323,8 +327,7 @@ class Slot:
 
             current_path = current_path + path + "/"
 
-        patch_list.append({"op": "add", "path": key, "value": val})
-        return patch_list
+        return []
 
 
     def convert_json(self, json_data: str | dict[str, Any]) -> dict[str, Any]:
