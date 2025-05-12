@@ -7,7 +7,6 @@ from jinja2.sandbox import SandboxedEnvironment
 from apps.entities.mcp import (
     MCPCollection,
     MCPSelectResult,
-    MCPVector,
 )
 from apps.entities.task import Task
 from apps.llm.embedding import Embedding
@@ -24,7 +23,11 @@ class MCPToolHelper:
     """MCP工具助手"""
 
     @staticmethod
-    async def select_top_mcp(task: Task, query: str, mcp_list: list[str]) -> tuple[Task, str]:
+    async def select_top_mcp(
+        task: Task,
+        query: str,
+        mcp_list: list[str],
+    ) -> tuple[Task, MCPSelectResult]:
         """
         选择最合适的MCP Server
 

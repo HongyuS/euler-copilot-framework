@@ -1,15 +1,12 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MCP 相关数据结构"""
 
-import random
 from enum import Enum
 from typing import Any
 
 from lancedb.pydantic import LanceModel, Vector
 from pydantic import BaseModel, Field
-from sqids.sqids import Sqids
 
-sqids = Sqids(min_length=10)
 
 class MCPType(str, Enum):
     """MCP 类型"""
@@ -62,6 +59,7 @@ class MCPTool(BaseModel):
     description: str = Field(description="MCP工具描述")
     input_schema: dict[str, Any] = Field(description="MCP工具输入参数")
 
+
 class MCPCollection(BaseModel):
     """MCP相关信息，存储在MongoDB的 ``mcp`` 集合中"""
 
@@ -71,7 +69,6 @@ class MCPCollection(BaseModel):
     type: MCPType = Field(description="MCP 类型")
     activated: list[str] = Field(description="激活该MCP的用户ID列表", default=[])
     tools: list[MCPTool] = Field(description="MCP工具列表", default=[])
-    hash: str = Field(description="MCP模板中config.json文件的hash值")
 
 
 class MCPVector(LanceModel):
@@ -84,11 +81,7 @@ class MCPVector(LanceModel):
 class MCPToolVector(LanceModel):
     """MCP工具向量化数据，存储在LanceDB的 ``mcp_tool`` 表中"""
 
-    id: str = Field(
-        description="主键",
-        default_factory=lambda: sqids.encode([random.randint(0, 1000000) for _ in range(5)]),  # noqa: S311
-    )
-    tool_id: str = Field(description="工具ID")
+    id: str = Field(description="工具ID")
     mcp_id: str = Field(description="MCP ID")
     embedding: Vector(dim=1024) = Field(description="MCP工具描述的向量信息")  # type: ignore[call-arg]
 
