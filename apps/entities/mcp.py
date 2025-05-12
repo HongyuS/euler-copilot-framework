@@ -71,6 +71,7 @@ class MCPCollection(BaseModel):
     type: MCPType = Field(description="MCP 类型")
     activated: list[str] = Field(description="激活该MCP的用户ID列表", default=[])
     tools: list[MCPTool] = Field(description="MCP工具列表", default=[])
+    hash: str = Field(description="MCP模板中config.json文件的hash值")
 
 
 class MCPVector(LanceModel):
@@ -90,3 +91,9 @@ class MCPToolVector(LanceModel):
     tool_id: str = Field(description="工具ID")
     mcp_id: str = Field(description="MCP ID")
     embedding: Vector(dim=1024) = Field(description="MCP工具描述的向量信息")  # type: ignore[call-arg]
+
+
+class MCPSelectResult(BaseModel):
+    """MCP选择结果"""
+
+    mcp_id: str = Field(description="MCP Server的ID")

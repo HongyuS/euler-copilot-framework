@@ -10,6 +10,9 @@ from apps.llm.reasoning import ReasoningLLM
 class QuestionRewrite(CorePattern):
     """问题补全与重写"""
 
+    system_prompt: str = "You are a helpful assistant."
+    """系统提示词"""
+
     user_prompt: str = r"""
         <instructions>
           <instruction>

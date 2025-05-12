@@ -81,7 +81,7 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
         facts_tpl = env.from_string(FACTS_PROMPT)
         facts_prompt = facts_tpl.render(conversation=data.message)
         facts_obj: FactsGen = await self._json([
-            {"role": "system", "content": facts_prompt},
+            {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": facts_prompt},
         ], FactsGen) # type: ignore[arg-type]
 
@@ -89,7 +89,7 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
         domain_tpl = env.from_string(DOMAIN_PROMPT)
         domain_prompt = domain_tpl.render(conversation=data.message)
         domain_list: DomainGen = await self._json([
-            {"role": "system", "content": domain_prompt},
+            {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": domain_prompt},
         ], DomainGen) # type: ignore[arg-type]
 

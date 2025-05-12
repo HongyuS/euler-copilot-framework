@@ -66,7 +66,7 @@ class ExecutorThought(CorePattern):
             raise ValueError(err) from e
 
         messages = [
-            {"role": "system", "content": ""},
+            {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": self.user_prompt.format(
                 last_thought=last_thought,
                 user_question=user_question,
@@ -123,7 +123,7 @@ class ExecutorSummary(CorePattern):
         facts_str = facts_to_prompt(background.facts)
 
         messages = [
-            {"role": "system", "content": self.system_prompt},
+            {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": self.user_prompt.format(
                 facts=facts_str,
                 conversation=conversation_str,

@@ -21,7 +21,7 @@ class MCPClient(metaclass=ABCMeta):
 
     @abstractmethod
     async def _create_client(
-        self, user_sub: str, mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig,
+        self, user_sub: str | None, mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig,
     ) -> ClientSession:
         """
         创建MCP Client
@@ -37,7 +37,7 @@ class MCPClient(metaclass=ABCMeta):
         """
         ...
 
-    async def init(self, user_sub: str, mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig) -> None:
+    async def init(self, user_sub: str | None, mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig) -> None:
         """
         初始化 MCP Client类
 
@@ -69,7 +69,7 @@ class MCPClient(metaclass=ABCMeta):
 class SSEMCPClient(MCPClient):
     """SSE协议的MCP Client"""
 
-    async def _create_client(self, user_sub: str, mcp_id: str, config: MCPServerSSEConfig) -> ClientSession:
+    async def _create_client(self, user_sub: str | None, mcp_id: str, config: MCPServerSSEConfig) -> ClientSession:
         """
         初始化 SSE协议的MCP Client
 
@@ -91,7 +91,7 @@ class SSEMCPClient(MCPClient):
 class StdioMCPClient(MCPClient):
     """Stdio协议的MCP Client"""
 
-    async def _create_client(self, user_sub: str, mcp_id: str, config: MCPServerStdioConfig) -> ClientSession:
+    async def _create_client(self, user_sub: str | None, mcp_id: str, config: MCPServerStdioConfig) -> ClientSession:
         """
         初始化 Stdio协议的MCP Client
 
@@ -101,11 +101,16 @@ class StdioMCPClient(MCPClient):
         :return: Stdio协议的MCP Client
         :rtype: ClientSession
         """
+        if user_sub:
+            cwd = MCP_PATH / "users" / user_sub / mcp_id / "project"
+        else:
+            cwd = MCP_PATH / "template" / mcp_id / "project"
+
         server_params = StdioServerParameters(
             command=config.command,
             args=config.args,
             env=config.env,
-            cwd=(MCP_PATH / "users" / user_sub / mcp_id / "project").as_posix(),
+            cwd=cwd.as_posix(),
         )
         client = stdio_client(server=server_params)
         self._reader, self._writer = await self._exit_stack.enter_async_context(client)
