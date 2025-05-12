@@ -18,8 +18,8 @@ class APIInput(DataBase):
     url: SkipJsonSchema[str] = Field(description="API调用工具的URL")
     method: SkipJsonSchema[str] = Field(description="API调用工具的HTTP方法")
 
-    query: dict[str, Any] = Field(description="API调用工具的请求参数")
-    body: dict[str, Any] = Field(description="API调用工具的请求体")
+    query: dict[str, Any] = Field(description="API调用工具的请求参数", default={})
+    body: dict[str, Any] = Field(description="API调用工具的请求体", default={})
 
 
 class APIOutput(DataBase):
