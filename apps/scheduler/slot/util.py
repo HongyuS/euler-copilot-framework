@@ -21,6 +21,7 @@ def escape_path(key: str) -> str:
 def patch_json(operation_list: list[dict[str, Any]]) -> dict[str, Any]:
     """应用JSON Patch，获得JSON数据"""
     json_data = {}
+    operation_list.reverse()
 
     while operation_list:
         current_operation = operation_list.pop()

@@ -9,4 +9,5 @@ Dockerfile
 .git/
 deploy/
 docs/
+docs_for_openEuler/
 .DS_Store
