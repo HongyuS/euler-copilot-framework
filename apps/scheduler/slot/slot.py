@@ -335,7 +335,7 @@ class Slot:
     def convert_json(self, json_data: str | dict[str, Any]) -> dict[str, Any]:
         """将用户手动填充的参数专为真实JSON"""
         json_dict = json.loads(json_data) if isinstance(json_data, str) else json_data
-        new_json = {}
+        final_json = {}
 
         # 对JSON进行处理
         for key, val in json_dict.items():
@@ -343,10 +343,11 @@ class Slot:
             if key[0] == "/":
                 patch_list = self._assemble_patch(key, json_dict, val, self._schema)
                 new_json = patch_json(patch_list)
+                final_json.update(new_json)
             else:
-                new_json[key] = val
+                final_json[key] = val
 
-        return new_json
+        return final_json
 
     def check_json(self, json_data: dict[str, Any]) -> dict[str, Any]:
         """检测槽位是否合法、是否填充完成"""
