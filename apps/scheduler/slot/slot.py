@@ -343,7 +343,7 @@ class Slot:
             # 如果是patch，则构建
             if key[0] == "/":
                 patch_list = self._assemble_patch(key, val, final_json, self._schema)
-                final_json.update(patch_json(patch_list))
+                final_json = patch_json(patch_list, final_json)
             else:
                 final_json[key] = val
 
