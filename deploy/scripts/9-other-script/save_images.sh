@@ -7,17 +7,85 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # 恢复默认颜色
 
-# 默认版本配置
+# 默认配置
 eulercopilot_version="0.9.5"
+ARCH_SUFFIX=""
+OUTPUT_DIR="/home/eulercopilot/images/${eulercopilot_version}"
 
-# 检查输入参数
-if [ $# -ge 1 ]; then
-    eulercopilot_version="$1"
-    echo -e "${YELLOW}使用自定义版本: $eulercopilot_version${NC}"
+# 显示帮助信息
+show_help() {
+    echo -e "${YELLOW}使用说明:${NC}"
+    echo -e "  $0 [选项]"
+    echo -e ""
+    echo -e "${YELLOW}选项:${NC}"
+    echo -e "  --help            显示此帮助信息"
+    echo -e "  --version <版本>  指定 EulerCopilot 版本 (默认: ${eulercopilot_version})"
+    echo -e "  --arch <架构>     指定系统架构 (arm/x86, 默认自动检测)"
+    echo -e ""
+    echo -e "${YELLOW}示例:${NC}"
+    echo -e "  $0 --version 0.9.5 --arch arm"
+    echo -e "  $0 --help"
+    exit 0
+}
+
+# 解析命令行参数
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --help)
+            show_help
+            ;;
+        --version)
+            if [ -n "$2" ]; then
+                eulercopilot_version="$2"
+                OUTPUT_DIR="/home/eulercopilot/images/${eulercopilot_version}"
+                shift
+            else
+                echo -e "${RED}错误: --version 需要指定一个版本号${NC}"
+                exit 1
+            fi
+            ;;
+        --arch)
+            if [ -n "$2" ]; then
+                case "$2" in
+                    arm|x86)
+                        ARCH_SUFFIX="$2"
+                        ;;
+                    *)
+                        echo -e "${RED}错误: 不支持的架构 '$2'，必须是 arm 或 x86${NC}"
+                        exit 1
+                        ;;
+                esac
+                shift
+            else
+                echo -e "${RED}错误: --arch 需要指定一个架构 (arm/x86)${NC}"
+                exit 1
+            fi
+            ;;
+        *)
+            echo -e "${RED}未知参数: $1${NC}"
+            show_help
+            ;;
+    esac
+    shift
+done
+
+# 自动检测架构（如果未通过参数指定）
+if [ -z "$ARCH_SUFFIX" ]; then
+    ARCH=$(uname -m)
+    case $ARCH in
+        x86_64)
+            ARCH_SUFFIX="x86"
+            ;;
+        aarch64|armv*)
+            ARCH_SUFFIX="arm"
+            ;;
+        *)
+            echo -e "${RED}不支持的架构: $ARCH${NC}"
+            exit 1
+            ;;
+    esac
 fi
 
-# 定义存储路径
-OUTPUT_DIR="/home/eulercopilot/images/${eulercopilot_version}"
 mkdir -p "$OUTPUT_DIR"
 
 # 镜像列表（使用版本变量）
@@ -58,21 +126,6 @@ if [ ${#BASE_IMAGES[@]} -ne ${#FILE_NAMES[@]} ]; then
     exit 1
 fi
 
-# 检测系统架构
-ARCH=$(uname -m)
-case $ARCH in
-    x86_64)
-        ARCH_SUFFIX="x86"
-        ;;
-    aarch64|armv*)
-        ARCH_SUFFIX="arm"
-        ;;
-    *)
-        echo -e "${RED}不支持的架构: $ARCH${NC}"
-        exit 1
-        ;;
-esac
-
 # 初始化计数器
 total=${#BASE_IMAGES[@]}
 success=0
@@ -82,19 +135,19 @@ fail=0
 process_image() {
     local raw_image=$1
     local filename=$2
-    
+
     # 调整架构标签
     local adjusted_image="${raw_image/-arm/-${ARCH_SUFFIX}}"
     local output_path="${OUTPUT_DIR}/${filename}"
 
     echo -e "\n${BLUE}正在处理：${adjusted_image}${NC}"
-    
+
     # 拉取镜像
     if ! docker pull "$adjusted_image"; then
         echo -e "${RED}拉取失败：${adjusted_image}${NC}"
         return 1
     fi
-    
+
     # 保存镜像
     if docker save -o "$output_path" "$adjusted_image"; then
         echo -e "${GREEN}镜像已保存到：${output_path}${NC}"
@@ -107,8 +160,8 @@ process_image() {
 
 # 打印执行信息
 echo -e "${BLUE}==============================${NC}"
-echo -e "${YELLOW}架构检测\t: ${ARCH_SUFFIX}${NC}"
-echo -e "${YELLOW}目标版本\t: ${eulercopilot_version}${NC}"
+echo -e "${YELLOW}架构\t: ${ARCH_SUFFIX}${NC}"
+echo -e "${YELLOW}版本\t: ${eulercopilot_version}${NC}"
 echo -e "${YELLOW}存储目录\t: ${OUTPUT_DIR}${NC}"
 echo -e "${YELLOW}镜像数量\t: ${total}${NC}"
 echo -e "${BLUE}==============================${NC}"
