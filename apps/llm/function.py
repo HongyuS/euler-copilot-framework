@@ -27,6 +27,7 @@ class FunctionLLM:
         - sglang
         - vllm
         - ollama
+        - openai
         """
         if Config().get_config().function_call.backend == "sglang":
             import sglang
@@ -47,10 +48,10 @@ class FunctionLLM:
             import openai
 
             if not Config().get_config().function_call.api_key:
-                self._client = openai.AsyncOpenAI(base_url=Config().get_config().function_call.endpoint + "/v1")
+                self._client = openai.AsyncOpenAI(base_url=Config().get_config().function_call.endpoint)
             else:
                 self._client = openai.AsyncOpenAI(
-                    base_url=Config().get_config().function_call.endpoint + "/v1",
+                    base_url=Config().get_config().function_call.endpoint,
                     api_key=Config().get_config().function_call.api_key,
                 )
 
