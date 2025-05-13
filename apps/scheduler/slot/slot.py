@@ -329,6 +329,7 @@ class Slot:
 
             current_path = current_path + path + "/"
 
+        logger.info("[Slot] 组装patch: %s", patch_list)
         return patch_list
 
 
