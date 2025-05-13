@@ -283,8 +283,8 @@ class Slot:
     def _assemble_patch(
             self,
             key: str,
-            json_data: Any,
             val: Any,
+            json_data: Any,
             schema: dict[str, Any],
     ) -> list[dict[str, Any]]:
         """将用户手动填充的参数专为真实JSON"""
@@ -341,9 +341,8 @@ class Slot:
         for key, val in json_dict.items():
             # 如果是patch，则构建
             if key[0] == "/":
-                patch_list = self._assemble_patch(key, json_dict, val, self._schema)
-                new_json = patch_json(patch_list)
-                final_json.update(new_json)
+                patch_list = self._assemble_patch(key, val, final_json, self._schema)
+                final_json.update(patch_json(patch_list))
             else:
                 final_json[key] = val
 
