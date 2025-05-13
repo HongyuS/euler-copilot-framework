@@ -17,7 +17,7 @@ class KnowledgeBaseManager:
     @staticmethod
     async def change_kb_id(user_sub: str, kb_id: str) -> bool:
         """修改当前用户的知识库ID"""
-        user_collection = MongoDB.get_collection("user")
+        user_collection = MongoDB().get_collection("user")
         try:
             user = await user_collection.find_one({"_id": user_sub}, {"kb_id": 1})
             if user is None:
@@ -33,7 +33,7 @@ class KnowledgeBaseManager:
     @staticmethod
     async def get_kb_id(user_sub: str) -> str | None:
         """获取当前用户的知识库ID"""
-        user_collection = MongoDB.get_collection("user")
+        user_collection = MongoDB().get_collection("user")
         try:
             user_info = await user_collection.find_one({"_id": user_sub}, {"kb_id": 1})
             if not user_info:

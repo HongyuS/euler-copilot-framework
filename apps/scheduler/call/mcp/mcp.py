@@ -38,13 +38,17 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
         mcp_host = MCPHost()
         self._mcp = await mcp_host.get_clients(call_vars.ids.user_sub, self.mcp_list)
 
-        # 获取MCP列表
-        mcp_helper = MCPToolHelper()
-        task, result = await mcp_helper.select_top_mcp(call_vars.task, call_vars.query, call_vars.mcp_list)
+        # 获取工具列表
+        result = {}
+        for mcp_id, mcp in self._mcp.items():
+            result[mcp_id] = [tool.name for tool in mcp.tools]
 
+        return MCPInput(avaliable_tools=result)
 
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """执行MCP"""
-        pass
+        # 选择最合适的MCP
+        mcp_helper = MCPToolHelper()
+        task, result = await mcp_helper.select_top_mcp(call_vars.task, call_vars.query, call_vars.mcp_list)
 

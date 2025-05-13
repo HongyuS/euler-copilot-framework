@@ -195,7 +195,7 @@ class FlowLoader:
     async def _update_db(self, app_id: str, metadata: AppFlow) -> None:
         """更新数据库"""
         try:
-            app_collection = MongoDB.get_collection("app")
+            app_collection = MongoDB().get_collection("app")
             # 获取当前的flows
             app_data = await app_collection.find_one({"_id": app_id})
             if not app_data:

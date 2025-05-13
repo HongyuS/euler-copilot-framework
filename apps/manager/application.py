@@ -25,7 +25,7 @@ class AppManager:
         :return: 如果用户具有所需权限则返回True，否则返回False
         """
         try:
-            app_collection = MongoDB.get_collection("app")
+            app_collection = MongoDB().get_collection("app")
             query = {
                 "_id": app_id,
                 "$or": [
@@ -57,7 +57,7 @@ class AppManager:
         :return: 如果应用属于用户则返回True，否则返回False
         """
         try:
-            app_collection = MongoDB.get_collection("app")  # 获取应用集合'
+            app_collection = MongoDB().get_collection("app")  # 获取应用集合'
             query = {
                 "_id": app_id,
                 "author": user_sub,

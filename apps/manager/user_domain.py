@@ -18,7 +18,7 @@ class UserDomainManager:
     @staticmethod
     async def get_user_domain_by_user_sub_and_topk(user_sub: str, topk: int) -> list[str]:
         """根据用户ID，查询用户最常涉及的n个领域"""
-        user_collection = MongoDB.get_collection("user")
+        user_collection = MongoDB().get_collection("user")
         try:
             domains = await user_collection.aggregate(
                 [
@@ -38,8 +38,8 @@ class UserDomainManager:
     @staticmethod
     async def update_user_domain_by_user_sub_and_domain_name(user_sub: str, domain_name: str) -> bool:
         """增加特定用户特定领域的频次"""
-        domain_collection = MongoDB.get_collection("domain")
-        user_collection = MongoDB.get_collection("user")
+        domain_collection = MongoDB().get_collection("domain")
+        user_collection = MongoDB().get_collection("user")
         try:
             # 检查领域是否存在
             domain = await domain_collection.find_one({"_id": domain_name})

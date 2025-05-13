@@ -15,5 +15,5 @@ class MCPPlanner:
 
 
     def evaluate_plan(self) -> bool:
-        """评估MCP"""
+        """评估当前的MCP规划"""
         pass

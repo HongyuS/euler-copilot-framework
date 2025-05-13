@@ -33,7 +33,7 @@ class OIDCProvider:
     @staticmethod
     async def set_token(user_sub: str, access_token: str, refresh_token: str) -> None:
         """设置MongoDB中的OIDC Token到sessions集合"""
-        sessions_collection = MongoDB.get_collection("session")
+        sessions_collection = MongoDB().get_collection("session")
 
         try:
             await sessions_collection.update_one(

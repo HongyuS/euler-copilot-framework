@@ -22,13 +22,13 @@ if TYPE_CHECKING:
 class MongoDB:
     """MongoDB连接器"""
 
-    _client: AsyncMongoClient = AsyncMongoClient(
-        f"mongodb://{urllib.parse.quote_plus(Config().get_config().mongodb.user)}:{urllib.parse.quote_plus(Config().get_config().mongodb.password)}@{Config().get_config().mongodb.host}:{Config().get_config().mongodb.port}/?directConnection=true&replicaSet=rs0",
-    )
-    """异步的MongoDB Client"""
+    def __init__(self) -> None:
+        """初始化MongoDB连接器"""
+        self._client = AsyncMongoClient(
+            f"mongodb://{urllib.parse.quote_plus(Config().get_config().mongodb.user)}:{urllib.parse.quote_plus(Config().get_config().mongodb.password)}@{Config().get_config().mongodb.host}:{Config().get_config().mongodb.port}/?directConnection=true&replicaSet=rs0",
+        )
 
-    @classmethod
-    def get_collection(cls, collection_name: str) -> AsyncCollection:
+    def get_collection(self, collection_name: str) -> AsyncCollection:
         """
         获取MongoDB集合
 
@@ -37,13 +37,13 @@ class MongoDB:
         :rtype: AsyncCollection
         """
         try:
-            return cls._client[Config().get_config().mongodb.database][collection_name]
+            return self._client[Config().get_config().mongodb.database][collection_name]
         except Exception as e:
             logger.exception("[MongoDB] 获取集合 %s 失败", collection_name)
             raise RuntimeError(str(e)) from e
 
-    @classmethod
-    async def clear_collection(cls, collection_name: str) -> None:
+
+    async def clear_collection(self, collection_name: str) -> None:
         """
         清空MongoDB集合
 
@@ -51,12 +51,12 @@ class MongoDB:
         :return: 无
         """
         try:
-            await cls._client[Config().get_config().mongodb.database][collection_name].delete_many({})
+            await self._client[Config().get_config().mongodb.database][collection_name].delete_many({})
         except Exception:
             logger.exception("[MongoDB] 清空集合 %s 失败", collection_name)
 
-    @classmethod
-    def get_session(cls) -> AsyncClientSession:
+
+    def get_session(self) -> AsyncClientSession:
         """
         获取MongoDB会话
 
@@ -65,4 +65,4 @@ class MongoDB:
         :return: 会话对象
         :rtype: AsyncClientSession
         """
-        return cls._client.start_session()
+        return self._client.start_session()

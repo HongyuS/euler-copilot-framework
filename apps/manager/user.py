@@ -26,7 +26,7 @@ class UserManager:
         :return: 是否添加成功
         """
         try:
-            user_collection = MongoDB.get_collection("user")
+            user_collection = MongoDB().get_collection("user")
             await user_collection.insert_one(User(
                 _id=user_sub,
             ).model_dump(by_alias=True))
@@ -45,7 +45,7 @@ class UserManager:
         """
         result = []
         try:
-            user_collection = MongoDB.get_collection("user")
+            user_collection = MongoDB().get_collection("user")
             result = [user["_id"] async for user in user_collection.find({}, {"_id": 1})]
         except Exception:
             logger.exception("[UserManager] 获取所有用户失败")
@@ -60,7 +60,7 @@ class UserManager:
         :return: 用户信息
         """
         try:
-            user_collection = MongoDB.get_collection("user")
+            user_collection = MongoDB().get_collection("user")
             user_data = await user_collection.find_one({"_id": user_sub})
             return User(**user_data) if user_data else None
         except Exception:
@@ -87,7 +87,7 @@ class UserManager:
         if refresh_revision:
             update_dict["$set"]["status"] = "init"  # type: ignore[assignment]
         try:
-            user_collection = MongoDB.get_collection("user")
+            user_collection = MongoDB().get_collection("user")
             result = await user_collection.update_one({"_id": user_sub}, update_dict)
         except Exception:
             logger.exception("[UserManager] 更新用户信息失败")
@@ -104,7 +104,7 @@ class UserManager:
         :return: 用户sub列表
         """
         try:
-            user_collection = MongoDB.get_collection("user")
+            user_collection = MongoDB().get_collection("user")
             return [user["_id"] async for user in user_collection.find({"login_time": {"$lt": login_time}}, {"_id": 1})]
         except Exception:
             logger.exception("[UserManager] 根据登录时间获取用户信息失败")
@@ -119,7 +119,7 @@ class UserManager:
         :return: 是否删除成功
         """
         try:
-            user_collection = MongoDB.get_collection("user")
+            user_collection = MongoDB().get_collection("user")
             result = await user_collection.find_one_and_delete({"_id": user_sub})
             if not result:
                 return False

@@ -25,7 +25,7 @@ class DomainManager:
         :return: 领域信息列表
         """
         try:
-            domain_collection = MongoDB.get_collection("domain")
+            domain_collection = MongoDB().get_collection("domain")
             return [Domain(**domain) async for domain in domain_collection.find()]
         except Exception:
             logger.exception("[DomainManager] 获取领域失败")
@@ -40,7 +40,7 @@ class DomainManager:
         :return: 领域信息
         """
         try:
-            domain_collection = MongoDB.get_collection("domain")
+            domain_collection = MongoDB().get_collection("domain")
             domain_data = await domain_collection.find_one({"domain_name": domain_name})
             if domain_data:
                 return Domain(**domain_data)
@@ -62,7 +62,7 @@ class DomainManager:
                 name=domain_data.domain_name,
                 definition=domain_data.domain_description,
             )
-            domain_collection = MongoDB.get_collection("domain")
+            domain_collection = MongoDB().get_collection("domain")
             await domain_collection.insert_one(domain.model_dump(by_alias=True))
         except Exception:
             logger.exception("[DomainManager] 添加领域失败")
@@ -83,7 +83,7 @@ class DomainManager:
                 "definition": domain_data.domain_description,
                 "updated_at": round(datetime.now(tz=UTC).timestamp(), 3),
             }
-            domain_collection = MongoDB.get_collection("domain")
+            domain_collection = MongoDB().get_collection("domain")
             await domain_collection.update_one(
                 {"name": domain_data.domain_name},
                 {"$set": update_dict},
@@ -102,7 +102,7 @@ class DomainManager:
         :return: 删除成功返回True，否则返回False
         """
         try:
-            domain_collection = MongoDB.get_collection("domain")
+            domain_collection = MongoDB().get_collection("domain")
             await domain_collection.delete_one({"name": domain_data.domain_name})
         except Exception:
             logger.exception("[DomainManager] 通过领域名称删除领域失败")

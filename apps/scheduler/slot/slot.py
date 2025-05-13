@@ -154,44 +154,46 @@ class Slot:
         # 遍历JSON，处理每一个字段
         return _process_json_value(json_data, self._schema)
 
-    def create_empty_slot(self) -> dict[str, Any]:
-        """创建一个空的槽位"""
-        def _generate_example(schema_node: dict) -> Any:  # noqa: PLR0911
-            if "default" in schema_node:
-                return schema_node["default"]
+    @staticmethod
+    def _generate_example(schema_node: dict) -> Any:  # noqa: PLR0911
+        """根据schema生成示例值"""
+        if "default" in schema_node:
+            return schema_node["default"]
 
-            if "type" not in schema_node:
-                return None
-
-            # 处理类型为 object 的节点
-            if schema_node["type"] == "object":
-                data = {}
-                properties = schema_node.get("properties", {})
-                for name, schema in properties.items():
-                    data[name] = _generate_example(schema)
-                return data
-
-            # 处理类型为 array 的节点
-            if schema_node["type"] == "array":
-                items_schema = schema_node.get("items", {})
-                return [_generate_example(items_schema)]
-
-            # 处理类型为 string 的节点
-            if schema_node["type"] == "string":
-                return ""
-
-            # 处理类型为 number 或 integer 的节点
-            if schema_node["type"] in ["number", "integer"]:
-                return 0
-
-            # 处理类型为 boolean 的节点
-            if schema_node["type"] == "boolean":
-                return False
-
-            # 处理其他类型或未定义类型
+        if "type" not in schema_node:
             return None
 
-        return _generate_example(self._schema)
+        # 处理类型为 object 的节点
+        if schema_node["type"] == "object":
+            data = {}
+            properties = schema_node.get("properties", {})
+            for name, schema in properties.items():
+                data[name] = Slot._generate_example(schema)
+            return data
+
+        # 处理类型为 array 的节点
+        if schema_node["type"] == "array":
+            items_schema = schema_node.get("items", {})
+            return [Slot._generate_example(items_schema)]
+
+        # 处理类型为 string 的节点
+        if schema_node["type"] == "string":
+            return ""
+
+        # 处理类型为 number 或 integer 的节点
+        if schema_node["type"] in ["number", "integer"]:
+            return 0
+
+        # 处理类型为 boolean 的节点
+        if schema_node["type"] == "boolean":
+            return False
+
+        # 处理其他类型或未定义类型
+        return None
+
+    def create_empty_slot(self) -> dict[str, Any]:
+        """创建一个空的槽位"""
+        return self._generate_example(self._schema)
 
     def extract_type_desc_from_schema(self) -> dict[str, str]:
         """从JSON Schema中提取类型描述"""
@@ -206,9 +208,8 @@ class Slot:
             if "anyOf" in schema_node:
                 data["items"] = {}
                 type_index = 0
-                for sub_schema in schema_node["anyOf"]:
+                for type_index, sub_schema in enumerate(schema_node["anyOf"]):
                     sub_result = _extract_type_desc(sub_schema)
-                    type_index += 1
                     if sub_result:
                         data["items"]["type_"+str(type_index)] = sub_result
             if schema_node.get("type", "") == "object":
@@ -278,23 +279,73 @@ class Slot:
         logger.exception("[Slot] 错误schema不合法: %s", error.schema)
         return {}, []
 
+
+    def _assemble_patch(
+            self,
+            key: str,
+            val: Any,
+            json_data: Any,
+            schema: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """将用户手动填充的参数专为真实JSON"""
+        patch_list = []
+        key_path = key.split("/")
+
+        current_path = "/"
+        current_schema = schema
+        for path in key_path:
+            if path == "":
+                # 空路径，跳过
+                continue
+            if (current_path + path) == key:
+                # 当前路径与key相同，直接返回
+                patch_list.append({"op": "add", "path": current_path + path, "value": val})
+                return patch_list
+
+            # 如果是数字，访问元素
+            if path.isdigit() and isinstance(json_data, list):
+                try:
+                    json_data = json_data[int(path)]
+                    current_schema = current_schema["items"]
+                except (IndexError, KeyError):
+                    # 检测当前数组元素的类型，并建一个空值
+                    empty_value = self._generate_example(current_schema["items"])
+                    patch_list.append({"op": "add", "path": current_path + "-", "value": [empty_value]})
+                    json_data = empty_value
+                    current_schema = current_schema["items"]
+            # 如果是字符串，访问对象
+            elif isinstance(json_data, dict):
+                try:
+                    json_data = json_data[path]
+                    current_schema = current_schema["properties"][path]
+                except (KeyError, IndexError):
+                    patch_list.append({"op": "add", "path": current_path + path, "value": {}})
+                    json_data = {}
+                    current_schema = current_schema["properties"][path]
+            else:
+                err = f"[Slot] 错误的路径: {key}"
+                logger.exception(err)
+                raise ValueError(err)
+
+            current_path = current_path + path + "/"
+
+        logger.info("[Slot] 组装patch: %s", patch_list)
+        return patch_list
+
+
     def convert_json(self, json_data: str | dict[str, Any]) -> dict[str, Any]:
         """将用户手动填充的参数专为真实JSON"""
         json_dict = json.loads(json_data) if isinstance(json_data, str) else json_data
+        final_json = {}
 
         # 对JSON进行处理
-        patch_list = []
-        plain_data = {}
         for key, val in json_dict.items():
             # 如果是patch，则构建
             if key[0] == "/":
-                patch_list.append({"op": "add", "path": key, "value": val})
+                patch_list = self._assemble_patch(key, val, final_json, self._schema)
+                final_json = patch_json(patch_list, final_json)
             else:
-                plain_data[key] = val
-
-        # 对JSON进行patch
-        final_json = patch_json(patch_list)
-        final_json.update(plain_data)
+                final_json[key] = val
 
         return final_json
 

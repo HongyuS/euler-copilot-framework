@@ -58,8 +58,8 @@ class DocumentManager:
     async def storage_docs(cls, user_sub: str, conversation_id: str, documents: list[UploadFile]) -> list[Document]:
         """存储多个文件"""
         uploaded_files = []
-        doc_collection = MongoDB.get_collection("document")
-        conversation_collection = MongoDB.get_collection("conversation")
+        doc_collection = MongoDB().get_collection("document")
+        conversation_collection = MongoDB().get_collection("conversation")
         for document in documents:
             try:
                 if document.filename is None or document.size is None:
@@ -95,8 +95,8 @@ class DocumentManager:
     @classmethod
     async def get_unused_docs(cls, user_sub: str, conversation_id: str) -> list[Document]:
         """获取Conversation中未使用的文件"""
-        conv_collection = MongoDB.get_collection("conversation")
-        doc_collection = MongoDB.get_collection("document")
+        conv_collection = MongoDB().get_collection("conversation")
+        doc_collection = MongoDB().get_collection("document")
 
         try:
             conv = await conv_collection.find_one({"_id": conversation_id, "user_sub": user_sub})
@@ -113,8 +113,8 @@ class DocumentManager:
     @classmethod
     async def get_used_docs_by_record_group(cls, user_sub: str, record_group_id: str) -> list[RecordDocument]:
         """获取RecordGroup关联的文件"""
-        record_group_collection = MongoDB.get_collection("record_group")
-        docs_collection = MongoDB.get_collection("document")
+        record_group_collection = MongoDB().get_collection("record_group")
+        docs_collection = MongoDB().get_collection("document")
         try:
             record_group = await record_group_collection.find_one({"_id": record_group_id, "user_sub": user_sub})
             if not record_group:
@@ -142,8 +142,8 @@ class DocumentManager:
     @classmethod
     async def get_used_docs(cls, user_sub: str, conversation_id: str, record_num: int | None = 10) -> list[Document]:
         """获取最后n次问答所用到的文件"""
-        docs_collection = MongoDB.get_collection("document")
-        record_group_collection = MongoDB.get_collection("record_group")
+        docs_collection = MongoDB().get_collection("document")
+        record_group_collection = MongoDB().get_collection("record_group")
         try:
             if record_num:
                 record_groups = (
@@ -176,10 +176,10 @@ class DocumentManager:
     @classmethod
     async def delete_document(cls, user_sub: str, document_list: list[str]) -> bool:
         """从未使用文件列表中删除一个文件"""
-        doc_collection = MongoDB.get_collection("document")
-        conv_collection = MongoDB.get_collection("conversation")
+        doc_collection = MongoDB().get_collection("document")
+        conv_collection = MongoDB().get_collection("conversation")
         try:
-            async with MongoDB.get_session() as session, await session.start_transaction():
+            async with MongoDB().get_session() as session, await session.start_transaction():
                 for doc in document_list:
                     doc_info = await doc_collection.find_one_and_delete(
                         {"_id": doc, "user_sub": user_sub}, session=session,
@@ -211,10 +211,10 @@ class DocumentManager:
     @classmethod
     async def delete_document_by_conversation_id(cls, user_sub: str, conversation_id: str) -> list[str]:
         """通过ConversationID删除文件"""
-        doc_collection = MongoDB.get_collection("document")
+        doc_collection = MongoDB().get_collection("document")
         doc_ids = []
         try:
-            async with MongoDB.get_session() as session, await session.start_transaction():
+            async with MongoDB().get_session() as session, await session.start_transaction():
                 async for doc in doc_collection.find(
                     {"user_sub": user_sub, "conversation_id": conversation_id}, session=session,
                 ):
@@ -231,14 +231,14 @@ class DocumentManager:
     @classmethod
     async def get_doc_count(cls, user_sub: str, conversation_id: str) -> int:
         """获取对话文件数量"""
-        doc_collection = MongoDB.get_collection("document")
+        doc_collection = MongoDB().get_collection("document")
         return await doc_collection.count_documents({"user_sub": user_sub, "conversation_id": conversation_id})
 
     @classmethod
     async def change_doc_status(cls, user_sub: str, conversation_id: str, record_group_id: str) -> None:
         """文件状态由unused改为used"""
-        record_group_collection = MongoDB.get_collection("record_group")
-        conversation_collection = MongoDB.get_collection("conversation")
+        record_group_collection = MongoDB().get_collection("record_group")
+        conversation_collection = MongoDB().get_collection("conversation")
         try:
             # 查找Conversation中的unused_docs
             conversation = await conversation_collection.find_one({"user_sub": user_sub, "_id": conversation_id})
@@ -263,7 +263,7 @@ class DocumentManager:
     @classmethod
     async def save_answer_doc(cls, user_sub: str, record_group_id: str, doc_ids: list[str]) -> None:
         """保存与答案关联的文件"""
-        record_group_collection = MongoDB.get_collection("record_group")
+        record_group_collection = MongoDB().get_collection("record_group")
         try:
             for doc_id in doc_ids:
                 doc_info = RecordGroupDocument(_id=doc_id, associated="answer")
