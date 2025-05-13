@@ -234,23 +234,41 @@ uninstall_eulercopilot() {
     echo -e "${GREEN}资源清理完成${NC}"
 }
 
-# 修改配置文件
 modify_yaml() {
     local host=$1
+    local preserve_models=$2  # 新增参数，指示是否保留模型配置
     echo -e "${BLUE}开始修改YAML配置文件...${NC}" >&2
+
+    # 构建参数数组
+    local set_args=()
+
+    # 添加其他必填参数
+    set_args+=(
+        "--set" "login.client.id=${client_id}"
+        "--set" "login.client.secret=${client_secret}"
+        "--set" "domain.authhub=${authhub_domain}"
+        "--set" "domain.euler_copilot=${eulercopilot_domain}"
+    )
+
+    # 如果不需要保留模型配置，则添加模型相关的参数
+    if [[ "$preserve_models" != [Yy]* ]]; then
+        set_args+=(
+            "--set" "models.answer.endpoint=http://$host:11434"
+            "--set" "models.answer.key=sk-123456"
+            "--set" "models.answer.name=deepseek-llm-7b-chat:latest"
+	    "--set" "models.functionCall.backend=ollama"
+	    "--set" "models.embedding.type=openai"
+            "--set" "models.embedding.endpoint=http://$host:11434/v1"
+            "--set" "models.embedding.key=sk-123456"
+            "--set" "models.embedding.name=bge-m3:latest"
+        )
+    fi
+
+    # 调用Python脚本，传递所有参数
     python3 "${DEPLOY_DIR}/scripts/9-other-script/modify_eulercopilot_yaml.py" \
       "${DEPLOY_DIR}/chart/euler_copilot/values.yaml" \
       "${DEPLOY_DIR}/chart/euler_copilot/values.yaml" \
-      --set "models.answer.endpoint=http://$host:11434" \
-      --set "models.answer.key=sk-123456" \
-      --set "models.answer.name=deepseek-llm-7b-chat:latest" \
-      --set "models.embedding.endpoint=http://$host:11434/v1" \
-      --set "models.embedding.key=sk-123456" \
-      --set "models.embedding.name=bge-m3:latest" \
-      --set "login.client.id=${client_id}" \
-      --set "login.client.secret=${client_secret}" \
-      --set "domain.authhub=${authhub_domain}" \
-      --set "domain.euler_copilot=${eulercopilot_domain}" || {
+      "${set_args[@]}" || {
         echo -e "${RED}错误：YAML文件修改失败${NC}" >&2
         exit 1
     }
@@ -325,13 +343,22 @@ main() {
     host=$(get_network_ip) || exit 1
     uninstall_eulercopilot
     if ! get_client_info_auto; then
-	echo -e "${YELLOW}需要手动登录Authhub域名并创建应用，获取client信息${NC}"
+        echo -e "${YELLOW}需要手动登录Authhub域名并创建应用，获取client信息${NC}"
         get_client_info_manual
     fi
     check_directories
-    modify_yaml "$host"
-    execute_helm_install "$arch"
 
+    # 处理是否保留模型配置
+    local preserve_models="N"  # 非交互模式默认覆盖
+    if [ -t 0 ]; then  # 仅在交互式终端显示提示
+        echo -e "${BLUE}是否保留现有的模型配置？(Y/n) ${NC}"
+        read -p "> " input_preserve
+        preserve_models=${input_preserve:-Y}
+    fi
+
+    modify_yaml "$host" "$preserve_models"
+    execute_helm_install "$arch"
+    
     if check_pods_status; then
         echo -e "${GREEN}所有组件已就绪！${NC}"
     else
