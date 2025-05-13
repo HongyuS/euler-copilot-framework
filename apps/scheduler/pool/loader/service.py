@@ -148,7 +148,9 @@ class ServiceLoader:
                 embedding=service_vecs[0],
             ),
         ]
-        await service_table.add(service_vector_data)
+        await service_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
+            service_vector_data,
+        )
 
         node_descriptions = []
         for node in nodes:
@@ -164,4 +166,6 @@ class ServiceLoader:
                     embedding=vec,
                 ),
             )
-        await node_table.add(node_vector_data)
+        await node_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
+            node_vector_data,
+        )
