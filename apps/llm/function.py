@@ -183,8 +183,8 @@ class FunctionLLM:
             tool_data = {
                 "type": "function",
                 "function": {
-                    "name": "output",
-                    "description": "Call the function to get the output",
+                    "name": "json_gen",
+                    "description": "调用该工具，以根据JSON Schema填充并生成符合要求的JSON数据",
                     "parameters": schema,
                 },
             }
@@ -192,10 +192,13 @@ class FunctionLLM:
 
         response = await self._client.chat.completions.create(**param)
         try:
-            ans = response.choices[0].message.tool_calls[0].function.arguments or ""
-        except IndexError:
-            ans = ""
-        return ans
+            ans = json.loads(response.choices[0].message.tool_calls[0].function.arguments)
+        except Exception:
+            try:
+                ans = json.loads(response.choices[0].message.content)
+            except Exception:
+                ans = {}
+        return json.dumps(ans, ensure_ascii=False)
 
     async def _call_ollama(
         self, messages: list[dict[str, Any]], schema: dict[str, Any], max_tokens: int, temperature: float,
