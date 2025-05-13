@@ -241,7 +241,7 @@ class MCPLoader(metaclass=SingletonMeta):
         tool_list = await self._get_template_tool(mcp_id, config)
 
         # 基本信息插入数据库
-        mcp_collection = MongoDB.get_collection("mcp")
+        mcp_collection = MongoDB().get_collection("mcp")
         await mcp_collection.update_one(
             {"_id": mcp_id},
             {
@@ -370,7 +370,7 @@ class MCPLoader(metaclass=SingletonMeta):
         :param str mcp_id: MCP模板ID
         :return: 无
         """
-        mcp_collection = MongoDB.get_collection("mcp")
+        mcp_collection = MongoDB().get_collection("mcp")
         await mcp_collection.update_one(
             {"_id": mcp_id},
             {"$addToSet": {"activated": user_sub}},
@@ -385,7 +385,7 @@ class MCPLoader(metaclass=SingletonMeta):
         :param str mcp_id: MCP模板ID
         :return: 无
         """
-        mcp_collection = MongoDB.get_collection("mcp")
+        mcp_collection = MongoDB().get_collection("mcp")
         await mcp_collection.update_one(
             {"_id": mcp_id},
             {"$pull": {"activated": user_sub}},

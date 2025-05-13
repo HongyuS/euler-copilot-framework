@@ -23,7 +23,7 @@ class AuditLogManager:
         :return: 是否添加成功；True/False
         """
         try:
-            collection = MongoDB.get_collection("audit")
+            collection = MongoDB().get_collection("audit")
             await collection.insert_one(data.model_dump(by_alias=True))
         except Exception:
             logger.exception("[AuditLogManager] 添加审计日志失败")

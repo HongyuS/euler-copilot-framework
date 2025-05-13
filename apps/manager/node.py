@@ -49,7 +49,7 @@ class NodeManager:
     @staticmethod
     async def get_node_name(node_id: str) -> str:
         """获取node的名称"""
-        node_collection = MongoDB.get_collection("node")
+        node_collection = MongoDB().get_collection("node")
         # 查询 Node 集合获取对应的 name
         node_doc = await node_collection.find_one({"_id": node_id}, {"name": 1})
         if not node_doc:

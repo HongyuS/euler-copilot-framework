@@ -20,7 +20,7 @@ class MCPHost:
     async def get_clients(user_sub: str, mcp_id_list: list[str]) -> dict[str, SSEMCPClient | StdioMCPClient]:
         """获取MCP客户端"""
         mcp_loader = MCPLoader()
-        mcp_collection = MongoDB.get_collection("mcp")
+        mcp_collection = MongoDB().get_collection("mcp")
         result = {}
 
         # 遍历给定的list

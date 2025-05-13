@@ -22,8 +22,8 @@ class RecordManager:
     @staticmethod
     async def create_record_group(group_id: str, user_sub: str, conversation_id: str, task_id: str) -> str | None:
         """创建问答组"""
-        record_group_collection = MongoDB.get_collection("record_group")
-        conversation_collection = MongoDB.get_collection("conversation")
+        record_group_collection = MongoDB().get_collection("record_group")
+        conversation_collection = MongoDB().get_collection("conversation")
         record_group = RecordGroup(
             _id=group_id,
             user_sub=user_sub,
@@ -32,7 +32,7 @@ class RecordManager:
         )
 
         try:
-            async with MongoDB.get_session() as session, await session.start_transaction():
+            async with MongoDB().get_session() as session, await session.start_transaction():
                 # RecordGroup里面加一条记录
                 await record_group_collection.insert_one(record_group.model_dump(by_alias=True), session=session)
                 # Conversation里面加一个ID
@@ -48,7 +48,7 @@ class RecordManager:
     @staticmethod
     async def insert_record_data_into_record_group(user_sub: str, group_id: str, record: Record) -> str | None:
         """加密问答对，并插入MongoDB中的特定问答组"""
-        group_collection = MongoDB.get_collection("record_group")
+        group_collection = MongoDB().get_collection("record_group")
         try:
             await group_collection.update_one(
                 {"_id": group_id, "user_sub": user_sub},
@@ -74,7 +74,7 @@ class RecordManager:
         """
         sort_order = -1 if order == "desc" else 1
 
-        record_group_collection = MongoDB.get_collection("record_group")
+        record_group_collection = MongoDB().get_collection("record_group")
         try:
             # 得到conversation的全部record_group id
             record_groups = await record_group_collection.aggregate(
@@ -118,7 +118,7 @@ class RecordManager:
 
         包含全部record_group及其关联的record
         """
-        record_group_collection = MongoDB.get_collection("record_group")
+        record_group_collection = MongoDB().get_collection("record_group")
         try:
             pipeline = [
                 {"$match": {"conversation_id": conversation_id}},
@@ -142,7 +142,7 @@ class RecordManager:
         :return: 记录是否存在
         """
         try:
-            record_group_collection = MongoDB.get_collection("record_group")
+            record_group_collection = MongoDB().get_collection("record_group")
             record_data = await record_group_collection.find_one(
                 {"_id": group_id, "user_sub": user_sub, "records.id": record_id},
             )
@@ -155,7 +155,7 @@ class RecordManager:
     @staticmethod
     async def check_group_id(group_id: str, user_sub: str) -> bool:
         """检查group_id是否存在"""
-        record_group_collection = MongoDB.get_collection("record_group")
+        record_group_collection = MongoDB().get_collection("record_group")
         try:
             result = await record_group_collection.find_one({"_id": group_id, "user_sub": user_sub})
             return bool(result)

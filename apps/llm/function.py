@@ -46,10 +46,10 @@ class FunctionLLM:
             import openai
 
             if not self._config.api_key:
-                self._client = openai.AsyncOpenAI(base_url=self._config.endpoint + "/v1")
+                self._client = openai.AsyncOpenAI(base_url=self._config.endpoint)
             else:
                 self._client = openai.AsyncOpenAI(
-                    base_url=self._config.endpoint + "/v1",
+                    base_url=self._config.endpoint,
                     api_key=self._config.api_key,
                 )
 
@@ -179,22 +179,24 @@ class FunctionLLM:
 
         if schema:
             tool_data = {
-                "type": "function",
+                "type": "json_gen",
                 "function": {
                     "name": "output",
-                    "description": "Call the function to get the output",
+                    "description": "调用该工具，以根据JSON Schema填充并生成符合要求的JSON数据",
                     "parameters": schema,
                 },
             }
             param["tools"] = [tool_data]
-            param["tool_choice"] = "required"
 
         response = await self._client.chat.completions.create(**param) # type: ignore[arg-type]
         try:
-            ans = response.choices[0].message.tool_calls[0].function.arguments or ""
-        except IndexError:
-            ans = ""
-        return ans
+            ans = json.loads(response.choices[0].message.tool_calls[0].function.arguments)
+        except Exception:
+            try:
+                ans = json.loads(response.choices[0].message.content)
+            except Exception:
+                ans = {}
+        return json.dumps(ans, ensure_ascii=False)
 
     async def _call_ollama(
         self, messages: list[dict[str, Any]], schema: dict[str, Any], max_tokens: int, temperature: float,
