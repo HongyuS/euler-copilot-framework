@@ -337,20 +337,15 @@ class Slot:
         json_dict = json.loads(json_data) if isinstance(json_data, str) else json_data
 
         # 对JSON进行处理
-        patch_list = []
-        plain_data = {}
         for key, val in json_dict.items():
             # 如果是patch，则构建
             if key[0] == "/":
-                patch_list.extend(self._assemble_patch(key, json_dict, val, self._schema))
+                patch_list = self._assemble_patch(key, json_dict, val, self._schema)
+                json_dict = patch_json(patch_list)
             else:
-                plain_data[key] = val
+                json_dict[key] = val
 
-        # 对JSON进行patch
-        final_json = patch_json(patch_list)
-        final_json.update(plain_data)
-
-        return final_json
+        return json_dict
 
     def check_json(self, json_data: dict[str, Any]) -> dict[str, Any]:
         """检测槽位是否合法、是否填充完成"""
