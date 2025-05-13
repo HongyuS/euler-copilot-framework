@@ -189,7 +189,6 @@ class FunctionLLM:
                 },
             }
             param["tools"] = [tool_data]
-            param["tool_choice"] = "required"
 
         response = await self._client.chat.completions.create(**param)
         try:
