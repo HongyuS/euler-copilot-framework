@@ -18,9 +18,11 @@ def escape_path(key: str) -> str:
     return key.replace("/", "~1")
 
 
-def patch_json(operation_list: list[dict[str, Any]]) -> dict[str, Any]:
+def patch_json(operation_list: list[dict[str, Any]], json_data: dict[str, Any] | None = None) -> dict[str, Any]:
     """应用JSON Patch，获得JSON数据"""
-    json_data = {}
+    if json_data is None:
+        json_data = {}
+
     operation_list.reverse()
 
     while operation_list:
