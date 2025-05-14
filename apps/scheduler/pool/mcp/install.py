@@ -40,7 +40,28 @@ async def install_uvx(mcp_id: str, config: MCPServerStdioConfig) -> MCPServerStd
         logger.error(err)
         raise ValueError(err)
 
-    # 初始化uv项目
+    # 如果有pyproject.toml文件，则使用sync
+    if (mcp_path / "pyproject.toml").exists():
+        pipe = await subprocess.create_subprocess_exec(
+            "uv",
+            "sync",
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            cwd=mcp_path,
+        )
+        stdout, _ = await pipe.communicate()
+        if pipe.returncode != 0:
+            err = f"[MCPLoader] 检查依赖失败: {stdout.decode() if stdout else '（无输出信息）'}"
+            logger.error(err)
+            raise ValueError(err)
+        logger.info("[MCPLoader] 检查依赖成功: %s; %s", mcp_path, stdout.decode() if stdout else "（无输出信息）")
+
+        config.command = "uv"
+        config.args = ["run", *config.args]
+
+        return config
+
+    # 否则，初始化uv项目
     pipe = await subprocess.create_subprocess_exec(
         "uv",
         "init",
@@ -87,6 +108,12 @@ async def install_npx(mcp_id: str, config: MCPServerStdioConfig) -> MCPServerStd
     """
     mcp_path = MCP_PATH / "template" / mcp_id / "project"
     await mcp_path.mkdir(parents=True, exist_ok=True)
+
+    # 如果有node_modules文件夹，则认为已安装
+    if (mcp_path / "node_modules").exists():
+        config.command = "npm"
+        config.args = ["exec", *config.args]
+        return config
 
     # 查找package name
     package = ""
