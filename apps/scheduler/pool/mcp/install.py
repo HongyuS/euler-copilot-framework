@@ -48,12 +48,7 @@ async def install_uvx(mcp_id: str, config: MCPServerStdioConfig) -> MCPServerStd
         stdout=subprocess.PIPE,
         cwd=mcp_path,
     )
-    _, stdout = await pipe.communicate()
-    if pipe.returncode != 0:
-        err = f"[MCPLoader] 初始化 uv 项目失败: {stdout.decode()}"
-        logger.error(err)
-        raise ValueError(err)
-    logger.info("[MCPLoader] 初始化 uv 项目成功: %s; %s", mcp_path, stdout.decode())
+    stdout, _ = await pipe.communicate()
 
     # 安装Python包
     pipe = await subprocess.create_subprocess_exec(
@@ -64,9 +59,9 @@ async def install_uvx(mcp_id: str, config: MCPServerStdioConfig) -> MCPServerStd
         stdout=subprocess.PIPE,
         cwd=mcp_path,
     )
-    _, stdout = await pipe.communicate()
+    stdout, _ = await pipe.communicate()
     if pipe.returncode != 0:
-        err = f"[MCPLoader] 安装 {package} 失败: {stdout.decode()}"
+        err = f"[MCPLoader] 安装 {package} 失败: {stdout.decode() if stdout else '（无输出信息）'}"
         logger.error(err)
         raise ValueError(err)
     logger.info("[MCPLoader] 安装 %s 成功: %s; %s", package, mcp_path, stdout.decode() if stdout else "（无输出信息）")
@@ -114,9 +109,9 @@ async def install_npx(mcp_id: str, config: MCPServerStdioConfig) -> MCPServerStd
         stdout=subprocess.PIPE,
         cwd=mcp_path,
     )
-    _, stdout = await pipe.communicate()
+    stdout, _ = await pipe.communicate()
     if pipe.returncode != 0:
-        err = f"[MCPLoader] 安装 {package} 失败: {stdout.decode()}"
+        err = f"[MCPLoader] 安装 {package} 失败: {stdout.decode() if stdout else '（无输出信息）'}"
         logger.error(err)
         raise ValueError(err)
     logger.info("[MCPLoader] 安装 %s 成功: %s; %s", package, mcp_path, stdout.decode() if stdout else "（无输出信息）")
