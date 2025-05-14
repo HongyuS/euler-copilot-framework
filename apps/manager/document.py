@@ -176,10 +176,11 @@ class DocumentManager:
     @classmethod
     async def delete_document(cls, user_sub: str, document_list: list[str]) -> bool:
         """从未使用文件列表中删除一个文件"""
-        doc_collection = MongoDB().get_collection("document")
-        conv_collection = MongoDB().get_collection("conversation")
+        mongo = MongoDB()
+        doc_collection = mongo.get_collection("document")
+        conv_collection = mongo.get_collection("conversation")
         try:
-            async with MongoDB().get_session() as session, await session.start_transaction():
+            async with mongo.get_session() as session, await session.start_transaction():
                 for doc in document_list:
                     doc_info = await doc_collection.find_one_and_delete(
                         {"_id": doc, "user_sub": user_sub}, session=session,
@@ -211,10 +212,11 @@ class DocumentManager:
     @classmethod
     async def delete_document_by_conversation_id(cls, user_sub: str, conversation_id: str) -> list[str]:
         """通过ConversationID删除文件"""
-        doc_collection = MongoDB().get_collection("document")
+        mongo = MongoDB()
+        doc_collection = mongo.get_collection("document")
         doc_ids = []
         try:
-            async with MongoDB().get_session() as session, await session.start_transaction():
+            async with mongo.get_session() as session, await session.start_transaction():
                 async for doc in doc_collection.find(
                     {"user_sub": user_sub, "conversation_id": conversation_id}, session=session,
                 ):
@@ -231,14 +233,16 @@ class DocumentManager:
     @classmethod
     async def get_doc_count(cls, user_sub: str, conversation_id: str) -> int:
         """获取对话文件数量"""
-        doc_collection = MongoDB().get_collection("document")
+        mongo = MongoDB()
+        doc_collection = mongo.get_collection("document")
         return await doc_collection.count_documents({"user_sub": user_sub, "conversation_id": conversation_id})
 
     @classmethod
     async def change_doc_status(cls, user_sub: str, conversation_id: str, record_group_id: str) -> None:
         """文件状态由unused改为used"""
-        record_group_collection = MongoDB().get_collection("record_group")
-        conversation_collection = MongoDB().get_collection("conversation")
+        mongo = MongoDB()
+        record_group_collection = mongo.get_collection("record_group")
+        conversation_collection = mongo.get_collection("conversation")
         try:
             # 查找Conversation中的unused_docs
             conversation = await conversation_collection.find_one({"user_sub": user_sub, "_id": conversation_id})

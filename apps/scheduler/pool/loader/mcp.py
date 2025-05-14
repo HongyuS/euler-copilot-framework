@@ -355,7 +355,7 @@ class MCPLoader(metaclass=SingletonMeta):
                     continue
 
                 f = await config_path.open("r", encoding="utf-8")
-                config = json.loads(await f.read())
+                config = MCPConfig.model_validate(json.loads(await f.read()))
                 result[user_proj.name][mcp_id.name] = await self.load_one_user(user_proj.name, mcp_id.name, config)
                 await f.aclose()
 

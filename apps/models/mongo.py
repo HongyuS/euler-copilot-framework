@@ -1,22 +1,16 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MongoDB 连接器"""
 
-from __future__ import annotations
-
 import logging
 import urllib.parse
-from typing import TYPE_CHECKING
 
 from pymongo import AsyncMongoClient
+from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from apps.common.config import Config
 
 logger = logging.getLogger(__name__)
-
-
-if TYPE_CHECKING:
-    from pymongo.asynchronous.client_session import AsyncClientSession
-    from pymongo.asynchronous.collection import AsyncCollection
 
 
 class MongoDB:
@@ -27,6 +21,7 @@ class MongoDB:
         self._client = AsyncMongoClient(
             f"mongodb://{urllib.parse.quote_plus(Config().get_config().mongodb.user)}:{urllib.parse.quote_plus(Config().get_config().mongodb.password)}@{Config().get_config().mongodb.host}:{Config().get_config().mongodb.port}/?directConnection=true&replicaSet=rs0",
         )
+
 
     def get_collection(self, collection_name: str) -> AsyncCollection:
         """

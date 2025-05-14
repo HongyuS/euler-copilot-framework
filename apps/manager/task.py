@@ -148,7 +148,8 @@ class TaskManager:
     @staticmethod
     async def delete_task_by_task_id(task_id: str) -> None:
         """通过task_id删除Task信息"""
-        task_collection = MongoDB().get_collection("task")
+        mongo = MongoDB()
+        task_collection = mongo.get_collection("task")
         try:
             task = await task_collection.find_one({"_id": task_id}, {"_id": 1})
             if task:
@@ -160,10 +161,11 @@ class TaskManager:
     @staticmethod
     async def delete_tasks_by_conversation_id(conversation_id: str) -> None:
         """通过ConversationID删除Task信息"""
-        task_collection = MongoDB().get_collection("task")
-        flow_context_collection = MongoDB().get_collection("flow_context")
+        mongo = MongoDB()
+        task_collection = mongo.get_collection("task")
+        flow_context_collection = mongo.get_collection("flow_context")
         try:
-            async with MongoDB().get_session() as session, await session.start_transaction():
+            async with mongo.get_session() as session, await session.start_transaction():
                 task_ids = [
                     task["_id"] async for task in task_collection.find(
                         {"conversation_id": conversation_id},
