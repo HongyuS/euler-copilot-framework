@@ -55,8 +55,44 @@ MCP_SELECT_REASON = r"""
 ### 思考过程
 """
 MCP_SELECT_FUNCTION = r"""
+# Query
+
+{{query}}
+
+# Background
+
+These are additional information that may be useful for you to assist with the query.
+
+{{background}}
+
+# Tools
+
+These are the tools that can be used to assist with the query.
+
+You are provided with function signatures within <tools></tools> XML tags:
+
+<tools>
+{% for tool in tools %}
+{"type": "function", "function": {{tool}}}
+{% endfor %}
+</tools>
+
+Return a json object with function name and arguments within <tool_call></tool_call> XML tags:
+<tool_call>
+{"name": <function-name>, "arguments": <args-json-object>}
+</tool_call>
+
+<tool_call>
+"""
+CREATE_PLAN_REASON = r"""
 
 """
-SELECT_TOOL_REASON = r"""
+CREATE_PLAN_FUNCTION = r"""
+
+"""
+EVALUATE_PLAN_REASON = r"""
+
+"""
+EVALUATE_PLAN_FUNCTION = r"""
 
 """
