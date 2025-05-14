@@ -55,11 +55,12 @@ class ConversationManager:
             app_id=app_id,
             debug=debug if debug else False,
         )
+        mongo = MongoDB()
         try:
-            async with MongoDB().get_session() as session, await session.start_transaction():
-                conv_collection = MongoDB().get_collection("conversation")
+            async with mongo.get_session() as session, await session.start_transaction():
+                conv_collection = mongo.get_collection("conversation")
                 await conv_collection.insert_one(conv.model_dump(by_alias=True), session=session)
-                user_collection = MongoDB().get_collection("user")
+                user_collection = mongo.get_collection("user")
                 update_data: dict[str, dict[str, Any]] = {
                     "$push": {"conversations": conversation_id},
                 }
@@ -99,11 +100,12 @@ class ConversationManager:
     @staticmethod
     async def delete_conversation_by_conversation_id(user_sub: str, conversation_id: str) -> bool:
         """通过ConversationID删除对话"""
-        user_collection = MongoDB().get_collection("user")
-        conv_collection = MongoDB().get_collection("conversation")
-        record_group_collection = MongoDB().get_collection("record_group")
+        mongo = MongoDB()
+        user_collection = mongo.get_collection("user")
+        conv_collection = mongo.get_collection("conversation")
+        record_group_collection = mongo.get_collection("record_group")
         try:
-            async with MongoDB().get_session() as session, await session.start_transaction():
+            async with mongo.get_session() as session, await session.start_transaction():
                 conversation_data = await conv_collection.find_one_and_delete(
                     {"_id": conversation_id, "user_sub": user_sub}, session=session,
                 )

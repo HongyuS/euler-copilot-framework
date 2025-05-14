@@ -9,6 +9,7 @@ from jinja2.sandbox import SandboxedEnvironment
 from apps.entities.mcp import (
     MCPCollection,
     MCPSelectResult,
+    MCPTool,
 )
 from apps.llm.embedding import Embedding
 from apps.llm.function import FunctionLLM
@@ -16,6 +17,7 @@ from apps.llm.reasoning import ReasoningLLM
 from apps.models.lance import LanceDB
 from apps.models.mongo import MongoDB
 from apps.scheduler.mcp.prompt import (
+    MCP_SELECT_FUNCTION,
     MCP_SELECT_REASON,
 )
 
@@ -109,6 +111,25 @@ class MCPToolHelper:
 
 
     @staticmethod
-    async def select_top_tool(mcp_list: list[str], top_n: int) -> list[str]:
+    async def select_top_tool(query: str, mcp_list: list[str], top_n: int = 10) -> list[MCPTool]:
         """选择最合适的工具"""
-        pass
+        tool_vector = await LanceDB().get_table("mcp_tool")
+        query_embedding = await Embedding.get_embedding([query])
+        tool_vecs = await (await tool_vector.search(
+            query=query_embedding,
+            vector_column_name="embedding",
+        )).where(f"mcp_id IN ({', '.join(mcp_list)})").limit(top_n).to_list()
+
+        # 拿到名称和description
+        logger.info("[MCPHelper] 查询MCP Tool名称和描述: %s", tool_vecs)
+        tool_collection = MongoDB().get_collection("mcp")
+        llm_tool_list = []
+        for tool_vec in tool_vecs:
+            tool_data = await tool_collection.find_one({"_id": tool_vec["mcp_id"], "tools.id": tool_vec["id"]})
+            if not tool_data:
+                logger.warning("[MCPHelper] 查询MCP Tool名称和描述失败: %s/%s", tool_vec["mcp_id"], tool_vec["id"])
+                continue
+            tool_data = MCPTool.model_validate(tool_data["tools"][0])
+            llm_tool_list.append(tool_data)
+
+        return llm_tool_list
