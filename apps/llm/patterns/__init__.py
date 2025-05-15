@@ -9,7 +9,6 @@ from apps.llm.patterns.executor import (
     ExecutorSummary,
     ExecutorThought,
 )
-from apps.llm.patterns.json_gen import Json
 from apps.llm.patterns.recommend import Recommend
 from apps.llm.patterns.select import Select
 
@@ -17,7 +16,6 @@ __all__ = [
     "CorePattern",
     "ExecutorSummary",
     "ExecutorThought",
-    "Json",
     "Recommend",
     "Select",
 ]
