@@ -24,11 +24,12 @@ class ApiKeyManager:
         :param user_sub: 用户名
         :return: API Key
         """
+        mongo = MongoDB()
         api_key = str(uuid.uuid4().hex)
         api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()[:16]
 
         try:
-            user_collection = MongoDB().get_collection("user")
+            user_collection = mongo.get_collection("user")
             await user_collection.update_one(
                 {"_id": user_sub},
                 {"$set": {"api_key": api_key_hash}},
@@ -47,10 +48,11 @@ class ApiKeyManager:
         :param user_sub: 用户ID
         :return: 删除API Key是否成功
         """
+        mongo = MongoDB()
         if not await ApiKeyManager.api_key_exists(user_sub):
             return False
         try:
-            user_collection = MongoDB().get_collection("user")
+            user_collection = mongo.get_collection("user")
             await user_collection.update_one(
                 {"_id": user_sub},
                 {"$unset": {"api_key": ""}},
@@ -68,8 +70,9 @@ class ApiKeyManager:
         :param user_sub: 用户ID
         :return: API Key是否存在
         """
+        mongo = MongoDB()
         try:
-            user_collection = MongoDB().get_collection("user")
+            user_collection = mongo.get_collection("user")
             user_data = await user_collection.find_one({"_id": user_sub}, {"_id": 0, "api_key": 1})
             return user_data is not None and ("api_key" in user_data and user_data["api_key"])
         except Exception:
@@ -84,9 +87,10 @@ class ApiKeyManager:
         :param api_key: API Key
         :return: 用户ID
         """
+        mongo = MongoDB()
         api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()[:16]
         try:
-            user_collection = MongoDB().get_collection("user")
+            user_collection = mongo.get_collection("user")
             user_data = await user_collection.find_one({"api_key": api_key_hash}, {"_id": 1})
             return user_data["_id"] if user_data else None
         except Exception:
@@ -101,9 +105,10 @@ class ApiKeyManager:
         :param api_key: API Key
         :return: 验证API Key是否成功
         """
+        mongo = MongoDB()
         api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()[:16]
         try:
-            user_collection = MongoDB().get_collection("user")
+            user_collection = mongo.get_collection("user")
             key_data = await user_collection.find_one({"api_key": api_key_hash}, {"_id": 1})
         except Exception:
             logger.exception("[ApiKeyManager] 验证API Key失败")
@@ -119,12 +124,13 @@ class ApiKeyManager:
         :param user_sub: 用户ID
         :return: 更新后的API Key
         """
+        mongo = MongoDB()
         if not await ApiKeyManager.api_key_exists(user_sub):
             return None
         api_key = str(uuid.uuid4().hex)
         api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()[:16]
         try:
-            user_collection = MongoDB().get_collection("user")
+            user_collection = mongo.get_collection("user")
             await user_collection.update_one(
                 {"_id": user_sub},
                 {"$set": {"api_key": api_key_hash}},

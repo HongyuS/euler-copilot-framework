@@ -189,7 +189,8 @@ class AppCenterManager:
         :param app_id: 应用ID
         :return: 应用元数据
         """
-        app_collection = MongoDB().get_collection("app")
+        mongo = MongoDB()
+        app_collection = mongo.get_collection("app")
         db_data = await app_collection.find_one({"_id": app_id})
         if not db_data:
             msg = "App not found"
@@ -251,7 +252,8 @@ class AppCenterManager:
                 users=data.permission.users or [],
             ),
         )
-        app_collection = MongoDB().get_collection("app")
+        mongo = MongoDB()
+        app_collection = mongo.get_collection("app")
         app_data = AppPool.model_validate(await app_collection.find_one({"_id": app_id}))
         if not app_data:
             msg = "App not found"
@@ -272,7 +274,8 @@ class AppCenterManager:
         :param app_id: 应用唯一标识
         :param user_sub: 用户唯一标识
         """
-        app_collection = MongoDB().get_collection("app")
+        mongo = MongoDB()
+        app_collection = mongo.get_collection("app")
         app_data = AppPool.model_validate(await app_collection.find_one({"_id": app_id}))
         if not app_data:
             msg = "App not found"
@@ -317,8 +320,9 @@ class AppCenterManager:
         :param user_sub: 用户唯一标识
         :param favorited: 是否收藏
         """
-        app_collection = MongoDB().get_collection("app")
-        user_collection = MongoDB().get_collection("user")
+        mongo = MongoDB()
+        app_collection = mongo.get_collection("app")
+        user_collection = mongo.get_collection("user")
         db_data = await app_collection.find_one({"_id": app_id})
         if not db_data:
             msg = "App not found"
@@ -353,7 +357,8 @@ class AppCenterManager:
         :param app_id: 应用唯一标识
         :param user_sub: 用户唯一标识
         """
-        app_collection = MongoDB().get_collection("app")
+        mongo = MongoDB()
+        app_collection = mongo.get_collection("app")
         app_data = AppPool.model_validate(await app_collection.find_one({"_id": app_id}))
         if not app_data:
             msg = "App not found"
@@ -377,8 +382,9 @@ class AppCenterManager:
         :param user_sub: 用户唯一标识
         :return: 最近使用的应用列表
         """
-        user_collection = MongoDB().get_collection("user")
-        app_collection = MongoDB().get_collection("app")
+        mongo = MongoDB()
+        user_collection = mongo.get_collection("user")
+        app_collection = mongo.get_collection("app")
         # 校验用户信息
         user_data = User.model_validate(await user_collection.find_one({"_id": user_sub}))
         # 获取最近使用的应用ID列表，按最后使用时间倒序排序
@@ -411,7 +417,8 @@ class AppCenterManager:
         if not app_id:
             return True
         try:
-            user_collection = MongoDB().get_collection("user")
+            mongo = MongoDB()
+            user_collection = mongo.get_collection("user")
             current_time = round(datetime.now(UTC).timestamp(), 3)
             result = await user_collection.update_one(
                 {"_id": user_sub},  # 查询条件
@@ -443,7 +450,8 @@ class AppCenterManager:
         :return: 默认工作流ID
         """
         try:
-            app_collection = MongoDB().get_collection("app")
+            mongo = MongoDB()
+            app_collection = mongo.get_collection("app")
             db_data = await app_collection.find_one({"_id": app_id})
             if not db_data:
                 logger.warning("[AppCenterManager] 应用不存在: %s", app_id)
@@ -486,7 +494,8 @@ class AppCenterManager:
     ) -> tuple[list[AppPool], int]:
         """根据过滤条件搜索应用并计算总页数"""
         try:
-            app_collection = MongoDB().get_collection("app")
+            mongo = MongoDB()
+            app_collection = mongo.get_collection("app")
             total_apps = await app_collection.count_documents(search_conditions)
             db_data = (
                 await app_collection.find(search_conditions)
@@ -506,7 +515,8 @@ class AppCenterManager:
     async def _get_favorite_app_ids_by_user(user_sub: str) -> list[str]:
         """获取用户收藏的应用ID"""
         try:
-            user_collection = MongoDB().get_collection("user")
+            mongo = MongoDB()
+            user_collection = mongo.get_collection("user")
             user_data = User.model_validate(await user_collection.find_one({"_id": user_sub}))
         except Exception:
             logger.exception("[AppCenterManager] 获取用户收藏应用ID失败")
