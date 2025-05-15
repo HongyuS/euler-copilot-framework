@@ -168,3 +168,25 @@ class AppType(str, Enum):
 
     FLOW = "flow"
     AGENT = "agent"
+
+
+class Role(str, Enum):
+    """Message role类型"""
+
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+    TOOL = "tool"
+
+
+ROLE_VALUES = tuple(role.value for role in Role)
+ROLE_TYPE = Literal[ROLE_VALUES]  # type: ignore
+
+
+class AgentState(str, Enum):
+    """Agent执行状态"""
+
+    IDLE = "IDLE"
+    RUNNING = "RUNNING"
+    FINISHED = "FINISHED"
+    ERROR = "ERROR"

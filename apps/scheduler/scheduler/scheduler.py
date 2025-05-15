@@ -8,7 +8,8 @@ from datetime import UTC, datetime
 from apps.common.config import Config
 from apps.common.queue import MessageQueue
 from apps.entities.collection import LLM
-from apps.entities.enum_var import EventType
+from apps.entities.enum_var import EventType, AppType
+from apps.entities.pool import AppPool
 from apps.entities.rag_data import RAGQueryReq
 from apps.entities.request_data import RequestData
 from apps.entities.scheduler import ExecutorBackground
@@ -16,6 +17,8 @@ from apps.entities.task import Task
 from apps.manager.appcenter import AppCenterManager
 from apps.manager.knowledge import KnowledgeBaseManager
 from apps.manager.llm import LLMManager
+from apps.models.mongo import MongoDB
+from apps.scheduler.executor.agent import MCPAgentExecutor
 from apps.scheduler.executor.flow import FlowExecutor
 from apps.scheduler.pool.pool import Pool
 from apps.scheduler.scheduler.context import get_context, get_docs
@@ -121,9 +124,14 @@ class Scheduler:
 
             # 获取上下文
             context, facts = await get_context(self.task.ids.user_sub, self.post_body, app_data.history_len)
-
+            if app_data.app_type == AppType.FLOW:
+                # 需要执行Flow
+                is_flow = True
+            else:
+                # Agent 应用
+                is_flow = False
             # 需要执行Flow
-            self.task = await push_init_message(self.task, self.queue, app_data.history_len, is_flow=True)
+            self.task = await push_init_message(self.task, self.queue, app_data.history_len, is_flow=is_flow)
             # 组装上下文
             executor_background = ExecutorBackground(
                 conversation=context,
@@ -140,58 +148,84 @@ class Scheduler:
         return
 
     async def run_executor(
-        self, queue: MessageQueue, post_body: RequestData, background: ExecutorBackground,
+            self, queue: MessageQueue, post_body: RequestData, background: ExecutorBackground,
     ) -> None:
-        """构造FlowExecutor，并执行所选择的流"""
-        # 读取App中所有Flow的信息
+        """构造Executor并执行"""
+        # 读取App信息
         app_info = post_body.app
         if not app_info:
-            logger.error("[Scheduler] 未使用工作流功能！")
+            logger.error("[Scheduler] 未使用应用中心功能！")
             return
-        logger.info("[Scheduler] 获取工作流元数据")
-        flow_info = await Pool().get_flow_metadata(app_info.app_id)
-
-        # 如果flow_info为空，则直接返回
-        if not flow_info:
-            logger.error("[Scheduler] 未找到工作流元数据")
+        # 获取agent信息
+        app_collection = MongoDB().get_collection("app")
+        app_metadata = AppPool.model_validate(await app_collection.find_one({"_id": app_info.app_id}))
+        if not app_metadata:
+            logger.error("[Scheduler] 未找到Agent应用")
             return
+        if app_metadata.app_type == AppType.FLOW.value:
+            logger.info("[Scheduler] 获取工作流元数据")
+            flow_info = await Pool().get_flow_metadata(app_info.app_id)
 
-        # 如果用户选了特定的Flow
-        if app_info.flow_id:
-            logger.info("[Scheduler] 获取工作流定义")
-            flow_id = app_info.flow_id
-            flow_data = await Pool().get_flow(app_info.app_id, flow_id)
+            # 如果flow_info为空，则直接返回
+            if not flow_info:
+                logger.error("[Scheduler] 未找到工作流元数据")
+                return
+
+            # 如果用户选了特定的Flow
+            if app_info.flow_id:
+                logger.info("[Scheduler] 获取工作流定义")
+                flow_id = app_info.flow_id
+                flow_data = await Pool().get_flow(app_info.app_id, flow_id)
+            else:
+                # 如果用户没有选特定的Flow，则根据语义选择一个Flow
+                logger.info("[Scheduler] 选择最合适的流")
+                flow_chooser = FlowChooser(self.task, post_body.question, app_info)
+                flow_id = await flow_chooser.get_top_flow()
+                self.task = flow_chooser.task
+                logger.info("[Scheduler] 获取工作流定义")
+                flow_data = await Pool().get_flow(app_info.app_id, flow_id)
+
+            # 如果flow_data为空，则直接返回
+            if not flow_data:
+                logger.error("[Scheduler] 未找到工作流定义")
+                return
+
+            # 初始化Executor
+            logger.info("[Scheduler] 初始化Executor")
+
+            flow_exec = FlowExecutor(
+                flow_id=flow_id,
+                flow=flow_data,
+                task=self.task,
+                msg_queue=queue,
+                question=post_body.question,
+                post_body_app=app_info,
+                background=background,
+            )
+
+            # 开始运行
+            logger.info("[Scheduler] 运行Executor")
+            await flow_exec.load_state()
+            await flow_exec.run()
+            self.task = flow_exec.task
+        elif app_metadata.app_type == AppType.AGENT.value:
+            # 获取agent中对应的MCP server信息
+            servers_id = app_metadata.mcp_service
+            # 初始化Executor
+            agent_exec = MCPAgentExecutor(
+                task=self.task,
+                msg_queue=queue,
+                question=post_body.question,
+                max_steps=app_metadata.history_len,
+                servers_id=servers_id,
+                background=background,
+                agent_id=app_info.app_id,
+            )
+            # 开始运行
+            logger.info("[Scheduler] 运行Executor")
+            await agent_exec.run()
+            self.task = agent_exec.task
         else:
-            # 如果用户没有选特定的Flow，则根据语义选择一个Flow
-            logger.info("[Scheduler] 选择最合适的流")
-            flow_chooser = FlowChooser(self.task, post_body.question, app_info)
-            flow_id = await flow_chooser.get_top_flow()
-            self.task = flow_chooser.task
-            logger.info("[Scheduler] 获取工作流定义")
-            flow_data = await Pool().get_flow(app_info.app_id, flow_id)
-
-        # 如果flow_data为空，则直接返回
-        if not flow_data:
-            logger.error("[Scheduler] 未找到工作流定义")
-            return
-
-        # 初始化Executor
-        logger.info("[Scheduler] 初始化Executor")
-
-        flow_exec = FlowExecutor(
-            flow_id=flow_id,
-            flow=flow_data,
-            task=self.task,
-            msg_queue=queue,
-            question=post_body.question,
-            post_body_app=app_info,
-            background=background,
-        )
-
-        # 开始运行
-        logger.info("[Scheduler] 运行Executor")
-        await flow_exec.load_state()
-        await flow_exec.run()
-        self.task = flow_exec.task
+            logger.error("[Scheduler] 无效的应用类型")
 
         return
