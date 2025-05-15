@@ -23,7 +23,8 @@ from apps.entities.scheduler import (
 )
 from apps.llm.reasoning import ReasoningLLM
 from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.llm.schema import LLM_CONTEXT_PROMPT, LLM_DEFAULT_PROMPT, LLMInput, LLMOutput
+from apps.scheduler.call.llm.prompt import LLM_CONTEXT_PROMPT, LLM_DEFAULT_PROMPT
+from apps.scheduler.call.llm.schema import LLMInput, LLMOutput
 
 logger = logging.getLogger(__name__)
 

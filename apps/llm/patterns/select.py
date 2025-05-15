@@ -10,8 +10,8 @@ import logging
 from collections import Counter
 from typing import Any, ClassVar
 
+from apps.llm.function import JsonGenerator
 from apps.llm.patterns.core import CorePattern
-from apps.llm.patterns.json_gen import Json
 from apps.llm.reasoning import ReasoningLLM
 from apps.llm.snippet import choices_to_prompt
 
@@ -89,9 +89,11 @@ class Select(CorePattern):
     }
     """最终输出的JSON Schema"""
 
+
     def __init__(self, system_prompt: str | None = None, user_prompt: str | None = None) -> None:
         """初始化Prompt"""
         super().__init__(system_prompt, user_prompt)
+
 
     async def _generate_single_attempt(self, user_input: str, choice_list: list[str]) -> str:
         """使用ReasoningLLM进行单次尝试"""
@@ -113,8 +115,14 @@ class Select(CorePattern):
         schema["properties"]["choice"]["enum"] = choice_list
 
         messages += [{"role": "assistant", "content": result}]
-        function_result = await Json().generate(conversation=messages, spec=schema)
+        json_gen = JsonGenerator(
+            query="根据给定的背景信息，生成预测问题",
+            conversation=messages,
+            schema=schema,
+        )
+        function_result = await json_gen.generate()
         return function_result["choice"]
+
 
     async def generate(self, **kwargs) -> str:  # noqa: ANN003
         """使用大模型做出选择"""

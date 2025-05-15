@@ -25,8 +25,9 @@ class UserManager:
         :param user_sub: 用户sub
         :return: 是否添加成功
         """
+        mongo = MongoDB()
         try:
-            user_collection = MongoDB().get_collection("user")
+            user_collection = mongo.get_collection("user")
             await user_collection.insert_one(User(
                 _id=user_sub,
             ).model_dump(by_alias=True))
@@ -43,9 +44,10 @@ class UserManager:
 
         :return: 所有用户的sub列表
         """
+        mongo = MongoDB()
         result = []
         try:
-            user_collection = MongoDB().get_collection("user")
+            user_collection = mongo.get_collection("user")
             result = [user["_id"] async for user in user_collection.find({}, {"_id": 1})]
         except Exception:
             logger.exception("[UserManager] 获取所有用户失败")
@@ -59,8 +61,9 @@ class UserManager:
         :param user_sub: 用户sub
         :return: 用户信息
         """
+        mongo = MongoDB()
         try:
-            user_collection = MongoDB().get_collection("user")
+            user_collection = mongo.get_collection("user")
             user_data = await user_collection.find_one({"_id": user_sub})
             return User(**user_data) if user_data else None
         except Exception:
@@ -76,6 +79,7 @@ class UserManager:
         :param refresh_revision: 是否刷新revision
         :return: 更新后的用户信息
         """
+        mongo = MongoDB()
         user_data = await UserManager.get_userinfo_by_user_sub(user_sub)
         if not user_data:
             return await UserManager.add_userinfo(user_sub)
@@ -87,7 +91,7 @@ class UserManager:
         if refresh_revision:
             update_dict["$set"]["status"] = "init"  # type: ignore[assignment]
         try:
-            user_collection = MongoDB().get_collection("user")
+            user_collection = mongo.get_collection("user")
             result = await user_collection.update_one({"_id": user_sub}, update_dict)
         except Exception:
             logger.exception("[UserManager] 更新用户信息失败")
@@ -103,8 +107,9 @@ class UserManager:
         :param login_time: 登录时间
         :return: 用户sub列表
         """
+        mongo = MongoDB()
         try:
-            user_collection = MongoDB().get_collection("user")
+            user_collection = mongo.get_collection("user")
             return [user["_id"] async for user in user_collection.find({"login_time": {"$lt": login_time}}, {"_id": 1})]
         except Exception:
             logger.exception("[UserManager] 根据登录时间获取用户信息失败")
@@ -118,8 +123,9 @@ class UserManager:
         :param user_sub: 用户sub
         :return: 是否删除成功
         """
+        mongo = MongoDB()
         try:
-            user_collection = MongoDB().get_collection("user")
+            user_collection = mongo.get_collection("user")
             result = await user_collection.find_one_and_delete({"_id": user_sub})
             if not result:
                 return False

@@ -3,13 +3,22 @@
 
 Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
+import logging
 
-from typing import Any, ClassVar
+from pydantic import BaseModel, Field
 
+from apps.llm.function import JsonGenerator
 from apps.llm.patterns.core import CorePattern
-from apps.llm.patterns.json_gen import Json
 from apps.llm.reasoning import ReasoningLLM
 from apps.llm.snippet import convert_context_to_prompt, history_questions_to_prompt
+
+logger = logging.getLogger(__name__)
+
+
+class RecommendResult(BaseModel):
+    """推荐问题生成结果"""
+
+    predicted_questions: list[str] = Field(description="预测的问题列表")
 
 
 class Recommend(CorePattern):
@@ -91,21 +100,6 @@ class Recommend(CorePattern):
     """
     """用户提示词"""
 
-    slot_schema: ClassVar[dict[str, Any]] = {
-        "type": "object",
-        "properties": {
-            "predicted_questions": {
-                "type": "array",
-                "description": "推荐的问题列表",
-                "items": {
-                    "type": "string",
-                },
-            },
-        },
-        "required": ["predicted_questions"],
-    }
-    """最终输出的JSON Schema"""
-
 
     def __init__(self, system_prompt: str | None = None, user_prompt: str | None = None) -> None:
         """初始化推荐问题生成Prompt"""
@@ -144,9 +138,13 @@ class Recommend(CorePattern):
 
         messages += [{"role": "assistant", "content": result}]
 
-        question_dict = await Json().generate(conversation=messages, spec=self.slot_schema)
-
-        if not question_dict or "predicted_questions" not in question_dict or not question_dict["predicted_questions"]:
+        json_gen = JsonGenerator(
+            query="根据给定的背景信息，生成预测问题", conversation=messages, schema=RecommendResult.model_json_schema(),
+        )
+        try:
+            question_dict = RecommendResult.model_validate(await json_gen.generate())
+        except Exception:
+            logger.exception("[Recommend] 推荐问题生成失败")
             return []
 
-        return question_dict["predicted_questions"]
+        return question_dict.predicted_questions

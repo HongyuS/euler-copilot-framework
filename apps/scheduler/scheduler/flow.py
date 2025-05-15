@@ -10,7 +10,7 @@ from apps.entities.flow import Flow, FlowError, Step
 from apps.entities.request_data import RequestDataApp
 from apps.entities.task import Task
 from apps.llm.patterns import Select
-from apps.scheduler.call.llm.schema import RAG_ANSWER_PROMPT
+from apps.scheduler.call.llm.prompt import RAG_ANSWER_PROMPT
 from apps.scheduler.pool.pool import Pool
 
 logger = logging.getLogger(__name__)

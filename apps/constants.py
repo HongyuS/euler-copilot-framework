@@ -20,10 +20,13 @@ MAX_API_RESPONSE_LENGTH = 8192
 STEP_HISTORY_SIZE = 3
 # Session时间，单位为分钟
 SESSION_TTL = 30 * 24 * 60
-
+# JSON生成最大尝试次数
+JSON_GEN_MAX_TRIAL = 3
+# 推理开始标记
 REASONING_BEGIN_TOKEN = [
     "<think>",
 ]
+# 推理结束标记
 REASONING_END_TOKEN = [
     "</think>",
 ]

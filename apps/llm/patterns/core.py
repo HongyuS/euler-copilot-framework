@@ -6,7 +6,6 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 
 from abc import ABC, abstractmethod
 from textwrap import dedent
-from typing import Any, ClassVar
 
 
 class CorePattern(ABC):
@@ -16,8 +15,6 @@ class CorePattern(ABC):
     """系统提示词"""
     user_prompt: str = ""
     """用户提示词"""
-    slot_schema: ClassVar[dict[str, Any]] = {}
-    """输出格式的JSON Schema"""
     input_tokens: int = 0
     """输入Token数量"""
     output_tokens: int = 0

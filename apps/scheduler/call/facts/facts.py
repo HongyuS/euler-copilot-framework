@@ -12,9 +12,8 @@ from apps.entities.pool import NodePool
 from apps.entities.scheduler import CallInfo, CallOutputChunk, CallVars
 from apps.manager.user_domain import UserDomainManager
 from apps.scheduler.call.core import CoreCall
+from apps.scheduler.call.facts.prompt import DOMAIN_PROMPT, FACTS_PROMPT
 from apps.scheduler.call.facts.schema import (
-    DOMAIN_PROMPT,
-    FACTS_PROMPT,
     DomainGen,
     FactsGen,
     FactsInput,

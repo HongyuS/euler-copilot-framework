@@ -1,10 +1,20 @@
 """问题改写"""
 
-from typing import Any, ClassVar
+import logging
 
+from pydantic import BaseModel, Field
+
+from apps.llm.function import JsonGenerator
 from apps.llm.patterns.core import CorePattern
-from apps.llm.patterns.json_gen import Json
 from apps.llm.reasoning import ReasoningLLM
+
+logger = logging.getLogger(__name__)
+
+
+class QuestionRewriteResult(BaseModel):
+    """问题补全与重写结果"""
+
+    question: str = Field(description="补全后的问题")
 
 
 class QuestionRewrite(CorePattern):
@@ -43,17 +53,6 @@ class QuestionRewrite(CorePattern):
     """
     """用户提示词"""
 
-    slot_schema: ClassVar[dict[str, Any]] = {
-        "type": "object",
-        "properties": {
-            "question": {
-                "type": "string",
-                "description": "补全后的问题",
-            },
-        },
-        "required": ["question"],
-    }
-    """最终输出的JSON Schema"""
 
     async def generate(self, **kwargs) -> str:  # noqa: ANN003
         """问题补全与重写"""
@@ -72,8 +71,15 @@ class QuestionRewrite(CorePattern):
         self.output_tokens = llm.output_tokens
 
         messages += [{"role": "assistant", "content": result}]
-        question_dict = await Json().generate(conversation=messages, spec=self.slot_schema)
-
-        if not question_dict or "question" not in question_dict or not question_dict["question"]:
+        json_gen = JsonGenerator(
+            query="根据给定的背景信息，生成预测问题",
+            conversation=messages,
+            schema=QuestionRewriteResult.model_json_schema(),
+        )
+        try:
+            question_dict = QuestionRewriteResult.model_validate(await json_gen.generate())
+        except Exception:
+            logger.exception("[QuestionRewrite] 问题补全与重写失败")
             return question
-        return question_dict["question"]
+
+        return question_dict.question

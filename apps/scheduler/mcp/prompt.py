@@ -1,7 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MCP相关的大模型Prompt"""
 
-MCP_SELECT_REASON = r"""
+MCP_SELECT = r"""
 # 指令
 
 你是一个乐于助人的智能助手。
@@ -32,7 +32,7 @@ MCP_SELECT_REASON = r"""
 - **mcp_1**: "MCP Server 1"；MCP Server 1的描述
 - **mcp_2**: "MCP Server 2"；MCP Server 2的描述
 
-### 思考过程
+### 请一步一步思考：
 因为当前目标需要一个MCP Server来完成一个任务，所以选择mcp_1。
 
 ### 选择结果
@@ -52,47 +52,11 @@ MCP_SELECT_REASON = r"""
 - **{{mcp.id}}**: "{{mcp.name}}"；{{mcp.description}}
 {% endfor %}
 
-### 思考过程
+### 请一步一步思考：
 """
-MCP_SELECT_FUNCTION = r"""
-# Query
-
-{{query}}
-
-# Background
-
-These are additional information that may be useful for you to assist with the query.
-
-{{background}}
-
-# Tools
-
-These are the tools that can be used to assist with the query.
-
-You are provided with function signatures within <tools></tools> XML tags:
-
-<tools>
-{% for tool in tools %}
-{"type": "function", "function": {{tool}}}
-{% endfor %}
-</tools>
-
-Return a json object with function name and arguments within <tool_call></tool_call> XML tags:
-<tool_call>
-{"name": <function-name>, "arguments": <args-json-object>}
-</tool_call>
-
-<tool_call>
-"""
-CREATE_PLAN_REASON = r"""
+CREATE_PLAN = r"""
 
 """
-CREATE_PLAN_FUNCTION = r"""
-
-"""
-EVALUATE_PLAN_REASON = r"""
-
-"""
-EVALUATE_PLAN_FUNCTION = r"""
+EVALUATE_PLAN = r"""
 
 """

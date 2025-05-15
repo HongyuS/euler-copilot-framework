@@ -5,13 +5,20 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 import json
+import logging
+import re
+from textwrap import dedent
 from typing import Any
 
-from asyncer import asyncify
+from jinja2 import BaseLoader
+from jinja2.sandbox import SandboxedEnvironment
+from jsonschema import Draft7Validator
 
 from apps.common.config import Config
-from apps.constants import REASONING_BEGIN_TOKEN, REASONING_END_TOKEN
-from apps.scheduler.json_schema import build_regex_from_schema
+from apps.constants import JSON_GEN_MAX_TRIAL, REASONING_END_TOKEN
+from apps.llm.prompt import JSON_GEN_BASIC
+
+logger = logging.getLogger(__name__)
 
 
 class FunctionLLM:
@@ -22,36 +29,23 @@ class FunctionLLM:
         初始化用于FunctionCall的模型
 
         目前支持：
-        - sglang
         - vllm
         - ollama
-        - openai
+        - function_call
+        - json_mode
+        - structured_output
         """
         # 暂存config；这里可以替代为从其他位置获取
         self._config = Config().get_config().function_call
+        if not self._config.model:
+            err_msg = "[FunctionCall] 未设置FuntionCall所用模型！"
+            logger.error(err_msg)
+            raise ValueError(err_msg)
 
-        if self._config.backend == "sglang":
-            import sglang
-            from sglang.lang.chat_template import get_chat_template
-
-            if not self._config.api_key:
-                self._client = sglang.RuntimeEndpoint(self._config.endpoint)
-            else:
-                self._client = sglang.RuntimeEndpoint(
-                    self._config.endpoint, api_key=self._config.api_key,
-                )
-            self._client.chat_template = get_chat_template("chatml")
-
-        if self._config.backend in {"vllm", "openai"}:
-            import openai
-
-            if not self._config.api_key:
-                self._client = openai.AsyncOpenAI(base_url=self._config.endpoint)
-            else:
-                self._client = openai.AsyncOpenAI(
-                    base_url=self._config.endpoint,
-                    api_key=self._config.api_key,
-                )
+        self._params = {
+            "model": self._config.model,
+            "messages": [],
+        }
 
         if self._config.backend == "ollama":
             import ollama
@@ -66,215 +60,249 @@ class FunctionLLM:
                     },
                 )
 
-    @staticmethod
-    def _sglang_func(
-        s, messages: list[dict[str, Any]], schema: dict[str, Any], max_tokens: int, temperature: float,  # noqa: ANN001
-    ) -> None:
-        """
-        构建sglang需要的执行函数
-
-        :param s: sglang context
-        :param messages: 历史消息
-        :param schema: 输出JSON Schema
-        :param max_tokens: 最大Token长度
-        :param temperature: 大模型温度
-        """
-        for msg in messages:
-            if msg["role"] == "user":
-                s += s.user(msg["content"])
-            elif msg["role"] == "assistant":
-                s += s.assistant(msg["content"])
-            elif msg["role"] == "system":
-                s += s.system(msg["content"])
-            else:
-                err_msg = f"Unknown message role: {msg['role']}"
-                raise ValueError(err_msg)
-
-        # 如果Schema为空，认为是直接问答，不加输出限制
-        if not schema:
-            s += s.assistant(s.gen(name="output", max_tokens=max_tokens, temperature=temperature))
         else:
-            s += s.assistant(
-                s.gen(
-                    name="output",
-                    regex=build_regex_from_schema(json.dumps(schema)),
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                ),
-            )
+            import openai
 
-    async def _call_vllm(
-        self, messages: list[dict[str, Any]], schema: dict[str, Any], max_tokens: int, temperature: float,
-    ) -> str:
-        """
-        调用vllm模型生成JSON
+            if not self._config.api_key:
+                self._client = openai.AsyncOpenAI(base_url=self._config.endpoint)
+            else:
+                self._client = openai.AsyncOpenAI(
+                    base_url=self._config.endpoint,
+                    api_key=self._config.api_key,
+                )
 
-        :param messages: 历史消息列表
-        :param schema: 输出JSON Schema
-        :param max_tokens: 最大Token长度
-        :param temperature: 大模型温度
-        :return: 生成的JSON
-        """
-        model = self._config.model
-        if not model:
-            err_msg = "未设置FuntionCall所用模型！"
-            raise ValueError(err_msg)
-
-        param = {
-            "model": model,
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "stream": True,
-        }
-
-        # 如果Schema不为空，认为是FunctionCall，需要指定输出格式
-        if schema:
-            param["extra_body"] = {"guided_json": schema}
-
-        chat = await self._client.chat.completions.create(**param) # type: ignore[arg-type]
-
-        reasoning = False
-        result = ""
-        async for chunk in chat:
-            chunk_str = chunk.choices[0].delta.content or ""
-            for token in REASONING_BEGIN_TOKEN:
-                if token in chunk_str:
-                    reasoning = True
-                    break
-
-            for token in REASONING_END_TOKEN:
-                if token in chunk_str:
-                    reasoning = False
-                    chunk_str = ""
-                    break
-
-            if not reasoning:
-                result += chunk_str
-        return result.strip().strip(" ").strip("\n")
 
     async def _call_openai(
-        self, messages: list[dict[str, Any]], schema: dict[str, Any], max_tokens: int, temperature: float,
+        self,
+        messages: list[dict[str, str]],
+        schema: dict[str, Any],
+        max_tokens: int | None = None,
+        temperature: float | None = None,
     ) -> str:
         """
         调用openai模型生成JSON
 
-        :param messages: 历史消息列表
-        :param schema: 输出JSON Schema
-        :param max_tokens: 最大Token长度
-        :param temperature: 大模型温度
+        :param list[dict[str, str]] messages: 历史消息列表
+        :param dict[str, Any] schema: 输出JSON Schema
+        :param int | None max_tokens: 最大Token长度
+        :param float | None temperature: 大模型温度
         :return: 生成的JSON
+        :rtype: str
         """
-        model = self._config.model
-        if not model:
-            err_msg = "未设置FuntionCall所用模型！"
-            raise ValueError(err_msg)
-
-        param = {
-            "model": model,
+        self._params.update({
             "messages": messages,
             "max_tokens": max_tokens,
             "temperature": temperature,
-        }
+        })
 
-        if schema:
-            tool_data = {
-                "type": "json_gen",
-                "function": {
-                    "name": "output",
-                    "description": "调用该工具，以根据JSON Schema填充并生成符合要求的JSON数据",
-                    "parameters": schema,
+        if self._config.backend == "vllm":
+            self._params["extra_body"] = {"guided_json": schema}
+
+        elif self._config.backend == "json_mode":
+            logger.warning("[FunctionCall] json_mode无法确保输出格式符合要求，使用效果将受到影响")
+            self._params["response_format"] = {"type": "json_object"}
+
+        elif self._config.backend == "structured_output":
+            self._params["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "generate",
+                    "description": "Generate answer based on the background information",
+                    "schema": schema,
+                    "strict": True,
                 },
             }
-            param["tools"] = [tool_data]
 
-        response = await self._client.chat.completions.create(**param) # type: ignore[arg-type]
+        elif self._config.backend == "function_call":
+            logger.warning("[FunctionCall] function_call无法确保一定调用工具，使用效果将受到影响")
+            self._params["tools"] = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "generate",
+                        "description": "Generate answer based on the background information",
+                        "parameters": schema,
+                    },
+                },
+            ]
+
+        response = await self._client.chat.completions.create(**self._params) # type: ignore[arg-type]
         try:
-            ans = json.loads(response.choices[0].message.tool_calls[0].function.arguments)
-        except Exception:
+            logger.info("[FunctionCall] 大模型输出：%s", response.choices[0].message.tool_calls[0].function.arguments)
+            return response.choices[0].message.tool_calls[0].function.arguments
+        except Exception:  # noqa: BLE001
+            ans = response.choices[0].message.content
+            logger.info("[FunctionCall] 大模型输出：%s", ans)
+            return await FunctionLLM.process_response(ans)
+
+
+    @staticmethod
+    async def process_response(response: str) -> str:
+        """处理大模型的输出"""
+        # 去掉推理过程，避免干扰
+        for token in REASONING_END_TOKEN:
+            response = response.split(token)[-1]
+
+        # 尝试解析JSON
+        response = dedent(response).strip()
+        error_flag = False
+        try:
+            json.loads(response)
+        except Exception:  # noqa: BLE001
+            error_flag = True
+
+        if not error_flag:
+            return response
+
+        # 尝试提取```json中的JSON
+        logger.warning("[FunctionCall] 直接解析失败！尝试提取```json中的JSON")
+        try:
+            json_str = re.findall(r"```json(.*)```", response, re.DOTALL)[-1]
+            json_str = dedent(json_str).strip()
+            json.loads(json_str)
+        except Exception:  # noqa: BLE001
+            # 尝试直接通过括号匹配JSON
+            logger.warning("[FunctionCall] 提取失败！尝试正则提取JSON")
             try:
-                ans = json.loads(response.choices[0].message.content)
-            except Exception:
-                ans = {}
-        return json.dumps(ans, ensure_ascii=False)
+                json_str = re.findall(r"\{.*\}", response, re.DOTALL)[-1]
+                json_str = dedent(json_str).strip()
+                json.loads(json_str)
+            except Exception:  # noqa: BLE001
+                json_str = "{}"
+
+        return json_str
+
 
     async def _call_ollama(
-        self, messages: list[dict[str, Any]], schema: dict[str, Any], max_tokens: int, temperature: float,
+        self,
+        messages: list[dict[str, str]],
+        schema: dict[str, Any],
+        max_tokens: int | None = None,
+        temperature: float | None = None,
     ) -> str:
         """
         调用ollama模型生成JSON
 
-        :param messages: 历史消息列表
-        :param schema: 输出JSON Schema
-        :param max_tokens: 最大Token长度
-        :param temperature: 大模型温度
+        :param list[dict[str, str]] messages: 历史消息列表
+        :param dict[str, Any] schema: 输出JSON Schema
+        :param int | None max_tokens: 最大Token长度
+        :param float | None temperature: 大模型温度
         :return: 生成的对话回复
+        :rtype: str
         """
-        param = {
-            "model": self._config.model,
+        self._params.update({
             "messages": messages,
             "options": {
                 "temperature": temperature,
-                "num_ctx": max_tokens,
                 "num_predict": max_tokens,
             },
-        }
-        # 如果Schema不为空，认为是FunctionCall，需要指定输出格式
-        if schema:
-            param["format"] = schema
+            "format": schema,
+        })
 
-        response = await self._client.chat(**param) # type: ignore[arg-type]
-        return response.message.content or ""
-
-    async def _call_sglang(
-        self, messages: list[dict[str, Any]], schema: dict[str, Any], max_tokens: int, temperature: float,
-    ) -> str:
-        """
-        调用sglang模型生成JSON
-
-        :param messages: 历史消息
-        :param schema: 输出JSON Schema
-        :param max_tokens: 最大Token长度
-        :param temperature: 大模型温度
-        :return: 生成的JSON
-        """
-        # 构造sglang执行函数
-        import sglang
-
-        sglang.set_default_backend(self._client) # type: ignore[arg-type]
-
-        sglang_func = sglang.function(self._sglang_func)
-        state = await asyncify(sglang_func.run)(messages, schema, max_tokens, temperature)  # type: ignore[arg-type]
-        return state["output"]
+        response = await self._client.chat(**self._params) # type: ignore[arg-type]
+        return await self.process_response(response.message.content or "")
 
 
-    async def call(self, **kwargs) -> dict[str, Any]:  # noqa: ANN003
+    async def call(
+        self,
+        messages: list[dict[str, Any]],
+        schema: dict[str, Any],
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> dict[str, Any]:
         """
         调用FunctionCall小模型
 
-        暂不开放流式输出
+        不开放流式输出
         """
         # 检查max_tokens和temperature是否设置
-        if "max_tokens" not in kwargs or kwargs["max_tokens"] is None:
-            kwargs["max_tokens"] = self._config.max_tokens
-        if "temperature" not in kwargs or kwargs["temperature"] is None:
-            kwargs["temperature"] = self._config.temperature
+        if max_tokens is None:
+            max_tokens = self._config.max_tokens
+        if temperature is None:
+            temperature = self._config.temperature
 
+        if self._config.backend == "ollama":
+            json_str = await self._call_ollama(messages, schema, max_tokens, temperature)
 
-        if self._config.backend == "vllm":
-            json_str = await self._call_vllm(**kwargs)
-
-        elif self._config.backend == "sglang":
-            json_str = await self._call_sglang(**kwargs)
-
-        elif self._config.backend == "ollama":
-            json_str = await self._call_ollama(**kwargs)
-
-        elif self._config.backend == "openai":
-            json_str = await self._call_openai(**kwargs)
+        elif self._config.backend in ["function_call", "json_mode", "response_format", "vllm"]:
+            json_str = await self._call_openai(messages, schema, max_tokens, temperature)
 
         else:
             err = "未知的Function模型后端"
             raise ValueError(err)
 
-        return json.loads(json_str)
+        try:
+            return json.loads(json_str)
+        except Exception:  # noqa: BLE001
+            logger.error("[FunctionCall] 大模型JSON解析失败：%s", json_str)  # noqa: TRY400
+            return {}
+
+
+class JsonGenerator:
+    """JSON生成器"""
+
+    def __init__(self, query: str, conversation: list[dict[str, str]], schema: dict[str, Any]) -> None:
+        """初始化JSON生成器"""
+        self._query = query
+        self._conversation = conversation
+        self._schema = schema
+
+        self._trial = {}
+        self._count = 0
+        self._env = SandboxedEnvironment(
+            loader=BaseLoader(),
+            autoescape=False,
+            trim_blocks=True,
+            lstrip_blocks=True,
+        )
+        self._err_info = ""
+
+
+    async def _assemble_message(self) -> str:
+        """组装消息"""
+        # 检查类型
+        function_call = Config().get_config().function_call.backend == "function_call"
+
+        # 渲染模板
+        template = self._env.from_string(JSON_GEN_BASIC)
+        return template.render(
+            query=self._query,
+            conversation=self._conversation,
+            previous_trial=self._trial,
+            schema=self._schema,
+            function_call=function_call,
+            err_info=self._err_info,
+        )
+
+    async def _single_trial(self, max_tokens: int | None = None, temperature: float | None = None) -> dict[str, Any]:
+        """单次尝试"""
+        prompt = await self._assemble_message()
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt},
+        ]
+        function = FunctionLLM()
+        return await function.call(messages, self._schema, max_tokens, temperature)
+
+
+    async def generate(self) -> dict[str, Any]:
+        """生成JSON"""
+        Draft7Validator.check_schema(self._schema)
+        validator = Draft7Validator(self._schema)
+        logger.info("[JSONGenerator] Schema：%s", self._schema)
+
+        while self._count < JSON_GEN_MAX_TRIAL:
+            self._count += 1
+            result = await self._single_trial()
+            logger.info("[JSONGenerator] 得到：%s", result)
+            try:
+                validator.validate(result)
+            except Exception as err:  # noqa: BLE001
+                err_info = str(err)
+                err_info = err_info.split("\n\n")[0]
+                self._err_info = err_info
+                logger.info("[JSONGenerator] 验证失败：%s", self._err_info)
+                continue
+            return result
+
+        return {}

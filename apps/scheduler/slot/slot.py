@@ -369,6 +369,7 @@ class Slot:
             if additional_path:
                 pointer = pointer.rstrip("/") + "/" + "/".join(additional_path)
             schema_template["properties"][pointer] = slot_schema
+            schema_template["required"].append(pointer)
 
         # 如果有错误
         if not empty:

@@ -17,8 +17,7 @@ from apps.llm.reasoning import ReasoningLLM
 from apps.models.lance import LanceDB
 from apps.models.mongo import MongoDB
 from apps.scheduler.mcp.prompt import (
-    MCP_SELECT_FUNCTION,
-    MCP_SELECT_REASON,
+    MCP_SELECT,
 )
 
 logger = logging.getLogger(__name__)
@@ -75,7 +74,7 @@ class MCPToolHelper:
             trim_blocks=True,
             lstrip_blocks=True,
         )
-        template = env.from_string(MCP_SELECT_REASON)
+        template = env.from_string(MCP_SELECT)
         # 渲染模板
         mcp_prompt = template.render(
             mcp_list=llm_mcp_list,
