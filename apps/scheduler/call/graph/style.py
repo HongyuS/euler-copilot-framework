@@ -4,11 +4,24 @@ Render Call: 选择图表样式
 Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
-from typing import Any, ClassVar
+import logging
+from typing import Any, Literal
 
+from pydantic import BaseModel, Field
+
+from apps.llm.function import JsonGenerator
 from apps.llm.patterns.core import CorePattern
-from apps.llm.patterns.json_gen import Json
 from apps.llm.reasoning import ReasoningLLM
+
+logger = logging.getLogger(__name__)
+
+
+class RenderStyleResult(BaseModel):
+    """选择图表样式结果"""
+
+    chart_type: Literal["bar", "pie", "line", "scatter"] = Field(description="图表类型")
+    additional_style: Literal["normal", "stacked", "ring"] | None = Field(description="图表样式")
+    scale_type: Literal["linear", "log"] = Field(description="图表比例")
 
 
 class RenderStyle(CorePattern):
@@ -62,28 +75,6 @@ class RenderStyle(CorePattern):
         Let's think step by step.
     """
 
-    slot_schema: ClassVar[dict[str, Any]] = {
-        "type": "object",
-        "properties": {
-            "chart_type": {
-                "type": "string",
-                "description": "The type of the chart.",
-                "enum": ["bar", "pie", "line", "scatter"],
-            },
-            "additional_style": {
-                "type": "string",
-                "description": "The additional style of the chart.",
-                "enum": ["normal", "stacked", "ring"],
-            },
-            "scale_type": {
-                "type": "string",
-                "description": "The scale of the chart.",
-                "enum": ["linear", "log"],
-            },
-        },
-        "required": ["chart_type", "scale_type"],
-    }
-
     def __init__(self, system_prompt: str | None = None, user_prompt: str | None = None) -> None:
         """初始化RenderStyle Prompt"""
         super().__init__(system_prompt, user_prompt)
@@ -109,4 +100,16 @@ class RenderStyle(CorePattern):
         ]
 
         # 使用FunctionLLM模型进行提取参数
-        return await Json().generate(conversation=messages, spec=self.slot_schema)
+        json_gen = JsonGenerator(
+            query="根据给定的背景信息，生成预测问题",
+            conversation=messages,
+            schema=RenderStyleResult.model_json_schema(),
+        )
+        try:
+            result_dict = await json_gen.generate()
+            RenderStyleResult.model_validate(result_dict)
+        except Exception:
+            logger.exception("[RenderStyle] 选择图表样式失败")
+            return {}
+
+        return result_dict

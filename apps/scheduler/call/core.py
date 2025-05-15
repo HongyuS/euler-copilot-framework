@@ -214,6 +214,5 @@ class CoreCall(BaseModel):
     async def _json(self, messages: list[dict[str, Any]], schema: type[BaseModel]) -> BaseModel:
         """Call可直接使用的JSON生成"""
         json = FunctionLLM()
-        schema_dict = schema.model_json_schema()
-        result = await json.call(messages=messages, schema=schema_dict)
+        result = await json.call(messages=messages, schema=schema.model_json_schema())
         return schema.model_validate(result)
