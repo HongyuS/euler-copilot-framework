@@ -51,6 +51,6 @@ sections:
       - label: 工作流编排
         sections:
           - label: 部署指南
-            href: ./advance/workflow/deploy_guide/workflow_deployment.md
+            href: ./advance/work_flow/deploy_guide/workflow_deployment.md
           - label: 使用指导
-            href: ./advance/workflow/user_guide/workflow_guidance.md
+            href: ./advance/work_flow/user_guide/workflow_guidance.md
