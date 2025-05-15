@@ -90,3 +90,9 @@ class MCPSelectResult(BaseModel):
     """MCP选择结果"""
 
     mcp_id: str = Field(description="MCP Server的ID")
+
+
+class MCPToolSelectResult(BaseModel):
+    """MCP工具选择结果"""
+
+    name: str = Field(description="工具名称")

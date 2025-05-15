@@ -16,7 +16,7 @@ from apps.entities.flow import Flow, Step
 from apps.entities.request_data import RequestDataApp
 from apps.entities.task import ExecutorState, StepQueueItem
 from apps.manager.task import TaskManager
-from apps.scheduler.call.llm.schema import LLM_ERROR_PROMPT
+from apps.scheduler.call.llm.prompt import LLM_ERROR_PROMPT
 from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.executor.step import StepExecutor
 
