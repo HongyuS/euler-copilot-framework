@@ -60,6 +60,7 @@ class MetadataType(str, Enum):
 
     SERVICE = "service"
     APP = "app"
+    MCP_SERVICE = "mcp_service"
 
 
 class EdgeType(str, Enum):
@@ -155,3 +156,19 @@ class CommentType(str, Enum):
     LIKE = "liked"
     DISLIKE = "disliked"
     NONE = "none"
+
+
+class MCPServiceToolsArgsType(str, Enum):
+    """MCPService tool参数数据类型"""
+    STRING = "string"
+    DOUBLE = "double"
+    INTEGER = "integer"
+    BOOLEAN = "boolean"
+
+
+class MCPSearchType(str, Enum):
+    """搜索类型"""
+
+    ALL = "all"
+    NAME = "name"
+    AUTHOR = "author"

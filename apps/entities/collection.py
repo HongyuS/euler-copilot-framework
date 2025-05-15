@@ -62,6 +62,7 @@ class User(BaseModel):
     app_usage: dict[str, AppUsageData] = {}
     fav_apps: list[str] = []
     fav_services: list[str] = []
+    is_admin: bool = Field(default=False, description="是否为管理员")
 
 
 class Conversation(BaseModel):

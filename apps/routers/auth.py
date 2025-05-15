@@ -181,6 +181,7 @@ async def userinfo(
             result=AuthUserMsg(
                 user_sub=user_sub,
                 revision=user.is_active,
+                is_admin=user.is_admin
             ),
         ).model_dump(exclude_none=True, by_alias=True),
     )

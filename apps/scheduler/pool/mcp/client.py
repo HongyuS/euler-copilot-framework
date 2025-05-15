@@ -105,7 +105,7 @@ class StdioMCPClient(MCPClient):
             cwd = MCP_PATH / "users" / user_sub / mcp_id / "project"
         else:
             cwd = MCP_PATH / "template" / mcp_id / "project"
-
+        await cwd.mkdir(parents=True, exist_ok=True)
         server_params = StdioServerParameters(
             command=config.command,
             args=config.args,

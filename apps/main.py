@@ -32,6 +32,7 @@ from apps.routers import (
     flow,
     health,
     knowledge,
+    mcp_service,
     record,
     service,
     user,
@@ -62,6 +63,7 @@ app.include_router(chat.router)
 app.include_router(blacklist.router)
 app.include_router(document.router)
 app.include_router(knowledge.router)
+app.include_router(mcp_service.router)
 app.include_router(flow.router)
 app.include_router(user.router)
 

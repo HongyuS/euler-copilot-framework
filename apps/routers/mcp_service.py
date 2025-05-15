@@ -1,0 +1,322 @@
+"""
+FastAPI 语义接口中心相关路由
+
+Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+"""
+
+import logging
+from typing import Annotated
+
+from fastapi import APIRouter, Body, Depends, Path, Query, status
+from fastapi.responses import JSONResponse
+
+from apps.dependency.user import get_user, verify_user
+from apps.entities.enum_var import MCPSearchType
+from apps.entities.request_data import UpdateMCPServiceRequest, ActiveMCPServiceRequest
+from apps.entities.response_data import (
+    BaseMCPServiceOperationMsg,
+    DeleteMCPServiceRsp,
+    GetMCPServiceDetailMsg,
+    GetMCPServiceDetailRsp,
+    GetMCPServiceListMsg,
+    GetMCPServiceListRsp,
+    ResponseData,
+    UpdateMCPServiceMsg,
+    UpdateMCPServiceRsp,
+    ActiveMCPServiceRsp,
+)
+from apps.exceptions import InstancePermissionError, ServiceIDError
+from apps.manager.mcp_service import MCPServiceManager
+from apps.manager.user import UserManager
+from apps.scheduler.pool.loader.mcp import MCPLoader
+
+logger = logging.getLogger(__name__)
+router = APIRouter(
+    prefix="/api/mcp",
+    tags=["mcp-service"],
+    dependencies=[Depends(verify_user)],
+)
+
+
+@router.get("", response_model=GetMCPServiceListRsp | ResponseData)
+async def get_mcpservice_list(  # noqa: PLR0913
+        user_sub: Annotated[str, Depends(get_user)],
+        search_type: Annotated[MCPSearchType, Query(..., alias="searchType", description="搜索类型")] = MCPSearchType.ALL,
+        keyword: Annotated[str | None, Query(..., alias="keyword", description="搜索关键字")] = None,
+        page: Annotated[int, Query(..., alias="page", ge=1, description="页码")] = 1,
+        page_size: Annotated[int, Query(..., alias="pageSize", ge=1, le=100, description="每页数量")] = 16,
+) -> JSONResponse:
+    """获取服务列表"""
+    try:
+        service_cards, total_count = await MCPServiceManager.fetch_all_mcpservices(
+            search_type,
+            user_sub,
+            keyword,
+            page,
+            page_size,
+        )
+    except Exception as exp:
+        logger.exception(f"[MCPServiceCenter] 获取MCP服务列表失败: {exp}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ResponseData(
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message="ERROR",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+    if total_count == -1:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content=ResponseData(
+                code=status.HTTP_400_BAD_REQUEST,
+                message="INVALID_PARAMETER",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=GetMCPServiceListRsp(
+            code=status.HTTP_200_OK,
+            message="OK",
+            result=GetMCPServiceListMsg(
+                currentPage=page,
+                totalCount=total_count,
+                services=service_cards,
+            ),
+        ).model_dump(exclude_none=True, by_alias=True),
+    )
+
+
+@router.post("", response_model=UpdateMCPServiceRsp)
+async def create_or_update_mcpservice(
+        user_sub: Annotated[str, Depends(get_user)],
+        data: Annotated[UpdateMCPServiceRequest, Body(..., description="MCP服务对应数据对象")],
+) -> JSONResponse:
+    """新建或更新MCP服务"""
+    user_data = await UserManager.get_userinfo_by_user_sub(user_sub)
+    if not user_data or not user_data.is_admin:
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content=ResponseData(
+                code=status.HTTP_403_FORBIDDEN,
+                message="非管理员无法注册更新mcp",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+    manager = MCPServiceManager()
+    try:
+        config = await manager.load_mcp_config(description=data.description,
+                                                         config_str=data.config, mcp_type=data.mcp_type)
+    except Exception as exp:
+        logger.exception(exp)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ResponseData(
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message=f"更新MCP服务失败: {exp!s}",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+    if not data.service_id:
+        try:
+            service_id = await manager.create_mcpservice(user_sub, data.name, data.icon, data.description,
+                                                         config, data.config, data.mcp_type)
+        except Exception as e:
+            logger.exception("[MCPServiceCenter] 创建MCP服务失败")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content=ResponseData(
+                    code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    message=f"OpenAPI解析错误: {e!s}",
+                    result={},
+                ).model_dump(exclude_none=True, by_alias=True),
+            )
+    else:
+        try:
+            service_id = await manager.update_mcpservice(user_sub, data.service_id, data.name, data.icon,
+                                                         data.description, config, data.config)
+        except ServiceIDError:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content=ResponseData(
+                    code=status.HTTP_400_BAD_REQUEST,
+                    message="MCPService ID错误",
+                    result={},
+                ).model_dump(exclude_none=True, by_alias=True),
+            )
+        except InstancePermissionError:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content=ResponseData(
+                    code=status.HTTP_403_FORBIDDEN,
+                    message="未授权访问",
+                    result={},
+                ).model_dump(exclude_none=True, by_alias=True),
+            )
+        except Exception as e:
+            logger.exception("[MCPService] 更新MCP服务失败")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content=ResponseData(
+                    code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    message=f"更新MCP服务失败: {e!s}",
+                    result={},
+                ).model_dump(exclude_none=True, by_alias=True),
+            )
+    msg = UpdateMCPServiceMsg(serviceId=service_id, name=data.name)
+    rsp = UpdateMCPServiceRsp(code=status.HTTP_200_OK, message="OK", result=msg)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))
+
+
+@router.get("/{serviceId}", response_model=GetMCPServiceDetailRsp)
+async def get_service_detail(
+        user_sub: Annotated[str, Depends(get_user)],
+        service_id: Annotated[str, Path(..., alias="serviceId", description="服务ID")],
+        edit: Annotated[bool, Query(..., description="是否为编辑模式")] = False,
+) -> JSONResponse:
+    """获取MCP服务详情"""
+    # 示例：返回指定MCP服务的详情
+    manager = MCPServiceManager()
+    if edit:
+        try:
+            data = await manager.get_mcpservice_data(user_sub, service_id)
+            is_active = await manager.is_active(user_sub, service_id)
+        except ServiceIDError:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content=ResponseData(
+                    code=status.HTTP_400_BAD_REQUEST,
+                    message="MCPService ID错误",
+                    result={},
+                ).model_dump(exclude_none=True, by_alias=True),
+            )
+        except InstancePermissionError:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content=ResponseData(
+                    code=status.HTTP_403_FORBIDDEN,
+                    message="未授权访问",
+                    result={},
+                ).model_dump(exclude_none=True, by_alias=True),
+            )
+        except Exception as exp:
+            logger.exception(f"[MCPService] 获取MCP服务数据失败: {exp}")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content=ResponseData(
+                    code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    message="ERROR",
+                    result={},
+                ).model_dump(exclude_none=True, by_alias=True),
+            )
+        detail = GetMCPServiceDetailMsg(serviceId=data.service_id, icon=data.icon, name=data.name,
+                                        description=data.description, data=data.config_str, tools=data.tools,
+                                        isActive=is_active, mcpType=data.mcp_type)
+    else:
+        try:
+            data = await manager.get_service_details(service_id)
+            is_active = await manager.is_active(user_sub, service_id)
+        except ServiceIDError:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content=ResponseData(
+                    code=status.HTTP_400_BAD_REQUEST,
+                    message="MCPService ID错误",
+                    result={},
+                ).model_dump(exclude_none=True, by_alias=True),
+            )
+        except Exception as exp:
+            logger.exception(f"[MCPService] 获取MCP服务API失败: {exp}")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content=ResponseData(
+                    code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    message="ERROR",
+                    result={},
+                ).model_dump(exclude_none=True, by_alias=True),
+            )
+        detail = GetMCPServiceDetailMsg(serviceId=service_id, icon=data.icon, name=data.name,
+                                        description=data.description, tools=data.tools, data=data.config_str,
+                                        isActive=is_active, mcpType=data.mcp_type)
+    rsp = GetMCPServiceDetailRsp(code=status.HTTP_200_OK, message="OK", result=detail)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))
+
+
+@router.delete("/{serviceId}", response_model=DeleteMCPServiceRsp)
+async def delete_service(
+        user_sub: Annotated[str, Depends(get_user)],
+        service_id: Annotated[str, Path(..., alias="serviceId", description="服务ID")],
+) -> JSONResponse:
+    """删除服务"""
+    try:
+        await MCPServiceManager().delete_mcpservice(user_sub, service_id)
+    except ServiceIDError:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content=ResponseData(
+                code=status.HTTP_400_BAD_REQUEST,
+                message="MCPService ID错误",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+    except InstancePermissionError:
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content=ResponseData(
+                code=status.HTTP_403_FORBIDDEN,
+                message="未授权访问",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+    except Exception as exp:
+        logger.exception(f"[MCPServiceManager] 删除MCP服务失败: {exp}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ResponseData(
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message="ERROR",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+    msg = BaseMCPServiceOperationMsg(serviceId=service_id)
+    rsp = DeleteMCPServiceRsp(code=status.HTTP_200_OK, message="OK", result=msg)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))
+
+
+@router.post("/{serviceId}", response_model=ActiveMCPServiceRsp)
+async def active_or_deactivate_mcp_service(
+        user_sub: Annotated[str, Depends(get_user)],
+        service_id: Annotated[str, Path(..., alias="serviceId", description="服务ID")],
+        data: Annotated[ActiveMCPServiceRequest, Body(description="是否激活")],
+) -> JSONResponse:
+    """激活mcp"""
+    loader = MCPLoader()
+    try:
+        if data.active:
+            await loader.user_active_template(user_sub, service_id)
+        else:
+            await loader.user_deactive_template(user_sub, service_id)
+    except FileExistsError as exp:
+        logging.exception(exp)
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content=ResponseData(
+                code=status.HTTP_403_FORBIDDEN,
+                message="激活mcp服务失败",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+    except Exception as exp:
+        logging.exception(exp)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ResponseData(
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message="ERROR",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+    msg = BaseMCPServiceOperationMsg(serviceId=service_id)
+    rsp = ActiveMCPServiceRsp(code=status.HTTP_200_OK, message="OK", result=msg)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))

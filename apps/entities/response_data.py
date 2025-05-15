@@ -17,6 +17,7 @@ from apps.entities.flow_topology import (
     NodeServiceItem,
     PositionItem,
 )
+from apps.entities.mcp import MCPServiceToolsdata, MCPType
 from apps.entities.record import RecordData
 from apps.entities.user import UserInfo
 
@@ -47,6 +48,7 @@ class AuthUserMsg(BaseModel):
 
     user_sub: str
     revision: bool
+    is_admin: bool
 
 
 class AuthUserRsp(ResponseData):
@@ -396,6 +398,75 @@ class NodeServiceListRsp(ResponseData):
     result: NodeServiceListMsg
 
 
+class MCPServiceCardItem(BaseModel):
+    """插件中心：MCP服务卡片数据结构"""
+
+    mcpservice_id: str = Field(..., alias="mcpserviceId", description="mcp服务ID")
+    name: str = Field(..., description="mcp服务名称")
+    description: str = Field(..., description="mcp服务简介")
+    icon: str = Field(..., description="mcp服务图标")
+    author: str = Field(..., description="mcp服务作者")
+    is_active: bool = Field(alias="isActive", description="mcp服务是否激活", default=False)
+
+
+class BaseMCPServiceOperationMsg(BaseModel):
+    """插件中心：MCP服务操作Result数据结构"""
+
+    service_id: str = Field(..., alias="serviceId", description="服务ID")
+
+
+class GetMCPServiceListMsg(BaseModel):
+    """GET /api/service Result数据结构"""
+
+    current_page: int = Field(..., alias="currentPage", description="当前页码")
+    total_count: int = Field(..., alias="totalCount", description="总服务数")
+    services: list[MCPServiceCardItem] = Field(..., description="解析后的服务列表")
+
+
+class GetMCPServiceListRsp(ResponseData):
+    """GET /api/service 返回数据结构"""
+
+    result: GetMCPServiceListMsg = Field(..., title="Result")
+
+
+class UpdateMCPServiceMsg(BaseModel):
+    """插件中心：MCP服务属性数据结构"""
+
+    service_id: str = Field(..., alias="serviceId", description="MCP服务ID")
+    name: str = Field(..., description="MCP服务名称")
+
+
+class UpdateMCPServiceRsp(ResponseData):
+    """POST /api/mcp_service 返回数据结构"""
+
+    result: UpdateMCPServiceMsg = Field(..., title="Result")
+
+
+class GetMCPServiceDetailMsg(BaseModel):
+    """GET /api/mcp_service/{serviceId} Result数据结构"""
+
+    service_id: str = Field(..., alias="serviceId", description="MCP服务ID")
+    icon: str = Field(description="图标", default="")
+    name: str = Field(..., description="MCP服务名称")
+    description: str = Field(description="MCP服务描述")
+    data: str = Field(description="MCP服务配置")
+    tools: list[MCPServiceToolsdata] = Field(description="MCP服务Tools列表", default=[])
+    is_active: bool = Field(alias="isActive", description="mcp服务是否激活", default=False)
+    mcp_type: MCPType = Field(alias="mcpType", description="MCP 类型")
+
+
+class GetMCPServiceDetailRsp(ResponseData):
+    """GET /api/service/{serviceId} 返回数据结构"""
+
+    result: GetMCPServiceDetailMsg = Field(..., title="Result")
+
+
+class DeleteMCPServiceRsp(ResponseData):
+    """DELETE /api/service/{serviceId} 返回数据结构"""
+
+    result: BaseMCPServiceOperationMsg = Field(..., title="Result")
+
+
 class NodeMetaDataRsp(ResponseData):
     """GET /api/flow/service/node 返回数据结构"""
 
@@ -444,12 +515,20 @@ class FlowStructureDeleteRsp(ResponseData):
 
     result: FlowStructureDeleteMsg
 
+
 class UserGetMsp(BaseModel):
     """GET /api/user result"""
 
-    user_info_list : list[UserInfo] = Field(alias="userInfoList", default=[])
+    user_info_list: list[UserInfo] = Field(alias="userInfoList", default=[])
+
 
 class UserGetRsp(ResponseData):
     """GET /api/user 返回数据结构"""
 
     result: UserGetMsp
+
+
+class ActiveMCPServiceRsp(ResponseData):
+    """POST /api/mcp/active/{serviceId} 返回数据结构"""
+
+    result: BaseMCPServiceOperationMsg = Field(..., title="Result")
