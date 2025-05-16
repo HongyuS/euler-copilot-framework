@@ -63,36 +63,6 @@ async def get_services(
     )
 
 
-# @router.get("/service/node", response_model=NodeMetaDataRsp, responses={
-#     status.HTTP_403_FORBIDDEN: {"model": ResponseData},
-#     status.HTTP_404_NOT_FOUND: {"model": ResponseData},
-# })
-# async def get_node_metadatas(
-#     user_sub: Annotated[str, Depends(get_user)],
-#     node_metadata_id: Annotated[str, Query(alias="NodeMetadataId")],
-# ):
-#     """获取节点元数据的详细信息"""
-#     if not await FlowManager.validate_user_node_meta_data_access(user_sub, node_metadata_id):
-#         return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content=NodeMetaDataRsp(
-#             code=status.HTTP_403_FORBIDDEN,
-#             message="用户没有权限访问该节点原数据",
-#             result=NodeItem(),
-#         ).model_dump(exclude_none=True, by_alias=True))
-
-#     result = await FlowManager.get_node_meta_data_by_node_meta_data_id(node_metadata_id)
-#     if result is None:
-#         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=NodeMetaDataRsp(
-#             code=status.HTTP_404_NOT_FOUND,
-#             message="节点元数据详细信息获取失败",
-#             result=NodeItem(),
-#         ).model_dump(exclude_none=True, by_alias=True))
-#     return JSONResponse(status_code=status.HTTP_200_OK, content=NodeMetaDataRsp(
-#         code=status.HTTP_200_OK,
-#         message="节点元数据详细信息获取成功",
-#         result=result
-#     ).model_dump(exclude_none=True, by_alias=True))
-
-
 @router.get(
     "",
     response_model=FlowStructureGetRsp,
