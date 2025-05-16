@@ -17,7 +17,6 @@ from rich.logging import RichHandler
 
 from apps.common.config import Config
 from apps.common.wordscheck import WordsCheck
-from apps.dependency.session import VerifySessionMiddleware
 from apps.llm.token import TokenCalculator
 from apps.models.lance import LanceDB
 from apps.routers import (
@@ -48,7 +47,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(VerifySessionMiddleware)
 # 关联API路由
 app.include_router(conversation.router)
 app.include_router(auth.router)

@@ -30,9 +30,6 @@ async def _get_session_id_from_request(request: HTTPConnection) -> str | None:
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         session_id = auth_header.split(" ", 1)[1]
-    elif "ECSESSION" in request.cookies:
-        # Fallback for potential other uses or transition period
-        session_id = request.cookies["ECSESSION"]
 
     return session_id
 
