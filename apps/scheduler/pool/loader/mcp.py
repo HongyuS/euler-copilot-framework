@@ -255,7 +255,6 @@ class MCPLoader(metaclass=SingletonMeta):
             },
             upsert=True,
         )
-
         # 服务本身向量化
         embedding = await Embedding.get_embedding([config.description])
         mcp_table = await LanceDB().get_table("mcp")
@@ -293,7 +292,7 @@ class MCPLoader(metaclass=SingletonMeta):
             config_path = MCP_PATH / "users" / user_sub / mcp_id / "config.json"
         else:
             config_path = MCP_PATH / "template" / mcp_id / "config.json"
-
+        await Path.mkdir(config_path.parent, parents=True, exist_ok=True)
         f = await config_path.open("w+", encoding="utf-8")
         config_dict = config.model_dump(by_alias=True, exclude_none=True)
         await f.write(json.dumps(config_dict, indent=4, ensure_ascii=False))
@@ -339,18 +338,18 @@ class MCPLoader(metaclass=SingletonMeta):
         """
         result = {}
         async for user_proj in (MCP_PATH / "users").iterdir():
-            if not user_proj.is_dir():
+            if not await user_proj.is_dir():
                 logger.warning("[MCPLoader] 跳过非目录: %s", user_proj)
                 continue
 
             result[user_proj.name] = {}
             async for mcp_id in user_proj.iterdir():
-                if not mcp_id.is_dir():
+                if not await mcp_id.is_dir():
                     logger.warning("[MCPLoader] 跳过非目录: %s", mcp_id)
                     continue
 
                 config_path = mcp_id / "config.json"
-                if not config_path.exists():
+                if not await config_path.exists():
                     logger.warning("[MCPLoader] 跳过没有配置文件的MCP模板: %s", mcp_id)
                     continue
 
@@ -374,6 +373,7 @@ class MCPLoader(metaclass=SingletonMeta):
         await mcp_collection.update_one(
             {"_id": mcp_id},
             {"$addToSet": {"activated": user_sub}},
+            upsert=True
         )
 
 
@@ -407,25 +407,24 @@ class MCPLoader(metaclass=SingletonMeta):
         user_path = MCP_PATH / "users" / user_sub / mcp_id
 
         # 判断是否存在
-        if user_path.exists():
+        if await user_path.exists():
             err = f"MCP模板“{mcp_id}”已存在或有同名文件，无法激活"
             logger.error(err)
             raise FileExistsError(err)
 
         # 拷贝文件
-        asyncer.asyncify(shutil.copytree)(template_path.as_posix(), user_path.as_posix(), dirs_exist_ok=True)
+        await asyncer.asyncify(shutil.copytree)(template_path.as_posix(), user_path.as_posix(), dirs_exist_ok=True)
 
         # 加载配置
         config_path = user_path / "config.json"
         f = await config_path.open("r", encoding="utf-8")
-        config = json.loads(await f.read())
+        config = MCPConfig.model_validate(json.loads(await f.read()))
         await f.aclose()
         # 运行进程
         await self.load_one_user(user_sub, mcp_id, config)
 
         # 更新数据库
         await self._activate_template_db(user_sub, mcp_id)
-
 
     async def user_deactive_template(self, user_sub: str, mcp_id: str) -> None:
         """
@@ -445,11 +444,10 @@ class MCPLoader(metaclass=SingletonMeta):
 
         # 删除用户目录
         user_path = MCP_PATH / "users" / user_sub / mcp_id
-        asyncer.asyncify(shutil.rmtree)(user_path.as_posix(), ignore_errors=True)
+        await asyncer.asyncify(shutil.rmtree)(user_path.as_posix(), ignore_errors=True)
 
         # 更新数据库
         await self._deactivate_template_db(user_sub, mcp_id)
-
 
     async def _find_deleted_mcp(self) -> list[str]:
         """

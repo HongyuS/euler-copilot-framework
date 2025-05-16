@@ -12,6 +12,7 @@ from apps.common.config import Config
 from apps.entities.appcenter import AppData
 from apps.entities.enum_var import CommentType
 from apps.entities.flow_topology import FlowItem
+from apps.entities.mcp import MCPType
 
 
 class RequestDataApp(BaseModel):
@@ -91,6 +92,23 @@ class ModFavAppRequest(BaseModel):
     """PUT /api/app/{appId} 请求数据结构"""
 
     favorited: bool = Field(..., description="是否收藏")
+
+
+class UpdateMCPServiceRequest(BaseModel):
+    """POST /api/mcpservice 请求数据结构"""
+
+    service_id: str | None = Field(None, alias="serviceId", description="服务ID（更新时传递）")
+    icon: str = Field(description="图标", default="")
+    name: str = Field(..., description="MCP服务名称")
+    description: str = Field(..., description="MCP服务描述")
+    config: str = Field(..., description="MCP服务配置")
+    mcp_type: MCPType = Field(description="MCP传输协议(Stdio/SSE/Streamable)", default=MCPType.STDIO, alias="mcpType")
+
+
+class ActiveMCPServiceRequest(BaseModel):
+    """POST /api/mcp/{serviceId} 请求数据结构"""
+
+    active: bool = Field(description="是否激活mcp服务")
 
 
 class UpdateServiceRequest(BaseModel):

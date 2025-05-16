@@ -110,7 +110,7 @@ async def install_npx(mcp_id: str, config: MCPServerStdioConfig) -> MCPServerStd
     await mcp_path.mkdir(parents=True, exist_ok=True)
 
     # 如果有node_modules文件夹，则认为已安装
-    if (mcp_path / "node_modules").exists():
+    if await (mcp_path / "node_modules").exists():
         config.command = "npm"
         config.args = ["exec", *config.args]
         return config
