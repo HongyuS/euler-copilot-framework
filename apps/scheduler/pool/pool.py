@@ -10,7 +10,6 @@ from typing import Any
 from anyio import Path
 
 from apps.common.config import Config
-from apps.common.singleton import SingletonMeta
 from apps.entities.enum_var import MetadataType
 from apps.entities.flow import Flow
 from apps.entities.pool import AppFlow, CallPool
@@ -27,7 +26,7 @@ from apps.scheduler.pool.loader import (
 logger = logging.getLogger(__name__)
 
 
-class Pool(metaclass=SingletonMeta):
+class Pool:
     """
     资源池
 
@@ -64,13 +63,8 @@ class Pool(metaclass=SingletonMeta):
             await Path(root_dir + "mcp").mkdir(parents=True, exist_ok=True)
 
 
-    def __init__(self) -> None:
-        """创建Pool在内存中驻留的变量"""
-        self.mcp = MCPLoader()
-        self.call = CallLoader()
-
-
-    async def init(self) -> None:
+    @staticmethod
+    async def init() -> None:
         """
         加载全部文件系统内的资源
 
@@ -87,11 +81,11 @@ class Pool(metaclass=SingletonMeta):
         :return: 无
         """
         # 检查文件夹是否存在
-        await self.check_dir()
+        await Pool.check_dir()
 
         # 加载Call
         logger.info("[Pool] 载入Call")
-        await self.call.load()
+        await CallLoader().load()
 
         # 检查文件变动
         logger.info("[Pool] 检查文件变动")
@@ -133,7 +127,7 @@ class Pool(metaclass=SingletonMeta):
 
         # 载入MCP
         logger.info("[Pool] 载入MCP")
-        await self.mcp.init()
+        await MCPLoader.init()
 
 
     async def get_flow_metadata(self, app_id: str) -> list[AppFlow]:

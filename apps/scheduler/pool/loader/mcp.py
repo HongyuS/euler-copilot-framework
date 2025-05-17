@@ -4,8 +4,6 @@
 import json
 import logging
 import shutil
-from hashlib import md5
-from typing import ClassVar
 
 import asyncer
 from anyio import Path
@@ -38,9 +36,6 @@ class MCPLoader(metaclass=SingletonMeta):
 
     创建MCP Client，启动MCP进程，并将MCP基本信息（名称、描述、工具列表等）写入数据库
     """
-
-    data: ClassVar[dict[str, dict[str, StdioMCPClient | SSEMCPClient]]] = {}
-    """MCP客户端数据，在内存中存储 MCP ID -> 用户 ID -> MCP Client"""
 
     @staticmethod
     async def _check_dir() -> None:
@@ -81,8 +76,8 @@ class MCPLoader(metaclass=SingletonMeta):
         return MCPConfig.model_validate(f_content)
 
 
+    @staticmethod
     async def _install_template(
-            self,
             mcp_id: str,
             config: MCPServerSSEConfig | MCPServerStdioConfig,
     ) -> MCPServerSSEConfig | MCPServerStdioConfig:
@@ -114,7 +109,8 @@ class MCPLoader(metaclass=SingletonMeta):
         return config
 
 
-    async def init_one_template(self, mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig) -> None:
+    @staticmethod
+    async def init_one_template(mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig) -> None:
         """
         初始化单个MCP模板
 
@@ -123,7 +119,7 @@ class MCPLoader(metaclass=SingletonMeta):
         :return: 无
         """
         # 安装MCP模板
-        new_server_config = await self._install_template(mcp_id, config)
+        new_server_config = await MCPLoader._install_template(mcp_id, config)
         new_config = MCPConfig(
             mcpServers={
                 mcp_id: new_server_config,
@@ -131,7 +127,7 @@ class MCPLoader(metaclass=SingletonMeta):
         )
 
         # 更新数据库
-        await self._insert_template_db(mcp_id, config)
+        await MCPLoader._insert_template_db(mcp_id, config)
 
         # 保存config
         f = await (MCP_PATH / "template" / mcp_id / "config.json").open("w+", encoding="utf-8")
@@ -140,7 +136,8 @@ class MCPLoader(metaclass=SingletonMeta):
         await f.aclose()
 
 
-    async def _init_all_template(self) -> None:
+    @staticmethod
+    async def _init_all_template() -> None:
         """
         初始化所有MCP模板
 
@@ -164,7 +161,7 @@ class MCPLoader(metaclass=SingletonMeta):
                 continue
 
             # 读取配置并加载
-            config = await self._load_config(config_path)
+            config = await MCPLoader._load_config(config_path)
             if len(config.mcp_servers) == 0:
                 logger.warning("[MCPLoader] 跳过没有MCP Server的MCP模板: %s", mcp_dir.as_posix())
                 continue
@@ -174,23 +171,25 @@ class MCPLoader(metaclass=SingletonMeta):
             # 初始化第一个MCP Server
             server_id, server = next(iter(config.mcp_servers.items()))
             logger.info("[MCPLoader] 初始化MCP模板: %s", mcp_dir.as_posix())
-            await self.init_one_template(mcp_dir.name, server)
+            await MCPLoader.init_one_template(mcp_dir.name, server)
 
 
-    async def _create_client(
-            self,
-            user_sub: str | None,
+    @staticmethod
+    async def _get_template_tool(
             mcp_id: str,
             config: MCPServerSSEConfig | MCPServerStdioConfig,
-    ) -> SSEMCPClient | StdioMCPClient:
+            user_sub: str | None = None,
+    ) -> list[MCPTool]:
         """
-        创建MCP Client
+        获取MCP模板的工具列表
 
         :param str mcp_id: MCP模板ID
         :param MCPServerSSEConfig | MCPServerStdioConfig config: MCP配置
-        :return: MCP Client
-        :rtype: SSEMCPClient | StdioMCPClient
+        :param str | None user_sub: 用户ID,默认为None
+        :return: 工具列表
+        :rtype: list[str]
         """
+        # 创建客户端
         if config.type == MCPType.STDIO and isinstance(config, MCPServerStdioConfig):
             client = StdioMCPClient()
         elif config.type == MCPType.SSE and isinstance(config, MCPServerSSEConfig):
@@ -201,27 +200,14 @@ class MCPLoader(metaclass=SingletonMeta):
             raise ValueError(err)
 
         await client.init(user_sub, mcp_id, config)
-        return client
 
-
-    async def _get_template_tool(
-            self,
-            mcp_id: str,
-            config: MCPServerSSEConfig | MCPServerStdioConfig,
-    ) -> list[MCPTool]:
-        """
-        获取MCP模板的工具列表
-
-        :param str mcp_id: MCP模板ID
-        :return: 工具列表
-        :rtype: list[str]
-        """
-        client = await self._create_client(None, mcp_id, config)
+        # 获取工具列表
         tool_list = []
         for item in client.tools:
             tool_list += [MCPTool(
-                id=md5(f"{mcp_id}/{item.name}".encode()).hexdigest(),  # noqa: S324
+                id=f"{mcp_id}/{item.name}",
                 name=item.name,
+                mcp_id=mcp_id,
                 description=item.description or "",
                 input_schema=item.inputSchema,
             )]
@@ -229,7 +215,8 @@ class MCPLoader(metaclass=SingletonMeta):
         return tool_list
 
 
-    async def _insert_template_db(self, mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig) -> None:
+    @staticmethod
+    async def _insert_template_db(mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig) -> None:
         """
         插入单个MCP Server模板信息到数据库
 
@@ -238,7 +225,7 @@ class MCPLoader(metaclass=SingletonMeta):
         :return: 无
         """
         # 获取工具列表
-        tool_list = await self._get_template_tool(mcp_id, config)
+        tool_list = await MCPLoader._get_template_tool(mcp_id, config)
 
         # 基本信息插入数据库
         mcp_collection = MongoDB().get_collection("mcp")
@@ -255,6 +242,7 @@ class MCPLoader(metaclass=SingletonMeta):
             },
             upsert=True,
         )
+
         # 服务本身向量化
         embedding = await Embedding.get_embedding([config.description])
         mcp_table = await LanceDB().get_table("mcp")
@@ -280,7 +268,8 @@ class MCPLoader(metaclass=SingletonMeta):
         await LanceDB().create_index("mcp_tool")
 
 
-    async def save_one(self, user_sub: str | None, mcp_id: str, config: MCPConfig) -> None:
+    @staticmethod
+    async def save_one(user_sub: str | None, mcp_id: str, config: MCPConfig) -> None:
         """
         保存单个MCP模板的配置文件（即``template``下的``config.json``文件）
 
@@ -292,107 +281,15 @@ class MCPLoader(metaclass=SingletonMeta):
             config_path = MCP_PATH / "users" / user_sub / mcp_id / "config.json"
         else:
             config_path = MCP_PATH / "template" / mcp_id / "config.json"
-        await Path.mkdir(config_path.parent, parents=True, exist_ok=True)
+
         f = await config_path.open("w+", encoding="utf-8")
         config_dict = config.model_dump(by_alias=True, exclude_none=True)
         await f.write(json.dumps(config_dict, indent=4, ensure_ascii=False))
         await f.aclose()
 
 
-    async def load_one_user(
-            self, user_sub: str, mcp_id: str, config: MCPConfig,
-    ) -> dict[str, SSEMCPClient | StdioMCPClient]:
-        """
-        加载特定用户的单个MCP配置
-
-        MCP Client对象的初始化也在这一步操作。注意：一个config中可能包含多个MCP服务。
-
-        :param str user_sub: 用户ID
-        :param str mcp_id: MCP模板ID
-        :param MCPConfig config: MCP配置
-        :return: 字典，key为MCP模板ID，value为MCP Client对象。
-        :rtype: dict[str, SSEMCPClient | StdioMCPClient]
-        """
-        if len(config.mcp_servers) == 0:
-            err = f"[MCPLoader] MCP模板“{mcp_id}”中没有MCP Server"
-            logger.error(err)
-            raise ValueError(err)
-        if len(config.mcp_servers) > 1:
-            err = f"[MCPLoader] MCP模板“{mcp_id}”中包含多个MCP Server，只会使用第一个"
-            logger.error(err)
-            raise ValueError(err)
-
-        server_id, server = next(iter(config.mcp_servers.items()))
-        client = await self._create_client(user_sub, mcp_id, server)
-        return {server_id: client}
-
-
-    async def _load_all_user(self) -> dict[str, dict[str, SSEMCPClient | StdioMCPClient]]:
-        """
-        加载所有用户的所有MCP配置
-
-        遍历 ``users`` 目录下的所有用户文件夹，并加载其MCP配置。
-
-        :return: 二层字典，用户ID -> MCP模板ID -> MCP Client对象
-        :rtype: dict[str, dict[str, SSEMCPClient | StdioMCPClient]]
-        """
-        result = {}
-        async for user_proj in (MCP_PATH / "users").iterdir():
-            if not await user_proj.is_dir():
-                logger.warning("[MCPLoader] 跳过非目录: %s", user_proj)
-                continue
-
-            result[user_proj.name] = {}
-            async for mcp_id in user_proj.iterdir():
-                if not await mcp_id.is_dir():
-                    logger.warning("[MCPLoader] 跳过非目录: %s", mcp_id)
-                    continue
-
-                config_path = mcp_id / "config.json"
-                if not await config_path.exists():
-                    logger.warning("[MCPLoader] 跳过没有配置文件的MCP模板: %s", mcp_id)
-                    continue
-
-                f = await config_path.open("r", encoding="utf-8")
-                config = MCPConfig.model_validate(json.loads(await f.read()))
-                result[user_proj.name][mcp_id.name] = await self.load_one_user(user_proj.name, mcp_id.name, config)
-                await f.aclose()
-
-        return result
-
-
-    async def _activate_template_db(self, user_sub: str, mcp_id: str) -> None:
-        """
-        更新数据库，设置MCP模板为激活状态
-
-        :param str user_sub: 用户ID
-        :param str mcp_id: MCP模板ID
-        :return: 无
-        """
-        mcp_collection = MongoDB().get_collection("mcp")
-        await mcp_collection.update_one(
-            {"_id": mcp_id},
-            {"$addToSet": {"activated": user_sub}},
-            upsert=True
-        )
-
-
-    async def _deactivate_template_db(self, user_sub: str, mcp_id: str) -> None:
-        """
-        更新数据库，设置MCP模板为非激活状态
-
-        :param str user_sub: 用户ID
-        :param str mcp_id: MCP模板ID
-        :return: 无
-        """
-        mcp_collection = MongoDB().get_collection("mcp")
-        await mcp_collection.update_one(
-            {"_id": mcp_id},
-            {"$pull": {"activated": user_sub}},
-        )
-
-
-    async def user_active_template(self, user_sub: str, mcp_id: str) -> None:
+    @staticmethod
+    async def user_active_template(user_sub: str, mcp_id: str) -> None:
         """
         用户激活MCP模板
 
@@ -407,26 +304,25 @@ class MCPLoader(metaclass=SingletonMeta):
         user_path = MCP_PATH / "users" / user_sub / mcp_id
 
         # 判断是否存在
-        if await user_path.exists():
+        if user_path.exists():
             err = f"MCP模板“{mcp_id}”已存在或有同名文件，无法激活"
             logger.error(err)
             raise FileExistsError(err)
 
         # 拷贝文件
-        await asyncer.asyncify(shutil.copytree)(template_path.as_posix(), user_path.as_posix(), dirs_exist_ok=True)
-
-        # 加载配置
-        config_path = user_path / "config.json"
-        f = await config_path.open("r", encoding="utf-8")
-        config = MCPConfig.model_validate(json.loads(await f.read()))
-        await f.aclose()
-        # 运行进程
-        await self.load_one_user(user_sub, mcp_id, config)
+        asyncer.asyncify(shutil.copytree)(template_path.as_posix(), user_path.as_posix(), dirs_exist_ok=True)
 
         # 更新数据库
-        await self._activate_template_db(user_sub, mcp_id)
+        mongo = MongoDB()
+        mcp_collection = mongo.get_collection("mcp")
+        await mcp_collection.update_one(
+            {"_id": mcp_id},
+            {"$addToSet": {"activated": user_sub}},
+        )
 
-    async def user_deactive_template(self, user_sub: str, mcp_id: str) -> None:
+
+    @staticmethod
+    async def user_deactive_template(user_sub: str, mcp_id: str) -> None:
         """
         取消激活MCP模板
 
@@ -436,20 +332,21 @@ class MCPLoader(metaclass=SingletonMeta):
         :param str mcp_id: MCP模板ID
         :return: 无
         """
-        # 停止进程
-        try:
-            await self.data[mcp_id][user_sub].stop()
-        except KeyError:
-            logger.warning("[MCPLoader] MCP模板“%s”中没有用户“%s”", mcp_id, user_sub)
-
         # 删除用户目录
         user_path = MCP_PATH / "users" / user_sub / mcp_id
-        await asyncer.asyncify(shutil.rmtree)(user_path.as_posix(), ignore_errors=True)
+        asyncer.asyncify(shutil.rmtree)(user_path.as_posix(), ignore_errors=True)
 
         # 更新数据库
-        await self._deactivate_template_db(user_sub, mcp_id)
+        mongo = MongoDB()
+        mcp_collection = mongo.get_collection("mcp")
+        await mcp_collection.update_one(
+            {"_id": mcp_id},
+            {"$pull": {"activated": user_sub}},
+        )
 
-    async def _find_deleted_mcp(self) -> list[str]:
+
+    @staticmethod
+    async def _find_deleted_mcp() -> list[str]:
         """
         查找在文件系统中被修改和被删除的MCP
 
@@ -459,17 +356,17 @@ class MCPLoader(metaclass=SingletonMeta):
         deleted_mcp_list = []
 
         mcp_collection = MongoDB().get_collection("mcp")
-        mcp_list = await mcp_collection.find({}, {"_id": 1, "hash": 1}).to_list(None)
+        mcp_list = await mcp_collection.find({}, {"_id": 1}).to_list(None)
         for db_item in mcp_list:
-            mcp_id: str = db_item["_id"]
-            mcp_path: Path = MCP_PATH / "template" / mcp_id
+            mcp_path: Path = MCP_PATH / "template" / db_item["_id"]
             if not await mcp_path.exists():
-                deleted_mcp_list.append(mcp_id)
+                deleted_mcp_list.append(db_item["_id"])
         logger.info("[MCPLoader] 这些MCP在文件系统中被删除: %s", deleted_mcp_list)
         return deleted_mcp_list
 
 
-    async def _remove_deleted_mcp(self, deleted_mcp_list: list[str]) -> None:
+    @staticmethod
+    async def remove_deleted_mcp(deleted_mcp_list: list[str]) -> None:
         """
         删除无效的MCP在数据库中的记录
 
@@ -488,21 +385,65 @@ class MCPLoader(metaclass=SingletonMeta):
         logger.info("[MCPLoader] 清除LanceDB中无效的MCP")
 
 
-    async def init(self) -> None:
+    @staticmethod
+    async def _load_user_mcp() -> None:
+        """
+        加载用户MCP
+
+        :return: 用户MCP列表
+        :rtype: dict[str, list[str]]
+        """
+        user_path = MCP_PATH / "users"
+        if not await user_path.exists():
+            logger.warning("[MCPLoader] users目录不存在，跳过加载用户MCP")
+            return
+
+        mongo = MongoDB()
+        mcp_collection = mongo.get_collection("mcp")
+
+        mcp_list = {}
+        # 遍历users目录
+        async for user_dir in user_path.iterdir():
+            if not await user_dir.is_dir():
+                continue
+
+            # 遍历单个用户的目录
+            async for mcp_dir in user_dir.iterdir():
+                # 检查数据库中是否有这个MCP
+                mcp_item = await mcp_collection.find_one({"_id": mcp_dir.name})
+                if not mcp_item:
+                    # 数据库中不存在，当前文件夹无效，删除
+                    asyncer.asyncify(shutil.rmtree)(mcp_dir.as_posix(), ignore_errors=True)
+
+                # 添加到dict
+                if mcp_dir.name not in mcp_list:
+                    mcp_list[mcp_dir.name] = []
+                mcp_list[mcp_dir.name].append(user_dir.name)
+
+        # 更新所有MCP的activated情况
+        for mcp_id, user_list in mcp_list.items():
+            await mcp_collection.update_one(
+                {"_id": mcp_id},
+                {"$set": {"activated": user_list}},
+            )
+
+
+    @staticmethod
+    async def init() -> None:
         """
         初始化MCP加载器
 
         :return: 无
         """
         # 清空数据库
-        deleted_mcp_list = await self._find_deleted_mcp()
-        await self._remove_deleted_mcp(deleted_mcp_list)
+        deleted_mcp_list = await MCPLoader._find_deleted_mcp()
+        await MCPLoader.remove_deleted_mcp(deleted_mcp_list)
 
         # 检查目录
-        await self._check_dir()
+        await MCPLoader._check_dir()
 
         # 初始化所有模板
-        await self._init_all_template()
+        await MCPLoader._init_all_template()
 
-        # 加载所有用户
-        await self._load_all_user()
+        # 加载用户MCP
+        await MCPLoader._load_user_mcp()
