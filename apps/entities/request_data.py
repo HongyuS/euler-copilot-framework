@@ -160,13 +160,23 @@ class PostDomainData(BaseModel):
     domain_description: str = Field(..., max_length=2000)
 
 
-class PostKnowledgeIDData(BaseModel):
-    """添加知识库"""
-
-    kb_id: str
-
-
 class PutFlowReq(BaseModel):
     """创建/修改流拓扑结构"""
 
     flow: FlowItem
+
+
+class UpdateLLMReq(BaseModel):
+    """更新大模型请求体"""
+    icon: str
+    openai_base_url: str = Field(default="https://api.openai.com/v1",
+                                 description="OpenAI API Base URL", alias="openaiBaseUrl")
+    openai_api_key: str = Field(description="OpenAI API Key", alias="openaiApiKey")
+    model_name: str = Field(description="模型名称", alias="modelName")
+    max_tokens: int = Field(description="最大token数", alias="maxTokens")
+
+
+class DeleteLLMReq(BaseModel):
+    """删除大模型请求体"""
+
+    llm_id: str = Field(description="大模型ID", alias="llmId")

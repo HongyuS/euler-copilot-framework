@@ -21,6 +21,8 @@ from apps.entities.request_data import (
 from apps.entities.response_data import (
     AddConversationMsg,
     AddConversationRsp,
+    LLMIteam,
+    KbIteam,
     ConversationListItem,
     ConversationListMsg,
     ConversationListRsp,
@@ -88,8 +90,9 @@ async def get_conversation_list(user_sub: Annotated[str, Depends(get_user)]) -> 
     """获取对话列表"""
     conversations = await ConversationManager.get_conversation_by_user_sub(user_sub)
     # 把已有对话转换为列表
-    result_conversations = [
-        ConversationListItem(
+    result_conversations = []
+    for conv in conversations:
+        conversation_list_item = ConversationListItem(
             conversationId=conv.id,
             title=conv.title,
             docCount=await DocumentManager.get_doc_count(user_sub, conv.id),
@@ -99,8 +102,20 @@ async def get_conversation_list(user_sub: Annotated[str, Depends(get_user)]) -> 
             appId=conv.app_id if conv.app_id else "",
             debug=conv.debug if conv.debug else False,
         )
-        for conv in conversations
-    ]
+        llm_item = LLMIteam(
+            modelName=conv.llm.model_name,
+            icon=conv.llm.icon,
+        )
+        kb_item_list = []
+        for kb in conv.kb_list:
+            kb_item = KbIteam(
+                kbId=kb.kb_id,
+                kbName=kb.kb_name,
+            )
+            kb_item_list.append(kb_item)
+        conversation_list_item.llm = llm_item
+        conversation_list_item.kbList = kb_item_list
+        result_conversations.append(conversation_list_item)
 
     # 新建对话
     try:

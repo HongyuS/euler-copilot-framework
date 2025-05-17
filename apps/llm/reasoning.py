@@ -106,6 +106,13 @@ class ReasoningLLM:
             base_url=self._config.endpoint,
         )
 
+    def _update_client(self, key: str, endpoint: str) -> None:
+        """更新OpenAI客户端"""
+        self._client = AsyncOpenAI(
+            api_key=self._config.key,
+            base_url=self._config.endpoint,
+        )
+
     @staticmethod
     def _validate_messages(messages: list[dict[str, str]]) -> list[dict[str, str]]:
         """验证消息格式是否正确"""

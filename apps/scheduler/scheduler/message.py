@@ -10,6 +10,7 @@ from textwrap import dedent
 
 from apps.common.config import Config
 from apps.common.queue import MessageQueue
+from apps.entities.collection import LLM
 from apps.entities.collection import Document
 from apps.entities.enum_var import EventType
 from apps.entities.message import (
@@ -62,12 +63,12 @@ async def push_init_message(
 
 
 async def push_rag_message(
-    task: Task, queue: MessageQueue, user_sub: str, rag_data: RAGQueryReq,
+    task: Task, queue: MessageQueue, user_sub: str, llm: LLM, history: list[dict[str, str]], rag_data: RAGQueryReq,
 ) -> Task:
     """推送RAG消息"""
     full_answer = ""
 
-    async for chunk in RAG.get_rag_result(user_sub, rag_data):
+    async for chunk in RAG.get_rag_result(user_sub, llm, history, rag_data):
         task, chunk_content = await _push_rag_chunk(task, queue, chunk)
         full_answer += chunk_content
 

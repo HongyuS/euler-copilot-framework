@@ -8,13 +8,17 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
+from apps.common.config import Config
 from apps.common.queue import MessageQueue
+from apps.entities.collection import LLM
 from apps.entities.enum_var import EventType
 from apps.entities.rag_data import RAGQueryReq
 from apps.entities.request_data import RequestData
 from apps.entities.scheduler import ExecutorBackground
 from apps.entities.task import Task
 from apps.manager.appcenter import AppCenterManager
+from apps.manager.knowledge import KnowledgeBaseManager
+from apps.manager.llm import LLMManager
 from apps.manager.user import UserManager
 from apps.scheduler.executor.flow import FlowExecutor
 from apps.scheduler.pool.pool import Pool
@@ -44,23 +48,52 @@ class Scheduler:
         self.queue = queue
         self.post_body = post_body
 
-
     async def run(self) -> None:
         """运行调度器"""
         try:
+            # 获取当前会话使用的大模型
+            llm_id = await LLMManager.get_llm_id_by_conversation_id(
+                self.task.ids.user_sub, self.task.ids.conversation_id,
+            )
+            if not llm_id:
+                logger.error("[Scheduler] 获取大模型ID失败")
+                await self.queue.close()
+                return
+            if llm_id == "empty":
+                llm = LLM(
+                    id="empty",
+                    user_sub=self.task.ids.user_sub,
+                    openai_base_url=Config().get_config().llm.endpoint,
+                    openai_api_key=Config().get_config().llm.key,
+                    model_name=Config().get_config().llm.model,
+                    max_tokens=Config().get_config().llm.max_tokens,
+                )
+            else:
+                llm = await LLMManager.get_llm_by_id(llm_id)
+                if not llm:
+                    logger.error("[Scheduler] 获取大模型失败")
+                    await self.queue.close()
+                    return
+        except Exception as e:
+            logger.exception("[Scheduler] 获取大模型失败")
+            await self.queue.close()
+            return
+        try:
+            # 获取当前会话使用的知识库
+            kb_ids = await KnowledgeBaseManager.get_kb_ids_by_conversation_id(
+                self.task.ids.user_sub, self.task.ids.conversation_id)
+        except Exception as e:
+            logger.exception("[Scheduler] 获取知识库ID失败")
+            await self.queue.close()
+            return
+        try:
             # 获取当前问答可供关联的文档
             docs, doc_ids = await get_docs(self.task.ids.user_sub, self.post_body)
-        except Exception:
+        except Exception as e:
             logger.exception("[Scheduler] 获取文档失败")
             await self.queue.close()
             return
-
-        # 获取用户配置的kb_sn
-        user_info = await UserManager.get_userinfo_by_user_sub(self.task.ids.user_sub)
-        if not user_info:
-            logger.error("[Scheduler] 未找到用户")
-            await self.queue.close()
-            return
+        history, _ = await get_context(self.task.ids.user_sub, self.post_body, 3)
 
         # 已使用文档
         self.used_docs = []
@@ -75,20 +108,11 @@ class Scheduler:
                 self.used_docs.append(doc.id)
                 self.task = await push_document_message(self.task, self.queue, doc)
                 await asyncio.sleep(0.1)
-
-            # 调用RAG
-            logger.info("[Scheduler] 获取上下文")
-            history, _ = await get_context(self.task.ids.user_sub, self.post_body, 3)
-            logger.info("[Scheduler] 调用RAG")
             rag_data = RAGQueryReq(
+                kbIds=kb_ids,
                 question=self.post_body.question,
-                language=self.post_body.language,
-                document_ids=doc_ids,
-                kb_sn=None if not user_info.kb_id else user_info.kb_id,
-                top_k=5,
-                history=history,
             )
-            self.task = await push_rag_message(self.task, self.queue, self.task.ids.user_sub, rag_data)
+            self.task = await push_rag_message(self.task, self.queue, self.task.ids.user_sub, llm, history, rag_data)
             self.task.tokens.full_time = round(datetime.now(UTC).timestamp(), 2) - self.task.tokens.time
         else:
             # 查找对应的App元数据
@@ -117,7 +141,6 @@ class Scheduler:
         await self.queue.close()
 
         return
-
 
     async def run_executor(
         self, queue: MessageQueue, post_body: RequestData, background: ExecutorBackground,
