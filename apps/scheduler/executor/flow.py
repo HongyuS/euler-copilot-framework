@@ -39,16 +39,6 @@ FIXED_STEPS_AFTER_END = [
         type=SpecialCallType.FACTS.value,
     ),
 ]
-# 错误处理步骤
-ERROR_STEP = Step(
-    name="错误处理",
-    description="错误处理",
-    node=SpecialCallType.LLM.value,
-    type=SpecialCallType.LLM.value,
-    params={
-        "user_prompt": LLM_ERROR_PROMPT,
-    },
-)
 
 
 # 单个流的执行工具
@@ -190,9 +180,20 @@ class FlowExecutor(BaseExecutor):
                 self.step_queue.clear()
                 self.step_queue.appendleft(StepQueueItem(
                     step_id=str(uuid.uuid4()),
-                    step=ERROR_STEP,
+                    step=Step(
+                        name="错误处理",
+                        description="错误处理",
+                        node=SpecialCallType.LLM.value,
+                        type=SpecialCallType.LLM.value,
+                        params={
+                            "user_prompt": LLM_ERROR_PROMPT.replace(
+                                "{{ error_info }}",
+                                self.task.state.error_info["err_msg"], # type: ignore[arg-type]
+                            ),
+                        },
+                    ),
                     enable_filling=False,
-                    to_user=True,
+                    to_user=False,
                 ))
                 # 错误处理后结束
                 self._reached_end = True
