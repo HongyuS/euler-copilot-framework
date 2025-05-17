@@ -155,7 +155,7 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
 
         # 输出结果
         yield self._create_output(
-            "[MCP] 任务完成\n\n",
+            f"[MCP] 任务完成\n\n---\n\n{answer}\n\n",
             MCPMessageType.FINISH_END,
             data=MCPOutput(
                 message=answer,
