@@ -83,7 +83,7 @@ async def init_resources() -> None:
     """初始化必要资源"""
     WordsCheck()
     await LanceDB().init()
-    await Pool().init()
+    await Pool.init()
     TokenCalculator()
 
 # 运行
