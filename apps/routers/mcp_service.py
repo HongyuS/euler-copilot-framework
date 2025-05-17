@@ -7,13 +7,14 @@ Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Path, Query, status
+from fastapi import APIRouter, Depends, Path, Query, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import get_user, verify_user
 from apps.entities.enum_var import MCPSearchType
-from apps.entities.request_data import UpdateMCPServiceRequest, ActiveMCPServiceRequest
+from apps.entities.request_data import ActiveMCPServiceRequest, UpdateMCPServiceRequest
 from apps.entities.response_data import (
+    ActiveMCPServiceRsp,
     BaseMCPServiceOperationMsg,
     DeleteMCPServiceRsp,
     GetMCPServiceDetailMsg,
@@ -23,7 +24,6 @@ from apps.entities.response_data import (
     ResponseData,
     UpdateMCPServiceMsg,
     UpdateMCPServiceRsp,
-    ActiveMCPServiceRsp,
 )
 from apps.exceptions import InstancePermissionError, ServiceIDError
 from apps.manager.mcp_service import MCPServiceManager
@@ -39,9 +39,11 @@ router = APIRouter(
 
 
 @router.get("", response_model=GetMCPServiceListRsp | ResponseData)
-async def get_mcpservice_list(  # noqa: PLR0913
+async def get_mcpservice_list(
         user_sub: Annotated[str, Depends(get_user)],
-        search_type: Annotated[MCPSearchType, Query(..., alias="searchType", description="搜索类型")] = MCPSearchType.ALL,
+        search_type: Annotated[
+            MCPSearchType, Query(..., alias="searchType", description="搜索类型"),
+        ] = MCPSearchType.ALL,
         keyword: Annotated[str | None, Query(..., alias="keyword", description="搜索关键字")] = None,
         page: Annotated[int, Query(..., alias="page", ge=1, description="页码")] = 1,
         page_size: Annotated[int, Query(..., alias="pageSize", ge=1, le=100, description="每页数量")] = 16,
@@ -55,8 +57,9 @@ async def get_mcpservice_list(  # noqa: PLR0913
             page,
             page_size,
         )
-    except Exception as exp:
-        logger.exception(f"[MCPServiceCenter] 获取MCP服务列表失败: {exp}")
+    except Exception as e:
+        err = f"[MCPServiceCenter] 获取MCP服务列表失败: {e}"
+        logger.exception(err)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
@@ -65,6 +68,7 @@ async def get_mcpservice_list(  # noqa: PLR0913
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
+
     if total_count == -1:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -74,6 +78,7 @@ async def get_mcpservice_list(  # noqa: PLR0913
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
+
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=GetMCPServiceListRsp(
@@ -91,7 +96,7 @@ async def get_mcpservice_list(  # noqa: PLR0913
 @router.post("", response_model=UpdateMCPServiceRsp)
 async def create_or_update_mcpservice(
         user_sub: Annotated[str, Depends(get_user)],
-        data: Annotated[UpdateMCPServiceRequest, Body(..., description="MCP服务对应数据对象")],
+        data: UpdateMCPServiceRequest,
 ) -> JSONResponse:
     """新建或更新MCP服务"""
     user_data = await UserManager.get_userinfo_by_user_sub(user_sub)
@@ -106,22 +111,33 @@ async def create_or_update_mcpservice(
         )
     manager = MCPServiceManager()
     try:
-        config = await manager.load_mcp_config(description=data.description,
-                                                         config_str=data.config, mcp_type=data.mcp_type)
-    except Exception as exp:
-        logger.exception(exp)
+        config = await manager.load_mcp_config(
+            description=data.description,
+            config_str=data.config,
+            mcp_type=data.mcp_type,
+        )
+    except Exception as e:
+        err = f"[MCPServiceCenter] 更新MCP服务失败: {e}"
+        logger.exception(err)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
                 code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                message=f"更新MCP服务失败: {exp!s}",
+                message=f"更新MCP服务失败: {e!s}",
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
     if not data.service_id:
         try:
-            service_id = await manager.create_mcpservice(user_sub, data.name, data.icon, data.description,
-                                                         config, data.config, data.mcp_type)
+            service_id = await manager.create_mcpservice(
+                user_sub,
+                data.name,
+                data.icon,
+                data.description,
+                config,
+                data.config,
+                data.mcp_type,
+            )
         except Exception as e:
             logger.exception("[MCPServiceCenter] 创建MCP服务失败")
             return JSONResponse(
@@ -134,8 +150,15 @@ async def create_or_update_mcpservice(
             )
     else:
         try:
-            service_id = await manager.update_mcpservice(user_sub, data.service_id, data.name, data.icon,
-                                                         data.description, config, data.config)
+            service_id = await manager.update_mcpservice(
+                user_sub,
+                data.service_id,
+                data.name,
+                data.icon,
+                data.description,
+                config,
+                data.config,
+            )
         except ServiceIDError:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -173,6 +196,7 @@ async def create_or_update_mcpservice(
 async def get_service_detail(
         user_sub: Annotated[str, Depends(get_user)],
         service_id: Annotated[str, Path(..., alias="serviceId", description="服务ID")],
+        *,
         edit: Annotated[bool, Query(..., description="是否为编辑模式")] = False,
 ) -> JSONResponse:
     """获取MCP服务详情"""
@@ -200,8 +224,9 @@ async def get_service_detail(
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
-        except Exception as exp:
-            logger.exception(f"[MCPService] 获取MCP服务数据失败: {exp}")
+        except Exception as e:
+            err = f"[MCPService] 获取MCP服务数据失败: {e}"
+            logger.exception(err)
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content=ResponseData(
@@ -210,9 +235,16 @@ async def get_service_detail(
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
-        detail = GetMCPServiceDetailMsg(serviceId=data.service_id, icon=data.icon, name=data.name,
-                                        description=data.description, data=data.config_str, tools=data.tools,
-                                        isActive=is_active, mcpType=data.mcp_type)
+        detail = GetMCPServiceDetailMsg(
+            serviceId=data.service_id,
+            icon=data.icon,
+            name=data.name,
+            description=data.description,
+            data=data.config_str,
+            tools=data.tools,
+            isActive=is_active,
+            mcpType=data.mcp_type,
+        )
     else:
         try:
             data = await manager.get_service_details(service_id)
@@ -226,8 +258,9 @@ async def get_service_detail(
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
-        except Exception as exp:
-            logger.exception(f"[MCPService] 获取MCP服务API失败: {exp}")
+        except Exception as e:
+            err = f"[MCPService] 获取MCP服务API失败: {e}"
+            logger.exception(err)
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content=ResponseData(
@@ -236,9 +269,16 @@ async def get_service_detail(
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
-        detail = GetMCPServiceDetailMsg(serviceId=service_id, icon=data.icon, name=data.name,
-                                        description=data.description, tools=data.tools, data=data.config_str,
-                                        isActive=is_active, mcpType=data.mcp_type)
+        detail = GetMCPServiceDetailMsg(
+            serviceId=service_id,
+            icon=data.icon,
+            name=data.name,
+            description=data.description,
+            tools=data.tools,
+            data=data.config_str,
+            isActive=is_active,
+            mcpType=data.mcp_type,
+        )
     rsp = GetMCPServiceDetailRsp(code=status.HTTP_200_OK, message="OK", result=detail)
     return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))
 
@@ -269,8 +309,9 @@ async def delete_service(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    except Exception as exp:
-        logger.exception(f"[MCPServiceManager] 删除MCP服务失败: {exp}")
+    except Exception as e:
+        err = f"[MCPServiceManager] 删除MCP服务失败: {e}"
+        logger.exception(err)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
@@ -288,7 +329,7 @@ async def delete_service(
 async def active_or_deactivate_mcp_service(
         user_sub: Annotated[str, Depends(get_user)],
         service_id: Annotated[str, Path(..., alias="serviceId", description="服务ID")],
-        data: Annotated[ActiveMCPServiceRequest, Body(description="是否激活")],
+        data: ActiveMCPServiceRequest,
 ) -> JSONResponse:
     """激活mcp"""
     loader = MCPLoader()
@@ -297,8 +338,9 @@ async def active_or_deactivate_mcp_service(
             await loader.user_active_template(user_sub, service_id)
         else:
             await loader.user_deactive_template(user_sub, service_id)
-    except FileExistsError as exp:
-        logging.exception(exp)
+    except FileExistsError as e:
+        err = f"[MCPService] 激活mcp服务失败: {e}"
+        logger.exception(err)
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
             content=ResponseData(
@@ -307,8 +349,9 @@ async def active_or_deactivate_mcp_service(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    except Exception as exp:
-        logging.exception(exp)
+    except Exception as e:
+        err = f"[MCPService] 激活mcp服务失败: {e}"
+        logger.exception(err)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(

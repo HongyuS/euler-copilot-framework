@@ -367,8 +367,7 @@ class AppCenterManager:
             msg = "Permission denied"
             raise InstancePermissionError(msg)
         # 删除应用
-        app_loader = AppLoader()
-        await app_loader.delete(app_id)
+        await AppLoader.delete(app_id)
         # 删除应用相关的工作流
         for flow in app_data.flows:
             await FlowManager.delete_flow_by_app_and_flow_id(app_id, flow.id)
