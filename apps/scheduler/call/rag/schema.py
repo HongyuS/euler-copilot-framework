@@ -1,17 +1,22 @@
 """RAG工具的输入和输出"""
 
+import uuid
+
 from enum import Enum
 
-from pydantic import Field
+from pydantic import Field, BaseModel
 
 from apps.scheduler.call.core import DataBase
 
 
-class RetrievalMode(str, Enum):
-    """检索模式"""
-
-    CHUNK = "chunk"
-    FULL_TEXT = "full_text"
+class SearchMethod(str, Enum):
+    """搜索方法"""
+    KEYWORD = "keyword"
+    VECTOR = "vector"
+    KEYWORD_AND_VECTOR = "keyword_and_vector"
+    DOC2CHUNK = "doc2chunk"
+    DOC2CHUNK_BFS = "doc2chunk_bfs"
+    ENHANCED_BY_LLM = "enhanced_by_llm"
 
 
 class RAGOutput(DataBase):
@@ -23,8 +28,14 @@ class RAGOutput(DataBase):
 
 class RAGInput(DataBase):
     """RAG工具的输入"""
-
-    content: str = Field(description="用户输入")
-    knowledge_base: str | None = Field(description="知识库的id", alias="kb_sn", default=None)
-    top_k: int = Field(description="返回的答案数量(经过整合以及上下文关联)", default=5)
-    retrieval_mode: RetrievalMode = Field(description="检索模式", default=RetrievalMode.CHUNK)
+    session_id: str = Field(description="会话id")
+    knowledge_base_ids: list[uuid.UUID] = Field(description="知识库的id列表", default=[], alias="kbIds")
+    top_k: int = Field(description="返回的分片数量", default=5)
+    question: str = Field(description="用户输入", default="", alias="query")
+    document_ids: list[uuid.UUID] = Field(description="文档id列表", default=[], alias="docIds")
+    search_method: str = Field(description="检索方法", default=SearchMethod.KEYWORD_AND_VECTOR.value, alias="searchMethod")
+    is_related_surrounding: bool = Field(description="是否关联上下文", default=True, alias="isRelatedSurrounding")
+    is_classify_by_doc: bool = Field(description="是否按文档分类", default=False, alias="isClassifyByDoc")
+    is_rerank: bool = Field(description="是否重新排序", default=False, alias="isRerank")
+    is_compress: bool = Field(description="是否压缩", default=False, alias="isCompress")
+    tokens_limit: int = Field(description="token限制", default=8192, alias="tokensLimit")
