@@ -23,32 +23,36 @@ from apps.scheduler.mcp.prompt import (
 logger = logging.getLogger(__name__)
 
 
-class MCPToolHelper:
-    """MCP工具助手"""
+class MCPSelector:
+    """MCP选择器"""
 
     def __init__(self) -> None:
         """初始化助手类"""
         self.input_tokens = 0
         self.output_tokens = 0
 
+    @staticmethod
+    def _assemble_sql(mcp_list: list[str]) -> str:
+        """组装SQL"""
+        sql = "("
+        for mcp_id in mcp_list:
+            sql += f"'{mcp_id}', "
+        return sql.rstrip(", ") + ")"
 
-    async def select_top_mcp(
+
+    async def _get_top_mcp_by_embedding(
         self,
         query: str,
         mcp_list: list[str],
-    ) -> MCPSelectResult:
-        """
-        选择最合适的MCP Server
-
-        先通过Embedding选择Top5，然后通过LLM选择Top 1
-        """
+    ) -> list[dict[str, str]]:
+        """通过向量检索获取Top5 MCP Server"""
         logger.info("[MCPHelper] 查询MCP Server向量: %s, %s", query, mcp_list)
         mcp_table = await LanceDB().get_table("mcp")
         query_embedding = await Embedding.get_embedding([query])
         mcp_vecs = await (await mcp_table.search(
             query=query_embedding,
             vector_column_name="embedding",
-        )).where(f"id IN ({', '.join(mcp_list)})").limit(5).to_list()
+        )).where(f"id IN {MCPSelector._assemble_sql(mcp_list)}").limit(5).to_list()
 
         # 拿到名称和description
         logger.info("[MCPHelper] 查询MCP Server名称和描述: %s", mcp_vecs)
@@ -66,7 +70,16 @@ class MCPToolHelper:
                 "name": mcp_data.name,
                 "description": mcp_data.description,
             }])
+        return llm_mcp_list
 
+
+    async def _get_mcp_by_llm(
+        self,
+        query: str,
+        mcp_list: list[dict[str, str]],
+        mcp_ids: list[str],
+    ) -> MCPSelectResult:
+        """通过LLM选择最合适的MCP Server"""
         # 初始化jinja2环境
         env = SandboxedEnvironment(
             loader=BaseLoader,
@@ -77,36 +90,68 @@ class MCPToolHelper:
         template = env.from_string(MCP_SELECT)
         # 渲染模板
         mcp_prompt = template.render(
-            mcp_list=llm_mcp_list,
+            mcp_list=mcp_list,
             goal=query,
         )
 
-        # 调用大模型
-        logger.info("[MCPHelper] 分析最合适的MCP Server")
+        # 调用大模型进行推理
+        result = await self._call_reasoning(mcp_prompt)
+
+        # 使用小模型提取JSON
+        return await self._call_function_mcp(result, mcp_ids)
+
+
+    async def _call_reasoning(self, prompt: str) -> str:
+        """调用大模型进行推理"""
+        logger.info("[MCPHelper] 调用推理大模型")
         llm = ReasoningLLM()
         message = [
             {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": mcp_prompt},
+            {"role": "user", "content": prompt},
         ]
         result = ""
         async for chunk in llm.call(message):
             result += chunk
         self.input_tokens += llm.input_tokens
         self.output_tokens += llm.output_tokens
+        return result
 
-        # 使用小模型提取JSON
+
+    async def _call_function_mcp(self, reasoning_result: str, mcp_ids: list[str]) -> MCPSelectResult:
+        """调用结构化输出小模型提取JSON"""
+        logger.info("[MCPHelper] 调用结构化输出小模型")
         llm = FunctionLLM()
         message = [
             {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": result},
+            {"role": "user", "content": reasoning_result},
         ]
-        result = await llm.call(messages=message, schema=MCPSelectResult.model_json_schema())
+        schema = MCPSelectResult.model_json_schema()
+        # schema中加入选项
+        schema["properties"]["mcp_id"]["enum"] = mcp_ids
+        result = await llm.call(messages=message, schema=schema)
         try:
             result = MCPSelectResult.model_validate(result)
         except Exception:
             logger.exception("[MCPHelper] 解析MCP Select Result失败")
             raise
         return result
+
+
+    async def select_top_mcp(
+        self,
+        query: str,
+        mcp_list: list[str],
+    ) -> MCPSelectResult:
+        """
+        选择最合适的MCP Server
+
+        先通过Embedding选择Top5，然后通过LLM选择Top 1
+        """
+        # 通过向量检索获取Top5
+        llm_mcp_list = await self._get_top_mcp_by_embedding(query, mcp_list)
+
+        # 通过LLM选择最合适的
+        return await self._get_mcp_by_llm(query, llm_mcp_list, mcp_list)
 
 
     @staticmethod
@@ -117,13 +162,15 @@ class MCPToolHelper:
         tool_vecs = await (await tool_vector.search(
             query=query_embedding,
             vector_column_name="embedding",
-        )).where(f"mcp_id IN ({', '.join(mcp_list)})").limit(top_n).to_list()
+        )).where(f"mcp_id IN {MCPSelector._assemble_sql(mcp_list)}").limit(top_n).to_list()
 
-        # 拿到名称和description
+        # 拿到工具
         logger.info("[MCPHelper] 查询MCP Tool名称和描述: %s", tool_vecs)
         tool_collection = MongoDB().get_collection("mcp")
         llm_tool_list = []
+
         for tool_vec in tool_vecs:
+            # 到MongoDB里找对应的工具
             tool_data = await tool_collection.find_one({"_id": tool_vec["mcp_id"], "tools.id": tool_vec["id"]})
             if not tool_data:
                 logger.warning("[MCPHelper] 查询MCP Tool名称和描述失败: %s/%s", tool_vec["mcp_id"], tool_vec["id"])
