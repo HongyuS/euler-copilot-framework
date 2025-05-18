@@ -9,7 +9,11 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from apps.entities.collection import Conversation
+from apps.templates.generate_llm_operator_config import llm_provider_dict
+from apps.common.config import Config
+from apps.entities.collection import LLMItem, KnowledgeBaseItem, Conversation
+from apps.manager.llm import LLMManager
+from apps.manager.knowledge import KnowledgeBaseManager
 from apps.manager.task import TaskManager
 from apps.models.mongo import MongoDB
 
@@ -46,13 +50,42 @@ class ConversationManager:
             return None
 
     @staticmethod
-    async def add_conversation_by_user_sub(user_sub: str, app_id: str, *, debug: bool) -> Conversation | None:
+    async def add_conversation_by_user_sub(
+            user_sub: str, app_id: str, llm_id: str, kb_ids: list[str],
+            *, debug: bool) -> Conversation | None:
         """通过用户ID新建对话"""
+        if llm_id == "empty":
+            llm_item = LLMItem(
+                llm_id="empty",
+                model_name=Config().get_config().llm.model,
+                icon=llm_provider_dict['ollama']['icon']
+            )
+        else:
+            llm = await LLMManager.get_llm_by_id(llm_id)
+            if llm is None:
+                logger.error("[ConversationManager] 获取大模型失败")
+                return None
+            llm_item = LLMItem(
+                llm_id=llm.id,
+                model_name=llm.model_name,
+            )
+        kb_item_list = []
+        team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, "")
+        for team_kb in team_kb_list:
+            for kb in team_kb["kbList"]:
+                if str(kb["kbId"]) in kb_ids:
+                    kb_item = KnowledgeBaseItem(
+                        kb_id=kb["kbId"],
+                        kb_name=kb["kbName"],
+                    )
+                    kb_item_list.append(kb_item)
         conversation_id = str(uuid.uuid4())
         conv = Conversation(
             _id=conversation_id,
             user_sub=user_sub,
             app_id=app_id,
+            llm=llm_item,
+            kb_list=kb_item_list,
             debug=debug if debug else False,
         )
         mongo = MongoDB()

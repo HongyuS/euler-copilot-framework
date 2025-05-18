@@ -7,6 +7,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 import logging
 import httpx
 from fastapi import status
+from typing import Any
 from apps.models.mongo import MongoDB
 from apps.common.config import Config
 from apps.entities.collection import KnowledgeBaseItem
@@ -36,6 +37,28 @@ class KnowledgeBaseManager:
             kb_ids_used = [kb_config["kb_id"] for kb_config in kb_config_list]
             return kb_ids_used
         except Exception:
+            logger.exception("[KnowledgeBaseManager] 获取知识库ID失败")
+            return []
+
+    @staticmethod
+    async def get_team_kb_list_from_rag(user_sub: str, kb_name: str) -> list[dict[str, Any]]:
+        try:
+            session_id = await SessionManager.get_session_by_user_sub(user_sub)
+            url = Config().get_config().rag.rag_service.rstrip("/")+"/api/knowledge"
+            headers = {
+                "Authorization": f"Bearer {session_id}",
+                "Content-Type": "application/json",
+            }
+            async with httpx.AsyncClient() as client:
+                data = {
+                    "name": kb_name
+                }
+                resp = await client.get(url, headers=headers, params=data)
+                resp_data = resp.json()
+                if resp.status_code != status.HTTP_200_OK:
+                    return []
+            return resp_data["result"]["teamKnowledgebases"]
+        except Exception as e:
             logger.exception("[KnowledgeBaseManager] 获取知识库ID失败")
             return []
 
@@ -75,7 +98,7 @@ class KnowledgeBaseManager:
                 if resp.status_code != status.HTTP_200_OK:
                     return []
                 team_kb_item_list = []
-                team_kb_list = resp_data["result"]["teamKnowledgebases"]
+                team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, kb_name)
                 for team_kb in team_kb_list:
                     team_kb_item = TeamKnowledgeBaseItem(
                         teamId=team_kb["teamId"],
@@ -122,20 +145,15 @@ class KnowledgeBaseManager:
                 "Content-Type": "application/json",
             }
             kb_item_list = []
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(url, headers=headers)
-                resp_data = resp.json()
-                if resp.status_code != status.HTTP_200_OK:
-                    return []
-                team_kb_list = resp_data["result"]["teamKnowledgebases"]
-                for team_kb in team_kb_list:
-                    for kb in team_kb["kbList"]:
-                        if str(kb["kbId"]) in kb_ids:
-                            kb_item = KnowledgeBaseItem(
-                                kb_id=kb["kbId"],
-                                kb_name=kb["kbName"],
-                            )
-                            kb_item_list.append(kb_item)
+            team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, "")
+            for team_kb in team_kb_list:
+                for kb in team_kb["kbList"]:
+                    if str(kb["kbId"]) in kb_ids:
+                        kb_item = KnowledgeBaseItem(
+                            kb_id=kb["kbId"],
+                            kb_name=kb["kbName"],
+                        )
+                        kb_item_list.append(kb_item)
             await conv_collection.update_one(
                 {"_id": conversation_id, "user_sub": user_sub},
                 {"$set": {"kb_list": kb_item_list}},

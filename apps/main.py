@@ -31,6 +31,7 @@ from apps.routers import (
     flow,
     health,
     knowledge,
+    llm,
     mcp_service,
     record,
     service,
@@ -61,6 +62,7 @@ app.include_router(chat.router)
 app.include_router(blacklist.router)
 app.include_router(document.router)
 app.include_router(knowledge.router)
+app.include_router(llm.router)
 app.include_router(mcp_service.router)
 app.include_router(flow.router)
 app.include_router(user.router)
@@ -92,4 +94,4 @@ if __name__ == "__main__":
     asyncio.run(init_resources())
 
     # 启动FastAPI
-    uvicorn.run(app, host="0.0.0.0", port=8002, log_level="info", log_config=None)
+    uvicorn.run(app, host="0.0.0.0", port=3002, log_level="info", log_config=None)

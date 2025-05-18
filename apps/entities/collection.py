@@ -77,13 +77,13 @@ class LLM(BaseModel):
     openai_base_url: str = Field(default="https://api.openai.com/v1",
                                  description="OpenAI API Base URL")
     openai_api_key: str = Field(description="OpenAI API Key")
-    model_name: str = Field(description="模型名称", alias="modelName")
-    max_tokens: int = Field(description="最大token数", alias="maxTokens")
+    model_name: str = Field(description="模型名称")
+    max_tokens: int = Field(description="最大token数")
     created_at: float = Field(default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3))
 
 
 class LLMItem(BaseModel):
-    llm_id: str
+    llm_id: str = Field(default="empty")
     model_name: str
     icon: str
 

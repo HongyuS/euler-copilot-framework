@@ -23,7 +23,7 @@ from apps.manager.llm import LLMManager
 
 router = APIRouter(
     prefix="/api/llm",
-    tags=["大模型"],
+    tags=["llm"],
     dependencies=[
         Depends(verify_user),
     ],
@@ -37,8 +37,7 @@ router = APIRouter(
 async def list_llm_provider(
     user_sub: Annotated[str, Depends(get_user)],
 ) -> JSONResponse:
-    """获取当前用户的知识库ID"""
-    llm_provider_list = await LLMManager.list_llm_provider(user_sub)
+    llm_provider_list = await LLMManager.list_llm_provider()
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ListLLMProviderRsp(
@@ -56,9 +55,9 @@ async def list_llm_provider(
             )
 async def list_llm(
     user_sub: Annotated[str, Depends(get_user)],
+    llm_id: Optional[str] = Query(default=None, description="大模型ID", alias="llmId"),
 ) -> JSONResponse:
-    """获取当前用户的知识库ID"""
-    llm_list = await LLMManager.list_llm(user_sub)
+    llm_list = await LLMManager.list_llm(user_sub, llm_id)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ListLLMRsp(
@@ -77,14 +76,13 @@ async def list_llm(
 )
 async def create_llm(
     user_sub: Annotated[str, Depends(get_user)],
-    llm_id: Optional[str] = Query(default=None, description="大模型ID"),
+    llm_id: Optional[str] = Query(default=None, description="大模型ID", alias="llmId"),
     req: UpdateLLMReq = Body(...),
 ) -> JSONResponse:
-    """创建知识库"""
     llm_id = await LLMManager.update_llm(user_sub, llm_id, req)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=ListLLMRsp(
+        content=ResponseData(
             code=status.HTTP_200_OK,
             message="success",
             result=llm_id,
@@ -100,13 +98,12 @@ async def create_llm(
 )
 async def delete_llm(
     user_sub: Annotated[str, Depends(get_user)],
-    llm_id: Optional[str] = Query(default=None, description="大模型ID")
+    llm_id: Optional[str] = Query(default=None, description="大模型ID", alias="llmId"),
 ) -> JSONResponse:
-    """删除知识库"""
     llm_id = await LLMManager.delete_llm(user_sub, llm_id)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=ListLLMRsp(
+        content=ResponseData(
             code=status.HTTP_200_OK,
             message="success",
             result=llm_id,
@@ -122,14 +119,14 @@ async def delete_llm(
 )
 async def update_conv_llm(
     user_sub: Annotated[str, Depends(get_user)],
-    conversation_id: Optional[str] = Query(default=None, description="对话ID", alias="ConversationID"),
-    llm_id: Optional[str] = Query(default=None, description="llm ID", alias="LLMID"),
+    conversation_id: Optional[str] = Query(default=None, description="对话ID", alias="conversationId"),
+    llm_id: Optional[str] = Query(default=None, description="llm ID", alias="llmId"),
 ) -> JSONResponse:
     """更新对话的知识库"""
     llm_id = await LLMManager.update_conversation_llm(user_sub, conversation_id, llm_id)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=ListLLMRsp(
+        content=ResponseData(
             code=status.HTTP_200_OK,
             message="success",
             result=llm_id,

@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Annotated
 
 import pytz
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Body, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import get_user, verify_user
@@ -51,6 +51,8 @@ async def create_new_conversation(
     user_sub: str,
     conv_list: list[Conversation],
     app_id: str = "",
+    llm_id: str = "empty",
+    kb_ids: list[str] = [],
     *,
     debug: bool = False,
 ) -> Conversation | None:
@@ -71,7 +73,7 @@ async def create_new_conversation(
         if app_id and not await AppManager.validate_user_app_access(user_sub, app_id):
             err = "Invalid app_id."
             raise RuntimeError(err)
-        new_conv = await ConversationManager.add_conversation_by_user_sub(user_sub, app_id=app_id, debug=debug)
+        new_conv = await ConversationManager.add_conversation_by_user_sub(user_sub, app_id=app_id, llm_id=llm_id, kb_ids=kb_ids, debug=debug)
         if not new_conv:
             err = "Create new conversation failed."
             raise RuntimeError(err)
@@ -114,7 +116,7 @@ async def get_conversation_list(user_sub: Annotated[str, Depends(get_user)]) -> 
             )
             kb_item_list.append(kb_item)
         conversation_list_item.llm = llm_item
-        conversation_list_item.kbList = kb_item_list
+        conversation_list_item.kb_list = kb_item_list
         result_conversations.append(conversation_list_item)
 
     # 新建对话
@@ -158,6 +160,8 @@ async def get_conversation_list(user_sub: Annotated[str, Depends(get_user)]) -> 
 async def add_conversation(
     user_sub: Annotated[str, Depends(get_user)],
     app_id: Annotated[str, Query(..., alias="appId")] = "",
+    llm_id: Annotated[str, Body(..., alias="llmId")] = "empty",
+    kb_ids: Annotated[list[str], Body(..., alias="kbIds")] = [],
     *,
     debug: Annotated[bool, Query()] = False,
 ) -> JSONResponse:
@@ -167,7 +171,7 @@ async def add_conversation(
     try:
         app_id = app_id if app_id else ""
         debug = debug if debug is not None else False
-        new_conv = await create_new_conversation(user_sub, conversations, app_id=app_id, debug=debug)
+        new_conv = await create_new_conversation(user_sub, conversations, app_id=app_id, llm_id=llm_id, kb_ids=kb_ids, debug=debug)
     except RuntimeError as e:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -199,9 +203,9 @@ async def add_conversation(
 
 @router.put("", response_model=UpdateConversationRsp)
 async def update_conversation(
-    post_body: ModifyConversationData,
-    conversation_id: Annotated[str, Query(..., alias="conversationId")],
     user_sub: Annotated[str, Depends(get_user)],
+    conversation_id: Annotated[str, Query(..., alias="conversationId")],
+    post_body: ModifyConversationData,
 ) -> JSONResponse:
     """更新特定Conversation的数据"""
     # 判断Conversation是否合法

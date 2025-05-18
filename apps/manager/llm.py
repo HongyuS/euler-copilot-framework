@@ -82,7 +82,7 @@ class LLMManager:
             return None
 
     @staticmethod
-    async def list_llm(user_sub: str) -> list[LLMResponse]:
+    async def list_llm(user_sub: str, llm_id: str) -> list[LLMResponse]:
         """
         获取大模型列表
         :param user_sub: 用户ID
@@ -90,7 +90,10 @@ class LLMManager:
         """
         try:
             llm_collection = MongoDB().get_collection("llm")
-            result = await llm_collection.find({"user_sub": user_sub}).sort({"created_at": 1}).to_list(length=None)
+            filter = {"user_sub": user_sub}
+            if llm_id:
+                filter["llm_id"] = llm_id
+            result = await llm_collection.find(filter).sort({"created_at": 1}).to_list(length=None)
             if not result:
                 return []
             llm_item = LLMResponse(
@@ -188,12 +191,17 @@ class LLMManager:
         try:
             conv_collection = MongoDB().get_collection("conversation")
             llm_collection = MongoDB().get_collection("llm")
-            if llm_id:
+            if llm_id != "empty":
                 llm_dict = await llm_collection.find_one({"_id": llm_id, "user_sub": user_sub})
                 if not llm_dict:
                     err = f"[LLMManager] LLM {llm_id} 不存在"
                     logger.error(err)
                     return False
+            else:
+                llm_dict = {
+                    "model_name": Config().get_config().llm.model,
+                    "icon": llm_provider_dict['ollama']['icon'],
+                }
             conv_dict = await conv_collection.find_one({"_id": conversation_id, "user_sub": user_sub})
             if not conv_dict:
                 err_msg = "[LLMManager] 更新对话的LLM失败，未找到对话"

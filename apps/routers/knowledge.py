@@ -20,7 +20,7 @@ from apps.manager.knowledge import KnowledgeBaseManager
 
 router = APIRouter(
     prefix="/api/knowledge",
-    tags=["知识库"],
+    tags=["knowledge"],
     dependencies=[
         Depends(verify_user),
     ],
@@ -34,25 +34,25 @@ router = APIRouter(
 async def list_kb(
     user_sub: Annotated[str, Depends(get_user)],
     conversation_id: Annotated[str, Query(alias="conversationId")],
-    kb_name: Annotated[str, Query(alias="kbName")],
+    kb_name: Annotated[str, Query(alias="kbName")] = "",
 ) -> JSONResponse:
     """获取当前用户的知识库ID"""
-    list_team_kb_msg = await KnowledgeBaseManager.list_team_kb(user_sub, conversation_id, kb_name)
+    team_kb_list = await KnowledgeBaseManager.list_team_kb(user_sub, conversation_id, kb_name)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ListTeamKnowledgeRsp(
             code=status.HTTP_200_OK,
             message="success",
-            result=ListTeamKnowledgeMsg(result=list_team_kb_msg),
+            result=ListTeamKnowledgeMsg(result=team_kb_list),
         ).model_dump(exclude_none=True, by_alias=True),
     )
 
 
-@router.post("", response_model=ResponseData)
+@router.put("", response_model=ResponseData)
 async def update_conversation_kb(
     user_sub: Annotated[str, Depends(get_user)],
     conversation_id: Annotated[str, Query(alias="conversationId")],
-    kb_ids: Annotated[list[KnowledgeBaseItem], Body(alias="kbIds")],
+    kb_ids: Annotated[list[str], Body(alias="kbIds")] = [],
 ) -> JSONResponse:
     """更新当前用户的知识库ID"""
     await KnowledgeBaseManager.update_conv_kb(user_sub, conversation_id, kb_ids)

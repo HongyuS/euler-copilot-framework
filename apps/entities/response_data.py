@@ -569,6 +569,7 @@ class LLMProvider(BaseModel):
     """LLM提供商数据结构"""
 
     provider: str = Field(..., description="LLM提供商")
+    description: str = Field(..., description="LLM提供商描述")
     url: Optional[str] = Field(default=None, description="LLM提供商URL")
     icon: str = Field(..., description="LLM提供商图标")
 
@@ -582,7 +583,7 @@ class ListLLMProviderRsp(ResponseData):
 class LLM(BaseModel):
     """LLM数据结构"""
 
-    id: str
+    llm_id: str = Field(..., alias="llmId", description="LLM ID")
     icon: str = Field(default="", description="LLM图标", min_length=1, max_length=2000)
     openai_base_url: str = Field(default="https://api.openai.com/v1",
                                  description="OpenAI API Base URL", alias="openaiBaseUrl")
