@@ -97,7 +97,7 @@ class LLMManager:
             if not result:
                 return []
             llm_item = LLMResponse(
-                id="empty",
+                llmId="empty",
                 openaiBaseUrl=Config().get_config().llm.endpoint,
                 openaiApiKey=Config().get_config().llm.key,
                 modelName=Config().get_config().llm.model,
@@ -106,7 +106,7 @@ class LLMManager:
             llm_item_list = [llm_item]
             for llm in result:
                 llm_item = LLMResponse(
-                    id=llm["_id"],
+                    llmId=llm["_id"],
                     icon=llm["icon"],
                     openaiBaseUrl=llm["openai_base_url"],
                     openaiApiKey=llm["openai_api_key"],
@@ -169,6 +169,10 @@ class LLMManager:
         :return: 大模型ID
         """
         try:
+            if llm_id == "empty":
+                err = "[LLMManager] 不能删除默认大模型"
+                logger.error(err)
+                raise Exception(err)
             llm_collection = MongoDB().get_collection("llm")
             llm_config = await llm_collection.find_one({"_id": llm_id, "user_sub": user_sub})
             if not llm_config:

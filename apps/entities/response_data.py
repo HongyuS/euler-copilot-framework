@@ -584,7 +584,7 @@ class LLM(BaseModel):
     """LLM数据结构"""
 
     llm_id: str = Field(..., alias="llmId", description="LLM ID")
-    icon: str = Field(default="", description="LLM图标", min_length=1, max_length=2000)
+    icon: str = Field(default="", description="LLM图标", max_length=25536)
     openai_base_url: str = Field(default="https://api.openai.com/v1",
                                  description="OpenAI API Base URL", alias="openaiBaseUrl")
     openai_api_key: str = Field(description="OpenAI API Key", alias="openaiApiKey")
