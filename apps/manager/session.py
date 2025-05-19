@@ -132,3 +132,17 @@ class SessionManager:
             return None
 
         return user_sub
+
+    @staticmethod
+    async def get_session_by_user_sub(user_sub: str) -> str | None:
+        """根据用户sub获取Session"""
+        try:
+            collection = MongoDB().get_collection("session")
+            data = await collection.find_one({"user_sub": user_sub})
+            if not data:
+                return None
+            return Session(**data).id
+        except Exception as e:
+            err = "从Session中获取用户失败"
+            logger.exception("[SessionManager] %s", err)
+            raise SessionError(err) from e

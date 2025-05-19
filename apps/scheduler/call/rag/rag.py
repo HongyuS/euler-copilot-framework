@@ -52,7 +52,7 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
         return RAGInput(
             session_id=call_vars.ids.session_id,
             kbIds=self.knowledge_base_ids,
-            top_k=self.top_k,
+            topK=self.top_k,
             query=call_vars.question,
             docIds=self.document_ids,
             searchMethod=self.search_method,
@@ -109,7 +109,7 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
             raise CallError(
                 message=f"rag调用失败：{text}",
                 data={
-                    "question": data.content,
+                    "question": data.question,
                     "status": response.status_code,
                     "text": text,
                 },

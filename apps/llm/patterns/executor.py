@@ -54,7 +54,6 @@ class ExecutorThought(CorePattern):
         """处理Prompt"""
         super().__init__(system_prompt, user_prompt)
 
-
     async def generate(self, **kwargs) -> str:  # noqa: ANN003
         """调用大模型，生成对话总结"""
         try:

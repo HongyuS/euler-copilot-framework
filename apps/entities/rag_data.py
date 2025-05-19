@@ -6,19 +6,21 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class RAGQueryReq(BaseModel):
     """查询RAG时的POST请求体"""
-
-    question: str
-    history: list[dict[str, str]] = []
-    language: str = "zh"
-    kb_sn: str | None = None
-    top_k: int = 5
-    fetch_source: bool = False
-    document_ids: list[str] = []
+    kb_ids: list[str] = Field(default=[], description="资产id", alias="kbIds")
+    query: str = Field(default='', description="查询内容")
+    top_k: int = Field(default=5, description="返回的结果数量", alias="topK")
+    doc_ids: list[str] = Field(default=[], description="文档id", alias="docIds")
+    search_method: str = Field(default="keyword_and_vector",
+                               description="检索方法", alias="searchMethod")
+    is_related_surrounding: bool = Field(default=True, description="是否关联上下文", alias="isRelatedSurrounding")
+    is_classify_by_doc: bool = Field(default=True, description="是否按文档分类", alias="isClassifyByDoc")
+    is_rerank: bool = Field(default=False, description="是否重新排序", alias="isRerank")
+    tokens_limit: int = Field(default=8192, description="token限制", alias="tokensLimit")
 
 
 class RAGFileParseReqItem(BaseModel):

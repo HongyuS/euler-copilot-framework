@@ -4,7 +4,7 @@ FastAPI 返回数据结构
 Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -87,6 +87,19 @@ class GetBlacklistQuestionRsp(ResponseData):
     result: GetBlacklistQuestionMsg
 
 
+class LLMIteam(BaseModel):
+    """GET /api/conversation Result数据结构"""
+    icon: str
+    llm_id: str = Field(alias="llmId")
+    model_name: str = Field(alias="modelName")
+
+
+class KbIteam(BaseModel):
+    """GET /api/conversation Result数据结构"""
+    kb_id: str = Field(alias="kbId")
+    kb_name: str = Field(alias="kbName")
+
+
 class ConversationListItem(BaseModel):
     """GET /api/conversation Result数据结构"""
 
@@ -96,6 +109,8 @@ class ConversationListItem(BaseModel):
     created_time: str = Field(alias="createdTime")
     app_id: str = Field(alias="appId")
     debug: bool = Field(alias="debug")
+    llm: Optional[LLMIteam] = Field(alias="llm", default=None)
+    kb_list: list[KbIteam] = Field(alias="kbList", default=[])
 
 
 class ConversationListMsg(BaseModel):
@@ -216,16 +231,33 @@ class OidcRedirectRsp(ResponseData):
     result: OidcRedirectMsg
 
 
-class GetKnowledgeIDMsg(BaseModel):
+class KnowledgeBaseItem(BaseModel):
+    """知识库列表项数据结构"""
+
+    kb_id: str = Field(..., alias="kbId", description="知识库ID")
+    kb_name: str = Field(..., description="知识库名称", alias="kbName")
+    description: str = Field(..., description="知识库描述")
+    is_used: bool = Field(..., description="是否使用", alias="isUsed")
+
+
+class TeamKnowledgeBaseItem(BaseModel):
+    """团队知识库列表项数据结构"""
+
+    team_id: str = Field(..., alias="teamId", description="团队ID")
+    team_name: str = Field(..., alias="teamName", description="团队名称")
+    kb_list: list[KnowledgeBaseItem] = Field(default=[], description="知识库列表")
+
+
+class ListTeamKnowledgeMsg(BaseModel):
     """GET /api/knowledge Result数据结构"""
 
-    kb_id: str
+    team_kb_list: list[TeamKnowledgeBaseItem] = Field(default=[], alias="teamKbList", description="团队知识库列表")
 
 
-class GetKnowledgeIDRsp(ResponseData):
+class ListTeamKnowledgeRsp(ResponseData):
     """GET /api/knowledge 返回数据结构"""
 
-    result: GetKnowledgeIDMsg
+    result: ListTeamKnowledgeMsg
 
 
 class BaseAppOperationMsg(BaseModel):
@@ -532,3 +564,37 @@ class ActiveMCPServiceRsp(ResponseData):
     """POST /api/mcp/active/{serviceId} 返回数据结构"""
 
     result: BaseMCPServiceOperationMsg = Field(..., title="Result")
+
+
+class LLMProvider(BaseModel):
+    """LLM提供商数据结构"""
+
+    provider: str = Field(..., description="LLM提供商")
+    description: str = Field(..., description="LLM提供商描述")
+    url: Optional[str] = Field(default=None, description="LLM提供商URL")
+    icon: str = Field(..., description="LLM提供商图标")
+
+
+class ListLLMProviderRsp(ResponseData):
+    """GET /api/llm/provider 返回数据结构"""
+
+    result: list[LLMProvider] = Field(default=[], title="Result")
+
+
+class LLM(BaseModel):
+    """LLM数据结构"""
+
+    llm_id: str = Field(..., alias="llmId", description="LLM ID")
+    icon: str = Field(default="", description="LLM图标", max_length=25536)
+    openai_base_url: str = Field(default="https://api.openai.com/v1",
+                                 description="OpenAI API Base URL", alias="openaiBaseUrl")
+    openai_api_key: str = Field(description="OpenAI API Key", alias="openaiApiKey")
+    model_name: str = Field(description="模型名称", alias="modelName")
+    max_tokens: int = Field(description="最大token数", alias="maxTokens")
+    is_editable: bool = Field(default=True, description="是否可编辑", alias="isEditable")
+
+
+class ListLLMRsp(ResponseData):
+    """GET /api/llm 返回数据结构"""
+
+    result: list[LLM] = Field(default=[], title="Result")
