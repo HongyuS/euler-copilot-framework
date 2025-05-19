@@ -11,6 +11,9 @@ from fastapi.responses import JSONResponse
 
 from apps.dependency import get_user, verify_user
 from apps.entities.collection import KnowledgeBaseItem
+from apps.entities.request_data import (
+    UpdateKbReq
+)
 from apps.entities.response_data import (
     ListTeamKnowledgeMsg,
     ListTeamKnowledgeRsp,
@@ -53,10 +56,10 @@ async def list_kb(
 async def update_conversation_kb(
     user_sub: Annotated[str, Depends(get_user)],
     conversation_id: Annotated[str, Query(alias="conversationId")],
-    kb_ids: Annotated[list[str], Body(alias="kbIds")] = [],
+    put_body: Annotated[UpdateKbReq, Body(...)]
 ) -> JSONResponse:
     """更新当前用户的知识库ID"""
-    kb_ids_update_success = await KnowledgeBaseManager.update_conv_kb(user_sub, conversation_id, kb_ids)
+    kb_ids_update_success = await KnowledgeBaseManager.update_conv_kb(user_sub, conversation_id, put_body.kb_ids)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ResponseData(

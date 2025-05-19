@@ -179,3 +179,9 @@ class DeleteLLMReq(BaseModel):
     """删除大模型请求体"""
 
     llm_id: str = Field(description="大模型ID", alias="llmId")
+
+
+class UpdateKbReq(BaseModel):
+    """更新知识库请求体"""
+
+    kb_ids: list[str] = Field(description="知识库ID列表", alias="kbIds", default=[])
