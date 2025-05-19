@@ -137,7 +137,6 @@ class SessionManager:
     async def get_session_by_user_sub(user_sub: str) -> str | None:
         """根据用户sub获取Session"""
         try:
-            return "123456"
             collection = MongoDB().get_collection("session")
             data = await collection.find_one({"user_sub": user_sub})
             if not data:

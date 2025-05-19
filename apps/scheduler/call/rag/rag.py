@@ -52,7 +52,7 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
         return RAGInput(
             session_id=call_vars.ids.session_id,
             kbIds=self.knowledge_base_ids,
-            top_k=self.top_k,
+            topK=self.top_k,
             query=call_vars.question,
             docIds=self.document_ids,
             searchMethod=self.search_method,
@@ -79,7 +79,7 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
         }
 
         # 发送请求
-        data_json = json.dumps(data.model_dump(exclude_none=True, by_alias=True))
+        data_json = data.model_dump(exclude_none=True, by_alias=True)
         del data_json["session_id"]
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, json=data_json)
@@ -109,7 +109,7 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
             raise CallError(
                 message=f"rag调用失败：{text}",
                 data={
-                    "question": data.content,
+                    "question": data.question,
                     "status": response.status_code,
                     "text": text,
                 },

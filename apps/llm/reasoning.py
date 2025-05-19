@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionChunk
 
+from apps.entities.config import LLMConfig
 from apps.common.config import Config
 from apps.constants import REASONING_BEGIN_TOKEN, REASONING_END_TOKEN
 from apps.llm.token import TokenCalculator
@@ -59,25 +60,36 @@ class ReasoningContent:
         reason = ""
         text = ""
 
+        content = chunk.choices[0].delta.content or ""
+
         if not self.is_reasoning:
-            text = chunk.choices[0].delta.content or ""
+            # 非推理模式，直接返回内容作为文本
+            text = content
             return reason, text
 
         if self.reasoning_type == "args":
             if hasattr(chunk.choices[0].delta, "reasoning_content"):
                 reason = chunk.choices[0].delta.reasoning_content or ""  # type: ignore[attr-defined]
             else:
+                # 推理结束，设置标志并添加结束标签
                 self.is_reasoning = False
                 reason = "</think>"
+                # 如果当前内容不是推理内容标签，将其作为文本返回
+                if content and not content.startswith("</think>"):
+                    text = content
         elif self.reasoning_type == "tokens":
             for token in REASONING_END_TOKEN:
-                if token == (chunk.choices[0].delta.content or ""):
+                if token == content:
+                    # 遇到结束标记，推理结束
                     self.is_reasoning = False
                     reason = "</think>"
-                    text = ""
                     break
             if self.is_reasoning:
-                reason = chunk.choices[0].delta.content or ""
+                # 仍在推理中，将内容作为推理内容
+                reason = content
+            else:
+                # 推理已结束，将内容作为文本
+                text = content
 
         return reason, text
 
@@ -88,10 +100,14 @@ class ReasoningLLM:
     input_tokens: int = 0
     output_tokens: int = 0
 
-    def __init__(self) -> None:
+    def __init__(self, llm_config: LLMConfig) -> None:
         """判断配置文件里用了哪种大模型；初始化大模型客户端"""
-        self._config: LLMConfig = Config().get_config().llm
-        self._init_client()
+        if not llm_config:
+            self._config: LLMConfig = Config().get_config().llm
+            self._init_client()
+        else:
+            self._config: LLMConfig = llm_config
+            self._init_client()
 
     def _init_client(self) -> None:
         """初始化OpenAI客户端"""
@@ -101,13 +117,6 @@ class ReasoningLLM:
             )
             return
 
-        self._client = AsyncOpenAI(
-            api_key=self._config.key,
-            base_url=self._config.endpoint,
-        )
-
-    def _update_client(self, key: str, endpoint: str) -> None:
-        """更新OpenAI客户端"""
         self._client = AsyncOpenAI(
             api_key=self._config.key,
             base_url=self._config.endpoint,
@@ -131,10 +140,13 @@ class ReasoningLLM:
         messages: list[dict[str, str]],
         max_tokens: int | None,
         temperature: float | None,
+        model: str | None = None,
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         """创建流式响应"""
+        if model is None:
+            model = self._config.model
         return await self._client.chat.completions.create(
-            model=self._config.model,
+            model=model,
             messages=messages,  # type: ignore[]
             max_tokens=max_tokens or self._config.max_tokens,
             temperature=temperature or self._config.temperature,
@@ -150,6 +162,7 @@ class ReasoningLLM:
         *,
         streaming: bool = True,
         result_only: bool = True,
+        model: str | None = None,
     ) -> AsyncGenerator[str, None]:
         """调用大模型，分为流式和非流式两种"""
         # 检查max_tokens和temperature
@@ -165,7 +178,7 @@ class ReasoningLLM:
             logger.exception(err)
             raise ValueError(err) from e
 
-        stream = await self._create_stream(msg_list, max_tokens, temperature)
+        stream = await self._create_stream(msg_list, max_tokens, temperature, model)
         reasoning = ReasoningContent()
         reasoning_content = ""
         result = ""

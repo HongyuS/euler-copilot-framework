@@ -105,6 +105,7 @@ async def get_conversation_list(user_sub: Annotated[str, Depends(get_user)]) -> 
             debug=conv.debug if conv.debug else False,
         )
         llm_item = LLMIteam(
+            llmId=conv.llm.llm_id,
             modelName=conv.llm.model_name,
             icon=conv.llm.icon,
         )

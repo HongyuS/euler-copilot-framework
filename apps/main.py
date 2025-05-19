@@ -94,4 +94,4 @@ if __name__ == "__main__":
     asyncio.run(init_resources())
 
     # 启动FastAPI
-    uvicorn.run(app, host="0.0.0.0", port=3002, log_level="info", log_config=None)
+    uvicorn.run(app, host="0.0.0.0", port=8002, log_level="info", log_config=None)

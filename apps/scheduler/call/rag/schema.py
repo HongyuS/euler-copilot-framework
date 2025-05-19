@@ -30,7 +30,7 @@ class RAGInput(DataBase):
     """RAG工具的输入"""
     session_id: str = Field(description="会话id")
     knowledge_base_ids: list[uuid.UUID] = Field(description="知识库的id列表", default=[], alias="kbIds")
-    top_k: int = Field(description="返回的分片数量", default=5)
+    top_k: int = Field(description="返回的分片数量", default=5, alias="topK")
     question: str = Field(description="用户输入", default="", alias="query")
     document_ids: list[uuid.UUID] = Field(description="文档id列表", default=[], alias="docIds")
     search_method: str = Field(description="检索方法", default=SearchMethod.KEYWORD_AND_VECTOR.value, alias="searchMethod")

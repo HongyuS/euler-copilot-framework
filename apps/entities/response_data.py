@@ -90,6 +90,7 @@ class GetBlacklistQuestionRsp(ResponseData):
 class LLMIteam(BaseModel):
     """GET /api/conversation Result数据结构"""
     icon: str
+    llm_id: str = Field(alias="llmId")
     model_name: str = Field(alias="modelName")
 
 
