@@ -120,7 +120,7 @@ async def delete_llm(
 async def update_conv_llm(
     user_sub: Annotated[str, Depends(get_user)],
     conversation_id: Optional[str] = Query(default=None, description="对话ID", alias="conversationId"),
-    llm_id: Optional[str] = Query(default=None, description="llm ID", alias="llmId"),
+    llm_id: str = Query(default="empty", description="llm ID", alias="llmId"),
 ) -> JSONResponse:
     """更新对话的知识库"""
     llm_id = await LLMManager.update_conversation_llm(user_sub, conversation_id, llm_id)
