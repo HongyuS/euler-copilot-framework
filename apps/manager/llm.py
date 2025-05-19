@@ -94,10 +94,9 @@ class LLMManager:
             if llm_id:
                 filter["llm_id"] = llm_id
             result = await llm_collection.find(filter).sort({"created_at": 1}).to_list(length=None)
-            if not result:
-                return []
             llm_item = LLMResponse(
                 llmId="empty",
+                icon=llm_provider_dict['ollama']['icon'],
                 openaiBaseUrl=Config().get_config().llm.endpoint,
                 openaiApiKey=Config().get_config().llm.key,
                 modelName=Config().get_config().llm.model,
@@ -175,6 +174,19 @@ class LLMManager:
                 logger.error(err)
                 raise Exception(err)
             llm_collection = MongoDB().get_collection("llm")
+            conv_collection = MongoDB().get_collection("conversation")
+            conv_dict = await conv_collection.find_one({"llm.llm_id": llm_id, "user_sub": user_sub})
+            if conv_dict:
+                await conv_collection.update_many(
+                    {"_id": conv_dict["_id"], "user_sub": user_sub},
+                    {"$set":
+                        {"llm":
+                         {"llm_id": "empty",
+                          "icon": llm_provider_dict['ollama']['icon'],
+                          "model_name": Config().get_config().llm.model}
+                         }
+                     },
+                )
             llm_config = await llm_collection.find_one({"_id": llm_id, "user_sub": user_sub})
             if not llm_config:
                 err = f"[LLMManager] LLM {llm_id} 不存在"

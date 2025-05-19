@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from apps.constants import NEW_CHAT
 from apps.templates.generate_llm_operator_config import llm_provider_dict
+from apps.common.config import Config
 
 
 class Blacklist(BaseModel):
@@ -74,17 +75,17 @@ class LLM(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
     user_sub: str = Field(default="", description="用户ID")
     icon: str = Field(default=llm_provider_dict['ollama']['icon'], description="图标")
-    openai_base_url: str = Field(default="", description="OpenAI API Base URL")
-    openai_api_key: str = Field(default="", description="OpenAI API Key")
-    model_name: str = Field(default="", description="模型名称")
-    max_tokens: int = Field(default=8192, description="最大token数")
+    openai_base_url: str = Field(default="", description=Config().get_config().llm.endpoint)
+    openai_api_key: str = Field(default="", description=Config().get_config().llm.key)
+    model_name: str = Field(default="", description=Config().get_config().llm.model)
+    max_tokens: int = Field(default=8192, description=Config().get_config().llm.max_tokens)
     created_at: float = Field(default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3))
 
 
 class LLMItem(BaseModel):
     llm_id: str = Field(default="empty")
-    model_name: str
-    icon: str
+    model_name: str = Field(default=Config().get_config().llm.model)
+    icon: str = Field(default=llm_provider_dict['ollama']['icon'])
 
 
 class KnowledgeBaseItem(BaseModel):
