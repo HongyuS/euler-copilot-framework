@@ -20,6 +20,7 @@ from apps.entities.flow_topology import (
 from apps.entities.mcp import MCPServiceToolsdata, MCPType
 from apps.entities.record import RecordData
 from apps.entities.user import UserInfo
+from apps.templates.generate_llm_operator_config import llm_provider_dict
 
 
 class ResponseData(BaseModel):
@@ -89,9 +90,9 @@ class GetBlacklistQuestionRsp(ResponseData):
 
 class LLMIteam(BaseModel):
     """GET /api/conversation Result数据结构"""
-    icon: str
-    llm_id: str = Field(alias="llmId")
-    model_name: str = Field(alias="modelName")
+    icon: str = Field(default=llm_provider_dict['ollama']['icon'])
+    llm_id: str = Field(alias="llmId", default="empty")
+    model_name: str = Field(alias="modelName", default="Ollama LLM")
 
 
 class KbIteam(BaseModel):

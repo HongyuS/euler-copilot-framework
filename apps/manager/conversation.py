@@ -70,7 +70,7 @@ class ConversationManager:
                 model_name=llm.model_name,
             )
         kb_item_list = []
-        team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, "")
+        team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, None, "")
         for team_kb in team_kb_list:
             for kb in team_kb["kbList"]:
                 if str(kb["kbId"]) in kb_ids:
