@@ -104,18 +104,24 @@ async def get_conversation_list(user_sub: Annotated[str, Depends(get_user)]) -> 
             appId=conv.app_id if conv.app_id else "",
             debug=conv.debug if conv.debug else False,
         )
-        llm_item = LLMIteam(
-            llmId=conv.llm.llm_id,
-            modelName=conv.llm.model_name,
-            icon=conv.llm.icon,
-        )
-        kb_item_list = []
-        for kb in conv.kb_list:
-            kb_item = KbIteam(
-                kbId=kb.kb_id,
-                kbName=kb.kb_name,
+        if conv.llm:
+            llm_item = LLMIteam(
+                llmId=conv.llm.llm_id,
+                modelName=conv.llm.model_name,
+                icon=conv.llm.icon,
             )
-            kb_item_list.append(kb_item)
+        else:
+            llm_item = None
+        if conv.kb_list:
+            kb_item_list = []
+            for kb in conv.kb_list:
+                kb_item = KbIteam(
+                    kbId=kb.kb_id,
+                    kbName=kb.kb_name,
+                )
+                kb_item_list.append(kb_item)
+        else:
+            kb_item_list = []
         conversation_list_item.llm = llm_item
         conversation_list_item.kb_list = kb_item_list
         result_conversations.append(conversation_list_item)
