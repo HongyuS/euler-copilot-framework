@@ -13,7 +13,7 @@ from apps.entities.enum_var import (
     StepStatus,
 )
 from apps.entities.message import TextAddContent
-from apps.entities.scheduler import CallOutputChunk
+from apps.entities.scheduler import CallError, CallOutputChunk
 from apps.entities.task import FlowStepHistory, StepQueueItem
 from apps.manager.node import NodeManager
 from apps.scheduler.call.slot.schema import SlotOutput
@@ -180,10 +180,20 @@ class StepExecutor(BaseExecutor):
 
         try:
             content = await self._process_chunk(iterator, to_user=self.obj.to_user)
-        except Exception:
-            logger.exception("[StepExecutor] 运行步骤失败")
+        except Exception as e:  # noqa: BLE001
+            logger.error("[StepExecutor] 运行步骤失败: %s", e)  # noqa: TRY400
             self.task.state.status = StepStatus.ERROR # type: ignore[arg-type]
             await self.push_message(EventType.STEP_OUTPUT.value, {})
+            if isinstance(e, CallError):
+                self.task.state.error_info = { # type: ignore[arg-type]
+                    "err_msg": e.message,
+                    "data": e.data,
+                }
+            else:
+                self.task.state.error_info = { # type: ignore[arg-type]
+                    "err_msg": str(e),
+                    "data": {},
+                }
             return
 
         # 更新执行状态

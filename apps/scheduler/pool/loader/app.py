@@ -74,7 +74,7 @@ class AppLoader:
             err = "[AppLoader] 元数据验证失败"
             logger.exception(err)
             raise RuntimeError(err) from e
-        await self._update_db(metadata)
+        await AppLoader._update_db(metadata)
 
 
     async def save(self, metadata: AppMetadata, app_id: str) -> None:
@@ -96,7 +96,8 @@ class AppLoader:
         await self.load(app_id, file_checker.hashes[f"app/{app_id}"])
 
 
-    async def delete(self, app_id: str, *, is_reload: bool = False) -> None:
+    @staticmethod
+    async def delete(app_id: str, *, is_reload: bool = False) -> None:
         """
         删除App，并更新数据库
 
@@ -125,8 +126,8 @@ class AppLoader:
             if await app_path.exists():
                 shutil.rmtree(str(app_path), ignore_errors=True)
 
-
-    async def _update_db(self, metadata: AppMetadata) -> None:
+    @staticmethod
+    async def _update_db(metadata: AppMetadata) -> None:
         """更新数据库"""
         if not metadata.hashes:
             err = f"[AppLoader] 应用 {metadata.id} 的哈希值为空"

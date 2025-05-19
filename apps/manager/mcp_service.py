@@ -9,12 +9,11 @@ import logging
 import uuid
 from hashlib import sha256
 from typing import Any
+
 from fastapi.encoders import jsonable_encoder
 
 from apps.entities.enum_var import MCPSearchType
-from apps.entities.mcp import MCPConfig
-from apps.entities.mcp import MCPServiceMetadata
-from apps.entities.mcp import MCPType
+from apps.entities.mcp import MCPConfig, MCPServiceMetadata, MCPType
 from apps.entities.response_data import MCPServiceCardItem
 from apps.exceptions import InstancePermissionError
 from apps.models.mongo import MongoDB
@@ -35,21 +34,22 @@ class MCPServiceManager:
         :param str mcp_id: MCP模板ID
         :return: bool
         """
-        mcp_collection = MongoDB().get_collection("mcp")
+        mongo = MongoDB()
+        mcp_collection = mongo.get_collection("mcp")
         mcp_list = await mcp_collection.find({"_id": mcp_id}, {"activated": True}).to_list(None)
-        for db_item in mcp_list:
-            if user_sub in db_item["activated"]:
-                return True
-        return False
+        return any(user_sub in db_item["activated"] for db_item in mcp_list)
 
     @staticmethod
     async def delete(service_id: str) -> None:
         """删除MCPService，并更新数据库"""
-        service_collection = MongoDB().get_collection("mcp_service")
+        mongo = MongoDB()
+        service_collection = mongo.get_collection("mcp_service")
         try:
             await service_collection.delete_one({"id": service_id})
         except Exception as exp:
-            logger.exception(f"[MCPServiceLoader] 删除MCPService失败: {exp}")
+            err = f"[MCPServiceLoader] 删除MCPService失败: {exp}"
+            logger.exception(err)
+            raise RuntimeError(err) from exp
 
     @staticmethod
     async def _update_db(metadata: MCPServiceMetadata) -> None:
@@ -59,12 +59,15 @@ class MCPServiceManager:
             logger.error(err)
             raise ValueError(err)
         # 更新MongoDB
-        service_collection = MongoDB().get_collection("mcp_service")
+        mongo = MongoDB()
+        service_collection = mongo.get_collection("mcp_service")
         try:
             # 插入或更新 Service
-            await service_collection.update_one({"id": metadata.id},
-                                                {"$set": jsonable_encoder(metadata, by_alias=True)},
-                                                upsert=True)
+            await service_collection.update_one(
+                {"id": metadata.id},
+                {"$set": jsonable_encoder(metadata, by_alias=True)},
+                upsert=True,
+            )
         except Exception as e:
             err = f"[MCPServiceLoader] 更新 MongoDB 失败：{e}"
             logger.exception(err)
@@ -271,7 +274,7 @@ class MCPServiceManager:
         )
         await self.save(mcpservice_metadata)
         mcp_loader = MCPLoader()
-        await mcp_loader.save_one(user_sub='', mcp_id=mcpservice_id, config=config)
+        await mcp_loader.save_one(user_sub="", mcp_id=mcpservice_id, config=config)
         await mcp_loader.save_one(user_sub=user_sub, mcp_id=mcpservice_id, config=config)
         # 返回服务ID
         return mcpservice_id
@@ -286,7 +289,7 @@ class MCPServiceManager:
         db_service = await service_collection.find_one({"id": service_id}, {"_id": False})
         if not db_service:
             msg = "[MCPServiceCenterManager] Service未找到"
-            raise Exception(msg)
+            raise ValueError(msg)
         # 验证用户权限
         service_pool_store = MCPServiceMetadata.model_validate(db_service)
         if service_pool_store.author != user_sub:

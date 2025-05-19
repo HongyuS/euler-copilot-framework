@@ -2,7 +2,6 @@
 
 import logging
 from abc import ABCMeta, abstractmethod
-from contextlib import AsyncExitStack
 
 from anyio import Path
 from mcp import ClientSession, StdioServerParameters
@@ -50,7 +49,6 @@ class MCPClient(metaclass=ABCMeta):
         """
         # 初始化变量
         self._config = config
-        self._exit_stack = AsyncExitStack()
         self._session = await self._create_client(user_sub, mcp_id, config)
 
         # 初始化逻辑
@@ -63,7 +61,10 @@ class MCPClient(metaclass=ABCMeta):
 
     async def stop(self) -> None:
         """停止MCP Client"""
-        await self._exit_stack.aclose()
+        if self._session_context: # type: ignore[attr-defined]
+            await self._session_context.__aexit__(None, None, None) # type: ignore[attr-defined]
+        if self._streams_context: # type: ignore[attr-defined]
+            await self._streams_context.__aexit__(None, None, None) # type: ignore[attr-defined]
 
 
 class SSEMCPClient(MCPClient):
@@ -79,13 +80,14 @@ class SSEMCPClient(MCPClient):
         :return: SSE协议的MCP Client
         :rtype: ClientSession
         """
-        client = sse_client(
+        self._streams_context = sse_client(
             url=config.url,
             headers=config.env,
         )
+        streams = await self._streams_context.__aenter__()
 
-        self._reader, self._writer = await self._exit_stack.enter_async_context(client)
-        return await self._exit_stack.enter_async_context(ClientSession(self._reader, self._writer))
+        self._session_context = ClientSession(*streams)
+        return await self._session_context.__aenter__()
 
 
 class StdioMCPClient(MCPClient):
@@ -112,6 +114,8 @@ class StdioMCPClient(MCPClient):
             env=config.env,
             cwd=cwd.as_posix(),
         )
-        client = stdio_client(server=server_params)
-        self._reader, self._writer = await self._exit_stack.enter_async_context(client)
-        return await self._exit_stack.enter_async_context(ClientSession(self._reader, self._writer))
+
+        self._streams_context = stdio_client(server=server_params)
+        streams = await self._streams_context.__aenter__()
+        self._session_context = ClientSession(*streams)
+        return await self._session_context.__aenter__()

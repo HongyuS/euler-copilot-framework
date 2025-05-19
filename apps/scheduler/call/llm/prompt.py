@@ -1,3 +1,5 @@
+"""大模型工具的提示词"""
+
 from textwrap import dedent
 
 LLM_CONTEXT_PROMPT = dedent(
