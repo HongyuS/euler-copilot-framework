@@ -281,6 +281,7 @@ class MCPLoader(metaclass=SingletonMeta):
             config_path = MCP_PATH / "users" / user_sub / mcp_id / "config.json"
         else:
             config_path = MCP_PATH / "template" / mcp_id / "config.json"
+        await Path.mkdir(config_path.parent, parents=True, exist_ok=True)
 
         f = await config_path.open("w+", encoding="utf-8")
         config_dict = config.model_dump(by_alias=True, exclude_none=True)
