@@ -138,7 +138,7 @@ class LLMManager:
                 llm = LLM(
                     _id=llm_id,
                     user_sub=user_sub,
-                    icon=req.icon,
+                    icon=llm_dict["icon"],
                     openai_base_url=req.openai_base_url,
                     openai_api_key=req.openai_api_key,
                     model_name=req.model_name,

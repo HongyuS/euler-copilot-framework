@@ -4,7 +4,7 @@ FastAPI 请求体
 Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -168,12 +168,12 @@ class PutFlowReq(BaseModel):
 
 class UpdateLLMReq(BaseModel):
     """更新大模型请求体"""
-    icon: str
+    icon: str = Field(description="图标", default="")
     openai_base_url: str = Field(default="https://api.openai.com/v1",
                                  description="OpenAI API Base URL", alias="openaiBaseUrl")
-    openai_api_key: str = Field(description="OpenAI API Key", alias="openaiApiKey")
-    model_name: str = Field(description="模型名称", alias="modelName")
-    max_tokens: int = Field(description="最大token数", alias="maxTokens")
+    openai_api_key: str = Field(default="", description="OpenAI API Key", alias="openaiApiKey")
+    model_name: str = Field(default="", description="模型名称", alias="modelName")
+    max_tokens: int = Field(default=8192, description="最大token数", alias="maxTokens")
 
 
 class DeleteLLMReq(BaseModel):

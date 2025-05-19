@@ -74,11 +74,10 @@ class LLM(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
     user_sub: str = Field(default="", description="用户ID")
     icon: str = Field(default=llm_provider_dict['ollama']['icon'], description="图标")
-    openai_base_url: str = Field(default="https://api.openai.com/v1",
-                                 description="OpenAI API Base URL")
-    openai_api_key: str = Field(description="OpenAI API Key")
-    model_name: str = Field(description="模型名称")
-    max_tokens: int = Field(description="最大token数")
+    openai_base_url: str = Field(default="", description="OpenAI API Base URL")
+    openai_api_key: str = Field(default="", description="OpenAI API Key")
+    model_name: str = Field(default="", description="模型名称")
+    max_tokens: int = Field(default=8192, description="最大token数")
     created_at: float = Field(default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3))
 
 
