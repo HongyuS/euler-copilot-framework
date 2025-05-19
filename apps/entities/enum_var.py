@@ -158,17 +158,15 @@ class CommentType(str, Enum):
     NONE = "none"
 
 
-class MCPServiceToolsArgsType(str, Enum):
-    """MCPService tool参数数据类型"""
-    STRING = "string"
-    DOUBLE = "double"
-    INTEGER = "integer"
-    BOOLEAN = "boolean"
-
-
 class MCPSearchType(str, Enum):
     """搜索类型"""
 
     ALL = "all"
     NAME = "name"
     AUTHOR = "author"
+
+
+class AppType(str, Enum):
+    """应用中心应用类型"""
+    FLOW = "flow"
+    AGENT = "agent"

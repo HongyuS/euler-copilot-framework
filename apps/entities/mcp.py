@@ -8,7 +8,6 @@ from lancedb.pydantic import LanceModel, Vector
 from pydantic import BaseModel, Field
 
 from apps.entities.enum_var import (
-    MCPServiceToolsArgsType,
     MetadataType,
 )
 
@@ -21,42 +20,20 @@ class MCPType(str, Enum):
     STREAMABLE = "stream"
 
 
-class MCPMeta(BaseModel):
-    """MCPService或MCPApp的查询元数据"""
-
-    id: str = Field(description="元数据ID")
-
-
-class MCPMetadataBase(MCPMeta):
+class MCPMetadataBase(BaseModel):
     """
     MCPService或MCPApp的元数据
 
     注意：hash字段在save和load的时候exclude
     """
 
+    id: str = Field(description="元数据ID")
     type: MetadataType = Field(description="元数据类型")
     icon: str = Field(description="图标", default="")
     name: str = Field(description="元数据名称")
     description: str = Field(description="元数据描述")
     author: str = Field(description="创建者的用户名")
-    hashes: str | None = Field(description="资源（App、Service等）下所有文件的hash值", default=None)
-
-
-class MCPServiceToolsArgs(BaseModel):
-    """MCP Service中tool参数信息"""
-
-    name: str = Field(description="Tool参数名称")
-    description: str = Field(description="Tool参数描述")
-    type: MCPServiceToolsArgsType = Field(description="Tool参数类型")
-
-
-class MCPServiceToolsdata(BaseModel):
-    """MCP Service中tool信息"""
-
-    name: str = Field(description="Tool名称")
-    description: str = Field(description="Tool功能描述")
-    input_args: list[MCPServiceToolsArgs] = Field(description="Tool参数列表")
-    output_args: list[MCPServiceToolsArgs] = Field(description="Tool参数列表")
+    hashes: dict[str, str] = Field(description="配置文件的hash值", default={})
 
 
 class MCPServerConfig(BaseModel):
@@ -148,7 +125,7 @@ class MCPServiceMetadata(MCPMetadataBase):
     type: MetadataType = MetadataType.SERVICE
     config: MCPConfig = Field(description="MCP服务配置")
     config_str: str = Field(description="MCP服务配置字符串", alias="configStr")
-    tools: list[MCPServiceToolsdata] = Field(description="MCP服务Tools列表")
+    tools: list[MCPTool] = Field(description="MCP服务Tools列表")
     mcp_type: MCPType = Field(description="MCP 类型", alias="mcpType")
 
 

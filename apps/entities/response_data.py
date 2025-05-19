@@ -17,7 +17,7 @@ from apps.entities.flow_topology import (
     NodeServiceItem,
     PositionItem,
 )
-from apps.entities.mcp import MCPServiceToolsdata, MCPType
+from apps.entities.mcp import MCPType, MCPTool
 from apps.entities.record import RecordData
 from apps.entities.user import UserInfo
 from apps.templates.generate_llm_operator_config import llm_provider_dict
@@ -483,7 +483,7 @@ class GetMCPServiceDetailMsg(BaseModel):
     name: str = Field(..., description="MCP服务名称")
     description: str = Field(description="MCP服务描述")
     data: str = Field(description="MCP服务配置")
-    tools: list[MCPServiceToolsdata] = Field(description="MCP服务Tools列表", default=[])
+    tools: list[MCPTool] = Field(description="MCP服务Tools列表", default=[])
     is_active: bool = Field(alias="isActive", description="mcp服务是否激活", default=False)
     mcp_type: MCPType = Field(alias="mcpType", description="MCP 类型")
 

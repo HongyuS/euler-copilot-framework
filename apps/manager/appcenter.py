@@ -5,14 +5,14 @@ Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 """
 
 import logging
-import re
 import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from apps.entities.agent import AgentAppMetadata
 from apps.entities.appcenter import AppCenterCardItem, AppData
 from apps.entities.collection import User
-from apps.entities.enum_var import SearchType
+from apps.entities.enum_var import SearchType, AppType
 from apps.entities.flow import AppMetadata, MetadataType, Permission
 from apps.entities.pool import AppPool
 from apps.entities.response_data import RecentAppList, RecentAppListItem
@@ -64,6 +64,7 @@ class AppCenterManager:
             return [
                 AppCenterCardItem(
                     appId=app.id,
+                    appType=app.app_type,
                     icon=app.icon,
                     name=app.name,
                     description=app.description,
@@ -117,6 +118,7 @@ class AppCenterManager:
             return [
                 AppCenterCardItem(
                     appId=app.id,
+                    appType=app.app_type,
                     icon=app.icon,
                     name=app.name,
                     description=app.description,
@@ -168,6 +170,7 @@ class AppCenterManager:
             return [
                 AppCenterCardItem(
                     appId=app.id,
+                    appType=app.app_type,
                     icon=app.icon,
                     name=app.name,
                     description=app.description,
@@ -207,22 +210,42 @@ class AppCenterManager:
         :return: 应用ID
         """
         app_id = str(uuid.uuid4())
-        metadata = AppMetadata(
-            type=MetadataType.APP,
-            id=app_id,
-            icon=data.icon,
-            name=data.name,
-            description=data.description,
-            version="1.0.0",
-            author=user_sub,
-            links=data.links,
-            first_questions=data.first_questions,
-            history_len=data.history_len,
-            permission=Permission(
-                type=data.permission.type,
-                users=data.permission.users or [],
-            ),
-        )
+        if data.app_type == AppType.FLOW:
+            metadata = AppMetadata(
+                type=MetadataType.APP,
+                   id=app_id,
+                icon=data.icon,
+                name=data.name,
+                description=data.description,
+                version="1.0.0",
+                author=user_sub,
+                links=data.links,
+                first_questions=data.first_questions,
+                history_len=data.history_len,
+                permission=Permission(
+                    type=data.permission.type,
+                    users=data.permission.users or [],
+                ),
+            )
+        elif data.app_type == AppType.AGENT:
+            metadata = AgentAppMetadata(
+                type=MetadataType.APP,
+                id=app_id,
+                icon=data.icon,
+                name=data.name,
+                description=data.description,
+                version="1.0.0",
+                author=user_sub,
+                mcpService=data.mcp_service,
+                history_len=data.history_len,
+                permission=Permission(
+                    type=data.permission.type,
+                    users=data.permission.users or [],
+                ),
+            )
+        else:
+            msg = "Invalid app type"
+            raise ValueError(msg)
         app_loader = AppLoader()
         await app_loader.save(metadata, app_id)
         return app_id
@@ -236,22 +259,6 @@ class AppCenterManager:
         :param app_id: 应用唯一标识
         :param data: 应用数据
         """
-        metadata = AppMetadata(
-            type=MetadataType.APP,
-            id=app_id,
-            icon=data.icon,
-            name=data.name,
-            description=data.description,
-            version="1.0.0",
-            author=user_sub,
-            links=data.links,
-            first_questions=data.first_questions,
-            history_len=data.history_len,
-            permission=Permission(
-                type=data.permission.type,
-                users=data.permission.users or [],
-            ),
-        )
         mongo = MongoDB()
         app_collection = mongo.get_collection("app")
         app_data = AppPool.model_validate(await app_collection.find_one({"_id": app_id}))
@@ -261,8 +268,46 @@ class AppCenterManager:
         if app_data.author != user_sub:
             msg = "Permission denied"
             raise InstancePermissionError(msg)
-        metadata.flows = app_data.flows
-        metadata.published = app_data.published
+        if app_data.app_type != data.app_type:
+            raise Exception("Can not change app type")
+        if data.app_type == AppType.FLOW:
+            metadata = AppMetadata(
+                type=MetadataType.APP,
+                id=app_id,
+                icon=data.icon,
+                name=data.name,
+                description=data.description,
+                version="1.0.0",
+                author=user_sub,
+                links=data.links,
+                first_questions=data.first_questions,
+                history_len=data.history_len,
+                permission=Permission(
+                    type=data.permission.type,
+                    users=data.permission.users or [],
+                ),
+            )
+            metadata.flows = app_data.flows
+            metadata.published = app_data.published
+        elif data.app_type == AppType.AGENT:
+            metadata = AgentAppMetadata(
+                type=MetadataType.APP,
+                id=app_id,
+                icon=data.icon,
+                name=data.name,
+                description=data.description,
+                version="1.0.0",
+                author=user_sub,
+                mcpService=data.mcp_service,
+                history_len=data.history_len,
+                permission=Permission(
+                    type=data.permission.type,
+                    users=data.permission.users or [],
+                ),
+            )
+        else:
+            msg = "Invalid app type"
+            raise ValueError(msg)
         app_loader = AppLoader()
         await app_loader.save(metadata, app_id)
 
@@ -292,21 +337,41 @@ class AppCenterManager:
             {"_id": app_id},
             {"$set": {"published": published}},
         )
-        metadata = AppMetadata(
-            type=MetadataType.APP,
-            id=app_id,
-            icon=app_data.icon,
-            name=app_data.name,
-            description=app_data.description,
-            version="1.0.0",
-            author=user_sub,
-            links=app_data.links,
-            first_questions=app_data.first_questions,
-            history_len=app_data.history_len,
-            permission=app_data.permission,
-            published=published,
-            flows=app_data.flows,
-        )
+        if app_data.app_type == AppType.FLOW:
+            metadata = AppMetadata(
+                type=MetadataType.APP,
+                id=app_id,
+                icon=app_data.icon,
+                name=app_data.name,
+                description=app_data.description,
+                version="1.0.0",
+                author=user_sub,
+                links=app_data.links,
+                first_questions=app_data.first_questions,
+                history_len=app_data.history_len,
+                permission=app_data.permission,
+                published=published,
+                flows=app_data.flows,
+            )
+            metadata.flows = app_data.flows
+            metadata.published = app_data.published
+        elif app_data.app_type == AppType.AGENT:
+            metadata = AgentAppMetadata(
+                type=MetadataType.APP,
+                id=app_id,
+                icon=app_data.icon,
+                name=app_data.name,
+                description=app_data.description,
+                version="1.0.0",
+                author=user_sub,
+                mcpService=app_data.mcp_service,
+                history_len=app_data.history_len,
+                permission=app_data.permission,
+                published=published,
+            )
+        else:
+            msg = "Invalid app type"
+            raise ValueError(msg)
         app_loader = AppLoader()
         await app_loader.save(metadata, app_id)
         return published

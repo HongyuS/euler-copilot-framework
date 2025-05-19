@@ -13,11 +13,12 @@ from typing import Any
 from fastapi.encoders import jsonable_encoder
 
 from apps.entities.enum_var import MCPSearchType
-from apps.entities.mcp import MCPConfig, MCPServiceMetadata, MCPType
+from apps.entities.mcp import MCPConfig, MCPServiceMetadata, MCPType, MCPTool
 from apps.entities.response_data import MCPServiceCardItem
 from apps.exceptions import InstancePermissionError
 from apps.models.mongo import MongoDB
 from apps.scheduler.pool.loader.mcp import MCPLoader
+from apps.scheduler.pool.mcp.pool import MCPPool
 
 logger = logging.getLogger(__name__)
 
@@ -144,8 +145,23 @@ class MCPServiceManager:
             msg = "MCPService not found"
             raise Exception(msg)
         mcpservice_pool_store = MCPServiceMetadata.model_validate(db_service)
-
+        mcpservice_pool_store.tools = await MCPServiceManager.get_service_tools(service_id)
         return mcpservice_pool_store
+   
+    @staticmethod
+    async def get_service_tools(
+            service_id: str,
+    ) -> list[MCPTool]:
+        """获取服务API列表"""
+        # 获取服务名称
+        service_collection = MongoDB().get_collection("mcp")
+        data = await service_collection.find({"_id": service_id}, {"tools": True}).to_list(None)
+        result = []
+        for item in data:
+            for tool in item.get("tools", {}):
+                tool_data = MCPTool.model_validate(tool)
+                result.append(tool_data)
+        return result
 
     @staticmethod
     async def _search_mcpservice(
@@ -162,7 +178,7 @@ class MCPServiceManager:
         db_mcpservices = await mcpservice_collection.find(search_conditions, {"_id": False}).skip(skip).limit(page_size).to_list()
         if not db_mcpservices:
             logger.warning("[MCPServiceManager] 没有找到符合条件的MCP服务: %s", search_conditions)
-            return [], -1
+            return [], 0
         mcpservice_pools = [MCPServiceMetadata.model_validate(db_mcpservice) for db_mcpservice in db_mcpservices]
         return mcpservice_pools, total
 
@@ -185,13 +201,14 @@ class MCPServiceManager:
             base_filters["author"] = {"$regex": keyword, "$options": "i"}
         return base_filters
 
-    async def save(self, metadata: MCPServiceMetadata) -> None:
+    @staticmethod
+    async def save(metadata: MCPServiceMetadata) -> None:
         """保存mcp到数据库"""
-        metadata.hashes = sha256(metadata.config_str.encode(encoding='utf-8')).hexdigest()
-        await self._update_db(metadata)
+        metadata.hashes['config'] = sha256(metadata.config_str.encode(encoding='utf-8')).hexdigest()
+        await MCPServiceManager._update_db(metadata)
 
+    @staticmethod
     async def create_mcpservice(
-            self,
             user_sub: str,
             name: str,
             icon: str,
@@ -232,21 +249,23 @@ class MCPServiceManager:
             configStr=config_str,
             mcpType=mcp_type
         )
-        await self.save(service_metadata)
+        await MCPServiceManager.save(service_metadata)
         mcp_loader = MCPLoader()
-        await mcp_loader.save_one(user_sub='', mcp_id=mcpservice_id, config=config)
-        await mcp_loader.save_one(user_sub=user_sub, mcp_id=mcpservice_id, config=config)
+        for _, server in config.mcp_servers.items():
+            await mcp_loader.init_one_template(mcp_id=mcpservice_id, config=server)
+        await MCPServiceManager.active_mcpservice(user_sub=user_sub, service_id=mcpservice_id)
         return mcpservice_id
 
+    @staticmethod
     async def update_mcpservice(
-            self,
             user_sub: str,
             mcpservice_id: str,
             name: str,
             icon: str,
             description: str,
             config: MCPConfig,
-            config_str: str
+            config_str: str,
+            mcp_type: MCPType
     ) -> str:
         """更新服务"""
         if len(config.mcp_servers) != 1:
@@ -270,17 +289,19 @@ class MCPServiceManager:
             tools=service_pool_store.tools,
             hashes=service_pool_store.hashes,
             configStr=config_str,
-            mcpType=service_pool_store.mcp_type
+            mcpType=mcp_type
         )
-        await self.save(mcpservice_metadata)
+        await MCPServiceManager.save(mcpservice_metadata)
         mcp_loader = MCPLoader()
-        await mcp_loader.save_one(user_sub="", mcp_id=mcpservice_id, config=config)
-        await mcp_loader.save_one(user_sub=user_sub, mcp_id=mcpservice_id, config=config)
+        await MCPServiceManager.deactive_mcpservice(user_sub=user_sub, service_id=mcpservice_id)
+        for _, server in config.mcp_servers.items():
+            await mcp_loader.init_one_template(mcp_id=mcpservice_id, config=server)
+        await MCPServiceManager.active_mcpservice(user_sub=user_sub, service_id=mcpservice_id)
         # 返回服务ID
         return mcpservice_id
 
+    @staticmethod
     async def delete_mcpservice(
-            self,
             user_sub: str,
             service_id: str,
     ) -> bool:
@@ -296,6 +317,30 @@ class MCPServiceManager:
             msg = "Permission denied"
             raise InstancePermissionError(msg)
         # 删除服务
-        await self.delete(service_id)
+        await MCPServiceManager.delete(service_id)
         await MCPLoader().user_deactive_template(user_sub, service_id)
         return True
+
+    @staticmethod
+    async def active_mcpservice(
+            user_sub: str,
+            service_id: str,
+    ) -> None:
+        """激活服务"""
+        loader = MCPLoader()
+        await loader.user_active_template(user_sub, service_id)
+
+    @staticmethod
+    async def deactive_mcpservice(
+            user_sub: str,
+            service_id: str,
+    ) -> None:
+        """取消激活服务"""
+        mcp_pool = MCPPool()
+        await mcp_pool.get(mcp_id=service_id, user_sub=user_sub)
+        try:
+            await mcp_pool.stop(mcp_id=service_id, user_sub=user_sub)
+        except KeyError as e:
+            logger.warning(e)
+        loader = MCPLoader()
+        await loader.user_deactive_template(user_sub, service_id)
