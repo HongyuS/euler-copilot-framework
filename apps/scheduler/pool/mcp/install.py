@@ -41,10 +41,12 @@ async def install_uvx(mcp_id: str, config: MCPServerStdioConfig) -> MCPServerStd
         raise ValueError(err)
 
     # 如果有pyproject.toml文件，则使用sync
-    if (mcp_path / "pyproject.toml").exists():
+    if await (mcp_path / "pyproject.toml").exists():
         pipe = await subprocess.create_subprocess_exec(
             "uv",
             "sync",
+            "--index-url",
+            "https://pypi.tuna.tsinghua.edu.cn/simple",
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             cwd=mcp_path,
@@ -75,6 +77,8 @@ async def install_uvx(mcp_id: str, config: MCPServerStdioConfig) -> MCPServerStd
     pipe = await subprocess.create_subprocess_exec(
         "uv",
         "add",
+        "--index-url",
+        "https://pypi.tuna.tsinghua.edu.cn/simple",
         package,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
