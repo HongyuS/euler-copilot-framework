@@ -234,7 +234,7 @@ class KnowledgeBaseItem(BaseModel):
     """知识库列表项数据结构"""
 
     kb_id: str = Field(..., alias="kbId", description="知识库ID")
-    name: str = Field(..., description="知识库名称")
+    kb_name: str = Field(..., description="知识库名称", alias="kbName")
     description: str = Field(..., description="知识库描述")
     is_used: bool = Field(..., description="是否使用", alias="isUsed")
 
@@ -250,7 +250,7 @@ class TeamKnowledgeBaseItem(BaseModel):
 class ListTeamKnowledgeMsg(BaseModel):
     """GET /api/knowledge Result数据结构"""
 
-    team_kb_list: list[TeamKnowledgeBaseItem] = Field(default=[], description="团队知识库列表")
+    team_kb_list: list[TeamKnowledgeBaseItem] = Field(default=[], alias="teamKbList", description="团队知识库列表")
 
 
 class ListTeamKnowledgeRsp(ResponseData):
@@ -590,6 +590,7 @@ class LLM(BaseModel):
     openai_api_key: str = Field(description="OpenAI API Key", alias="openaiApiKey")
     model_name: str = Field(description="模型名称", alias="modelName")
     max_tokens: int = Field(description="最大token数", alias="maxTokens")
+    is_editable: bool = Field(default=True, description="是否可编辑", alias="isEditable")
 
 
 class ListLLMRsp(ResponseData):

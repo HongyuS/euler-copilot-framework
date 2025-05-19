@@ -34,16 +34,17 @@ router = APIRouter(
 async def list_kb(
     user_sub: Annotated[str, Depends(get_user)],
     conversation_id: Annotated[str, Query(alias="conversationId")],
+    kb_id: Annotated[str, Query(alias="kbId")] = None,
     kb_name: Annotated[str, Query(alias="kbName")] = "",
 ) -> JSONResponse:
     """获取当前用户的知识库ID"""
-    team_kb_list = await KnowledgeBaseManager.list_team_kb(user_sub, conversation_id, kb_name)
+    team_kb_list = await KnowledgeBaseManager.list_team_kb(user_sub, conversation_id, kb_id, kb_name)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ListTeamKnowledgeRsp(
             code=status.HTTP_200_OK,
             message="success",
-            result=ListTeamKnowledgeMsg(result=team_kb_list),
+            result=ListTeamKnowledgeMsg(teamKbList=team_kb_list),
         ).model_dump(exclude_none=True, by_alias=True),
     )
 
@@ -55,11 +56,12 @@ async def update_conversation_kb(
     kb_ids: Annotated[list[str], Body(alias="kbIds")] = [],
 ) -> JSONResponse:
     """更新当前用户的知识库ID"""
-    await KnowledgeBaseManager.update_conv_kb(user_sub, conversation_id, kb_ids)
+    kb_ids_update_success = await KnowledgeBaseManager.update_conv_kb(user_sub, conversation_id, kb_ids)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ResponseData(
             code=status.HTTP_200_OK,
             message="success",
+            result=kb_ids_update_success,
         ).model_dump(exclude_none=True, by_alias=True),
     )

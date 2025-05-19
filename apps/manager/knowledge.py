@@ -41,18 +41,20 @@ class KnowledgeBaseManager:
             return []
 
     @staticmethod
-    async def get_team_kb_list_from_rag(user_sub: str, kb_name: str) -> list[dict[str, Any]]:
+    async def get_team_kb_list_from_rag(user_sub: str, kb_id: str, kb_name: str) -> list[dict[str, Any]]:
         try:
             session_id = await SessionManager.get_session_by_user_sub(user_sub)
-            url = Config().get_config().rag.rag_service.rstrip("/")+"/api/knowledge"
+            url = Config().get_config().rag.rag_service.rstrip("/")+"/kb"
             headers = {
                 "Authorization": f"Bearer {session_id}",
                 "Content-Type": "application/json",
             }
             async with httpx.AsyncClient() as client:
                 data = {
-                    "name": kb_name
+                    "kbName": kb_name
                 }
+                if kb_id:
+                    data["kbId"] = kb_id
                 resp = await client.get(url, headers=headers, params=data)
                 resp_data = resp.json()
                 if resp.status_code != status.HTTP_200_OK:
@@ -63,7 +65,8 @@ class KnowledgeBaseManager:
             return []
 
     @staticmethod
-    async def list_team_kb(user_sub: str, conversation_id: str, kb_name: str) -> list[KnowledgeBaseItemResponse]:
+    async def list_team_kb(
+            user_sub: str, conversation_id: str, kb_id: str, kb_name: str) -> list[KnowledgeBaseItemResponse]:
         """
         获取当前用户的知识库ID
         :param user_sub: 用户sub
@@ -83,36 +86,22 @@ class KnowledgeBaseManager:
             logger.exception("[KnowledgeBaseManager] 获取知识库ID失败")
             return []
         try:
-            session_id = await SessionManager.get_session_by_user_sub(user_sub)
-            url = Config().get_config().rag.rag_service.rstrip("/")+"/api/knowledge"
-            headers = {
-                "Authorization": f"Bearer {session_id}",
-                "Content-Type": "application/json",
-            }
-            async with httpx.AsyncClient() as client:
-                data = {
-                    "name": kb_name
-                }
-                resp = await client.get(url, headers=headers, params=data)
-                resp_data = resp.json()
-                if resp.status_code != status.HTTP_200_OK:
-                    return []
-                team_kb_item_list = []
-                team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, kb_name)
-                for team_kb in team_kb_list:
-                    team_kb_item = TeamKnowledgeBaseItem(
-                        teamId=team_kb["teamId"],
-                        teamName=team_kb["teamName"],
+            team_kb_item_list = []
+            team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, kb_id, kb_name)
+            for team_kb in team_kb_list:
+                team_kb_item = TeamKnowledgeBaseItem(
+                    teamId=team_kb["teamId"],
+                    teamName=team_kb["teamName"],
+                )
+                for kb in team_kb["kbList"]:
+                    kb_item = KnowledgeBaseItemResponse(
+                        kbId=kb["kbId"],
+                        kbName=kb["kbName"],
+                        description=kb["description"],
+                        isUsed=kb["kbId"] in kb_ids_used
                     )
-                    for kb in team_kb["kbList"]:
-                        kb_item = KnowledgeBaseItemResponse(
-                            kbId=kb["kbId"],
-                            kbName=kb["kbName"],
-                            description=kb["description"],
-                            isUsed=kb["kbId"] in kb_ids_used
-                        )
-                        team_kb_item.kb_list.append(kb_item)
-                    team_kb_item_list.append(team_kb_item)
+                    team_kb_item.kb_list.append(kb_item)
+                team_kb_item_list.append(team_kb_item)
             return team_kb_item_list
         except Exception as e:
             logger.exception("[KnowledgeBaseManager] 获取知识库ID失败")
@@ -123,7 +112,7 @@ class KnowledgeBaseManager:
         user_sub: str,
         conversation_id: str,
         kb_ids: list[str],
-    ) -> bool:
+    ) -> list[str]:
         """
         更新对话的知识库列表
         :param user_sub: 用户sub
@@ -138,14 +127,9 @@ class KnowledgeBaseManager:
                 err_msg = "[KnowledgeBaseManager] 更新知识库失败，未找到对话"
                 logger.error(err_msg)
                 return False
-            session_id = await SessionManager.get_session_by_user_sub(user_sub)
-            url = Config().get_config().rag.rag_service.rstrip("/")+"/api/knowledge"
-            headers = {
-                "Authorization": f"Bearer {session_id}",
-                "Content-Type": "application/json",
-            }
-            kb_item_list = []
-            team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, "")
+            kb_ids_update_success = []
+            kb_item_dict_list = []
+            team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, None, "")
             for team_kb in team_kb_list:
                 for kb in team_kb["kbList"]:
                     if str(kb["kbId"]) in kb_ids:
@@ -153,12 +137,13 @@ class KnowledgeBaseManager:
                             kb_id=kb["kbId"],
                             kb_name=kb["kbName"],
                         )
-                        kb_item_list.append(kb_item)
+                        kb_item_dict_list.append(kb_item.model_dump(by_alias=True))
+                        kb_ids_update_success.append(kb["kbId"])
             await conv_collection.update_one(
                 {"_id": conversation_id, "user_sub": user_sub},
-                {"$set": {"kb_list": kb_item_list}},
+                {"$set": {"kb_list": kb_item_dict_list}},
             )
-            return True
+            return kb_ids_update_success
         except Exception:
             logger.exception("[KnowledgeBaseManager] 更新知识库失败")
-            return False
+            return []

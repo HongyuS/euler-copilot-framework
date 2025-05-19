@@ -102,6 +102,7 @@ class LLMManager:
                 openaiApiKey=Config().get_config().llm.key,
                 modelName=Config().get_config().llm.model,
                 maxTokens=Config().get_config().llm.max_tokens,
+                isEditable=False
             )
             llm_item_list = [llm_item]
             for llm in result:
