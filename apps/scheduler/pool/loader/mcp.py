@@ -305,7 +305,7 @@ class MCPLoader(metaclass=SingletonMeta):
         user_path = MCP_PATH / "users" / user_sub / mcp_id
 
         # 判断是否存在
-        if user_path.exists():
+        if await user_path.exists():
             err = f"MCP模板“{mcp_id}”已存在或有同名文件，无法激活"
             logger.error(err)
             raise FileExistsError(err)
