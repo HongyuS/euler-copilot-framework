@@ -214,8 +214,14 @@ class LLMManager:
                     err = f"[LLMManager] LLM {llm_id} 不存在"
                     logger.error(err)
                     return False
+                llm_dict = {
+                    "llm_id": llm_dict["_id"],
+                    "model_name": llm_dict["model_name"],
+                    "icon": llm_dict["icon"],
+                }
             else:
                 llm_dict = {
+                    "llm_id": "empty",
                     "model_name": Config().get_config().llm.model,
                     "icon": llm_provider_dict['ollama']['icon'],
                 }
