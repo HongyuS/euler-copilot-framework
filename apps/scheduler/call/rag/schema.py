@@ -31,10 +31,10 @@ class RAGOutput(DataBase):
 class RAGInput(DataBase):
     """RAG工具的输入"""
     session_id: str = Field(description="会话id")
-    knowledge_base_ids: list[uuid.UUID] = Field(description="知识库的id列表", default=[], alias="kbIds")
+    knowledge_base_ids: list[str] = Field(description="知识库的id列表", default=[], alias="kbIds")
     top_k: int = Field(description="返回的分片数量", default=5, alias="topK")
     question: str = Field(description="用户输入", default="", alias="query")
-    document_ids: Optional[list[uuid.UUID]] = Field(description="文档id列表", default=None, alias="docIds")
+    document_ids: Optional[list[str]] = Field(description="文档id列表", default=None, alias="docIds")
     search_method: str = Field(description="检索方法", default=SearchMethod.KEYWORD_AND_VECTOR.value, alias="searchMethod")
     is_related_surrounding: bool = Field(description="是否关联上下文", default=True, alias="isRelatedSurrounding")
     is_classify_by_doc: bool = Field(description="是否按文档分类", default=True, alias="isClassifyByDoc")
