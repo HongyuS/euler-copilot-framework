@@ -1,8 +1,5 @@
-"""
-FastAPI Flow拓扑结构展示API
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""FastAPI Flow拓扑结构展示API"""
 
 from typing import Annotated
 

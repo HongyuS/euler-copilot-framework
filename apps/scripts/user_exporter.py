@@ -1,8 +1,5 @@
-"""
-用户导出工具
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""用户导出工具"""
 
 from __future__ import annotations
 

@@ -1,8 +1,5 @@
-"""
-FastAPI Record相关接口
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""FastAPI Record相关接口"""
 
 import json
 from typing import Annotated

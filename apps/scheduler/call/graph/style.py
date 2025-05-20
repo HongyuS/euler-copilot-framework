@@ -1,8 +1,5 @@
-"""
-Render Call: 选择图表样式
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""选择图表样式"""
 
 import logging
 from typing import Any, Literal

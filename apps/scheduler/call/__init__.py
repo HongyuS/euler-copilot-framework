@@ -1,8 +1,5 @@
-"""
-Agent工具部分
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""Agent工具部分"""
 
 from apps.scheduler.call.api.api import API
 from apps.scheduler.call.graph.graph import Graph

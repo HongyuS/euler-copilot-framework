@@ -1,23 +1,19 @@
-"""
-FastAPI 用户资产库路由
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""FastAPI 大模型相关接口"""
 
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, status, Query, Body
+from fastapi import APIRouter, Body, Depends, Query, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import get_user, verify_user
 from apps.entities.request_data import (
     UpdateLLMReq,
-    DeleteLLMReq,
 )
 from apps.entities.response_data import (
     ListLLMProviderRsp,
     ListLLMRsp,
-    ResponseData
+    ResponseData,
 )
 from apps.manager.llm import LLMManager
 

@@ -1,8 +1,5 @@
-"""
-FastAPI 应用中心相关路由
-
-Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+"""FastAPI 应用中心相关路由"""
 
 import logging
 from typing import Annotated

@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """LLM工具的输入输出定义"""
 
 from pydantic import Field

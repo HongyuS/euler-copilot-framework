@@ -1,4 +1,5 @@
-"""Facts工具的输入和输出"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""记忆提取工具的输入和输出"""
 
 from pydantic import BaseModel, Field
 

@@ -1,8 +1,5 @@
-"""
-用于问题推荐的工具
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""用于问题推荐的工具"""
 
 import random
 from collections.abc import AsyncGenerator

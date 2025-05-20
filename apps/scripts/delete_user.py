@@ -1,8 +1,5 @@
-"""
-删除30天未登录用户
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""删除30天未登录用户"""
 
 import logging
 from datetime import UTC, datetime, timedelta
