@@ -1,4 +1,6 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """事实提取"""
+
 import logging
 
 from pydantic import BaseModel, Field

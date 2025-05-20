@@ -1,16 +1,13 @@
-"""
-App和Service等数据库内数据结构
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""App和Service等数据库内数据结构"""
 
 from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
-from apps.entities.enum_var import AppType
+
 from apps.entities.appcenter import AppLink
-from apps.entities.enum_var import CallType, PermissionType
+from apps.entities.enum_var import AppType, CallType, PermissionType
 from apps.entities.flow import AppFlow, Permission
 
 

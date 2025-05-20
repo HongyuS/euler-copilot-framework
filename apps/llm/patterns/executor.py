@@ -1,8 +1,5 @@
-"""
-使用大模型生成Executor的思考内容
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""使用大模型生成Executor的思考内容"""
 
 from typing import TYPE_CHECKING, Any
 

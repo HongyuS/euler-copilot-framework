@@ -1,12 +1,9 @@
-"""
-应用中心相关 API 基础数据结构定义
-
-Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+"""应用中心相关 API 基础数据结构定义"""
 
 from pydantic import BaseModel, Field
 
-from apps.entities.enum_var import PermissionType, AppType
+from apps.entities.enum_var import AppType, PermissionType
 
 
 class AppCenterCardItem(BaseModel):

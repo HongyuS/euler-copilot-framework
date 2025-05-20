@@ -1,8 +1,5 @@
-"""
-用于FunctionCall的大模型
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""用于FunctionCall的大模型"""
 
 import json
 import logging

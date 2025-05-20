@@ -1,27 +1,30 @@
-"""
-用户资产库管理
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""用户资产库管理"""
 
 import logging
+from typing import Any
+
 import httpx
 from fastapi import status
-from typing import Any
-from apps.models.mongo import MongoDB
+
 from apps.common.config import Config
 from apps.entities.collection import KnowledgeBaseItem
-from apps.entities.response_data import KnowledgeBaseItem as KnowledgeBaseItemResponse, TeamKnowledgeBaseItem
+from apps.entities.response_data import KnowledgeBaseItem as KnowledgeBaseItemResponse
+from apps.entities.response_data import TeamKnowledgeBaseItem
 from apps.manager.session import SessionManager
+from apps.models.mongo import MongoDB
+
 logger = logging.getLogger(__name__)
 
 
 class KnowledgeBaseManager:
     """用户资产库管理"""
+
     @staticmethod
     async def get_kb_ids_by_conversation_id(user_sub: str, conversation_id: str) -> list[str]:
         """
         通过对话ID获取知识库ID
+
         :param user_sub: 用户ID
         :param conversation_id: 对话ID
         :return: 知识库ID列表
@@ -34,14 +37,25 @@ class KnowledgeBaseManager:
                 logger.error(err_msg)
                 return []
             kb_config_list = result.get("kb_list", [])
-            kb_ids_used = [kb_config["kb_id"] for kb_config in kb_config_list]
-            return kb_ids_used
+            return [kb_config["kb_id"] for kb_config in kb_config_list]
         except Exception:
             logger.exception("[KnowledgeBaseManager] 获取知识库ID失败")
             return []
 
     @staticmethod
-    async def get_team_kb_list_from_rag(user_sub: str, kb_id: str, kb_name: str) -> list[dict[str, Any]]:
+    async def get_team_kb_list_from_rag(
+        user_sub: str,
+        kb_id: str | None = None,
+        kb_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        从RAG获取知识库列表
+
+        :param user_sub: 用户sub
+        :param kb_id: 知识库ID
+        :param kb_name: 知识库名称
+        :return: 知识库列表
+        """
         try:
             session_id = await SessionManager.get_session_by_user_sub(user_sub)
             url = Config().get_config().rag.rag_service.rstrip("/")+"/kb"
@@ -69,6 +83,7 @@ class KnowledgeBaseManager:
             user_sub: str, conversation_id: str, kb_id: str, kb_name: str) -> list[KnowledgeBaseItemResponse]:
         """
         获取当前用户的知识库ID
+
         :param user_sub: 用户sub
         :return: 知识库ID列表
         """
@@ -103,7 +118,7 @@ class KnowledgeBaseManager:
                     team_kb_item.kb_list.append(kb_item)
                 team_kb_item_list.append(team_kb_item)
             return team_kb_item_list
-        except Exception as e:
+        except Exception:
             logger.exception("[KnowledgeBaseManager] 获取知识库ID失败")
             return []
 
@@ -115,6 +130,7 @@ class KnowledgeBaseManager:
     ) -> list[str]:
         """
         更新对话的知识库列表
+
         :param user_sub: 用户sub
         :param conversation_id: 对话ID
         :param kb_list: 知识库列表
@@ -127,10 +143,10 @@ class KnowledgeBaseManager:
             if not conv_dict:
                 err_msg = "[KnowledgeBaseManager] 更新知识库失败，未找到对话"
                 logger.error(err_msg)
-                return False
+                return []
             kb_ids_update_success = []
             kb_item_dict_list = []
-            team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, None, "")
+            team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, None, None)
             for team_kb in team_kb_list:
                 for kb in team_kb["kbList"]:
                     if str(kb["kbId"]) in kb_ids:

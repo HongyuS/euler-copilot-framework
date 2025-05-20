@@ -1,8 +1,5 @@
-"""
-MongoDB中的数据结构
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""MongoDB中的数据结构"""
 
 import uuid
 from datetime import UTC, datetime
