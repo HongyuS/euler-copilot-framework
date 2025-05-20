@@ -19,6 +19,7 @@ from apps.entities.rag_data import RAGQueryReq
 from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.llm.reasoning import ReasoningLLM
 from apps.manager.session import SessionManager
+from apps.service import Activity
 
 logger = logging.getLogger(__name__)
 
@@ -122,16 +123,20 @@ class RAG:
             },
         ]
         input_tokens = RAG.get_tokens(text)
+        output_tokens = 0
         async for chunk in reasion_llm.call(
             messages, max_tokens=llm.max_tokens, streaming=True, temperature=0.7, result_only=False
         ):
+            if not await Activity.is_active(user_sub):
+                return
+            output_tokens += RAG.get_tokens(chunk)
             yield (
                 "data: "
                 + json.dumps(
                     {
                         "content": chunk,
                         "input_tokens": input_tokens,
-                        "output_tokens": RAG.get_tokens(chunk),
+                        "output_tokens": output_tokens,
                     },
                     ensure_ascii=False,
                 )
