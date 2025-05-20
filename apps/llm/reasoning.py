@@ -7,18 +7,14 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 import logging
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionChunk
 
-from apps.entities.config import LLMConfig
 from apps.common.config import Config
 from apps.constants import REASONING_BEGIN_TOKEN, REASONING_END_TOKEN
+from apps.entities.config import LLMConfig
 from apps.llm.token import TokenCalculator
-
-if TYPE_CHECKING:
-    from apps.entities.config import LLMConfig
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +96,7 @@ class ReasoningLLM:
     input_tokens: int = 0
     output_tokens: int = 0
 
-    def __init__(self, llm_config: LLMConfig) -> None:
+    def __init__(self, llm_config: LLMConfig | None = None) -> None:
         """判断配置文件里用了哪种大模型；初始化大模型客户端"""
         if not llm_config:
             self._config: LLMConfig = Config().get_config().llm
@@ -154,7 +150,7 @@ class ReasoningLLM:
             stream_options={"include_usage": True},
         )  # type: ignore[]
 
-    async def call(  # noqa: C901, PLR0912
+    async def call(  # noqa: C901, PLR0912, PLR0913
         self,
         messages: list[dict[str, str]],
         max_tokens: int | None = None,

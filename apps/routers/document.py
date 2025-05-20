@@ -141,16 +141,16 @@ async def delete_single_document(document_id: str, user_sub: Annotated[str, Depe
             ).model_dump(exclude_none=True, by_alias=False),
         )
     # 在RAG侧删除
-    result = await KnowledgeBaseService.delete_doc_from_rag([document_id])
-    if not result:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=ResponseData(
-                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                message="RAG端删除文件失败",
-                result={},
-            ).model_dump(exclude_none=True, by_alias=False),
-        )
+    # result = await KnowledgeBaseService.delete_doc_from_rag([document_id])
+    # if not result:
+    #     return JSONResponse(
+    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    #         content=ResponseData(
+    #             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    #             message="RAG端删除文件失败",
+    #             result={},
+    #         ).model_dump(exclude_none=True, by_alias=False),
+    #     )
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,

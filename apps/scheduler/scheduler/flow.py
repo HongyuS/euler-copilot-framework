@@ -1,8 +1,5 @@
-"""
-Scheduler中，关于Flow的逻辑
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""Scheduler中，关于Flow的逻辑"""
 
 import logging
 
