@@ -92,7 +92,7 @@ class RAG:
         )
         if history:
             try:
-                question_obj = QuestionRewrite(llm_config)
+                question_obj = QuestionRewrite()
                 data.query = await question_obj.generate(history=history, question=data.query)
             except Exception as e:
                 logger.error("[RAG] 问题重写失败: %s", e)
