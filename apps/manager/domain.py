@@ -1,8 +1,5 @@
-"""
-画像领域管理
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""画像领域管理"""
 
 import logging
 from datetime import UTC, datetime

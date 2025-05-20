@@ -1,8 +1,5 @@
-"""
-API Key Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""API Key管理"""
 
 import hashlib
 import logging

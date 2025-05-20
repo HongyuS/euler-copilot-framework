@@ -1,8 +1,5 @@
-"""
-文件Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""文件Manager"""
 
 import base64
 import logging

@@ -1,8 +1,5 @@
-"""
-浏览器Session Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""浏览器Session Manager"""
 
 import logging
 import secrets

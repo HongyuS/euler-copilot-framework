@@ -1,8 +1,5 @@
-"""
-请求RAG相关接口时，使用的数据类型
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""请求RAG相关接口时，使用的数据类型"""
 
 from typing import Literal
 
@@ -11,8 +8,9 @@ from pydantic import BaseModel, Field
 
 class RAGQueryReq(BaseModel):
     """查询RAG时的POST请求体"""
+
     kb_ids: list[str] = Field(default=[], description="资产id", alias="kbIds")
-    query: str = Field(default='', description="查询内容")
+    query: str = Field(default="", description="查询内容")
     top_k: int = Field(default=5, description="返回的结果数量", alias="topK")
     doc_ids: list[str] = Field(default=None, description="文档id", alias="docIds")
     search_method: str = Field(default="keyword_and_vector",

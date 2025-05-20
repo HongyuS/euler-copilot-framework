@@ -1,8 +1,5 @@
-"""
-获取和保存Task信息到数据库
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""获取和保存Task信息到数据库"""
 
 import logging
 import uuid

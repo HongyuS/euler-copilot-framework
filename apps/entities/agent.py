@@ -4,8 +4,8 @@
 from pydantic import Field
 
 from apps.entities.enum_var import (
+    AppType,
     MetadataType,
-    AppType
 )
 from apps.entities.flow import Permission
 from apps.entities.mcp import MCPMetadataBase

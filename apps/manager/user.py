@@ -1,8 +1,5 @@
-"""
-用户 Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""用户 Manager"""
 
 import logging
 from datetime import UTC, datetime

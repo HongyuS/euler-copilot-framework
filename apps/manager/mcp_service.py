@@ -1,8 +1,5 @@
-"""
-语义接口中心 Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+"""语义接口中心 Manager"""
 
 import json
 import logging
@@ -13,7 +10,7 @@ from typing import Any
 from fastapi.encoders import jsonable_encoder
 
 from apps.entities.enum_var import MCPSearchType
-from apps.entities.mcp import MCPConfig, MCPServiceMetadata, MCPType, MCPTool
+from apps.entities.mcp import MCPConfig, MCPServiceMetadata, MCPTool, MCPType
 from apps.entities.response_data import MCPServiceCardItem
 from apps.exceptions import InstancePermissionError
 from apps.models.mongo import MongoDB

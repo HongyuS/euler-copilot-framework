@@ -1,21 +1,18 @@
-"""
-对话 Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""对话 Manager"""
 
 import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from apps.templates.generate_llm_operator_config import llm_provider_dict
 from apps.common.config import Config
-from apps.entities.collection import LLMItem, KnowledgeBaseItem, Conversation
-from apps.manager.llm import LLMManager
+from apps.entities.collection import Conversation, KnowledgeBaseItem, LLMItem
 from apps.manager.knowledge import KnowledgeBaseManager
+from apps.manager.llm import LLMManager
 from apps.manager.task import TaskManager
 from apps.models.mongo import MongoDB
+from apps.templates.generate_llm_operator_config import llm_provider_dict
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +55,10 @@ class ConversationManager:
             llm_item = LLMItem(
                 llm_id="empty",
                 model_name=Config().get_config().llm.model,
-                icon=llm_provider_dict['ollama']['icon']
+                icon=llm_provider_dict["ollama"]["icon"],
             )
         else:
-            llm = await LLMManager.get_llm_by_id(llm_id)
+            llm = await LLMManager.get_llm_by_id(user_sub, llm_id)
             if llm is None:
                 logger.error("[ConversationManager] 获取大模型失败")
                 return None
@@ -70,7 +67,7 @@ class ConversationManager:
                 model_name=llm.model_name,
             )
         kb_item_list = []
-        team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, None, "")
+        team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, None, None)
         for team_kb in team_kb_list:
             for kb in team_kb["kbList"]:
                 if str(kb["kbId"]) in kb_ids:

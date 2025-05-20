@@ -1,8 +1,5 @@
-"""
-Token Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""Token Manager"""
 
 import logging
 from datetime import UTC, datetime, timedelta
