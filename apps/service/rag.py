@@ -100,7 +100,9 @@ class RAG:
         corpus = []
         async with httpx.AsyncClient() as client:
             data_json = data.model_dump(exclude_none=True, by_alias=True)
+            print(data_json)
             response = await client.post(url, headers=headers, json=data_json)
+            print(response)
             # 检查响应状态码
             if response.status_code == status.HTTP_200_OK:
                 result = response.json()
