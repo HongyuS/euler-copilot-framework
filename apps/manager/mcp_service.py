@@ -144,7 +144,7 @@ class MCPServiceManager:
         mcpservice_pool_store = MCPServiceMetadata.model_validate(db_service)
         mcpservice_pool_store.tools = await MCPServiceManager.get_service_tools(service_id)
         return mcpservice_pool_store
-   
+
     @staticmethod
     async def get_service_tools(
             service_id: str,
@@ -162,7 +162,7 @@ class MCPServiceManager:
 
     @staticmethod
     async def _search_mcpservice(
-            search_conditions: dict,
+            search_conditions: dict[str, Any],
             page: int,
             page_size: int,
     ) -> tuple[list[MCPServiceMetadata], int]:
@@ -172,7 +172,9 @@ class MCPServiceManager:
         total = await mcpservice_collection.count_documents(search_conditions)
         # 分页查询
         skip = (page - 1) * page_size
-        db_mcpservices = await mcpservice_collection.find(search_conditions, {"_id": False}).skip(skip).limit(page_size).to_list()
+        db_mcpservices = await mcpservice_collection.find(
+            search_conditions, {"_id": False},
+        ).skip(skip).limit(page_size).to_list()
         if not db_mcpservices:
             logger.warning("[MCPServiceManager] 没有找到符合条件的MCP服务: %s", search_conditions)
             return [], 0
