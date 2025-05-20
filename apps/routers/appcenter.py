@@ -229,6 +229,7 @@ async def get_application(
             message="OK",
             result=GetAppPropertyMsg(
                 appId=app_data.id,
+                appType=app_data.app_type,
                 published=app_data.published,
                 name=app_data.name,
                 description=app_data.description,
@@ -241,6 +242,7 @@ async def get_application(
                     authorizedUsers=app_data.permission.users,
                 ),
                 workflows=workflows,
+                mcpService=app_data.mcp_service,
             ),
         ).model_dump(exclude_none=True, by_alias=True),
     )
@@ -305,6 +307,9 @@ async def publish_application(
     """发布应用"""
     try:
         published = await AppCenterManager.update_app_publish_status(app_id, user_sub)
+        if not published:
+            msg = "发布应用失败"
+            raise ValueError(msg)
     except ValueError:
         logger.exception("[AppCenter] 发布应用请求无效")
         return JSONResponse(
@@ -335,9 +340,6 @@ async def publish_application(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    if not published:
-        msg = "发布应用失败"
-        raise ValueError(msg)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=BaseAppOperationRsp(

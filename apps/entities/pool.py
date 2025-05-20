@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
-
+from apps.entities.enum_var import AppType
 from apps.entities.appcenter import AppLink
 from apps.entities.enum_var import CallType, PermissionType
 from apps.entities.flow import AppFlow, Permission
@@ -102,6 +102,7 @@ class AppPool(BaseData):
     """
 
     author: str = Field(description="作者的用户ID")
+    app_type: AppType = Field(..., description="应用类型")
     type: str = Field(description="应用类型", default="default")
     icon: str = Field(description="应用图标", default="")
     published: bool = Field(description="是否发布", default=False)
@@ -111,3 +112,4 @@ class AppPool(BaseData):
     permission: Permission = Field(description="应用权限配置", default=Permission())
     flows: list[AppFlow] = Field(description="Flow列表", default=[])
     hashes: dict[str, str] = Field(description="关联文件的hash值", default={})
+    mcp_service: list[str] = Field(default=[], alias="mcpService", description="MCP服务id列表")

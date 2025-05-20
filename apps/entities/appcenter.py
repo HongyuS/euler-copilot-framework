@@ -6,13 +6,14 @@ Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 
 from pydantic import BaseModel, Field
 
-from apps.entities.enum_var import PermissionType
+from apps.entities.enum_var import PermissionType, AppType
 
 
 class AppCenterCardItem(BaseModel):
     """应用中心卡片数据结构"""
 
     app_id: str = Field(..., alias="appId", description="应用ID")
+    app_type: AppType = Field(..., alias="appType", description="应用类型")
     icon: str = Field(..., description="应用图标")
     name: str = Field(..., description="应用名称")
     description: str = Field(..., description="应用简介")
@@ -55,6 +56,7 @@ class AppFlowInfo(BaseModel):
 class AppData(BaseModel):
     """应用信息数据结构"""
 
+    app_type: AppType = Field(..., alias="appType", description="应用类型")
     icon: str = Field(default="", description="图标")
     name: str = Field(..., max_length=20, description="应用名称")
     description: str = Field(..., max_length=150, description="应用简介")
@@ -65,3 +67,4 @@ class AppData(BaseModel):
     permission: AppPermissionData = Field(
         default_factory=lambda: AppPermissionData(authorizedUsers=None), description="权限配置")
     workflows: list[AppFlowInfo] = Field(default=[], description="工作流信息列表")
+    mcp_service: list[str] = Field(default=[], alias="mcpService", description="MCP服务id列表")

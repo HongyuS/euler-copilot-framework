@@ -13,6 +13,7 @@ from apps.entities.enum_var import (
     EdgeType,
     MetadataType,
     PermissionType,
+    AppType
 )
 from apps.entities.flow_topology import PositionItem
 
@@ -134,6 +135,7 @@ class AppMetadata(MetadataBase):
     """App的元数据"""
 
     type: MetadataType = MetadataType.APP
+    app_type: AppType = Field(default=AppType.FLOW, description="应用类型", frozen=True)
     published: bool = Field(description="是否发布", default=False)
     links: list[AppLink] = Field(description="相关链接", default=[])
     first_questions: list[str] = Field(description="首次提问", default=[])

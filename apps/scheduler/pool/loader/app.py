@@ -11,6 +11,8 @@ from anyio import Path
 from fastapi.encoders import jsonable_encoder
 
 from apps.common.config import Config
+from apps.entities.agent import AgentAppMetadata
+from apps.entities.enum_var import AppType
 from apps.entities.flow import AppFlow, AppMetadata, MetadataType, Permission
 from apps.entities.pool import AppPool
 from apps.models.mongo import MongoDB
@@ -39,45 +41,54 @@ class AppLoader:
             raise ValueError(err)
         metadata.hashes = hashes
 
-        if not isinstance(metadata, AppMetadata):
+        if not isinstance(metadata, (AppMetadata, AgentAppMetadata)):
             err = f"[AppLoader] 元数据类型错误: {metadata_path}"
             raise TypeError(err)
 
-        # 加载工作流
-        flow_path = app_path / "flow"
-        flow_loader = FlowLoader()
+        if metadata.app_type == AppType.FLOW:
+            # 加载工作流
+            flow_path = app_path / "flow"
+            flow_loader = FlowLoader()
 
-        flow_ids = [app_flow.id for app_flow in metadata.flows]
-        new_flows: list[AppFlow] = []
-        async for flow_file in flow_path.rglob("*.yaml"):
-            if flow_file.stem not in flow_ids:
-                logger.warning("[AppLoader] 工作流 %s 不在元数据中", flow_file)
-            flow = await flow_loader.load(app_id, flow_file.stem)
-            if not flow:
-                err = f"[AppLoader] 工作流 {flow_file} 加载失败"
-                raise ValueError(err)
-            if not flow.debug:
-                metadata.published = False
-            new_flows.append(
-                AppFlow(
-                    id=flow_file.stem,
-                    name=flow.name,
-                    description=flow.description,
-                    path=flow_file.as_posix(),
-                    debug=flow.debug,
-                ),
-            )
-        metadata.flows = new_flows
-        try:
-            metadata = AppMetadata.model_validate(metadata)
-        except Exception as e:
-            err = "[AppLoader] 元数据验证失败"
-            logger.exception(err)
-            raise RuntimeError(err) from e
-        await AppLoader._update_db(metadata)
+            flow_ids = [app_flow.id for app_flow in metadata.flows]
+            new_flows: list[AppFlow] = []
+            async for flow_file in flow_path.rglob("*.yaml"):
+                if flow_file.stem not in flow_ids:
+                    logger.warning("[AppLoader] 工作流 %s 不在元数据中", flow_file)
+                flow = await flow_loader.load(app_id, flow_file.stem)
+                if not flow:
+                    err = f"[AppLoader] 工作流 {flow_file} 加载失败"
+                    raise ValueError(err)
+                if not flow.debug:
+                    metadata.published = False
+                new_flows.append(
+                    AppFlow(
+                        id=flow_file.stem,
+                        name=flow.name,
+                        description=flow.description,
+                        path=flow_file.as_posix(),
+                        debug=flow.debug,
+                    ),
+                )
+            metadata.flows = new_flows
+            try:
+                metadata = AppMetadata.model_validate(metadata)
+            except Exception as e:
+                err = "[AppLoader] Flow应用元数据验证失败"
+                logger.exception(err)
+                raise RuntimeError(err) from e
+        elif metadata.app_type == AppType.AGENT:
+            # 加载模型
+            try:
+                metadata = AgentAppMetadata.model_validate(metadata)
+            except Exception as e:
+                err = "[AppLoader] Agent应用元数据验证失败"
+                logger.exception(err)
+                raise RuntimeError(err) from e
+            pass
+        await self._update_db(metadata)
 
-
-    async def save(self, metadata: AppMetadata, app_id: str) -> None:
+    async def save(self, metadata: AppMetadata | AgentAppMetadata, app_id: str) -> None:
         """
         保存应用
 
