@@ -102,7 +102,7 @@ class AppPool(BaseData):
     """
 
     author: str = Field(description="作者的用户ID")
-    app_type: AppType = Field(..., description="应用类型")
+    app_type: AppType = Field(description="应用类型", default=AppType.FLOW)
     type: str = Field(description="应用类型", default="default")
     icon: str = Field(description="应用图标", default="")
     published: bool = Field(description="是否发布", default=False)
