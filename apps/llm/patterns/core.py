@@ -1,8 +1,5 @@
-"""
-基础大模型范式抽象类
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""基础大模型范式抽象类"""
 
 from abc import ABC, abstractmethod
 from textwrap import dedent

@@ -1,8 +1,5 @@
-"""
-语义接口中心 Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+"""语义接口中心 Manager"""
 
 import logging
 import uuid

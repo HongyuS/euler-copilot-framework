@@ -1,8 +1,5 @@
-"""
-文件上传至RAG，作为临时语料
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""文件上传至RAG，作为临时语料"""
 
 import httpx
 from fastapi import status

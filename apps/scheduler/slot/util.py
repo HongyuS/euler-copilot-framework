@@ -1,8 +1,5 @@
-"""
-JSON处理函数
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""JSON处理函数"""
 
 import logging
 from typing import Any

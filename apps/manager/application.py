@@ -1,8 +1,5 @@
-"""
-应用管理器
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""应用管理器"""
 
 import logging
 

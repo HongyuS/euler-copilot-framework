@@ -1,8 +1,5 @@
-"""
-flow Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""flow Manager"""
 
 import logging
 
@@ -206,7 +203,7 @@ class FlowManager:
             return None
 
     @staticmethod
-    async def get_flow_by_app_and_flow_id(app_id: str, flow_id: str) -> FlowItem | None:
+    async def get_flow_by_app_and_flow_id(app_id: str, flow_id: str) -> FlowItem | None:  # noqa: C901, PLR0911, PLR0912
         """
         通过appId flowId获取flow config的路径和focus，并通过flow config的路径获取flow config，并将其转换为flow item。
 
@@ -414,9 +411,8 @@ class FlowManager:
             if old_flow_config is None:
                 error_msg = f"[FlowManager] 流 {flow_id} 不存在；可能为新创建"
                 logger.error(error_msg)
-            else:
-                if flow_config.debug:
-                    flow_config.debug = await FlowManager.is_flow_config_equal(old_flow_config, flow_config)
+            elif flow_config.debug:
+                flow_config.debug = await FlowManager.is_flow_config_equal(old_flow_config, flow_config)
             await flow_loader.save(app_id, flow_id, flow_config)
         except Exception:
             logger.exception("[FlowManager] 存储/更新流失败")

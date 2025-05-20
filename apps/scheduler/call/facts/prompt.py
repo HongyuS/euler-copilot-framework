@@ -1,3 +1,6 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""记忆提取工具的提示词"""
+
 from textwrap import dedent
 
 DOMAIN_PROMPT: str = dedent(r"""

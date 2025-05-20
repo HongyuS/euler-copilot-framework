@@ -1,4 +1,6 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Node管理器"""
+
 import logging
 from typing import TYPE_CHECKING, Any
 

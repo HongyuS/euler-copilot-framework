@@ -1,10 +1,7 @@
-"""
-FastAPI 返回数据结构
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""FastAPI 返回数据结构"""
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
-
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -17,7 +14,7 @@ from apps.entities.flow_topology import (
     NodeServiceItem,
     PositionItem,
 )
-from apps.entities.mcp import MCPType, MCPTool
+from apps.entities.mcp import MCPTool, MCPType
 from apps.entities.record import RecordData
 from apps.entities.user import UserInfo
 from apps.templates.generate_llm_operator_config import llm_provider_dict
@@ -90,13 +87,15 @@ class GetBlacklistQuestionRsp(ResponseData):
 
 class LLMIteam(BaseModel):
     """GET /api/conversation Result数据结构"""
-    icon: str = Field(default=llm_provider_dict['ollama']['icon'])
+
+    icon: str = Field(default=llm_provider_dict["ollama"]["icon"])
     llm_id: str = Field(alias="llmId", default="empty")
     model_name: str = Field(alias="modelName", default="Ollama LLM")
 
 
 class KbIteam(BaseModel):
     """GET /api/conversation Result数据结构"""
+
     kb_id: str = Field(alias="kbId")
     kb_name: str = Field(alias="kbName")
 
@@ -110,7 +109,7 @@ class ConversationListItem(BaseModel):
     created_time: str = Field(alias="createdTime")
     app_id: str = Field(alias="appId")
     debug: bool = Field(alias="debug")
-    llm: Optional[LLMIteam] = Field(alias="llm", default=None)
+    llm: LLMIteam | None = Field(alias="llm", default=None)
     kb_list: list[KbIteam] = Field(alias="kbList", default=[])
 
 
@@ -572,7 +571,7 @@ class LLMProvider(BaseModel):
 
     provider: str = Field(..., description="LLM提供商")
     description: str = Field(..., description="LLM提供商描述")
-    url: Optional[str] = Field(default=None, description="LLM提供商URL")
+    url: str | None = Field(default=None, description="LLM提供商URL")
     icon: str = Field(..., description="LLM提供商图标")
 
 

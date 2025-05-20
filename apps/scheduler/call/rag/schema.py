@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """RAG工具的输入和输出"""
 
 import uuid
@@ -6,13 +7,14 @@ from typing import Optional
 
 from enum import Enum
 
-from pydantic import Field, BaseModel
+from pydantic import Field
 
 from apps.scheduler.call.core import DataBase
 
 
 class SearchMethod(str, Enum):
     """搜索方法"""
+
     KEYWORD = "keyword"
     VECTOR = "vector"
     KEYWORD_AND_VECTOR = "keyword_and_vector"
@@ -30,6 +32,7 @@ class RAGOutput(DataBase):
 
 class RAGInput(DataBase):
     """RAG工具的输入"""
+
     session_id: str = Field(description="会话id")
     knowledge_base_ids: list[str] = Field(description="知识库的id列表", default=[], alias="kbIds")
     top_k: int = Field(description="返回的分片数量", default=5, alias="topK")

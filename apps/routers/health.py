@@ -1,8 +1,5 @@
-"""
-FastAPI 健康检查接口
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""FastAPI 健康检查接口"""
 
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse

@@ -1,8 +1,5 @@
-"""
-向量数据库数据结构；数据将存储在LanceDB中
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""向量数据库数据结构；数据将存储在LanceDB中"""
 
 from lancedb.pydantic import LanceModel, Vector
 

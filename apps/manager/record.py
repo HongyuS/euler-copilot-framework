@@ -1,8 +1,5 @@
-"""
-问答对Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""问答对Manager"""
 
 import logging
 from typing import Literal

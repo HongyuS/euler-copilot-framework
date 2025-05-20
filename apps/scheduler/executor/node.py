@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Node相关的函数，含Node转换为Call"""
 
 import inspect

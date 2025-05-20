@@ -1,8 +1,5 @@
-"""
-元数据加载器
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""元数据加载器"""
 
 import logging
 from typing import Any
@@ -13,7 +10,7 @@ from fastapi.encoders import jsonable_encoder
 
 from apps.common.config import Config
 from apps.entities.agent import AgentAppMetadata
-from apps.entities.enum_var import MetadataType, AppType
+from apps.entities.enum_var import AppType, MetadataType
 from apps.entities.flow import (
     AppMetadata,
     ServiceMetadata,
@@ -46,7 +43,7 @@ class MetadataLoader:
 
         # 尝试匹配格式
         if metadata_type == MetadataType.APP.value:
-            app_type = metadata_dict.get('app_type', AppType.FLOW)
+            app_type = metadata_dict.get("app_type", AppType.FLOW)
             if app_type == AppType.FLOW:
                 try:
                     app_id = file_path.parent.name

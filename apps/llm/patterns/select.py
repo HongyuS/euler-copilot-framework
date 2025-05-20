@@ -1,8 +1,5 @@
-"""
-使用大模型多轮投票，选择最优选项
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""使用大模型多轮投票，选择最优选项"""
 
 import asyncio
 import json

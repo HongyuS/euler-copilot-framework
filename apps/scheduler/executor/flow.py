@@ -1,8 +1,5 @@
-"""
-Flow执行Executor
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""Flow执行Executor"""
 
 import logging
 import uuid

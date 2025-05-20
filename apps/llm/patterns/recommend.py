@@ -1,8 +1,6 @@
-"""
-使用大模型进行推荐问题生成
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""使用大模型进行推荐问题生成"""
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
 import logging
 
 from pydantic import BaseModel, Field

@@ -1,8 +1,5 @@
-"""
-Call: Render，用于将SQL Tool查询出的数据转换为图表
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""图表生成工具"""
 
 import json
 from collections.abc import AsyncGenerator

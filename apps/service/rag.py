@@ -1,8 +1,5 @@
-"""
-对接Euler Copilot RAG
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""对接Euler Copilot RAG"""
 
 import json
 import logging

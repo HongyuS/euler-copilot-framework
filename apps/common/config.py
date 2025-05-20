@@ -1,8 +1,6 @@
-"""
-配置文件处理模块
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""配置文件处理模块"""
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
 import os
 from copy import deepcopy
 from pathlib import Path

@@ -1,8 +1,5 @@
-"""
-工具：自然语言生成命令
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""自然语言生成命令"""
 
 from typing import Any
 

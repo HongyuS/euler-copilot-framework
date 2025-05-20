@@ -1,8 +1,5 @@
-"""
-问答大模型调用
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""问答大模型调用"""
 
 import logging
 from collections.abc import AsyncGenerator

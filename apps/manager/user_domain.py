@@ -1,8 +1,5 @@
-"""
-用户画像管理
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""用户画像管理"""
 
 import logging
 

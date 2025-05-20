@@ -1,8 +1,5 @@
-"""
-枚举类型
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""枚举类型"""
 
 from enum import Enum
 
@@ -168,5 +165,6 @@ class MCPSearchType(str, Enum):
 
 class AppType(str, Enum):
     """应用中心应用类型"""
+
     FLOW = "flow"
     AGENT = "agent"

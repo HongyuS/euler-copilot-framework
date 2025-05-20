@@ -1,8 +1,5 @@
-"""
-App、Flow和Service等外置配置数据结构
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""App、Flow和Service等外置配置数据结构"""
 
 from typing import Any
 
@@ -10,10 +7,10 @@ from pydantic import BaseModel, Field
 
 from apps.entities.appcenter import AppLink
 from apps.entities.enum_var import (
+    AppType,
     EdgeType,
     MetadataType,
     PermissionType,
-    AppType
 )
 from apps.entities.flow_topology import PositionItem
 

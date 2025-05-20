@@ -1,8 +1,5 @@
-"""
-FastAPI 评论相关接口
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""FastAPI 评论相关接口"""
 
 import logging
 from datetime import UTC, datetime

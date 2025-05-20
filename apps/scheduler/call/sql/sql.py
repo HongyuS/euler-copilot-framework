@@ -1,9 +1,5 @@
-"""
-SQL工具。
-
-用于调用外置的Chat2DB工具的API，获得SQL语句；再在PostgreSQL中执行SQL语句，获得数据。
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""SQL工具"""
 
 import logging
 from collections.abc import AsyncGenerator

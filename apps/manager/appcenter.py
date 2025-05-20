@@ -1,8 +1,5 @@
-"""
-应用中心 Manager
-
-Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+"""应用中心 Manager"""
 
 import logging
 import uuid
@@ -12,7 +9,7 @@ from typing import Any
 from apps.entities.agent import AgentAppMetadata
 from apps.entities.appcenter import AppCenterCardItem, AppData
 from apps.entities.collection import User
-from apps.entities.enum_var import SearchType, AppType
+from apps.entities.enum_var import AppType, SearchType
 from apps.entities.flow import AppMetadata, MetadataType, Permission
 from apps.entities.pool import AppPool
 from apps.entities.response_data import RecentAppList, RecentAppListItem
@@ -101,8 +98,7 @@ class AppCenterManager:
             if search_type == SearchType.AUTHOR:
                 if keyword is not None and keyword not in user_sub:
                     return [], 0
-                else:
-                    keyword = user_sub
+                keyword = user_sub
             base_filter = {"author": user_sub}
             filters: dict[str, Any] = (
                 AppCenterManager._build_filters(
@@ -271,7 +267,8 @@ class AppCenterManager:
             msg = "Permission denied"
             raise InstancePermissionError(msg)
         if app_data.app_type != data.app_type:
-            raise Exception("Can not change app type")
+            err = "Can not change app type"
+            raise ValueError(err)
         if data.app_type == AppType.FLOW:
             metadata = AppMetadata(
                 type=MetadataType.APP,

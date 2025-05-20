@@ -1,32 +1,34 @@
-"""
-用户资产库管理
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""大模型管理"""
 
 import logging
+
 import httpx
-from fastapi import status
 import yaml
+from fastapi import status
+
+from apps.common.config import Config
+from apps.entities.collection import LLM, LLMItem
 from apps.entities.request_data import (
     UpdateLLMReq,
 )
-from apps.templates.generate_llm_operator_config import llm_provider_dict
-from apps.common.config import Config
-from apps.entities.collection import LLM, LLMItem
-from apps.models.mongo import MongoDB
-from apps.common.config import Config
-from apps.entities.response_data import LLMProvider, LLM as LLMResponse
+from apps.entities.response_data import LLM as LLMResponse
+from apps.entities.response_data import LLMProvider
 from apps.manager.session import SessionManager
+from apps.models.mongo import MongoDB
+from apps.templates.generate_llm_operator_config import llm_provider_dict
+
 logger = logging.getLogger(__name__)
 
 
 class LLMManager:
     """大模型管理"""
+
     @staticmethod
     async def list_llm_provider() -> list[LLMProvider]:
         """
         获取大模型提供商列表
+
         :return: 大模型提供商列表
         """
         try:
@@ -48,6 +50,7 @@ class LLMManager:
     async def get_llm_id_by_conversation_id(user_sub: str, conversation_id: str) -> str:
         """
         通过对话ID获取大模型ID
+
         :param user_sub: 用户ID
         :param conversation_id: 对话ID
         :return: 大模型ID
@@ -67,6 +70,7 @@ class LLMManager:
     async def get_llm_by_id(user_sub: str, llm_id: str) -> LLM:
         """
         通过ID获取大模型
+
         :param user_sub: 用户ID
         :param llm_id: 大模型ID
         :return: 大模型对象
@@ -85,6 +89,7 @@ class LLMManager:
     async def list_llm(user_sub: str, llm_id: str) -> list[LLMResponse]:
         """
         获取大模型列表
+
         :param user_sub: 用户ID
         :return: 大模型列表
         """
@@ -96,7 +101,7 @@ class LLMManager:
             result = await llm_collection.find(filter).sort({"created_at": 1}).to_list(length=None)
             llm_item = LLMResponse(
                 llmId="empty",
-                icon=llm_provider_dict['ollama']['icon'],
+                icon=llm_provider_dict["ollama"]["icon"],
                 openaiBaseUrl=Config().get_config().llm.endpoint,
                 openaiApiKey=Config().get_config().llm.key,
                 modelName=Config().get_config().llm.model,
@@ -123,6 +128,7 @@ class LLMManager:
     async def update_llm(user_sub: str, llm_id: str, req: UpdateLLMReq) -> LLM:
         """
         创建大模型
+
         :param user_sub: 用户ID
         :param req: 创建大模型请求体
         :return: 大模型对象
@@ -134,7 +140,7 @@ class LLMManager:
                 if not llm_dict:
                     err = f"[LLMManager] LLM {llm_id} 不存在"
                     logger.error(err)
-                    raise Exception(err)
+                    raise ValueError(err)
                 llm = LLM(
                     _id=llm_id,
                     user_sub=user_sub,
@@ -164,6 +170,7 @@ class LLMManager:
     async def delete_llm(user_sub: str, llm_id: str) -> str:
         """
         删除大模型
+
         :param user_sub: 用户ID
         :param llm_id: 大模型ID
         :return: 大模型ID
@@ -172,7 +179,7 @@ class LLMManager:
             if llm_id == "empty":
                 err = "[LLMManager] 不能删除默认大模型"
                 logger.error(err)
-                raise Exception(err)
+                raise ValueError(err)
             llm_collection = MongoDB().get_collection("llm")
             conv_collection = MongoDB().get_collection("conversation")
             conv_dict = await conv_collection.find_one({"llm.llm_id": llm_id, "user_sub": user_sub})
@@ -191,7 +198,7 @@ class LLMManager:
             if not llm_config:
                 err = f"[LLMManager] LLM {llm_id} 不存在"
                 logger.error(err)
-                raise Exception(err)
+                raise ValueError(err)
             await llm_collection.delete_one({"_id": llm_id, "user_sub": user_sub})
             return llm_id
         except Exception as e:
@@ -223,7 +230,7 @@ class LLMManager:
                 llm_dict = {
                     "llm_id": "empty",
                     "model_name": Config().get_config().llm.model,
-                    "icon": llm_provider_dict['ollama']['icon'],
+                    "icon": llm_provider_dict["ollama"]["icon"],
                 }
             conv_dict = await conv_collection.find_one({"_id": conversation_id, "user_sub": user_sub})
             if not conv_dict:
