@@ -1,8 +1,6 @@
-"""
-OIDC模块
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""OIDC模块"""
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any

@@ -1,8 +1,5 @@
-"""
-加密解密模块
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""加密解密模块"""
 
 import hashlib
 

@@ -19,7 +19,6 @@ from apps.entities.task import Task
 from apps.manager.appcenter import AppCenterManager
 from apps.manager.knowledge import KnowledgeBaseManager
 from apps.manager.llm import LLMManager
-from apps.manager.user import UserManager
 from apps.scheduler.executor.flow import FlowExecutor
 from apps.scheduler.pool.pool import Pool
 from apps.scheduler.scheduler.context import get_context, get_docs
@@ -48,7 +47,7 @@ class Scheduler:
         self.queue = queue
         self.post_body = post_body
 
-    async def run(self) -> None:
+    async def run(self) -> None:  # noqa: PLR0911
         """运行调度器"""
         try:
             # 获取当前会话使用的大模型
@@ -61,7 +60,7 @@ class Scheduler:
                 return
             if llm_id == "empty":
                 llm = LLM(
-                    id="empty",
+                    _id="empty",
                     user_sub=self.task.ids.user_sub,
                     openai_base_url=Config().get_config().llm.endpoint,
                     openai_api_key=Config().get_config().llm.key,
@@ -69,12 +68,12 @@ class Scheduler:
                     max_tokens=Config().get_config().llm.max_tokens,
                 )
             else:
-                llm = await LLMManager.get_llm_by_id(llm_id)
+                llm = await LLMManager.get_llm_by_id(self.task.ids.user_sub, llm_id)
                 if not llm:
                     logger.error("[Scheduler] 获取大模型失败")
                     await self.queue.close()
                     return
-        except Exception as e:
+        except Exception:
             logger.exception("[Scheduler] 获取大模型失败")
             await self.queue.close()
             return
@@ -82,14 +81,14 @@ class Scheduler:
             # 获取当前会话使用的知识库
             kb_ids = await KnowledgeBaseManager.get_kb_ids_by_conversation_id(
                 self.task.ids.user_sub, self.task.ids.conversation_id)
-        except Exception as e:
+        except Exception:
             logger.exception("[Scheduler] 获取知识库ID失败")
             await self.queue.close()
             return
         try:
             # 获取当前问答可供关联的文档
             docs, doc_ids = await get_docs(self.task.ids.user_sub, self.post_body)
-        except Exception as e:
+        except Exception:
             logger.exception("[Scheduler] 获取文档失败")
             await self.queue.close()
             return

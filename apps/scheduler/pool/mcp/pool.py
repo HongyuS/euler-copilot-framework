@@ -1,4 +1,6 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MCP池"""
+
 import logging
 
 from anyio import Path

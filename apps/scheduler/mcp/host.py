@@ -1,27 +1,26 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MCP宿主"""
 
-import logging
 import json
+import logging
 from typing import Any
 
-from mcp.types import CallToolResult, TextContent
 from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
+from mcp.types import CallToolResult, TextContent
 
+from apps.entities.enum_var import StepStatus
 from apps.entities.mcp import MCPPlanItem, MCPTool
+from apps.entities.task import FlowStepHistory, Task
 from apps.llm.function import JsonGenerator
+from apps.manager.task import TaskManager
 from apps.models.mongo import MongoDB
+from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
 from apps.scheduler.pool.mcp.client import (
     SSEMCPClient,
     StdioMCPClient,
 )
 from apps.scheduler.pool.mcp.pool import MCPPool
-from apps.entities.task import Task, FlowStepHistory
-from apps.manager.task import TaskManager
-from apps.entities.enum_var import StepStatus
-from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
-
 
 logger = logging.getLogger(__name__)
 
@@ -70,14 +69,14 @@ class MCPHost:
         if not task:
             logger.error("任务 %s 不存在", self._task_id)
             return ""
-        
+
         context_list = []
         for ctx_id in self._context_list:
             context = next((ctx for ctx in task.context if ctx["_id"] == ctx_id), None)
             if not context:
                 continue
             context_list.append(context)
-        
+
         memory = self._env.from_string(MEMORY_TEMPLATE).render(
             context_list=context_list
         )
@@ -154,7 +153,7 @@ class MCPHost:
             err = f"[MCPHost] MCP Server不合法: {tool.mcp_id}"
             logger.error(err)
             raise ValueError(err)
-        
+
         # 填充参数
         params = await self._fill_params(tool, plan_item.instruction)
         # 调用工具

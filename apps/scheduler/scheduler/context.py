@@ -53,6 +53,7 @@ async def get_docs(user_sub: str, post_body: RequestData) -> tuple[list[RecordDo
 async def assemble_history(history: list[dict[str, str]]) -> str:
     """
     组装历史问题
+
     :param history: 历史问题列表
     :return: 组装后的字符串
     """

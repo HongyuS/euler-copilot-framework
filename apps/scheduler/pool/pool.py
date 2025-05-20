@@ -1,8 +1,6 @@
-"""
-资源池，包含语义接口、应用等的载入和保存
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""资源池，包含语义接口、应用等的载入和保存"""
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
 import importlib
 import logging
 from typing import Any
