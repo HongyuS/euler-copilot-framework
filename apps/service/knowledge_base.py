@@ -26,7 +26,6 @@ class KnowledgeBaseService:
     @staticmethod
     async def send_file_to_rag(docs: list[Document]) -> list[str]:
         """上传文件给RAG，进行处理和向量化"""
-        return
         rag_docs = [RAGFileParseReqItem(
                 id=doc.id,
                 name=doc.name,
@@ -47,7 +46,6 @@ class KnowledgeBaseService:
     @staticmethod
     async def delete_doc_from_rag(doc_ids: list[str]) -> list[str]:
         """删除文件"""
-        return
         post_data = {"ids": doc_ids}
         async with httpx.AsyncClient() as client:
             resp = await client.post(_RAG_DOC_DELETE_URI, json=post_data)
@@ -59,7 +57,6 @@ class KnowledgeBaseService:
     @staticmethod
     async def get_doc_status_from_rag(doc_ids: list[str]) -> list[RAGFileStatusRspItem]:
         """获取文件状态"""
-        return
         post_data = {"ids": doc_ids}
         async with httpx.AsyncClient() as client:
             resp = await client.post(_RAG_DOC_STATUS_URI, json=post_data)

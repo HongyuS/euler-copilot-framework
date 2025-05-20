@@ -4,31 +4,31 @@
 Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
-import asyncio
 import json
 import logging
 from collections.abc import AsyncGenerator
-import tiktoken
+
 import httpx
+import tiktoken
 from fastapi import status
 
-from apps.llm.patterns.rewrite import QuestionRewrite
-from apps.manager.session import SessionManager
 from apps.common.config import Config
-from apps.llm.reasoning import ReasoningLLM
 from apps.entities.collection import LLM
-from apps.entities.rag_data import RAGQueryReq
 from apps.entities.config import LLMConfig
-from apps.service import Activity
+from apps.entities.rag_data import RAGQueryReq
+from apps.llm.patterns.rewrite import QuestionRewrite
+from apps.llm.reasoning import ReasoningLLM
+from apps.manager.session import SessionManager
 
 logger = logging.getLogger(__name__)
 
 
 class RAG:
     """调用RAG服务，获取知识库答案"""
+
     system_prompt: str = "You are a helpful assistant."
     """系统提示词"""
-    user_prompt = ''''
+    user_prompt = """'
     <instructions>
             你是openEuler社区的智能助手。请结合给出的背景信息, 回答用户的提问。
             上下文背景信息将在<bac_info>中给出。
@@ -42,7 +42,7 @@ class RAG:
     <user_question>
             {user_question}
     </user_question>
-    '''
+    """
 
     @staticmethod
     def get_tokens(content: str) -> int:
@@ -57,13 +57,13 @@ class RAG:
     @staticmethod
     def get_k_tokens_words_from_content(content: str, k: int = 16) -> list:
         try:
-            if (RAG.get_tokens(content) <= k):
+            if RAG.get_tokens(content) <= k:
                 return content
             l = 0
             r = len(content)
-            while l+1 < r:
-                mid = (l+r)//2
-                if (RAG.get_tokens(content[:mid]) <= k):
+            while l + 1 < r:
+                mid = (l + r) // 2
+                if RAG.get_tokens(content[:mid]) <= k:
                     l = mid
                 else:
                     r = mid
@@ -74,15 +74,13 @@ class RAG:
         return ""
 
     @staticmethod
-    async def get_rag_result(user_sub: str, llm: LLM, history: list[dict[str, str]],
-                             data: RAGQueryReq) -> AsyncGenerator[str, None]:
+    async def get_rag_result(
+        user_sub: str, llm: LLM, history: list[dict[str, str]], data: RAGQueryReq
+    ) -> AsyncGenerator[str, None]:
         """获取RAG服务的结果"""
         session_id = await SessionManager.get_session_by_user_sub(user_sub)
         url = Config().get_config().rag.rag_service.rstrip("/") + "/chunk/search"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {session_id}"
-        }
+        headers = {"Content-Type": "application/json", "Authorization": f"Bearer {session_id}"}
         data.tokens_limit = llm.max_tokens
         if history:
             try:
@@ -108,23 +106,34 @@ class RAG:
                 for doc_chunk in doc_chunk_list:
                     for chunk in doc_chunk["chunks"]:
                         corpus.append(chunk["text"].replace("\n", ""))
-        text = ''
+        text = ""
         for i in range(len(corpus)):
-            text += corpus[i]+'\n'
+            text += corpus[i] + "\n"
         text = RAG.get_k_tokens_words_from_content(text, llm.max_tokens)
 
-        messages = history+[
+        messages = history + [
             {"role": "system", "content": RAG.system_prompt},
-            {"role": "user", "content": RAG.user_prompt.format(
-                bac_info=text,
-                user_question=data.query,
-            )},
+            {
+                "role": "user",
+                "content": RAG.user_prompt.format(
+                    bac_info=text,
+                    user_question=data.query,
+                ),
+            },
         ]
         input_tokens = RAG.get_tokens(text)
-        async for chunk in reasion_llm.call(messages, max_tokens=llm.max_tokens, streaming=True, temperature=0.7, result_only=False):
-            yield "data: " + json.dumps(
-                {'content': chunk,
-                 'input_tokens': input_tokens,
-                 'output_tokens': RAG.get_tokens(chunk),
-                 }, ensure_ascii=False
-            ) + '\n\n'
+        async for chunk in reasion_llm.call(
+            messages, max_tokens=llm.max_tokens, streaming=True, temperature=0.7, result_only=False
+        ):
+            yield (
+                "data: "
+                + json.dumps(
+                    {
+                        "content": chunk,
+                        "input_tokens": input_tokens,
+                        "output_tokens": RAG.get_tokens(chunk),
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n\n"
+            )

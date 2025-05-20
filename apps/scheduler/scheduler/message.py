@@ -1,8 +1,5 @@
-"""
-Scheduler消息推送
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""Scheduler消息推送"""
 
 import logging
 from datetime import UTC, datetime
@@ -10,8 +7,7 @@ from textwrap import dedent
 
 from apps.common.config import Config
 from apps.common.queue import MessageQueue
-from apps.entities.collection import LLM
-from apps.entities.collection import Document
+from apps.entities.collection import LLM, Document
 from apps.entities.enum_var import EventType
 from apps.entities.message import (
     DocumentAddContent,

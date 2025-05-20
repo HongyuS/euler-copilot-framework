@@ -1,8 +1,5 @@
-"""
-敏感词检查模块
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""敏感词检查模块"""
 
 import logging
 from pathlib import Path

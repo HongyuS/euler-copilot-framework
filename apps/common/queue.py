@@ -1,4 +1,6 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """消息队列模块"""
+
 import asyncio
 import json
 import logging

@@ -1,8 +1,5 @@
-"""
-密文加密解密模块
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""密文加密解密模块"""
 
 import base64
 import binascii

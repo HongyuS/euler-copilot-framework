@@ -1,8 +1,5 @@
-"""
-文件检查器；检查文件是否存在、Hash是否发生变化；生成更新列表和删除列表
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""文件检查器"""
 
 import logging
 from hashlib import sha256
