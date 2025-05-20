@@ -110,7 +110,7 @@ class Scheduler:
             rag_data = RAGQueryReq(
                 kbIds=kb_ids,
                 query=self.post_body.question,
-                tokensLimit=llm.max_tokens,
+                tokensLimit=llm.max_tokens
             )
             self.task = await push_rag_message(self.task, self.queue, self.task.ids.user_sub, llm, history, rag_data)
             self.task.tokens.full_time = round(datetime.now(UTC).timestamp(), 2) - self.task.tokens.time

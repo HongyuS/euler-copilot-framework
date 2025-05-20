@@ -120,6 +120,7 @@ class KnowledgeBaseManager:
         :param kb_list: 知识库列表
         :return: 是否更新成功
         """
+        kb_ids = list(set(kb_ids))
         try:
             conv_collection = MongoDB().get_collection("conversation")
             conv_dict = await conv_collection.find_one({"_id": conversation_id, "user_sub": user_sub})
