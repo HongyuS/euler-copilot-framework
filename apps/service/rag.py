@@ -84,18 +84,18 @@ class RAG:
             "Authorization": f"Bearer {session_id}"
         }
         data.tokens_limit = llm.max_tokens
-        if history:
-            try:
-                question_obj = QuestionRewrite()
-                data.query = await question_obj.generate(history=history, question=data.query)
-            except Exception as e:
-                logger.error("[RAG] 问题重写失败: %s", e)
         llm_config = LLMConfig(
             endpoint=llm.openai_base_url,
             key=llm.openai_api_key,
             model=llm.model_name,
             max_tokens=llm.max_tokens,
         )
+        if history:
+            try:
+                question_obj = QuestionRewrite(llm_config)
+                data.query = await question_obj.generate(history=history, question=data.query)
+            except Exception as e:
+                logger.error("[RAG] 问题重写失败: %s", e)
         reasion_llm = ReasoningLLM(llm_config)
         corpus = []
         async with httpx.AsyncClient() as client:

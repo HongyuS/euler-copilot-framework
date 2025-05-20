@@ -110,7 +110,7 @@ class Scheduler:
                 await asyncio.sleep(0.1)
             rag_data = RAGQueryReq(
                 kbIds=kb_ids,
-                question=self.post_body.question,
+                query=self.post_body.question,
                 tokensLimit=llm.max_tokens
             )
             self.task = await push_rag_message(self.task, self.queue, self.task.ids.user_sub, llm, history, rag_data)
