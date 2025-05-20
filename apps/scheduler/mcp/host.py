@@ -94,6 +94,12 @@ class MCPHost:
         try:
             output_data = json.loads(result)
         except Exception:
+            logger.exception("[MCPHost] 得到的数据不是dict格式！")
+            output_data = {
+                "message": result,
+            }
+
+        if not isinstance(output_data, dict):
             output_data = {
                 "message": result,
             }
