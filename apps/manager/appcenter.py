@@ -208,8 +208,9 @@ class AppCenterManager:
         app_id = str(uuid.uuid4())
         if data.app_type == AppType.FLOW:
             metadata = AppMetadata(
+                app_type=data.app_type,
                 type=MetadataType.APP,
-                   id=app_id,
+                id=app_id,
                 icon=data.icon,
                 name=data.name,
                 description=data.description,
@@ -225,6 +226,7 @@ class AppCenterManager:
             )
         elif data.app_type == AppType.AGENT:
             metadata = AgentAppMetadata(
+                app_type=data.app_type,
                 type=MetadataType.APP,
                 id=app_id,
                 icon=data.icon,
