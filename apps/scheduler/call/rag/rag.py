@@ -1,18 +1,14 @@
-"""
-RAG工具：查询知识库
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""RAG工具：查询知识库"""
 
 import logging
 from collections.abc import AsyncGenerator
-from typing import Any, Literal, Optional
+from typing import Any, Optional
 
 import httpx
 from fastapi import status
 from pydantic import Field
 
-from apps.manager.session import SessionManager
 from apps.common.config import Config
 from apps.entities.enum_var import CallOutputType
 from apps.entities.scheduler import (
@@ -34,7 +30,7 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
     user_sub: str = Field(description="用户的sub")
     knowledge_base_ids: list[str] = Field(description="知识库的id列表", default=[])
     top_k: int = Field(description="返回的分片数量", default=5)
-    document_ids: Optional[list[str]] = Field(description="文档id列表", default=None)
+    document_ids: list[str] | None = Field(description="文档id列表", default=None)
     search_method: str = Field(description="检索方法", default=SearchMethod.KEYWORD_AND_VECTOR.value)
     is_related_surrounding: bool = Field(description="是否关联上下文", default=True)
     is_classify_by_doc: bool = Field(description="是否按文档分类", default=False)

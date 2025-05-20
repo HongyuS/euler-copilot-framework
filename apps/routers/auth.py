@@ -1,8 +1,5 @@
-"""
-FastAPI 用户认证相关路由
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""FastAPI 用户认证相关路由"""
 
 import logging
 from pathlib import Path
@@ -151,7 +148,6 @@ async def oidc_redirect() -> JSONResponse:
 
 
 # TODO(zwt): OIDC主动触发logout
-# 002
 @router.post("/logout", dependencies=[Depends(verify_user)], response_model=ResponseData)
 async def oidc_logout(token: str) -> JSONResponse:
     """OIDC主动触发登出"""
@@ -181,7 +177,7 @@ async def userinfo(
             result=AuthUserMsg(
                 user_sub=user_sub,
                 revision=user.is_active,
-                is_admin=user.is_admin
+                is_admin=user.is_admin,
             ),
         ).model_dump(exclude_none=True, by_alias=True),
     )
@@ -195,7 +191,7 @@ async def userinfo(
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": ResponseData},
     },
 )
-async def update_revision_number(_post_body, user_sub: Annotated[str, Depends(get_user)]) -> JSONResponse:
+async def update_revision_number(request: Request, user_sub: Annotated[str, Depends(get_user)]) -> JSONResponse:  # noqa: ARG001
     """更新用户协议信息"""
     ret: bool = await UserManager.update_userinfo_by_user_sub(user_sub, refresh_revision=True)
     if not ret:
@@ -208,6 +204,17 @@ async def update_revision_number(_post_body, user_sub: Annotated[str, Depends(ge
             ).model_dump(exclude_none=True, by_alias=True),
         )
 
+    user = await UserManager.get_userinfo_by_user_sub(user_sub)
+    if not user:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ResponseData(
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message="Get UserInfo failed.",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=AuthUserRsp(
@@ -215,7 +222,8 @@ async def update_revision_number(_post_body, user_sub: Annotated[str, Depends(ge
             message="success",
             result=AuthUserMsg(
                 user_sub=user_sub,
-                revision=False,
+                revision=user.is_active,
+                is_admin=user.is_admin,
             ),
         ).model_dump(exclude_none=True, by_alias=True),
     )

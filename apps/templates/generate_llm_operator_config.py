@@ -1,6 +1,8 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""生成大模型操作符配置文件"""
+
 import base64
 import os
-
 
 llm_provider_dict={
     "baichuan":{
@@ -50,7 +52,7 @@ llm_provider_dict={
         "url":"https://qianfan.baidubce.com/v2",
         "description":"百度文心大模型平台",
         "icon":"",
-    }
+    },
 }
 icon_path="./apps/templates/llm_provider_icon"
 icon_file_name_list=os.listdir(icon_path)

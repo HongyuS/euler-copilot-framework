@@ -1,15 +1,12 @@
-"""
-FastAPI：对话相关接口
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""FastAPI：对话相关接口"""
 
 import logging
 from datetime import datetime
 from typing import Annotated
 
 import pytz
-from fastapi import APIRouter, Depends, Query, Body, Request, status
+from fastapi import APIRouter, Body, Depends, Query, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import get_user, verify_user
@@ -21,13 +18,13 @@ from apps.entities.request_data import (
 from apps.entities.response_data import (
     AddConversationMsg,
     AddConversationRsp,
-    LLMIteam,
-    KbIteam,
     ConversationListItem,
     ConversationListMsg,
     ConversationListRsp,
     DeleteConversationMsg,
     DeleteConversationRsp,
+    KbIteam,
+    LLMIteam,
     ResponseData,
     UpdateConversationRsp,
 )
@@ -47,7 +44,7 @@ router = APIRouter(
 logger = logging.getLogger(__name__)
 
 
-async def create_new_conversation(
+async def create_new_conversation(  # noqa: PLR0913
     user_sub: str,
     conv_list: list[Conversation],
     app_id: str = "",
@@ -73,7 +70,13 @@ async def create_new_conversation(
         if app_id and not await AppManager.validate_user_app_access(user_sub, app_id):
             err = "Invalid app_id."
             raise RuntimeError(err)
-        new_conv = await ConversationManager.add_conversation_by_user_sub(user_sub, app_id=app_id, llm_id=llm_id, kb_ids=kb_ids, debug=debug)
+        new_conv = await ConversationManager.add_conversation_by_user_sub(
+            user_sub,
+            app_id=app_id,
+            llm_id=llm_id,
+            kb_ids=kb_ids,
+            debug=debug,
+        )
         if not new_conv:
             err = "Create new conversation failed."
             raise RuntimeError(err)
@@ -178,7 +181,14 @@ async def add_conversation(
     try:
         app_id = app_id if app_id else ""
         debug = debug if debug is not None else False
-        new_conv = await create_new_conversation(user_sub, conversations, app_id=app_id, llm_id=llm_id, kb_ids=kb_ids, debug=debug)
+        new_conv = await create_new_conversation(
+            user_sub,
+            conversations,
+            app_id=app_id,
+            llm_id=llm_id,
+            kb_ids=kb_ids,
+            debug=debug,
+        )
     except RuntimeError as e:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

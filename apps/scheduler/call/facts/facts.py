@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """提取事实工具"""
 
 from collections.abc import AsyncGenerator

@@ -1,5 +1,6 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MCP相关的大模型Prompt"""
+
 from textwrap import dedent
 
 MCP_SELECT = dedent(r"""

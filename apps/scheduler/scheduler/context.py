@@ -1,8 +1,6 @@
-"""
-上下文管理
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""上下文管理"""
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
 import logging
 from datetime import UTC, datetime
 

@@ -1,8 +1,5 @@
-"""
-FastAPI 用户画像相关API
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""FastAPI 用户画像相关API"""
 
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse

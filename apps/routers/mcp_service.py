@@ -1,8 +1,5 @@
-"""
-FastAPI 语义接口中心相关路由
-
-Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+"""FastAPI 语义接口中心相关路由"""
 
 import logging
 from typing import Annotated
@@ -93,7 +90,7 @@ async def get_mcpservice_list(
 
 
 @router.post("", response_model=UpdateMCPServiceRsp)
-async def create_or_update_mcpservice(
+async def create_or_update_mcpservice(  # noqa: PLR0911
         user_sub: Annotated[str, Depends(get_user)],
         data: UpdateMCPServiceRequest,
 ) -> JSONResponse:
@@ -336,10 +333,7 @@ async def active_or_deactivate_mcp_service(
         else:
             await MCPServiceManager.deactive_mcpservice(user_sub, service_id)
     except FileExistsError as e:
-        if data.active:
-            err = f"[MCPService] 激活mcp服务失败: {e}"
-        else:
-            err = f"[MCPService] 取消激活mcp服务失败: {e}"
+        err = f"[MCPService] 激活mcp服务失败: {e}" if data.active else f"[MCPService] 取消激活mcp服务失败: {e}"
         logger.exception(err)
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -350,10 +344,7 @@ async def active_or_deactivate_mcp_service(
             ).model_dump(exclude_none=True, by_alias=True),
         )
     except Exception as e:
-        if data.active:
-            err = f"[MCPService] 激活mcp服务失败: {e}"
-        else:
-            err = f"[MCPService] 取消激活mcp服务失败: {e}"
+        err = f"[MCPService] 激活mcp服务失败: {e}" if data.active else f"[MCPService] 取消激活mcp服务失败: {e}"
         logger.exception(err)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

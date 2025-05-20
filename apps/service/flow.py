@@ -1,8 +1,5 @@
-"""
-flow拓扑相关函数
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""flow拓扑相关函数"""
 
 import collections
 import logging

@@ -1,3 +1,6 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""自动参数填充工具的提示词"""
+
 SLOT_GEN_PROMPT = r"""
     <instructions>
         你是一个可以使用工具的AI助手，正尝试使用工具来完成任务。

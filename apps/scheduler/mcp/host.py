@@ -7,11 +7,11 @@ from typing import Any
 
 from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
-from mcp.types import CallToolResult, TextContent
+from mcp.types import TextContent
 
 from apps.entities.enum_var import StepStatus
 from apps.entities.mcp import MCPPlanItem, MCPTool
-from apps.entities.task import FlowStepHistory, Task
+from apps.entities.task import FlowStepHistory
 from apps.llm.function import JsonGenerator
 from apps.manager.task import TaskManager
 from apps.models.mongo import MongoDB
@@ -78,7 +78,7 @@ class MCPHost:
             context_list.append(context)
 
         memory = self._env.from_string(MEMORY_TEMPLATE).render(
-            context_list=context_list
+            context_list=context_list,
         )
         return memory
 

@@ -1,8 +1,5 @@
-"""
-工具：调用大模型
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""调用大模型"""
 
 import logging
 from collections.abc import AsyncGenerator

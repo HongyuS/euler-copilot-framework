@@ -1,8 +1,6 @@
-"""
-提取或格式化Step输出
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""提取或格式化Step输出"""
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
 from collections.abc import AsyncGenerator
 from datetime import datetime
 from typing import Any

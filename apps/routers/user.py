@@ -1,8 +1,5 @@
-"""
-用户相关接口
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""用户相关接口"""
 
 from typing import Annotated
 

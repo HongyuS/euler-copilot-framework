@@ -1,8 +1,5 @@
-"""
-工具：API调用
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""API调用工具"""
 
 import json
 import logging
