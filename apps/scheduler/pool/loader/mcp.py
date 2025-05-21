@@ -331,7 +331,7 @@ class MCPLoader(metaclass=SingletonMeta):
             raise FileExistsError(err)
 
         # 拷贝文件
-        asyncer.asyncify(shutil.copytree)(template_path.as_posix(), user_path.as_posix(), dirs_exist_ok=True)
+        await asyncer.asyncify(shutil.copytree)(template_path.as_posix(), user_path.as_posix(), dirs_exist_ok=True)
 
         # 更新数据库
         mongo = MongoDB()
@@ -355,7 +355,7 @@ class MCPLoader(metaclass=SingletonMeta):
         """
         # 删除用户目录
         user_path = MCP_PATH / "users" / user_sub / mcp_id
-        asyncer.asyncify(shutil.rmtree)(user_path.as_posix(), ignore_errors=True)
+        await asyncer.asyncify(shutil.rmtree)(user_path.as_posix(), ignore_errors=True)
 
         # 更新数据库
         mongo = MongoDB()
@@ -443,7 +443,7 @@ class MCPLoader(metaclass=SingletonMeta):
                 mcp_item = await mcp_collection.find_one({"_id": mcp_dir.name})
                 if not mcp_item:
                     # 数据库中不存在，当前文件夹无效，删除
-                    asyncer.asyncify(shutil.rmtree)(mcp_dir.as_posix(), ignore_errors=True)
+                    await asyncer.asyncify(shutil.rmtree)(mcp_dir.as_posix(), ignore_errors=True)
 
                 # 添加到dict
                 if mcp_dir.name not in mcp_list:
