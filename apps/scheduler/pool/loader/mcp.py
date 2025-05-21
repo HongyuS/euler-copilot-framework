@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MCP 加载器"""
 
+import asyncio
 import json
 import logging
 import shutil
@@ -245,26 +246,45 @@ class MCPLoader(metaclass=SingletonMeta):
 
         # 服务本身向量化
         embedding = await Embedding.get_embedding([config.description])
-        mcp_table = await LanceDB().get_table("mcp")
-        await mcp_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute([
-            MCPVector(
-                id=mcp_id,
-                embedding=embedding[0],
-            ),
-        ])
+
+        while True:
+            try:
+                mcp_table = await LanceDB().get_table("mcp")
+                await mcp_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute([
+                    MCPVector(
+                        id=mcp_id,
+                        embedding=embedding[0],
+                    ),
+                ])
+                break
+            except Exception as e:
+                if "Commit conflict" in str(e):
+                    logger.error("[MCPLoader] LanceDB插入mcp冲突，重试中...")  # noqa: TRY400
+                    await asyncio.sleep(0.01)
+                else:
+                    raise
 
         # 工具向量化
-        mcp_tool_table = await LanceDB().get_table("mcp_tool")
         tool_desc_list = [tool.description for tool in tool_list]
         tool_embedding = await Embedding.get_embedding(tool_desc_list)
         for tool, embedding in zip(tool_list, tool_embedding, strict=True):
-            await mcp_tool_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute([
-                MCPToolVector(
-                    id=tool.id,
-                    mcp_id=mcp_id,
-                    embedding=embedding,
-                ),
-            ])
+            while True:
+                try:
+                    mcp_tool_table = await LanceDB().get_table("mcp_tool")
+                    await mcp_tool_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute([
+                        MCPToolVector(
+                            id=tool.id,
+                            mcp_id=mcp_id,
+                            embedding=embedding,
+                        ),
+                    ])
+                    break
+                except Exception as e:
+                    if "Commit conflict" in str(e):
+                        logger.error("[MCPLoader] LanceDB插入mcp_tool冲突，重试中...")  # noqa: TRY400
+                        await asyncio.sleep(0.01)
+                    else:
+                        raise
         await LanceDB().create_index("mcp_tool")
 
 
@@ -380,9 +400,18 @@ class MCPLoader(metaclass=SingletonMeta):
         logger.info("[MCPLoader] 清除数据库中无效的MCP")
 
         # 从LanceDB中移除
-        mcp_table = await LanceDB().get_table("mcp")
         for mcp_id in deleted_mcp_list:
-            await mcp_table.delete(f"id == '{mcp_id}'")
+            while True:
+                try:
+                    mcp_table = await LanceDB().get_table("mcp")
+                    await mcp_table.delete(f"id == '{mcp_id}'")
+                    break
+                except Exception as e:
+                    if "Commit conflict" in str(e):
+                        logger.error("[MCPLoader] LanceDB删除mcp冲突，重试中...")  # noqa: TRY400
+                        await asyncio.sleep(0.01)
+                    else:
+                        raise
         logger.info("[MCPLoader] 清除LanceDB中无效的MCP")
 
 

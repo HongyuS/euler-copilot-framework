@@ -50,14 +50,14 @@ class MCPHost:
         mcp_collection = mongo.get_collection("mcp")
 
         # 检查用户是否启用了这个mcp
-        mcp_db_result = await mcp_collection.find_one({"mcp_id": mcp_id, "activated": self._user_sub})
+        mcp_db_result = await mcp_collection.find_one({"_id": mcp_id, "activated": self._user_sub})
         if not mcp_db_result:
             logger.warning("用户 %s 未启用MCP %s", self._user_sub, mcp_id)
             return None
 
         # 获取MCP配置
         try:
-            return await MCPPool().get(self._user_sub, mcp_id)
+            return await MCPPool().get(mcp_id, self._user_sub)
         except KeyError:
             logger.warning("用户 %s 的MCP %s 没有运行中的实例，请检查环境", self._user_sub, mcp_id)
             return None
@@ -77,10 +77,9 @@ class MCPHost:
                 continue
             context_list.append(context)
 
-        memory = self._env.from_string(MEMORY_TEMPLATE).render(
+        return self._env.from_string(MEMORY_TEMPLATE).render(
             context_list=context_list,
         )
-        return memory
 
 
     async def _save_memory(
