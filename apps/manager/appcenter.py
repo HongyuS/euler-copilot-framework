@@ -352,8 +352,6 @@ class AppCenterManager:
                 published=published,
                 flows=app_data.flows,
             )
-            metadata.flows = app_data.flows
-            metadata.published = app_data.published
         elif app_data.app_type == AppType.AGENT:
             metadata = AgentAppMetadata(
                 type=MetadataType.APP,
