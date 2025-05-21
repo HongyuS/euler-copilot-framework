@@ -235,16 +235,15 @@ class FlowLoader:
         except Exception:
             logger.exception("[FlowLoader] 更新 MongoDB 失败")
 
-        # 向量化所有数据并保存
-        table = await LanceDB().get_table("flow")
         # 删除重复的ID
         while True:
             try:
+                table = await LanceDB().get_table("flow")
                 await table.delete(f"id = '{metadata.id}'")
                 break
             except RuntimeError as e:
                 if "Commit conflict" in str(e):
-                    logger.error("[FlowLoader] LanceDB删除flow失败")  # noqa: TRY400
+                    logger.error("[FlowLoader] LanceDB删除flow冲突，重试中...")  # noqa: TRY400
                     await asyncio.sleep(0.01)
                 else:
                     raise
@@ -259,13 +258,14 @@ class FlowLoader:
         ]
         while True:
             try:
+                table = await LanceDB().get_table("flow")
                 await table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
                     vector_data,
                 )
                 break
             except RuntimeError as e:
                 if "Commit conflict" in str(e):
-                    logger.error("[FlowLoader] LanceDB插入flow失败")  # noqa: TRY400
+                    logger.error("[FlowLoader] LanceDB插入flow冲突，重试中...")  # noqa: TRY400
                     await asyncio.sleep(0.01)
                 else:
                     raise

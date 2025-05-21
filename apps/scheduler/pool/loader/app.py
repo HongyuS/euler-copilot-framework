@@ -24,7 +24,7 @@ BASE_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "app"
 class AppLoader:
     """应用加载器"""
 
-    async def load(self, app_id: str, hashes: dict[str, str]) -> None:
+    async def load(self, app_id: str, hashes: dict[str, str]) -> None:  # noqa: C901
         """
         从文件系统中加载应用
 
@@ -82,7 +82,6 @@ class AppLoader:
                 err = "[AppLoader] Agent应用元数据验证失败"
                 logger.exception(err)
                 raise RuntimeError(err) from e
-            pass
         await self._update_db(metadata)
 
     async def save(self, metadata: AppMetadata | AgentAppMetadata, app_id: str) -> None:
