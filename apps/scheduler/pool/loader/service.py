@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """加载配置文件夹的Service部分"""
 
+import asyncio
 import logging
 import shutil
 
@@ -95,7 +96,7 @@ class ServiceLoader:
                 shutil.rmtree(path)
 
 
-    async def _update_db(self, nodes: list[NodePool], metadata: ServiceMetadata) -> None:
+    async def _update_db(self, nodes: list[NodePool], metadata: ServiceMetadata) -> None:  # noqa: C901, PLR0912, PLR0915
         """更新数据库"""
         if not metadata.hashes:
             err = f"[ServiceLoader] 服务 {metadata.id} 的哈希值为空"
@@ -133,12 +134,19 @@ class ServiceLoader:
             raise RuntimeError(err) from e
 
         # 向量化所有数据并保存
-        service_table = await LanceDB().get_table("service")
-        node_table = await LanceDB().get_table("node")
-
-        # 删除重复的ID
-        await service_table.delete(f"id = '{metadata.id}'")
-        await node_table.delete(f"service_id = '{metadata.id}'")
+        while True:
+            try:
+                service_table = await LanceDB().get_table("service")
+                node_table = await LanceDB().get_table("node")
+                await service_table.delete(f"id = '{metadata.id}'")
+                await node_table.delete(f"service_id = '{metadata.id}'")
+                break
+            except Exception as e:
+                if "Commit conflict" in str(e):
+                    logger.error("[ServiceLoader] LanceDB删除service冲突，重试中...")  # noqa: TRY400
+                    await asyncio.sleep(0.01)
+                else:
+                    raise
 
         # 进行向量化，更新LanceDB
         service_vecs = await Embedding.get_embedding([metadata.description])
@@ -148,9 +156,19 @@ class ServiceLoader:
                 embedding=service_vecs[0],
             ),
         ]
-        await service_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
-            service_vector_data,
-        )
+        while True:
+            try:
+                service_table = await LanceDB().get_table("service")
+                await service_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
+                    service_vector_data,
+                )
+                break
+            except Exception as e:
+                if "Commit conflict" in str(e):
+                    logger.error("[ServiceLoader] LanceDB插入service冲突，重试中...")  # noqa: TRY400
+                    await asyncio.sleep(0.01)
+                else:
+                    raise
 
         node_descriptions = []
         for node in nodes:
@@ -166,6 +184,17 @@ class ServiceLoader:
                     embedding=vec,
                 ),
             )
-        await node_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
-            node_vector_data,
-        )
+        while True:
+            try:
+                node_table = await LanceDB().get_table("node")
+                await node_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
+                    node_vector_data,
+                )
+                break
+            except Exception as e:
+                if "Commit conflict" in str(e):
+                    logger.error("[ServiceLoader] LanceDB插入node冲突，重试中...")  # noqa: TRY400
+                    await asyncio.sleep(0.01)
+                else:
+                    raise
+
