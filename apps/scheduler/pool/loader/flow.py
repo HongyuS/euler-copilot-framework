@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Flow加载器"""
 
+import asyncio
 import logging
 from hashlib import sha256
 from typing import Any
@@ -189,7 +190,7 @@ class FlowLoader:
         logger.warning("[FlowLoader] 工作流文件不存在或不是文件：%s", flow_path)
         return True
 
-    async def _update_db(self, app_id: str, metadata: AppFlow) -> None:
+    async def _update_db(self, app_id: str, metadata: AppFlow) -> None:  # noqa: C901
         """更新数据库"""
         try:
             app_collection = MongoDB().get_collection("app")
@@ -237,7 +238,16 @@ class FlowLoader:
         # 向量化所有数据并保存
         table = await LanceDB().get_table("flow")
         # 删除重复的ID
-        await table.delete(f"id = '{metadata.id}'")
+        while True:
+            try:
+                await table.delete(f"id = '{metadata.id}'")
+                break
+            except RuntimeError as e:
+                if "Commit conflict" in str(e):
+                    logger.error("[FlowLoader] LanceDB删除flow失败")  # noqa: TRY400
+                    await asyncio.sleep(0.01)
+                else:
+                    raise
         # 进行向量化
         service_embedding = await Embedding.get_embedding([metadata.description])
         vector_data = [
@@ -247,6 +257,15 @@ class FlowLoader:
                 embedding=service_embedding[0],
             ),
         ]
-        await table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
-            vector_data,
-        )
+        while True:
+            try:
+                await table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
+                    vector_data,
+                )
+                break
+            except RuntimeError as e:
+                if "Commit conflict" in str(e):
+                    logger.error("[FlowLoader] LanceDB插入flow失败")  # noqa: TRY400
+                    await asyncio.sleep(0.01)
+                else:
+                    raise

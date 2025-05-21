@@ -6,7 +6,6 @@ import logging
 from collections.abc import AsyncGenerator
 
 import httpx
-import tiktoken
 from fastapi import status
 
 from apps.common.config import Config
