@@ -203,7 +203,7 @@ class MCPServiceManager:
     @staticmethod
     async def save(metadata: MCPServiceMetadata) -> None:
         """保存mcp到数据库"""
-        metadata.hashes['config'] = sha256(metadata.config_str.encode(encoding='utf-8')).hexdigest()
+        metadata.hashes["config"] = sha256(metadata.config_str.encode(encoding="utf-8")).hexdigest()
         await MCPServiceManager._update_db(metadata)
 
     @staticmethod
@@ -288,7 +288,7 @@ class MCPServiceManager:
             tools=service_pool_store.tools,
             hashes=service_pool_store.hashes,
             configStr=config_str,
-            mcpType=mcp_type
+            mcpType=mcp_type,
         )
         await MCPServiceManager.save(mcpservice_metadata)
         mcp_loader = MCPLoader()

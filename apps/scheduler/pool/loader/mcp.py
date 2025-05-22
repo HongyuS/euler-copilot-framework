@@ -331,7 +331,12 @@ class MCPLoader(metaclass=SingletonMeta):
             raise FileExistsError(err)
 
         # 拷贝文件
-        await asyncer.asyncify(shutil.copytree)(template_path.as_posix(), user_path.as_posix(), dirs_exist_ok=True)
+        await asyncer.asyncify(shutil.copytree)(
+            template_path.as_posix(),
+            user_path.as_posix(),
+            dirs_exist_ok=True,
+            symlinks=True,
+        )
 
         # 更新数据库
         mongo = MongoDB()
