@@ -10,6 +10,7 @@ import asyncer
 from anyio import Path
 
 from apps.common.config import Config
+from apps.common.process_handler import ProcessHandler
 from apps.common.singleton import SingletonMeta
 from apps.entities.mcp import (
     MCPCollection,
@@ -20,6 +21,7 @@ from apps.entities.mcp import (
     MCPToolVector,
     MCPType,
     MCPVector,
+    MCPStatus,
 )
 from apps.llm.embedding import Embedding
 from apps.models.lance import LanceDB
@@ -76,6 +78,76 @@ class MCPLoader(metaclass=SingletonMeta):
 
         return MCPConfig.model_validate(f_content)
 
+    @staticmethod
+    async def _sync_template_to_user(mcp_id: str, user_subs: list[str]) -> None:
+        """
+        template内容同步到user
+
+        :param str mcp_id: MCP模板ID
+        :param list[str] user_subs: 用户IDs
+        :return: 无
+        """
+
+        template_path = MCP_PATH / "template" / mcp_id
+        for user_sub in user_subs:
+            user_path = MCP_PATH / "users" / user_sub / mcp_id
+            if await user_path.exists():
+                await asyncer.asyncify(shutil.rmtree)(user_path.as_posix(), ignore_errors=True)
+            await asyncer.asyncify(shutil.copytree)(
+                template_path.as_posix(),
+                user_path.as_posix(),
+                dirs_exist_ok=True,
+                symlinks=True,
+            )
+
+    @staticmethod
+    async def _install_template_task(mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig, user_subs: list[str]) -> None:
+        """
+        安装依赖
+
+        :param str mcp_id: MCP模板ID
+        :param MCPServerSSEConfig | MCPServerStdioConfig config: MCP配置
+        :param list[str] user_subs: 用户IDs
+        :return: 无
+        """
+
+        await MCPLoader.update_template_status(mcp_id, MCPStatus.INSTALLING)
+        logger.info("[MCPLoader] Stdio方式的MCP模板，开始自动安装: %s", mcp_id)
+        try:
+            if "uv" in config.command:
+                await install_uvx(mcp_id, config)
+            elif "npx" in config.command:
+                await install_npx(mcp_id, config)
+        except:
+            await MCPLoader.update_template_status(mcp_id, MCPStatus.FAILED)
+            raise
+        await MCPLoader._sync_template_to_user(mcp_id, user_subs)
+        await MCPLoader.update_template_status(mcp_id, MCPStatus.READY)
+
+    @staticmethod
+    async def _process_install_config(
+            mcp_id: str,
+            config: MCPServerSSEConfig | MCPServerStdioConfig,
+            user_subs: list[str] | None = None
+         ) -> None:
+        """
+        异步安装依赖，并把template同步给用户
+
+        :param str mcp_id: MCP模板ID
+        :param MCPServerSSEConfig | MCPServerStdioConfig config: MCP配置
+        :param list[str] | None user_subs: 用户IDs
+        :return: 无
+        """
+        if user_subs is None:
+            user_subs = []
+        if isinstance(config, MCPServerStdioConfig):
+            if not ProcessHandler.add_task(mcp_id, MCPLoader._install_template_task, mcp_id, config, user_subs):
+                logger.warning("安装任务暂时无法执行，请稍后重试")
+                await MCPLoader.update_template_status(mcp_id, MCPStatus.FAILED)
+        else:
+            logger.info("[MCPLoader] SSE方式的MCP模板，无法自动安装: %s", mcp_id)
+            await MCPLoader._sync_template_to_user(mcp_id, user_subs)
+            await MCPLoader.update_template_status(mcp_id, MCPStatus.READY)
 
     @staticmethod
     async def _install_template(
@@ -97,18 +169,25 @@ class MCPLoader(metaclass=SingletonMeta):
             return config
 
         # 自动安装
-        if isinstance(config, MCPServerStdioConfig):
-            logger.info("[MCPLoader] Stdio方式的MCP模板，开始自动安装: %s", mcp_id)
-            if "uv" in config.command:
-                config = await install_uvx(mcp_id, config)
-            elif "npx" in config.command:
-                config = await install_npx(mcp_id, config)
-        else:
-            logger.info("[MCPLoader] SSE方式的MCP模板，无法自动安装: %s", mcp_id)
+        await MCPLoader._process_install_config(mcp_id, config)
 
         config.auto_install = False
         return config
 
+    @staticmethod
+    async def process_install_mcp(mcp_id: str, user_subs: list[str]) -> None:
+        """
+        异步安装依赖
+
+        :param str mcp_id: MCP模板ID
+        :param list[str] user_subs: 用户IDs
+        :return: 无
+        """
+        config_path = MCP_PATH / "template" / mcp_id / "config.json"
+
+        config = await MCPLoader._load_config(config_path)
+        for _, server in config.mcp_servers.items():
+            await MCPLoader._process_install_config(mcp_id, server, user_subs)
 
     @staticmethod
     async def init_one_template(mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig) -> None:
@@ -293,6 +372,7 @@ class MCPLoader(metaclass=SingletonMeta):
         """
         保存单个MCP模板的配置文件（即``template``下的``config.json``文件）
 
+        :param str user_sub: 用户ID
         :param str mcp_id: MCP模板ID
         :param MCPConfig config: MCP配置
         :return: 无
@@ -308,6 +388,24 @@ class MCPLoader(metaclass=SingletonMeta):
         await f.write(json.dumps(config_dict, indent=4, ensure_ascii=False))
         await f.aclose()
 
+    @staticmethod
+    async def update_template_status(mcp_id: str, status: MCPStatus) -> None:
+        """
+        更新数据库中MCP模板状态
+
+        :param str mcp_id: MCP模板ID
+        :param MCPStatus status: MCP模板status
+        :return: 无
+        """
+
+        # 更新数据库
+        mongo = MongoDB()
+        mcp_collection = mongo.get_collection("mcp")
+        await mcp_collection.update_one(
+            {"_id": mcp_id},
+            {"$set": {"status": status}},
+            upsert=True,
+        )
 
     @staticmethod
     async def user_active_template(user_sub: str, mcp_id: str) -> None:
@@ -461,6 +559,8 @@ class MCPLoader(metaclass=SingletonMeta):
                 {"_id": mcp_id},
                 {"$set": {"activated": user_list}},
             )
+            # 确保已激活的MCP依赖已安装
+            await MCPLoader.process_install_mcp(mcp_id, user_list)
 
 
     @staticmethod
