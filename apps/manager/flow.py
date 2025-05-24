@@ -406,12 +406,11 @@ class FlowManager:
 
             flow_loader = FlowLoader()
             old_flow_config = await flow_loader.load(app_id, flow_id)
-            await flow_loader.save(app_id, flow_id, flow_config)
 
             if old_flow_config is None:
                 error_msg = f"[FlowManager] 流 {flow_id} 不存在；可能为新创建"
                 logger.error(error_msg)
-            elif flow_config.debug:
+            elif old_flow_config.debug:
                 flow_config.debug = await FlowManager.is_flow_config_equal(old_flow_config, flow_config)
             else:
                 flow_config.debug = False
