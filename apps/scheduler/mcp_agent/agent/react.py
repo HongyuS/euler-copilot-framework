@@ -1,21 +1,21 @@
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from pydantic import Field
 
-from apps.scheduler.mcp_agent.agent.base import BaseAgent
-from apps.llm.reasoning import ReasoningLLM
-from apps.scheduler.mcp_agent.schema import Memory
 from apps.entities.enum_var import AgentState
+from apps.llm.reasoning import ReasoningLLM
+from apps.scheduler.mcp_agent.agent.base import BaseAgent
+from apps.scheduler.mcp_agent.schema import Memory
+
 
 class ReActAgent(BaseAgent, ABC):
     name: str
     description: str | None = None
 
-    system_prompt: Optional[str] = None
-    next_step_prompt: Optional[str] = None
+    system_prompt: str | None = None
+    next_step_prompt: str | None = None
 
-    llm: Optional[ReasoningLLM] = Field(default_factory=ReasoningLLM)
+    llm: ReasoningLLM | None = Field(default_factory=ReasoningLLM)
     memory: Memory = Field(default_factory=Memory)
     state: AgentState = AgentState.IDLE
 

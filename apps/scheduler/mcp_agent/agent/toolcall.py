@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from typing import Any, List, Optional, Union
+from typing import Any, Optional
 
 from pydantic import Field
 
@@ -9,7 +9,7 @@ from apps.entities.enum_var import AgentState
 from apps.llm.function import JsonGenerator
 from apps.llm.patterns import Select
 from apps.scheduler.mcp_agent.agent.react import ReActAgent
-from apps.scheduler.mcp_agent.schema import Message, ToolCall, Function
+from apps.scheduler.mcp_agent.schema import Function, Message, ToolCall
 from apps.scheduler.mcp_agent.tool import Terminate, ToolCollection
 
 logger = logging.getLogger(__name__)
@@ -24,13 +24,13 @@ class ToolCallAgent(ReActAgent):
     available_tools: ToolCollection = ToolCollection(
         Terminate()
     )
-    tool_choices: str = "auto"  # type: ignore
-    special_tool_names: List[str] = Field(default_factory=lambda: [Terminate().name])
+    tool_choices: str = "auto"
+    special_tool_names: list[str] = Field(default_factory=lambda: [Terminate().name])
 
-    tool_calls: List[ToolCall] = Field(default_factory=list)
-    _current_base64_image: Optional[str] = None
+    tool_calls: list[ToolCall] = Field(default_factory=list)
+    _current_base64_image: str | None = None
 
-    max_observe: Optional[Union[int, bool]] = None
+    max_observe: int | bool | None = None
 
     async def think(self) -> bool:
         """使用工具处理当前状态并决定下一步行动"""

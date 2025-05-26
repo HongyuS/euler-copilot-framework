@@ -179,10 +179,6 @@ class Role(str, Enum):
     TOOL = "tool"
 
 
-ROLE_VALUES = tuple(role.value for role in Role)
-ROLE_TYPE = Literal[ROLE_VALUES]  # type: ignore
-
-
 class AgentState(str, Enum):
     """Agent执行状态"""
 

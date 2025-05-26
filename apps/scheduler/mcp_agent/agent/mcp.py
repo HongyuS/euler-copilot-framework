@@ -1,16 +1,19 @@
+"""MCP Agent"""
 import logging
+
 from pydantic import Field
 
+from apps.scheduler.mcp.host import MCPHost
 from apps.scheduler.mcp_agent.agent.toolcall import ToolCallAgent
 from apps.scheduler.mcp_agent.tool import Terminate, ToolCollection
 from apps.scheduler.pool.mcp.client import MCPClientTool
-from apps.scheduler.mcp.host import MCPHost
 
 logger = logging.getLogger(__name__)
 
 
 class MCPAgent(ToolCallAgent):
-    """用于与MCP（模型上下文协议）服务器交互。
+    """
+    用于与MCP（模型上下文协议）服务器交互。
 
     使用SSE或stdio传输连接到MCP服务器
     并使服务器的工具

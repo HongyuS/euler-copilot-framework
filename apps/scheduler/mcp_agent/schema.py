@@ -1,14 +1,15 @@
 """MCP Agent执行数据结构"""
-from typing import Any, Optional, Union
+from typing import Any, Self
 
 from pydantic import BaseModel, Field
 
-from apps.entities.enum_var import ROLE_TYPE, Role
+from apps.entities.enum_var import Role
 
 
 class Function(BaseModel):
+    """工具函数"""
+
     name: str
-    # arguments: str
     arguments: dict[str, Any]
 
 
@@ -23,11 +24,11 @@ class ToolCall(BaseModel):
 class Message(BaseModel):
     """Represents a chat message in the conversation"""
 
-    role: ROLE_TYPE = Field(...)  # type: ignore
-    content: Optional[str] = Field(default=None)
-    tool_calls: Optional[list[ToolCall]] = Field(default=None)
-    name: Optional[str] = Field(default=None)
-    tool_call_id: Optional[str] = Field(default=None)
+    role: Role = Field(...)
+    content: str | None = Field(default=None)
+    tool_calls: list[ToolCall] | None = Field(default=None)
+    name: str | None = Field(default=None)
+    tool_call_id: str | None = Field(default=None)
 
     def __add__(self, other) -> list["Message"]:
         """支持 Message + list 或 Message + Message 的操作"""
@@ -63,28 +64,26 @@ class Message(BaseModel):
         return message
 
     @classmethod
-    def user_message(
-            cls, content: str
-    ) -> "Message":
+    def user_message(cls, content: str) -> Self:
         """Create a user message"""
         return cls(role=Role.USER, content=content)
 
     @classmethod
-    def system_message(cls, content: str) -> "Message":
+    def system_message(cls, content: str) -> Self:
         """Create a system message"""
         return cls(role=Role.SYSTEM, content=content)
 
     @classmethod
     def assistant_message(
-            cls, content: Optional[str] = None
-    ) -> "Message":
+            cls, content: str | None = None,
+    ) -> Self:
         """Create an assistant message"""
         return cls(role=Role.ASSISTANT, content=content)
 
     @classmethod
     def tool_message(
-            cls, content: str, name, tool_call_id: str
-    ) -> "Message":
+            cls, content: str, name: str, tool_call_id: str,
+    ) -> Self:
         """Create a tool message"""
         return cls(
             role=Role.TOOL,
@@ -97,9 +96,9 @@ class Message(BaseModel):
     def from_tool_calls(
             cls,
             tool_calls: list[Any],
-            content: Union[str, list[str]] = "",
-            **kwargs,
-    ):
+            content: str | list[str] = "",
+            **kwargs,  # noqa: ANN003
+    ) -> Self:
         """Create ToolCallsMessage from raw tool calls.
 
         Args:
