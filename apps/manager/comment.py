@@ -20,40 +20,31 @@ class CommentManager:
         :param record_id: 问答ID
         :return: 评论内容
         """
-        try:
-            record_group_collection = MongoDB().get_collection("record_group")
-            result = await record_group_collection.aggregate(
-                [
-                    {"$match": {"_id": group_id, "records.id": record_id}},
-                    {"$unwind": "$records"},
-                    {"$match": {"records.id": record_id}},
-                    {"$limit": 1},
-                ],
-            )
-            result = await result.to_list(length=1)
-            if result:
-                return RecordComment.model_validate(result[0]["records"]["comment"])
-        except Exception:
-            logger.exception("[CommentManager] 查询反馈失败")
+        record_group_collection = MongoDB().get_collection("record_group")
+        result = await record_group_collection.aggregate(
+            [
+                {"$match": {"_id": group_id, "records.id": record_id}},
+                {"$unwind": "$records"},
+                {"$match": {"records.id": record_id}},
+                {"$limit": 1},
+            ],
+        )
+        result = await result.to_list(length=1)
+        if result:
+            return RecordComment.model_validate(result[0]["records"]["comment"])
         return None
 
     @staticmethod
-    async def update_comment(group_id: str, record_id: str, data: RecordComment) -> bool:
+    async def update_comment(group_id: str, record_id: str, data: RecordComment) -> None:
         """
         更新评论
 
         :param record_id: 问答ID
         :param data: 评论内容
-        :return: 是否更新成功；True/False
         """
-        try:
-            record_group_collection = MongoDB().get_collection("record_group")
-            await record_group_collection.update_one(
-                {"_id": group_id, "records.id": record_id},
-                {"$set": {"records.$.comment": data.model_dump(by_alias=True)}},
-            )
-        except Exception:
-            logger.exception("[CommentManager] 更新反馈失败")
-            return False
-        else:
-            return True
+        mongo = MongoDB()
+        record_group_collection = mongo.get_collection("record_group")
+        await record_group_collection.update_one(
+            {"_id": group_id, "records.id": record_id},
+            {"$set": {"records.$.comment": data.model_dump(by_alias=True)}},
+        )
