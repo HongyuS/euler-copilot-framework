@@ -1,7 +1,7 @@
+"""MCP Agent基类"""
 import logging
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -9,18 +9,20 @@ from apps.common.queue import MessageQueue
 from apps.entities.enum_var import AgentState
 from apps.entities.task import Task
 from apps.llm.reasoning import ReasoningLLM
-from apps.scheduler.mcp_agent.schema import ROLE_TYPE, Memory, Message
+from apps.scheduler.mcp_agent.schema import Memory, Message, Role
 from apps.service.activity import Activity
 
 logger = logging.getLogger(__name__)
 
 
 class BaseAgent(BaseModel, ABC):
-    """用于管理代理状态和执行的抽象基类。
+    """
+    用于管理代理状态和执行的抽象基类。
 
     为状态转换、内存管理、
     以及分步执行循环。子类必须实现`step`方法。
     """
+
     msg_queue: MessageQueue
     task: Task
     name: str = Field(..., description="Agent名称")
@@ -28,7 +30,7 @@ class BaseAgent(BaseModel, ABC):
     description: str = Field(default="", description="Agent描述")
     question: str
     # Prompts
-    next_step_prompt: Optional[str] = Field(
+    next_step_prompt: str | None = Field(
         None, description="判断下一步动作的提示"
     )
 
@@ -69,16 +71,14 @@ class BaseAgent(BaseModel, ABC):
 
     @asynccontextmanager
     async def state_context(self, new_state: AgentState):
-        """Agent状态转换上下文管理器
+        """
+        Agent状态转换上下文管理器
 
         Args:
             new_state: 要转变的状态
 
-        Yields:
-            None: 允许在新状态中执行
-
-        Raises:
-            ValueError: 如果new_state无效
+        :return: None
+        :raise ValueError: 如果new_state无效
         """
         if not isinstance(new_state, AgentState):
             raise ValueError(f"无效状态: {new_state}")
@@ -95,13 +95,11 @@ class BaseAgent(BaseModel, ABC):
 
     def update_memory(
             self,
-            role: ROLE_TYPE,  # type: ignore
+            role: Role,
             content: str,
             **kwargs,
     ) -> None:
-        """
-        添加信息到Agent的memory中
-        """
+        """添加信息到Agent的memory中"""
         message_map = {
             "user": Message.user_message,
             "system": Message.system_message,
@@ -116,10 +114,8 @@ class BaseAgent(BaseModel, ABC):
         kwargs = {**(kwargs if role == "tool" else {})}
         self.memory.add_message(message_map[role](content, **kwargs))
 
-    async def run(self, request: Optional[str] = None) -> str:
-        """
-        异步执行Agent的主循环
-        """
+    async def run(self, request: str | None = None) -> str:
+        """异步执行Agent的主循环"""
         self.task.runtime.question = request
         if self.state != AgentState.IDLE:
             raise RuntimeError(f"无法从以下状态运行智能体： {self.state}")
@@ -166,18 +162,14 @@ class BaseAgent(BaseModel, ABC):
         """
 
     def handle_stuck_state(self):
-        """
-        通过添加更改策略的提示来处理卡住状态
-        """
+        """通过添加更改策略的提示来处理卡住状态"""
         stuck_prompt = "\
         观察到重复响应。考虑新策略，避免重复已经尝试过的无效路径"
         self.next_step_prompt = f"{stuck_prompt}\n{self.next_step_prompt}"
         logger.warning(f"检测到智能体处于卡住状态。新增提示：{stuck_prompt}")
 
     def is_stuck(self) -> bool:
-        """
-        通过检测重复内容来检查代理是否卡在循环中
-        """
+        """通过检测重复内容来检查代理是否卡在循环中"""
         if len(self.memory.messages) < 2:
             return False
 
@@ -199,6 +191,6 @@ class BaseAgent(BaseModel, ABC):
         return self.memory.messages
 
     @messages.setter
-    def messages(self, value: list[Message]):
+    def messages(self, value: list[Message]) -> None:
         """设置Agent memory的消息列表"""
         self.memory.messages = value
