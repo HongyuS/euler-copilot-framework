@@ -12,6 +12,14 @@ from apps.entities.enum_var import (
 )
 
 
+class MCPStatus(str, Enum):
+    """MCP 服务状态"""
+
+    INSTALLING = "installing"
+    READY = "ready"
+    FAILED = "failed"
+
+
 class MCPType(str, Enum):
     """MCP 类型"""
 
@@ -90,6 +98,7 @@ class MCPCollection(BaseModel):
     type: MCPType = Field(description="MCP 类型")
     activated: list[str] = Field(description="激活该MCP的用户ID列表", default=[])
     tools: list[MCPTool] = Field(description="MCP工具列表", default=[])
+    status: MCPStatus = Field(default=MCPStatus.FAILED, description="MCP服务状态")
 
 
 class MCPVector(LanceModel):
