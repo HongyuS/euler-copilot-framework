@@ -31,11 +31,7 @@ class MongoDB:
         :return: 集合对象
         :rtype: AsyncCollection
         """
-        try:
-            return self._client[Config().get_config().mongodb.database][collection_name]
-        except Exception as e:
-            logger.exception("[MongoDB] 获取集合 %s 失败", collection_name)
-            raise RuntimeError(str(e)) from e
+        return self._client[Config().get_config().mongodb.database][collection_name]
 
 
     async def clear_collection(self, collection_name: str) -> None:
@@ -45,10 +41,7 @@ class MongoDB:
         :param str collection_name: 集合名称
         :return: 无
         """
-        try:
-            await self._client[Config().get_config().mongodb.database][collection_name].delete_many({})
-        except Exception:
-            logger.exception("[MongoDB] 清空集合 %s 失败", collection_name)
+        await self._client[Config().get_config().mongodb.database][collection_name].delete_many({})
 
 
     def get_session(self) -> AsyncClientSession:

@@ -147,12 +147,10 @@ class TaskManager:
         """通过task_id删除Task信息"""
         mongo = MongoDB()
         task_collection = mongo.get_collection("task")
-        try:
-            task = await task_collection.find_one({"_id": task_id}, {"_id": 1})
-            if task:
-                await task_collection.delete_one({"_id": task_id})
-        except Exception:
-            logger.exception("[TaskManager] 通过task_id删除Task信息失败")
+
+        task = await task_collection.find_one({"_id": task_id}, {"_id": 1})
+        if task:
+            await task_collection.delete_one({"_id": task_id})
 
 
     @staticmethod
@@ -161,20 +159,17 @@ class TaskManager:
         mongo = MongoDB()
         task_collection = mongo.get_collection("task")
         flow_context_collection = mongo.get_collection("flow_context")
-        try:
-            async with mongo.get_session() as session, await session.start_transaction():
-                task_ids = [
-                    task["_id"] async for task in task_collection.find(
-                        {"conversation_id": conversation_id},
-                        {"_id": 1},
-                        session=session,
-                    )
-                ]
-                await task_collection.delete_many({"conversation_id": conversation_id}, session=session)
-                await flow_context_collection.delete_many({"task_id": {"$in": task_ids}}, session=session)
-                await session.commit_transaction()
-        except Exception:
-            logger.exception("[TaskManager] 通过ConversationID删除Task信息失败")
+
+        async with mongo.get_session() as session, await session.start_transaction():
+            task_ids = [
+                task["_id"] async for task in task_collection.find(
+                    {"conversation_id": conversation_id},
+                    {"_id": 1},
+                    session=session,
+                )
+            ]
+            await task_collection.delete_many({"conversation_id": conversation_id}, session=session)
+            await flow_context_collection.delete_many({"task_id": {"$in": task_ids}}, session=session)
 
 
     @classmethod
