@@ -22,7 +22,7 @@ class ToolCallAgent(ReActAgent):
     description: str = "可以执行工具调用的智能体"
 
     available_tools: ToolCollection = ToolCollection(
-        Terminate()
+        Terminate(),
     )
     tool_choices: str = "auto"
     special_tool_names: list[str] = Field(default_factory=lambda: [Terminate().name])
@@ -58,9 +58,6 @@ class ToolCallAgent(ReActAgent):
 
             else:
                 raise ValueError(f"尝试调用不存在的工具： {tool}")
-
-        except ValueError:
-            raise
         except Exception as e:
             raise
         self.tool_calls = tool_calls = [ToolCall(function=Function(name=tool, arguments=parameters))]
@@ -171,7 +168,6 @@ class ToolCallAgent(ReActAgent):
 
         try:
             # 解析参数
-            # args = json.loads(command.function.arguments or "{}")
             args = command.function.arguments
             # 执行工具
             logger.info(f"激活工具：'{name}'...")

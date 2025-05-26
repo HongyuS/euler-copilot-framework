@@ -35,22 +35,9 @@ class ToolCollection:
         except Exception as e:
             return ToolFailure(error=f"Failed to execute tool {name}: {e}")
 
-    async def execute_all(self) -> list[ToolResult]:
-        """顺序执行集合中的所有工具"""
-        results = []
-        for tool in self.tools:
-            try:
-                result = await tool()
-                results.append(result)
-            except Exception as e:
-                results.append(ToolFailure(error=e))
-        return results
-
-    def get_tool(self, name: str) -> BaseTool:
-        return self.tool_map.get(name)
-
     def add_tool(self, tool: BaseTool):
-        """将单个工具添加到集合中。
+        """
+        将单个工具添加到集合中。
 
         如果已存在同名工具，则将跳过该工具并记录警告。
         """
