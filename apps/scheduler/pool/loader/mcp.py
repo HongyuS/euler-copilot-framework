@@ -17,11 +17,11 @@ from apps.entities.mcp import (
     MCPConfig,
     MCPServerSSEConfig,
     MCPServerStdioConfig,
+    MCPStatus,
     MCPTool,
     MCPToolVector,
     MCPType,
     MCPVector,
-    MCPStatus,
 )
 from apps.llm.embedding import Embedding
 from apps.models.lance import LanceDB
@@ -87,7 +87,6 @@ class MCPLoader(metaclass=SingletonMeta):
         :param list[str] user_subs: 用户IDs
         :return: 无
         """
-
         template_path = MCP_PATH / "template" / mcp_id
         for user_sub in user_subs:
             user_path = MCP_PATH / "users" / user_sub / mcp_id
@@ -101,7 +100,9 @@ class MCPLoader(metaclass=SingletonMeta):
             )
 
     @staticmethod
-    async def _install_template_task(mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig, user_subs: list[str]) -> None:
+    async def _install_template_task(
+        mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig, user_subs: list[str]
+    ) -> None:
         """
         安装依赖
 
@@ -110,7 +111,6 @@ class MCPLoader(metaclass=SingletonMeta):
         :param list[str] user_subs: 用户IDs
         :return: 无
         """
-
         await MCPLoader.update_template_status(mcp_id, MCPStatus.INSTALLING)
         logger.info("[MCPLoader] Stdio方式的MCP模板，开始自动安装: %s", mcp_id)
         try:
@@ -186,7 +186,7 @@ class MCPLoader(metaclass=SingletonMeta):
         config_path = MCP_PATH / "template" / mcp_id / "config.json"
 
         config = await MCPLoader._load_config(config_path)
-        for _, server in config.mcp_servers.items():
+        for server in config.mcp_servers.values():
             await MCPLoader._process_install_config(mcp_id, server, user_subs)
 
     @staticmethod
@@ -397,7 +397,6 @@ class MCPLoader(metaclass=SingletonMeta):
         :param MCPStatus status: MCP模板status
         :return: 无
         """
-
         # 更新数据库
         mongo = MongoDB()
         mcp_collection = mongo.get_collection("mcp")
