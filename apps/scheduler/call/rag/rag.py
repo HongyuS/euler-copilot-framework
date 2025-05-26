@@ -3,7 +3,7 @@
 
 import logging
 from collections.abc import AsyncGenerator
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 from fastapi import status
@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
     """RAG工具：查询知识库"""
 
-    user_sub: str = Field(description="用户的sub")
     knowledge_base_ids: list[str] = Field(description="知识库的id列表", default=[])
     top_k: int = Field(description="返回的分片数量", default=5)
     document_ids: list[str] | None = Field(description="文档id列表", default=None)
@@ -71,7 +70,7 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
         url = Config().get_config().rag.rag_service.rstrip("/") + "/chunk/search"
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {data.session_id}"
+            "Authorization": f"Bearer {data.session_id}",
         }
 
         # 发送请求
@@ -88,7 +87,7 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
                 corpus = []
                 for doc_chunk in doc_chunk_list:
                     for chunk in doc_chunk["chunks"]:
-                        corpus.append(chunk["text"].replace("\n", ""))
+                        corpus.extend([chunk["text"].replace("\n", "")])
 
                 yield CallOutputChunk(
                     type=CallOutputType.DATA,
