@@ -10,7 +10,7 @@ from typing import Any
 from fastapi.encoders import jsonable_encoder
 
 from apps.entities.enum_var import MCPSearchType
-from apps.entities.mcp import MCPConfig, MCPServiceMetadata, MCPTool, MCPType, MCPStatus
+from apps.entities.mcp import MCPConfig, MCPServiceMetadata, MCPStatus, MCPTool, MCPType
 from apps.entities.response_data import MCPServiceCardItem
 from apps.exceptions import InstancePermissionError
 from apps.models.mongo import MongoDB
@@ -66,12 +66,7 @@ class MCPServiceManager:
         """
         mongo = MongoDB()
         service_collection = mongo.get_collection("mcp_service")
-        try:
-            await service_collection.delete_one({"id": service_id})
-        except Exception as exp:
-            err = f"[MCPServiceLoader] 删除MCPService失败: {exp}"
-            logger.exception(err)
-            raise RuntimeError(err) from exp
+        await service_collection.delete_one({"id": service_id})
 
     @staticmethod
     async def _update_db(metadata: MCPServiceMetadata) -> None:
@@ -88,17 +83,13 @@ class MCPServiceManager:
         # 更新MongoDB
         mongo = MongoDB()
         service_collection = mongo.get_collection("mcp_service")
-        try:
-            # 插入或更新 Service
-            await service_collection.update_one(
-                {"id": metadata.id},
-                {"$set": jsonable_encoder(metadata, by_alias=True)},
-                upsert=True,
-            )
-        except Exception as e:
-            err = f"[MCPServiceLoader] 更新 MongoDB 失败：{e}"
-            logger.exception(err)
-            raise RuntimeError(err) from e
+
+        # 插入或更新 Service
+        await service_collection.update_one(
+            {"id": metadata.id},
+            {"$set": jsonable_encoder(metadata, by_alias=True)},
+            upsert=True,
+        )
 
     @staticmethod
     async def load_mcp_config(description: str, config_str: str, mcp_type: MCPType = MCPType.STDIO) -> MCPConfig:
@@ -167,17 +158,14 @@ class MCPServiceManager:
         """
         # 验证用户权限
         mcpservice_collection = MongoDB().get_collection("mcp_service")
-        match_conditions = {
-            {"author": user_sub}
-        }
-        query = {"$and": [{"service_id": mcpservice_id}, match_conditions]}
+        query = {"$and": [{"service_id": mcpservice_id}, {"author": user_sub}]}
         db_service = await mcpservice_collection.find_one(query, {"_id": False})
         if not db_service:
-            msg = "MCPService not found"
-            raise Exception(msg)
+            msg = "[MCPServiceManager] MCP服务未找到"
+            raise RuntimeError(msg)
         mcpservice_pool_store = MCPServiceMetadata.model_validate(db_service)
         if mcpservice_pool_store.author != user_sub:
-            msg = "Permission denied"
+            msg = "[MCPServiceManager] 权限不足"
             raise InstancePermissionError(msg)
 
         return mcpservice_pool_store
@@ -196,8 +184,8 @@ class MCPServiceManager:
         service_collection = MongoDB().get_collection("mcp_service")
         db_service = await service_collection.find_one({"id": service_id}, {"_id": False})
         if not db_service:
-            msg = "MCPService not found"
-            raise Exception(msg)
+            msg = "[MCPServiceManager] MCP服务未找到"
+            raise RuntimeError(msg)
         mcpservice_pool_store = MCPServiceMetadata.model_validate(db_service)
         mcpservice_pool_store.tools = await MCPServiceManager.get_service_tools(service_id)
         return mcpservice_pool_store
@@ -230,7 +218,7 @@ class MCPServiceManager:
     ) -> tuple[list[MCPServiceMetadata], int]:
         """
         基于输入条件搜索MCP服务
-        
+
         :param search_conditions: dict[str, Any]: 搜索条件
         :param page: int: 页码
         :param page_size: int: 每页显示数量
@@ -273,7 +261,7 @@ class MCPServiceManager:
     async def save(metadata: MCPServiceMetadata) -> None:
         """
         保存MCP
-        
+
         :param metadata: MCPServiceMetadata: MCP服务数据
         :return: 无
         """
@@ -281,14 +269,14 @@ class MCPServiceManager:
         await MCPServiceManager._update_db(metadata)
 
     @staticmethod
-    async def create_mcpservice(
+    async def create_mcpservice(  # noqa: PLR0913
             user_sub: str,
             name: str,
             icon: str,
             description: str,
             config: MCPConfig,
             config_str: str,
-            mcp_type: MCPType
+            mcp_type: MCPType,
     ) -> str:
         """
         创建MCP服务
@@ -304,20 +292,20 @@ class MCPServiceManager:
         """
         if len(config.mcp_servers) != 1:
             msg = "[MCPServiceManager] MCP服务配置不唯一"
-            raise Exception(msg)
+            raise RuntimeError(msg)
         mcpservice_id = str(uuid.uuid4())
         # 检查是否存在相同服务
         service_collection = MongoDB().get_collection("mcp_service")
         db_service = await service_collection.find_one(
             {
                 "name": name,
-                "description": description
+                "description": description,
             },
-            {"_id": False}
+            {"_id": False},
         )
         if db_service:
             msg = "[MCPServiceManager] 已存在相同名称和描述的MCP服务"
-            raise Exception(msg)
+            raise RuntimeError(msg)
 
         tools = []
 
@@ -331,21 +319,20 @@ class MCPServiceManager:
             config=config,
             tools=tools,
             configStr=config_str,
-            mcpType=mcp_type
+            mcpType=mcp_type,
         )
         await MCPServiceManager.save(service_metadata)
         mcp_loader = MCPLoader()
-        for _, server in config.mcp_servers.items():
+        for server in config.mcp_servers.values():
             await mcp_loader.init_one_template(mcp_id=mcpservice_id, config=server)
         try:
             await MCPServiceManager.active_mcpservice(user_sub=user_sub, service_id=mcpservice_id)
-        except Exception as e:
-            err = f"[MCPServiceLoader] 管理员激活mcp失败：{e}"
-            logger.exception(err)
+        except Exception:
+            logger.exception("[MCPServiceLoader] 管理员激活mcp失败")
         return mcpservice_id
 
     @staticmethod
-    async def update_mcpservice(
+    async def update_mcpservice(  # noqa: PLR0913
             user_sub: str,
             mcpservice_id: str,
             name: str,
@@ -353,7 +340,7 @@ class MCPServiceManager:
             description: str,
             config: MCPConfig,
             config_str: str,
-            mcp_type: MCPType
+            mcp_type: MCPType,
     ) -> str:
         """
         更新MCP服务
@@ -370,12 +357,12 @@ class MCPServiceManager:
         """
         if len(config.mcp_servers) != 1:
             msg = "[MCPServiceManager] MCP服务配置不唯一"
-            raise Exception(msg)
+            raise RuntimeError(msg)
         mcpservice_collection = MongoDB().get_collection("mcp_service")
         db_service = await mcpservice_collection.find_one({"id": mcpservice_id}, {"_id": False})
         if not db_service:
-            msg = "MCPService not found"
-            raise Exception(msg)
+            msg = "[MCPServiceManager] MCP服务未找到"
+            raise RuntimeError(msg)
         service_pool_store = MCPServiceMetadata.model_validate(db_service)
 
         # 存入数据库
@@ -394,7 +381,7 @@ class MCPServiceManager:
         await MCPServiceManager.save(mcpservice_metadata)
         mcp_loader = MCPLoader()
         await MCPServiceManager.deactive_mcpservice(user_sub=user_sub, service_id=mcpservice_id)
-        for _, server in config.mcp_servers.items():
+        for server in config.mcp_servers.values():
             await mcp_loader.init_one_template(mcp_id=mcpservice_id, config=server)
         await mcp_loader.update_template_status(mcp_id=mcpservice_id, status=MCPStatus.FAILED)
         try:
@@ -420,12 +407,12 @@ class MCPServiceManager:
         service_collection = MongoDB().get_collection("mcp_service")
         db_service = await service_collection.find_one({"id": service_id}, {"_id": False})
         if not db_service:
-            msg = "[MCPServiceCenterManager] Service未找到"
+            msg = "[MCPServiceManager] MCP服务未找到"
             raise ValueError(msg)
         # 验证用户权限
         service_pool_store = MCPServiceMetadata.model_validate(db_service)
         if service_pool_store.author != user_sub:
-            msg = "Permission denied"
+            msg = "[MCPServiceManager] 权限不足"
             raise InstancePermissionError(msg)
         # 删除服务
         await MCPServiceManager.delete(service_id)
@@ -454,7 +441,9 @@ class MCPServiceManager:
                 await loader.user_active_template(user_sub, service_id)
             else:
                 await loader.process_install_mcp(service_id, [user_sub])
-                raise Exception("MCP服务未准备就绪，请稍后...")
+                err = "[MCPServiceManager] MCP服务未准备就绪"
+                logger.error(err)
+                raise RuntimeError(err)
 
     @staticmethod
     async def deactive_mcpservice(

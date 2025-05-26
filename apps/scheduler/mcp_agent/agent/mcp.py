@@ -26,7 +26,7 @@ class MCPAgent(ToolCallAgent):
     available_tools: ToolCollection = Field(
         default_factory=lambda: ToolCollection(
             Terminate(),
-        )
+        ),
     )
 
     special_tool_names: list[str] = Field(default_factory=lambda: [Terminate().name])
@@ -34,7 +34,7 @@ class MCPAgent(ToolCallAgent):
     _initialized: bool = False
 
     @classmethod
-    async def create(cls, **kwargs) -> "MCPAgent":
+    async def create(cls, **kwargs) -> "MCPAgent":  # noqa: ANN003
         """创建并初始化MCP Agent实例"""
         instance = cls(**kwargs)
         await instance.initialize_mcp_servers()
@@ -43,7 +43,12 @@ class MCPAgent(ToolCallAgent):
 
     async def initialize_mcp_servers(self) -> None:
         """初始化与已配置的MCP服务器的连接"""
-        mcp_host = MCPHost(self.task.ids.user_sub, self.task.id, self.agent_id, self.agent_description)
+        mcp_host = MCPHost(
+            self.task.ids.user_sub,
+            self.task.id,
+            self.agent_id,
+            self.description,
+        )
         mcps = {}
         for mcp_id in self.servers_id:
             mcps[mcp_id] = await mcp_host.get_client(mcp_id)
@@ -72,8 +77,4 @@ class MCPAgent(ToolCallAgent):
             await self.initialize_mcp_servers()
             self._initialized = True
 
-        result = await super().think()
-
-        # Restore original prompt
-
-        return result
+        return await super().think()
