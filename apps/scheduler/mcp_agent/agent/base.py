@@ -128,7 +128,7 @@ class BaseAgent(BaseModel, ABC):
             while (
                     self.current_step < self.max_steps and self.state != AgentState.FINISHED
             ):
-                if not Activity.is_active(self.task.ids.user_sub):
+                if not await Activity.is_active(self.task.ids.user_sub):
                     logger.info("用户终止会话,任务停止！")
                     return ""
                 self.current_step += 1
