@@ -51,7 +51,9 @@ class MCPAgent(ToolCallAgent):
         )
         mcps = {}
         for mcp_id in self.servers_id:
-            mcps[mcp_id] = await mcp_host.get_client(mcp_id)
+            client = await mcp_host.get_client(mcp_id)
+            if client:
+                mcps[mcp_id] = client
 
         for mcp_id, mcp_client in mcps.items():
             new_tools = []

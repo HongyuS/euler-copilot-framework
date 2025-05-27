@@ -77,7 +77,7 @@ class MCPServiceManager:
         :return: 无
         """
         if not metadata.hashes:
-            err = f"[MCPServiceLoader] MCP服务 {metadata.id} 的哈希值为空"
+            err = f"[MCPServiceManager] MCP服务 {metadata.id} 的哈希值为空"
             logger.error(err)
             raise ValueError(err)
         # 更新MongoDB
@@ -324,11 +324,8 @@ class MCPServiceManager:
         await MCPServiceManager.save(service_metadata)
         mcp_loader = MCPLoader()
         for server in config.mcp_servers.values():
-            await mcp_loader.init_one_template(mcp_id=mcpservice_id, config=server)
-        try:
-            await MCPServiceManager.active_mcpservice(user_sub=user_sub, service_id=mcpservice_id)
-        except Exception:
-            logger.exception("[MCPServiceLoader] 管理员激活mcp失败")
+            logger.info("[MCPServiceManager] 初始化mcp")
+            await mcp_loader.init_one_template(mcp_id=mcpservice_id, config=server, user_subs=[user_sub])
         return mcpservice_id
 
     @staticmethod
@@ -382,13 +379,8 @@ class MCPServiceManager:
         mcp_loader = MCPLoader()
         await MCPServiceManager.deactive_mcpservice(user_sub=user_sub, service_id=mcpservice_id)
         for server in config.mcp_servers.values():
-            await mcp_loader.init_one_template(mcp_id=mcpservice_id, config=server)
-        await mcp_loader.update_template_status(mcp_id=mcpservice_id, status=MCPStatus.FAILED)
-        try:
-            await MCPServiceManager.active_mcpservice(user_sub=user_sub, service_id=mcpservice_id)
-        except Exception as e:
-            err = f"[MCPServiceLoader] 管理员激活mcp失败：{e}"
-            logger.exception(err)
+            logger.info("[MCPServiceManager] 初始化mcp")
+            await mcp_loader.init_one_template(mcp_id=mcpservice_id, config=server, user_subs=[user_sub])
         # 返回服务ID
         return mcpservice_id
 
@@ -416,7 +408,9 @@ class MCPServiceManager:
             raise InstancePermissionError(msg)
         # 删除服务
         await MCPServiceManager.delete(service_id)
-        await MCPLoader().user_deactive_template(user_sub, service_id)
+
+        await MCPLoader.user_deactive_template(user_sub, service_id)
+        await MCPLoader.delete_mcp(service_id)
         return True
 
     @staticmethod
@@ -435,7 +429,7 @@ class MCPServiceManager:
         status = await mcp_collection.find({"_id": service_id}, {"status": 1, "_id": False}).to_list(None)
         loader = MCPLoader()
         for item in status:
-            mcp_status = item.get("status", MCPStatus.FAILED)
+            mcp_status = item.get("status", MCPStatus.INSTALLING)
             if mcp_status == MCPStatus.READY:
                 loader = MCPLoader()
                 await loader.user_active_template(user_sub, service_id)

@@ -71,6 +71,9 @@ class LanceDB(metaclass=SingletonMeta):
         :return: 表
         :rtype: lancedb.AsyncTable
         """
+        self._engine = await lancedb.connect_async(
+            Config().get_config().deploy.data_dir.rstrip("/") + "/vectors",
+        )
         return await self._engine.open_table(table_name)
 
 

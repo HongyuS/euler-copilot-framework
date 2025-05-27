@@ -38,6 +38,7 @@ class ProcessHandler:
     @staticmethod
     def add_task(task_id: str, target: Callable, *args, **kwargs) -> bool:  # noqa: ANN002, ANN003
         """添加任务"""
+        logger.info("[ProcessHandler] 添加任务 %s", task_id)
         ProcessHandler._check_task()
         with ProcessHandler.lock:
             if len(ProcessHandler.tasks) >= ProcessHandler.max_processes:
@@ -54,6 +55,7 @@ class ProcessHandler:
                 process.start()
             else:
                 logger.warning("[ProcessHandler] 任务ID %s 已存在，无法添加。", task_id)
+        logger.info("[ProcessHandler] 添加任务成功 %s", task_id)
         return True
 
 

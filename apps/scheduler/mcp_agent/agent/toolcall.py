@@ -60,7 +60,7 @@ class ToolCallAgent(ReActAgent):
                 raise ValueError(f"尝试调用不存在的工具： {tool}")
         except Exception as e:
             raise
-        self.tool_calls = tool_calls = [ToolCall(function=Function(name=tool, arguments=parameters))]
+        self.tool_calls = tool_calls = [ToolCall(id=tool, function=Function(name=tool, arguments=parameters))]
         content = f"选择的执行工具为：{tool}， 参数为{parameters}"
 
         logger.info(

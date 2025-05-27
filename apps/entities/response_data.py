@@ -439,7 +439,7 @@ class MCPServiceCardItem(BaseModel):
     icon: str = Field(..., description="mcp服务图标")
     author: str = Field(..., description="mcp服务作者")
     is_active: bool = Field(default=False, alias="isActive", description="mcp服务是否激活")
-    status: MCPStatus = Field(default=MCPStatus.FAILED, description="mcp服务状态")
+    status: MCPStatus = Field(default=MCPStatus.INSTALLING, description="mcp服务状态")
 
 
 class BaseMCPServiceOperationMsg(BaseModel):
