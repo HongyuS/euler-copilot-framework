@@ -181,8 +181,8 @@ class StepExecutor(BaseExecutor):
 
         try:
             content = await self._process_chunk(iterator, to_user=self.obj.to_user)
-        except Exception as e:  # noqa: BLE001
-            logger.error("[StepExecutor] 运行步骤失败: %s", e)  # noqa: TRY400
+        except Exception as e:
+            logger.exception("[StepExecutor] 运行步骤失败，进行异常处理步骤")
             self.task.state.status = StepStatus.ERROR # type: ignore[arg-type]
             await self.push_message(EventType.STEP_OUTPUT.value, {})
             if isinstance(e, CallError):
