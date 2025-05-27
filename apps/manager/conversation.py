@@ -115,41 +115,33 @@ class ConversationManager:
     @staticmethod
     async def update_conversation_by_conversation_id(user_sub: str, conversation_id: str, data: dict[str, Any]) -> bool:
         """通过ConversationID更新对话信息"""
-        try:
-            conv_collection = MongoDB().get_collection("conversation")
-            result = await conv_collection.update_one(
-                {"_id": conversation_id, "user_sub": user_sub},
-                {"$set": data},
-            )
-        except Exception:
-            logger.exception("[ConversationManager] 更新对话失败")
-            return False
-        else:
-            return result.modified_count > 0
+        mongo = MongoDB()
+        conv_collection = mongo.get_collection("conversation")
+        result = await conv_collection.update_one(
+            {"_id": conversation_id, "user_sub": user_sub},
+            {"$set": data},
+        )
+        return result.modified_count > 0
 
     @staticmethod
-    async def delete_conversation_by_conversation_id(user_sub: str, conversation_id: str) -> bool:
+    async def delete_conversation_by_conversation_id(user_sub: str, conversation_id: str) -> None:
         """通过ConversationID删除对话"""
         mongo = MongoDB()
         user_collection = mongo.get_collection("user")
         conv_collection = mongo.get_collection("conversation")
         record_group_collection = mongo.get_collection("record_group")
-        try:
-            async with mongo.get_session() as session, await session.start_transaction():
-                conversation_data = await conv_collection.find_one_and_delete(
-                    {"_id": conversation_id, "user_sub": user_sub}, session=session,
-                )
-                if not conversation_data:
-                    return False
 
-                await user_collection.update_one(
-                    {"_id": user_sub}, {"$pull": {"conversations": conversation_id}}, session=session,
-                )
-                await record_group_collection.delete_many({"conversation_id": conversation_id}, session=session)
-                await session.commit_transaction()
-        except Exception:
-            logger.exception("[ConversationManager] 删除对话失败")
-            return False
-        else:
-            await TaskManager.delete_tasks_by_conversation_id(conversation_id)
-            return True
+        async with mongo.get_session() as session, await session.start_transaction():
+            conversation_data = await conv_collection.find_one_and_delete(
+                {"_id": conversation_id, "user_sub": user_sub}, session=session,
+            )
+            if not conversation_data:
+                return
+
+            await user_collection.update_one(
+                {"_id": user_sub}, {"$pull": {"conversations": conversation_id}}, session=session,
+            )
+            await record_group_collection.delete_many({"conversation_id": conversation_id}, session=session)
+            await session.commit_transaction()
+
+        await TaskManager.delete_tasks_by_conversation_id(conversation_id)
