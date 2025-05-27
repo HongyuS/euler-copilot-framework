@@ -35,7 +35,6 @@ class ProcessHandler:
     def add_task(task_id: str, target: Callable, *args, **kwargs) -> bool:  # noqa: ANN002, ANN003
         """添加任务"""
         logger.info("[ProcessHandler] 添加任务 %s", task_id)
-        ProcessHandler._check_task()
         with ProcessHandler.lock:
             if len(ProcessHandler.tasks) >= ProcessHandler.max_processes:
                 logger.warning("[ProcessHandler] 任务数量已达上限(%s)，请稍后再试。", ProcessHandler.max_processes)
@@ -53,7 +52,6 @@ class ProcessHandler:
                 logger.warning("[ProcessHandler] 任务ID %s 已存在，无法添加。", task_id)
         logger.info("[ProcessHandler] 添加任务成功 %s", task_id)
         return True
-
 
     @staticmethod
     def remove_task(task_id: str) -> None:
@@ -75,15 +73,3 @@ class ProcessHandler:
                 process.close()
             del ProcessHandler.tasks[task_id]
             logger.info("[ProcessHandler] 任务ID %s 被删除。", task_id)
-
-    @staticmethod
-    def _check_task() -> None:
-        """检查任务"""
-        task_list: list[str] = []
-        with ProcessHandler.lock:
-            for task_id, process in ProcessHandler.tasks.items():
-                if not process.is_alive():
-                    task_list.append(task_id)
-        for task_id in task_list:
-            logger.info("[ProcessHandler] 删除任务 %s", task_id)
-            ProcessHandler.remove_task(task_id)

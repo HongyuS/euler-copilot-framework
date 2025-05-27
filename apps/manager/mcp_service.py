@@ -10,7 +10,7 @@ from typing import Any
 from fastapi.encoders import jsonable_encoder
 
 from apps.entities.enum_var import MCPSearchType
-from apps.entities.mcp import MCPConfig, MCPServiceMetadata, MCPStatus, MCPTool, MCPType
+from apps.entities.mcp import MCPCollection, MCPConfig, MCPServiceMetadata, MCPStatus, MCPTool, MCPType
 from apps.entities.response_data import MCPServiceCardItem
 from apps.exceptions import InstancePermissionError
 from apps.models.mongo import MongoDB
@@ -36,6 +36,21 @@ class MCPServiceManager:
         mcp_collection = mongo.get_collection("mcp")
         mcp_list = await mcp_collection.find({"_id": mcp_id}, {"activated": True}).to_list(None)
         return any(user_sub in db_item.get("activated", []) for db_item in mcp_list)
+
+    @staticmethod
+    async def get_all_failed_or_ready_mcp_ids() -> list[str]:
+        """
+        获取所有状态为失败或就绪的MCP服务ID
+
+        :return: MCP服务ID列表
+        """
+        mongo = MongoDB()
+        mcp_collection = mongo.get_collection("mcp")
+        mcp_list = await mcp_collection.find(
+            {"status": {"$in": [MCPStatus.FAILED.value, MCPStatus.READY.value]}},
+            {"_id": True},
+        ).to_list(None)
+        return [db_item["_id"] for db_item in mcp_list]
 
     @staticmethod
     async def get_service_status(mcp_id: str) -> MCPStatus:
@@ -114,6 +129,7 @@ class MCPServiceManager:
             search_type: MCPSearchType,
             user_sub: str,
             keyword: str | None,
+            is_active: bool | None,
             page: int,
             page_size: int,
     ) -> tuple[list[MCPServiceCardItem], int]:
@@ -123,11 +139,14 @@ class MCPServiceManager:
         :param search_type: MCPSearchType: str: MCP描述
         :param user_sub: str: 用户ID
         :param keyword: str: 搜索关键字
+        :param is_active: bool: 是否只获取激活的MCP服务
         :param page: int: 页码
         :param page_size: int: 每页显示数量
         :return: MCP服务列表，MCP总数
         """
         filters = MCPServiceManager._build_filters({}, search_type, keyword) if keyword else {}
+        if is_active is not None:
+            filters["activated"] = {"$in": [user_sub]} if is_active else {"$nin": [user_sub]}
         mcpservice_pools, total_count = await MCPServiceManager._search_mcpservice(filters, page, page_size)
         mcpservices = [
             MCPServiceCardItem(
@@ -325,7 +344,7 @@ class MCPServiceManager:
         mcp_loader = MCPLoader()
         for server in config.mcp_servers.values():
             logger.info("[MCPServiceManager] 初始化mcp")
-            await mcp_loader.init_one_template(mcp_id=mcpservice_id, config=server, user_subs=[user_sub])
+            await mcp_loader.init_one_template(mcp_id=mcpservice_id, config=server)
         return mcpservice_id
 
     @staticmethod
@@ -380,7 +399,7 @@ class MCPServiceManager:
         await MCPServiceManager.deactive_mcpservice(user_sub=user_sub, service_id=mcpservice_id)
         for server in config.mcp_servers.values():
             logger.info("[MCPServiceManager] 初始化mcp")
-            await mcp_loader.init_one_template(mcp_id=mcpservice_id, config=server, user_subs=[user_sub])
+            await mcp_loader.init_one_template(mcp_id=mcpservice_id, config=server)
         # 返回服务ID
         return mcpservice_id
 
@@ -407,9 +426,10 @@ class MCPServiceManager:
             msg = "[MCPServiceManager] 权限不足"
             raise InstancePermissionError(msg)
         # 删除服务
+        doc = MCPCollection.model_validate(db_service)
+        for user_sub in doc.activated:
+            await MCPServiceManager.deactive_mcpservice(user_sub=user_sub, service_id=service_id)
         await MCPServiceManager.delete(service_id)
-
-        await MCPLoader.user_deactive_template(user_sub, service_id)
         await MCPLoader.delete_mcp(service_id)
         return True
 
@@ -434,7 +454,6 @@ class MCPServiceManager:
                 loader = MCPLoader()
                 await loader.user_active_template(user_sub, service_id)
             else:
-                await loader.process_install_mcp(service_id, [user_sub])
                 err = "[MCPServiceManager] MCP服务未准备就绪"
                 logger.error(err)
                 raise RuntimeError(err)

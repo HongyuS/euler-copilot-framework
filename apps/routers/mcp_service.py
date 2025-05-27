@@ -41,6 +41,9 @@ async def get_mcpservice_list(
             MCPSearchType, Query(..., alias="searchType", description="搜索类型"),
         ] = MCPSearchType.ALL,
         keyword: Annotated[str | None, Query(..., alias="keyword", description="搜索关键字")] = None,
+        is_active: Annotated[
+            bool | None, Query(..., alias="isActive", description="是否激活")
+        ] = None,
         page: Annotated[int, Query(..., alias="page", ge=1, description="页码")] = 1,
         page_size: Annotated[int, Query(..., alias="pageSize", ge=1, le=100, description="每页数量")] = 16,
 ) -> JSONResponse:
@@ -50,6 +53,7 @@ async def get_mcpservice_list(
             search_type,
             user_sub,
             keyword,
+            is_active,
             page,
             page_size,
         )

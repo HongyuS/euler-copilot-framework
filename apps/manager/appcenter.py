@@ -15,9 +15,9 @@ from apps.entities.pool import AppPool
 from apps.entities.response_data import RecentAppList, RecentAppListItem
 from apps.exceptions import InstancePermissionError
 from apps.manager.flow import FlowManager
+from apps.manager.mcp_service import MCPServiceManager
 from apps.models.mongo import MongoDB
 from apps.scheduler.pool.loader.app import AppLoader
-
 logger = logging.getLogger(__name__)
 
 
@@ -29,6 +29,7 @@ class AppCenterManager:
         user_sub: str,
         search_type: SearchType,
         keyword: str | None,
+        app_type: AppType | None,
         page: int,
         page_size: int,
     ) -> tuple[list[AppCenterCardItem], int]:
@@ -38,6 +39,7 @@ class AppCenterManager:
         :param user_sub: 用户唯一标识
         :param search_type: 搜索类型
         :param keyword: 搜索关键字
+        :param app_type: 应用类型
         :param page: 页码
         :param page_size: 每页条数
         :return: 应用列表, 总应用数
@@ -54,6 +56,8 @@ class AppCenterManager:
                 if keyword
                 else base_filter
             )
+            if app_type is not None:
+                filters["app_type"] = app_type.value
             # 执行应用搜索
             apps, total_apps = await AppCenterManager._search_apps_by_filter(filters, page, page_size)
             fav_apps = await AppCenterManager._get_favorite_app_ids_by_user(user_sub)
@@ -81,6 +85,7 @@ class AppCenterManager:
         user_sub: str,
         search_type: SearchType,
         keyword: str | None,
+        app_type: AppType | None,
         page: int,
         page_size: int,
     ) -> tuple[list[AppCenterCardItem], int]:
@@ -90,6 +95,7 @@ class AppCenterManager:
         :param user_sub: 用户唯一标识
         :param search_type: 搜索类型
         :param keyword: 搜索关键词
+        :param app_type: 应用类型
         :param page: 页码
         :param page_size: 每页数量
         :return: 应用列表, 总应用数
@@ -109,6 +115,8 @@ class AppCenterManager:
                 if keyword
                 else base_filter
             )
+            if app_type is not None:
+                filters["app_type"] = app_type.value
             apps, total_apps = await AppCenterManager._search_apps_by_filter(filters, page, page_size)
             fav_apps = await AppCenterManager._get_favorite_app_ids_by_user(user_sub)
             return [
@@ -133,6 +141,7 @@ class AppCenterManager:
         user_sub: str,
         search_type: SearchType,
         keyword: str | None,
+        app_type: AppType | None,
         page: int,
         page_size: int,
     ) -> tuple[list[AppCenterCardItem], int]:
@@ -142,6 +151,7 @@ class AppCenterManager:
         :param user_sub: 用户唯一标识
         :param search_type: 搜索类型
         :param keyword: 搜索关键词
+        :param app_type: 应用类型
         :param page: 页码
         :param page_size: 每页数量
         :return: 应用列表，总应用数
@@ -162,6 +172,8 @@ class AppCenterManager:
                 if keyword
                 else base_filter
             )
+            if app_type is not None:
+                filters["app_type"] = app_type.value
             apps, total_apps = await AppCenterManager._search_apps_by_filter(filters, page, page_size)
             return [
                 AppCenterCardItem(
@@ -225,6 +237,11 @@ class AppCenterManager:
                 ),
             )
         elif data.app_type == AppType.AGENT:
+            new_mcp_service = []
+            for mcp_service in data.mcp_service:
+                if MCPServiceManager.is_active(user_sub, mcp_service):
+                    new_mcp_service.append(mcp_service)
+            data.mcp_service = new_mcp_service
             metadata = AgentAppMetadata(
                 app_type=data.app_type,
                 type=MetadataType.APP,
