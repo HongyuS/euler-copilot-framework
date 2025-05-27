@@ -20,7 +20,8 @@ class MCPAgentExecutor(BaseExecutor):
     agent_id: str = Field(default="", description="Agent ID")
     agent_description: str = Field(default="", description="Agent描述")
 
-    async def run(self):
+    async def run(self) -> None:
+        """运行MCP Agent"""
         agent = await MCPAgent.create(
             servers_id=self.servers_id,
             max_steps=self.max_steps,

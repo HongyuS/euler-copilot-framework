@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from apps.common.config import Config
 from apps.common.queue import MessageQueue
 from apps.entities.collection import LLM
-from apps.entities.enum_var import EventType, AppType
+from apps.entities.enum_var import AppType, EventType
 from apps.entities.pool import AppPool
 from apps.entities.rag_data import RAGQueryReq
 from apps.entities.request_data import RequestData

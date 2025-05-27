@@ -34,35 +34,31 @@ class OIDCProvider:
         mongo = MongoDB()
         sessions_collection = mongo.get_collection("session")
 
-        try:
-            await sessions_collection.update_one(
-                {"_id": f"access_token_{user_sub}"},
-                {
-                    "$set": {
-                        "token": access_token,
-                        "expired_at": datetime.now(UTC) + timedelta(minutes=OIDC_ACCESS_TOKEN_EXPIRE_TIME),
-                    },
+        await sessions_collection.update_one(
+            {"_id": f"access_token_{user_sub}"},
+            {
+                "$set": {
+                    "token": access_token,
+                    "expired_at": datetime.now(UTC) + timedelta(minutes=OIDC_ACCESS_TOKEN_EXPIRE_TIME),
                 },
-                upsert=True,
-            )
-            await sessions_collection.update_one(
-                {"_id": f"refresh_token_{user_sub}"},
-                {
-                    "$set": {
-                        "token": refresh_token,
-                        "expired_at": datetime.now(UTC) + timedelta(minutes=OIDC_REFRESH_TOKEN_EXPIRE_TIME),
-                    },
+            },
+            upsert=True,
+        )
+        await sessions_collection.update_one(
+            {"_id": f"refresh_token_{user_sub}"},
+            {
+                "$set": {
+                    "token": refresh_token,
+                    "expired_at": datetime.now(UTC) + timedelta(minutes=OIDC_REFRESH_TOKEN_EXPIRE_TIME),
                 },
-                upsert=True,
-            )
+            },
+            upsert=True,
+        )
 
-            await sessions_collection.create_index(
-                "expired_at",
-                expireAfterSeconds=0,
-            )
-        except Exception as e:
-            logger.exception("[OIDC] 设置MongoDB Token失败")
-            raise RuntimeError(str(e)) from e
+        await sessions_collection.create_index(
+            "expired_at",
+            expireAfterSeconds=0,
+        )
 
     async def get_login_status(self, cookie: dict[str, str]) -> dict[str, Any]:
         """检查登录状态"""
