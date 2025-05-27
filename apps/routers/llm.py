@@ -51,7 +51,7 @@ async def list_llm_provider() -> JSONResponse:
 )
 async def list_llm(
     user_sub: Annotated[str, Depends(get_user)],
-    llm_id: Annotated[str, Query(description="大模型ID", alias="llmId")],
+    llm_id: Annotated[str | None, Query(description="大模型ID", alias="llmId")] = None,
 ) -> JSONResponse:
     """获取大模型列表"""
     llm_list = await LLMManager.list_llm(user_sub, llm_id)
@@ -74,7 +74,7 @@ async def list_llm(
 async def create_llm(
     req: UpdateLLMReq,
     user_sub: Annotated[str, Depends(get_user)],
-    llm_id: Annotated[str, Query(description="大模型ID", alias="llmId")],
+    llm_id: Annotated[str | None, Query(description="大模型ID", alias="llmId")] = None,
 ) -> JSONResponse:
     """创建或更新大模型配置"""
     llm_id = await LLMManager.update_llm(user_sub, llm_id, req)
@@ -119,7 +119,7 @@ async def delete_llm(
 async def update_conv_llm(
     user_sub: Annotated[str, Depends(get_user)],
     conversation_id: Annotated[str, Query(description="对话ID", alias="conversationId")],
-    llm_id: Annotated[str, Query(default="empty", description="llm ID", alias="llmId")] = "empty",
+    llm_id: Annotated[str, Query(description="llm ID", alias="llmId")] = "empty",
 ) -> JSONResponse:
     """更新对话的知识库"""
     llm_id = await LLMManager.update_conversation_llm(user_sub, conversation_id, llm_id)

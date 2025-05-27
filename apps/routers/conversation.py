@@ -286,10 +286,7 @@ async def delete_conversation(
     deleted_conversation = []
     for conversation_id in post_body.conversation_list:
         # 删除对话
-        result = await ConversationManager.delete_conversation_by_conversation_id(user_sub, conversation_id)
-        if not result:
-            continue
-
+        await ConversationManager.delete_conversation_by_conversation_id(user_sub, conversation_id)
         # 删除对话对应的文件
         await DocumentManager.delete_document_by_conversation_id(user_sub, conversation_id)
 

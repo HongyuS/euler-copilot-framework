@@ -91,29 +91,29 @@ async def get_document_list(  # noqa: ANN201
     if unused:
         # 拿到所有未使用的文档
         unused_docs = await DocumentManager.get_unused_docs(user_sub, conversation_id)
-        doc_status = await KnowledgeBaseService.get_doc_status_from_rag([item.id for item in unused_docs])
-        for current_doc in unused_docs:
-            for status_item in doc_status:
-                if current_doc.id != status_item.id:
-                    continue
+        # doc_status = await KnowledgeBaseService.get_doc_status_from_rag([item.id for item in unused_docs])
+        # for current_doc in unused_docs:
+        #     for status_item in doc_status:
+        #         if current_doc.id != status_item.id:
+        #             continue
 
-                if status_item.status == "success":
-                    new_status = DocumentStatus.UNUSED
-                elif status_item.status == "failed":
-                    new_status = DocumentStatus.FAILED
-                else:
-                    new_status = DocumentStatus.PROCESSING
+        #         if status_item.status == "success":
+        #             new_status = DocumentStatus.UNUSED
+        #         elif status_item.status == "failed":
+        #             new_status = DocumentStatus.FAILED
+        #         else:
+        #             new_status = DocumentStatus.PROCESSING
 
-                result += [
-                    ConversationDocumentItem(
-                        _id=current_doc.id,
-                        name=current_doc.name,
-                        type=current_doc.type,
-                        size=round(current_doc.size, 2),
-                        status=new_status,
-                        created_at=current_doc.created_at,
-                    ),
-                ]
+        #         result += [
+        #             ConversationDocumentItem(
+        #                 _id=current_doc.id,
+        #                 name=current_doc.name,
+        #                 type=current_doc.type,
+        #                 size=round(current_doc.size, 2),
+        #                 status=new_status,
+        #                 created_at=current_doc.created_at,
+        #             ),
+        #         ]
 
     # 对外展示的时候用id，不用alias
     return JSONResponse(
