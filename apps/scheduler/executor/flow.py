@@ -48,8 +48,6 @@ class FlowExecutor(BaseExecutor):
     post_body_app: RequestDataApp = Field(description="请求体中的app信息")
 
 
-    """Pydantic配置"""
-
     async def load_state(self) -> None:
         """从数据库中加载FlowExecutor的状态"""
         logger.info("[FlowExecutor] 加载Executor状态")
@@ -87,7 +85,7 @@ class FlowExecutor(BaseExecutor):
         # 初始化步骤
         await step_runner.init()
         # 运行Step
-        await step_runner.run_step()
+        await step_runner.run()
 
         # 更新Task（已存过库）
         self.task = step_runner.task

@@ -29,11 +29,7 @@ class ProcessHandler:
         """子进程目标函数"""
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(target(*args, **kwargs))
-        except Exception:
-            logger.exception("[ProcessHandler] 子进程目标函数异常")
-            raise
+        loop.run_until_complete(target(*args, **kwargs))
 
     @staticmethod
     def add_task(task_id: str, target: Callable, *args, **kwargs) -> bool:  # noqa: ANN002, ANN003
@@ -72,7 +68,7 @@ class ProcessHandler:
                     os.kill(pid, signal.SIGKILL)  # type: ignore[arg-type]
                     logger.info("[ProcessHandler] 进程 %s (%s) 被杀死。", task_id, pid)
                 except Exception:
-                    logger.exception("[ProcessHandler] 杀死进程 %s 失败。", task_id)
+                    logger.exception("[ProcessHandler] 进程 %s 可能已结束", task_id)
             else:
                 process.close()
             del ProcessHandler.tasks[task_id]

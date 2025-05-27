@@ -14,7 +14,7 @@ from apps.entities.flow_topology import (
     NodeServiceItem,
     PositionItem,
 )
-from apps.entities.mcp import MCPTool, MCPType, MCPStatus
+from apps.entities.mcp import MCPStatus, MCPTool, MCPType
 from apps.entities.record import RecordData
 from apps.entities.user import UserInfo
 from apps.templates.generate_llm_operator_config import llm_provider_dict
@@ -582,20 +582,27 @@ class ListLLMProviderRsp(ResponseData):
     result: list[LLMProvider] = Field(default=[], title="Result")
 
 
-class LLM(BaseModel):
+class LLMProviderInfo(BaseModel):
     """LLM数据结构"""
 
     llm_id: str = Field(..., alias="llmId", description="LLM ID")
     icon: str = Field(default="", description="LLM图标", max_length=25536)
-    openai_base_url: str = Field(default="https://api.openai.com/v1",
-                                 description="OpenAI API Base URL", alias="openaiBaseUrl")
-    openai_api_key: str = Field(description="OpenAI API Key", alias="openaiApiKey")
+    openai_base_url: str = Field(
+        default="https://api.openai.com/v1",
+        description="OpenAI API Base URL",
+        alias="openaiBaseUrl",
+    )
+    openai_api_key: str = Field(
+        description="OpenAI API Key",
+        alias="openaiApiKey",
+        default="",
+    )
     model_name: str = Field(description="模型名称", alias="modelName")
-    max_tokens: int = Field(description="最大token数", alias="maxTokens")
+    max_tokens: int | None = Field(default=None, description="最大token数", alias="maxTokens")
     is_editable: bool = Field(default=True, description="是否可编辑", alias="isEditable")
 
 
 class ListLLMRsp(ResponseData):
     """GET /api/llm 返回数据结构"""
 
-    result: list[LLM] = Field(default=[], title="Result")
+    result: list[LLMProviderInfo] = Field(default=[], title="Result")

@@ -164,63 +164,51 @@ class ReasoningLLM:
         if temperature is None:
             temperature = self._config.temperature
 
-        try:
-            msg_list = self._validate_messages(messages)
-        except ValueError as e:
-            err = "消息格式错误"
-            logger.exception(err)
-            raise ValueError(err) from e
-
+        msg_list = self._validate_messages(messages)
         stream = await self._create_stream(msg_list, max_tokens, temperature, model)
         reasoning = ReasoningContent()
         reasoning_content = ""
         result = ""
 
-        try:
-            async for chunk in stream:
-                # 如果包含统计信息
-                if chunk.usage:
-                    self.input_tokens = chunk.usage.prompt_tokens
-                    self.output_tokens = chunk.usage.completion_tokens
-                # 如果没有Choices
-                if not chunk.choices:
-                    continue
+        async for chunk in stream:
+            # 如果包含统计信息
+            if chunk.usage:
+                self.input_tokens = chunk.usage.prompt_tokens
+                self.output_tokens = chunk.usage.completion_tokens
+            # 如果没有Choices
+            if not chunk.choices:
+                continue
 
-                # 处理chunk
-                if reasoning.is_first_chunk:
-                    reason, text = reasoning.process_first_chunk(chunk)
-                else:
-                    reason, text = reasoning.process_chunk(chunk)
+            # 处理chunk
+            if reasoning.is_first_chunk:
+                reason, text = reasoning.process_first_chunk(chunk)
+            else:
+                reason, text = reasoning.process_chunk(chunk)
 
-                # 推送消息
-                if streaming:
-                    if reason and not result_only:
-                        yield reason
-                    if text:
-                        yield text
+            # 推送消息
+            if streaming:
+                if reason and not result_only:
+                    yield reason
+                if text:
+                    yield text
 
-                # 整理结果
-                reasoning_content += reason
-                result += text
+            # 整理结果
+            reasoning_content += reason
+            result += text
 
-            if not streaming:
-                if not result_only:
-                    yield reasoning_content
-                yield result
+        if not streaming:
+            if not result_only:
+                yield reasoning_content
+            yield result
 
-            logger.info("[Reasoning] 推理内容: %s\n\n%s", reasoning_content, result)
+        logger.info("[Reasoning] 推理内容: %s\n\n%s", reasoning_content, result)
 
-            # 更新token统计
-            if self.input_tokens == 0 or self.output_tokens == 0:
-                self.input_tokens = TokenCalculator().calculate_token_length(
-                    messages,
-                )
-                self.output_tokens = TokenCalculator().calculate_token_length(
-                    [{"role": "assistant", "content": result}],
-                    pure_text=True,
-                )
-
-        except Exception as e:
-            err = "调用大模型失败"
-            logger.exception(err)
-            raise RuntimeError(err) from e
+        # 更新token统计
+        if self.input_tokens == 0 or self.output_tokens == 0:
+            self.input_tokens = TokenCalculator().calculate_token_length(
+                messages,
+            )
+            self.output_tokens = TokenCalculator().calculate_token_length(
+                [{"role": "assistant", "content": result}],
+                pure_text=True,
+            )

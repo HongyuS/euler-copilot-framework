@@ -31,14 +31,14 @@ async def push_init_message(
     # 组装feature
     if is_flow:
         feature = InitContentFeature(
-            maxTokens=Config().get_config().llm.max_tokens,
+            maxTokens=Config().get_config().llm.max_tokens or 0,
             contextNum=context_num,
             enableFeedback=False,
             enableRegenerate=False,
         )
     else:
         feature = InitContentFeature(
-            maxTokens=Config().get_config().llm.max_tokens,
+            maxTokens=Config().get_config().llm.max_tokens or 0,
             contextNum=context_num,
             enableFeedback=True,
             enableRegenerate=True,

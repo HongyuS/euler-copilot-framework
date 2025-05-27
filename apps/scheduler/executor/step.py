@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """工作流中步骤相关函数"""
 
+import inspect
 import logging
 import uuid
 from collections.abc import AsyncGenerator
@@ -11,16 +12,21 @@ from pydantic import ConfigDict
 
 from apps.entities.enum_var import (
     EventType,
+    SpecialCallType,
     StepStatus,
 )
 from apps.entities.message import TextAddContent
 from apps.entities.scheduler import CallError, CallOutputChunk
 from apps.entities.task import FlowStepHistory, StepQueueItem
 from apps.manager.node import NodeManager
+from apps.scheduler.call.core import CoreCall
+from apps.scheduler.call.empty import Empty
+from apps.scheduler.call.facts.facts import FactsCall
 from apps.scheduler.call.slot.schema import SlotOutput
 from apps.scheduler.call.slot.slot import Slot
+from apps.scheduler.call.summary.summary import Summary
 from apps.scheduler.executor.base import BaseExecutor
-from apps.scheduler.executor.node import StepNode
+from apps.scheduler.pool.pool import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +46,41 @@ class StepExecutor(BaseExecutor):
         super().__init__(**kwargs)
         self.validate_flow_state(self.task)
 
+    @staticmethod
+    async def check_cls(call_cls: Any) -> bool:
+        """检查Call是否符合标准要求"""
+        flag = True
+        if not hasattr(call_cls, "_init") or not callable(call_cls._init):  # noqa: SLF001
+            flag = False
+        if not hasattr(call_cls, "_exec") or not inspect.isasyncgenfunction(call_cls._exec):  # noqa: SLF001
+            flag = False
+        if not hasattr(call_cls, "info") or not callable(call_cls.info):
+            flag = False
+        return flag
+
+    @staticmethod
+    async def get_call_cls(call_id: str) -> type[CoreCall]:
+        """获取并验证Call类"""
+        # 特判，用于处理隐藏节点
+        if call_id == SpecialCallType.EMPTY.value:
+            return Empty
+        if call_id == SpecialCallType.SUMMARY.value:
+            return Summary
+        if call_id == SpecialCallType.FACTS.value:
+            return FactsCall
+        if call_id == SpecialCallType.SLOT.value:
+            return Slot
+
+        # 从Pool中获取对应的Call
+        call_cls: type[CoreCall] = await Pool().get_call(call_id)
+
+        # 检查Call合法性
+        if not await StepExecutor.check_cls(call_cls):
+            err = f"[FlowExecutor] 工具 {call_id} 不符合Call标准要求"
+            raise ValueError(err)
+
+        return call_cls
+
     async def init(self) -> None:
         """初始化步骤"""
         logger.info("[StepExecutor] 初始化步骤 %s", self.step.step.name)
@@ -58,11 +99,11 @@ class StepExecutor(BaseExecutor):
             self.node = None
 
         if self.node:
-            call_cls = await StepNode.get_call_cls(self.node.call_id)
+            call_cls = await StepExecutor.get_call_cls(self.node.call_id)
             self._call_id = self.node.call_id
         else:
             # 可能是特殊的内置Node
-            call_cls = await StepNode.get_call_cls(node_id)
+            call_cls = await StepExecutor.get_call_cls(node_id)
             self._call_id = node_id
 
         # 初始化Call Class，用户参数会覆盖node的参数
@@ -162,7 +203,7 @@ class StepExecutor(BaseExecutor):
         return content
 
 
-    async def run_step(self) -> None:
+    async def run(self) -> None:
         """运行单个步骤"""
         self.validate_flow_state(self.task)
         logger.info("[StepExecutor] 运行步骤 %s", self.step.step.name)

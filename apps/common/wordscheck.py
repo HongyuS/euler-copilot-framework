@@ -26,7 +26,7 @@ class WordsCheck(metaclass=SingletonMeta):
                     self._words_list = f.read().splitlines()
                 self._initialized = True
             except Exception:
-                logger.exception("[WordsCheck] Failed to initialize words list")
+                logger.exception("[WordsCheck] 初始化敏感词列表失败")
 
     async def _check_wordlist(self, message: str) -> int:
         """使用关键词列表检查敏感词"""
