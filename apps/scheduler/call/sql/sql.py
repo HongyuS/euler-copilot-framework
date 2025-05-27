@@ -57,10 +57,10 @@ class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
         headers = {"Content-Type": "application/json"}
 
         sql_list = []
-        retry = 0
-        max_retry = 3
+        request_num = 0
+        max_request = 5
 
-        while retry < max_retry and len(sql_list) < self.top_k:
+        while request_num < max_request and len(sql_list) < self.top_k:
             try:
                 async with httpx.AsyncClient() as client:
                     response = await client.post(
@@ -69,16 +69,16 @@ class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
                         json=post_data,
                         timeout=60.0,
                     )
+                    request_num += 1
                     if response.status_code == status.HTTP_200_OK:
                         result = response.json()
                         if result["code"] == status.HTTP_200_OK:
                             sql_list.extend(result["result"]["sql_list"])
                     else:
                         logger.error("[SQL] 生成失败：%s", response.text)
-                        retry += 1
             except Exception:
                 logger.exception("[SQL] 生成失败")
-                retry += 1
+                request_num += 1
 
         return sql_list
 
