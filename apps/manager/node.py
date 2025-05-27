@@ -38,14 +38,7 @@ class NodeManager:
         if not node:
             err = f"[NodeManager] Node {node_id} not found."
             raise ValueError(err)
-
-        try:
-            node = NodePool.model_validate(node)
-        except Exception as e:
-            err = f"[NodeManager] Node {node_id} 验证失败"
-            logger.exception(err)
-            raise ValueError(err) from e
-        return node
+        return NodePool.model_validate(node)
 
 
     @staticmethod
@@ -97,13 +90,7 @@ class NodeManager:
             logger.error(err)
             raise ValueError(err)
 
-        try:
-            node_data = NodePool.model_validate(node)
-        except Exception as e:
-            err = "[NodeManager] 获取节点数据失败"
-            logger.exception(err)
-            raise ValueError(err) from e
-
+        node_data = NodePool.model_validate(node)
         call_id = node_data.call_id
 
         # 查找Call信息

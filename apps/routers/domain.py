@@ -28,10 +28,12 @@ async def add_domain(post_body: PostDomainData) -> JSONResponse:
             result={},
         ).model_dump(exclude_none=True, by_alias=True))
 
-    if not await DomainManager.add_domain(post_body):
+    try:
+        await DomainManager.add_domain(post_body)
+    except Exception as e:  # noqa: BLE001
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ResponseData(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="add domain failed",
+            message=f"add domain failed: {e!s}",
             result={},
         ).model_dump(exclude_none=True, by_alias=True))
     return JSONResponse(status_code=status.HTTP_200_OK, content=ResponseData(
@@ -72,10 +74,12 @@ async def delete_domain(post_body: PostDomainData) -> JSONResponse:
             message="delete domain name is not exist.",
             result={},
         ).model_dump(exclude_none=True, by_alias=True))
-    if not await DomainManager.delete_domain_by_domain_name(post_body):
+    try:
+        await DomainManager.delete_domain_by_domain_name(post_body)
+    except Exception as e:  # noqa: BLE001
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ResponseData(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="delete domain failed",
+            message=f"delete domain failed: {e!s}",
             result={},
         ).model_dump(exclude_none=True, by_alias=True))
     return JSONResponse(status_code=status.HTTP_200_OK, content=ResponseData(
