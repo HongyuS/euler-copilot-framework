@@ -5,6 +5,8 @@ import random
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any, Self
 
+from jinja2 import BaseLoader
+from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 from pydantic.json_schema import SkipJsonSchema
 
@@ -18,12 +20,14 @@ from apps.entities.scheduler import (
     CallOutputChunk,
     CallVars,
 )
-from apps.llm.patterns.recommend import Recommend
+from apps.llm.function import FunctionLLM
 from apps.manager.record import RecordManager
 from apps.manager.user_domain import UserDomainManager
 from apps.scheduler.call.core import CoreCall
+from apps.scheduler.call.suggest.prompt import SUGGEST_PROMPT
 from apps.scheduler.call.suggest.schema import (
     SingleFlowSuggestionConfig,
+    SuggestGenResult,
     SuggestionInput,
     SuggestionOutput,
 )
@@ -85,6 +89,13 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
         self._app_id = call_vars.ids.app_id
         self._flow_id = call_vars.ids.flow_id
         app_metadata = await AppCenterManager.fetch_app_data_by_id(self._app_id)
+        self._env = SandboxedEnvironment(
+            loader=BaseLoader(),
+            autoescape=True,
+            trim_blocks=True,
+            lstrip_blocks=True,
+        )
+
         self._avaliable_flows = {}
         for flow in app_metadata.flows:
             self._avaliable_flows[flow.id] = {
@@ -129,6 +140,8 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
         user_domain = await UserDomainManager.get_user_domain_by_user_sub_and_topk(data.user_sub, 5)
         # 已推送问题数量
         pushed_questions = 0
+        # 初始化Prompt
+        prompt_tpl = self._env.from_string(SUGGEST_PROMPT)
 
         # 先处理configs
         for config in self.configs:
@@ -141,17 +154,24 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
             if config.question:
                 question = config.question
             else:
-                recommend_obj = Recommend()
-                questions = await recommend_obj.generate(
+                prompt = prompt_tpl.render(
                     conversation=self.context,
-                    user_preference=user_domain,
-                    history_questions=self._history_questions,
-                    tool_name=config.flow_id,
-                    tool_description=self._avaliable_flows[config.flow_id],
+                    history=self._history_questions,
+                    tool={
+                        "name": config.flow_id,
+                        "description": self._avaliable_flows[config.flow_id],
+                    },
+                    preference=user_domain,
                 )
-                question = questions[random.randint(0, len(questions) - 1)]  # noqa: S311
-                self.tokens.input_tokens += recommend_obj.input_tokens
-                self.tokens.output_tokens += recommend_obj.output_tokens
+                result = await FunctionLLM().call(
+                    messages=[
+                        {"role": "system", "content": "You are a helpful assistant."},
+                        {"role": "user", "content": prompt},
+                    ],
+                    schema=SuggestGenResult.model_json_schema(),
+                )
+                questions = SuggestGenResult.model_validate(result)
+                question = questions.predicted_questions[random.randint(0, len(questions.predicted_questions) - 1)]  # noqa: S311
 
             yield CallOutputChunk(
                 type=CallOutputType.DATA,
@@ -166,19 +186,27 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
 
 
         while pushed_questions < self.num:
-            recommend_obj = Recommend()
-            recommended_questions = await recommend_obj.generate(
+            prompt = prompt_tpl.render(
                 conversation=self.context,
-                user_preference=user_domain,
-                history_questions=self._history_questions,
-                tool_name=self._flow_id,
-                tool_description=self._avaliable_flows[self._flow_id],
+                history=self._history_questions,
+                tool={
+                    "name": self._flow_id,
+                    "description": self._avaliable_flows[self._flow_id],
+                },
+                preference=user_domain,
             )
-            self.tokens.input_tokens += recommend_obj.input_tokens
-            self.tokens.output_tokens += recommend_obj.output_tokens
+            result = await FunctionLLM().call(
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": prompt},
+                ],
+                schema=SuggestGenResult.model_json_schema(),
+            )
+            questions = SuggestGenResult.model_validate(result)
+            question = questions.predicted_questions[random.randint(0, len(questions.predicted_questions) - 1)]  # noqa: S311
 
             # 只会关联当前flow
-            for question in recommended_questions:
+            for question in questions.predicted_questions:
                 if pushed_questions >= self.num:
                     break
 

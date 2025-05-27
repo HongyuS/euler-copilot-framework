@@ -6,6 +6,12 @@ from pydantic import BaseModel, Field
 from apps.scheduler.call.core import DataBase
 
 
+class SuggestGenResult(BaseModel):
+    """问题推荐结果"""
+
+    predicted_questions: list[str] = Field(description="预测的问题列表")
+
+
 class SingleFlowSuggestionConfig(BaseModel):
     """涉及单个Flow的问题推荐配置"""
 
