@@ -428,15 +428,6 @@ class MCPServiceManager:
         if service_pool_store.author != user_sub:
             msg = "[MCPServiceManager] 权限不足"
             raise InstancePermissionError(msg)
-        # 删除服务
-        doc = MCPCollection.model_validate(db_service)
-        for user_sub in doc.activated:
-            await MCPServiceManager.deactive_mcpservice(user_sub=user_sub, service_id=service_id)
-        # 删除应用中的MCP服务
-        await application_collection.update_many(
-            {"mcpService": service_id},
-            {"$pull": {"mcpService": service_id}},
-        )
         await MCPServiceManager.delete(service_id)
         await MCPLoader.delete_mcp(service_id)
         return True

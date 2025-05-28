@@ -98,9 +98,10 @@ class MCPLoader(metaclass=SingletonMeta):
                     await install_uvx(mcp_id, config)
                 elif "npx" in config.command:
                     await install_npx(mcp_id, config)
-            except:
+            except Exception as e:
                 await MCPLoader.update_template_status(mcp_id, MCPStatus.FAILED)
-                raise
+                logger.exception("[MCPLoader] 安装MCP模板失败: %s, 错误: %s", mcp_id, e)
+                raise e
         else:
             logger.info("[MCPLoader] SSE方式的MCP模板，无法自动安装: %s", mcp_id)
         # 更新数据库
@@ -481,6 +482,18 @@ class MCPLoader(metaclass=SingletonMeta):
         """
         # 从MongoDB中移除
         mcp_collection = MongoDB().get_collection("mcp")
+        application_collection = MongoDB().get_collection("application")
+        mcp_service_list = await mcp_collection.find(
+            {"_id": {"$in": deleted_mcp_list}},
+        ).to_list(None)
+        for mcp_service in mcp_service_list:
+            doc = MCPCollection.model_validate(mcp_service)
+            for user_sub in doc.activated:
+                await MCPServiceManager.deactive_mcpservice(user_sub=user_sub, service_id=doc.id)
+            await application_collection.update_many(
+                {"mcpService": doc.id},
+                {"$pull": {"mcpService": doc.id}},
+            )
         await mcp_collection.delete_many({"_id": {"$in": deleted_mcp_list}})
         logger.info("[MCPLoader] 清除数据库中无效的MCP")
 

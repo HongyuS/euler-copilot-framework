@@ -92,13 +92,13 @@ class MCPTool(BaseModel):
 class MCPCollection(BaseModel):
     """MCP相关信息，存储在MongoDB的 ``mcp`` 集合中"""
 
-    id: str = Field(description="MCP ID", alias="_id")
-    name: str = Field(description="MCP 自然语言名称")
-    description: str = Field(description="MCP 自然语言描述")
-    type: MCPType = Field(description="MCP 类型")
+    id: str = Field(description="MCP ID", alias="_id", default="")
+    name: str = Field(description="MCP 自然语言名称", default="")
+    description: str = Field(description="MCP 自然语言描述", default="")
+    type: MCPType = Field(description="MCP 类型", default=MCPType.SSE)
     activated: list[str] = Field(description="激活该MCP的用户ID列表", default=[])
     tools: list[MCPTool] = Field(description="MCP工具列表", default=[])
-    status: MCPStatus = Field(default=MCPStatus.INSTALLING, description="MCP服务状态")
+    status: MCPStatus = Field(description="MCP服务状态", default=MCPStatus.INSTALLING,)
 
 
 class MCPVector(LanceModel):
