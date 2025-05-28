@@ -41,21 +41,15 @@ async def get_mcpservice_list(
             MCPSearchType, Query(..., alias="searchType", description="搜索类型"),
         ] = MCPSearchType.ALL,
         keyword: Annotated[str | None, Query(..., alias="keyword", description="搜索关键字")] = None,
-        is_active: Annotated[
-            bool | None, Query(..., alias="isActive", description="是否激活")
-        ] = None,
         page: Annotated[int, Query(..., alias="page", ge=1, description="页码")] = 1,
-        page_size: Annotated[int, Query(..., alias="pageSize", ge=1, le=100, description="每页数量")] = 16,
 ) -> JSONResponse:
     """获取服务列表"""
     try:
-        service_cards, total_count = await MCPServiceManager.fetch_all_mcpservices(
+        service_cards = await MCPServiceManager.fetch_all_mcpservices(
             search_type,
             user_sub,
             keyword,
-            is_active,
             page,
-            page_size,
         )
     except Exception as e:
         err = f"[MCPServiceCenter] 获取MCP服务列表失败: {e}"
@@ -69,16 +63,6 @@ async def get_mcpservice_list(
             ).model_dump(exclude_none=True, by_alias=True),
         )
 
-    if total_count == -1:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content=ResponseData(
-                code=status.HTTP_400_BAD_REQUEST,
-                message="INVALID_PARAMETER",
-                result={},
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
-
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=GetMCPServiceListRsp(
@@ -86,7 +70,6 @@ async def get_mcpservice_list(
             message="OK",
             result=GetMCPServiceListMsg(
                 currentPage=page,
-                totalCount=total_count,
                 services=service_cards,
             ),
         ).model_dump(exclude_none=True, by_alias=True),
@@ -248,15 +231,6 @@ async def get_service_detail(
         try:
             data = await MCPServiceManager.get_service_details(service_id)
             is_active = await MCPServiceManager.is_active(user_sub, service_id)
-        except ServiceIDError:
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content=ResponseData(
-                    code=status.HTTP_400_BAD_REQUEST,
-                    message="MCPService ID错误",
-                    result={},
-                ).model_dump(exclude_none=True, by_alias=True),
-            )
         except Exception as e:
             err = f"[MCPService] 获取MCP服务API失败: {e}"
             logger.exception(err)
