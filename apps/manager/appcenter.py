@@ -27,7 +27,6 @@ class AppCenterManager:
     @staticmethod
     async def fetch_all_apps(
         user_sub: str,
-        search_type: SearchType,
         keyword: str | None,
         app_type: AppType | None,
         page: int,
@@ -37,7 +36,6 @@ class AppCenterManager:
         获取所有应用列表
 
         :param user_sub: 用户唯一标识
-        :param search_type: 搜索类型
         :param keyword: 搜索关键字
         :param app_type: 应用类型
         :param page: 页码
@@ -46,19 +44,15 @@ class AppCenterManager:
         """
         try:
             # 搜索条件，仅显示已发布的应用
-            base_filter = {"published": True}
-            filters: dict[str, Any] = (
-                AppCenterManager._build_filters(
-                    {"published": True},
-                    search_type,
-                    keyword,
-                )
-                if keyword
-                else base_filter
-            )
+            filters = {"published": True}
+            if keyword:
+                filters["$or"] = [
+                    {"name": {"$regex": keyword, "$options": "i"}},
+                    {"description": {"$regex": keyword, "$options": "i"}},
+                    {"author": {"$regex": keyword, "$options": "i"}},
+                ]
             if app_type is not None:
                 filters["app_type"] = app_type.value
-            # 执行应用搜索
             apps, total_apps = await AppCenterManager._search_apps_by_filter(filters, page, page_size)
             fav_apps = await AppCenterManager._get_favorite_app_ids_by_user(user_sub)
             # 构建返回的应用卡片列表
@@ -83,7 +77,6 @@ class AppCenterManager:
     @staticmethod
     async def fetch_user_apps(
         user_sub: str,
-        search_type: SearchType,
         keyword: str | None,
         app_type: AppType | None,
         page: int,
@@ -93,7 +86,6 @@ class AppCenterManager:
         获取用户应用列表
 
         :param user_sub: 用户唯一标识
-        :param search_type: 搜索类型
         :param keyword: 搜索关键词
         :param app_type: 应用类型
         :param page: 页码
@@ -101,20 +93,13 @@ class AppCenterManager:
         :return: 应用列表, 总应用数
         """
         try:
-            if search_type == SearchType.AUTHOR:
-                if keyword is not None and keyword not in user_sub:
-                    return [], 0
-                keyword = user_sub
-            base_filter = {"author": user_sub}
-            filters: dict[str, Any] = (
-                AppCenterManager._build_filters(
-                    base_filter,
-                    search_type,
-                    keyword,
-                )
-                if keyword
-                else base_filter
-            )
+            filters = {"author": user_sub}
+            if keyword:
+                filters["$or"] = [
+                    {"name": {"$regex": keyword, "$options": "i"}},
+                    {"description": {"$regex": keyword, "$options": "i"}},
+                    {"author": {"$regex": keyword, "$options": "i"}},
+                ]
             if app_type is not None:
                 filters["app_type"] = app_type.value
             apps, total_apps = await AppCenterManager._search_apps_by_filter(filters, page, page_size)
@@ -139,7 +124,6 @@ class AppCenterManager:
     @staticmethod
     async def fetch_favorite_apps(
         user_sub: str,
-        search_type: SearchType,
         keyword: str | None,
         app_type: AppType | None,
         page: int,
@@ -149,7 +133,6 @@ class AppCenterManager:
         获取用户收藏的应用列表
 
         :param user_sub: 用户唯一标识
-        :param search_type: 搜索类型
         :param keyword: 搜索关键词
         :param app_type: 应用类型
         :param page: 页码
@@ -159,19 +142,16 @@ class AppCenterManager:
         try:
             fav_apps = await AppCenterManager._get_favorite_app_ids_by_user(user_sub)
             # 搜索条件
-            base_filter = {
+            filters = {
                 "_id": {"$in": fav_apps},
                 "published": True,
             }
-            filters: dict[str, Any] = (
-                AppCenterManager._build_filters(
-                    base_filter,
-                    search_type,
-                    keyword,
-                )
-                if keyword
-                else base_filter
-            )
+            if keyword:
+                filters["$or"] = [
+                    {"name": {"$regex": keyword, "$options": "i"}},
+                    {"description": {"$regex": keyword, "$options": "i"}},
+                    {"author": {"$regex": keyword, "$options": "i"}},
+                ]
             if app_type is not None:
                 filters["app_type"] = app_type.value
             apps, total_apps = await AppCenterManager._search_apps_by_filter(filters, page, page_size)
