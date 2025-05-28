@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 
 from apps.dependency.user import get_user, verify_user
 from apps.entities.appcenter import AppFlowInfo, AppPermissionData
-from apps.entities.enum_var import SearchType
+from apps.entities.enum_var import SearchType, AppType
 from apps.entities.request_data import CreateAppRequest, ModFavAppRequest
 from apps.entities.response_data import (
     BaseAppOperationMsg,
@@ -42,6 +42,7 @@ async def get_applications(  # noqa: PLR0913
     my_fav: Annotated[bool, Query(..., alias="favorited", description="筛选我收藏的")] = False,
     search_type: Annotated[SearchType, Query(..., alias="searchType", description="搜索类型")] = SearchType.ALL,
     keyword: Annotated[str | None, Query(..., alias="keyword", description="搜索关键字")] = None,
+    app_type: Annotated[AppType | None, Query(..., alias="appType", description="应用类型")] = None,
     page: Annotated[int, Query(..., alias="page", ge=1, description="页码")] = 1,
     page_size: Annotated[int, Query(..., alias="pageSize", ge=1, le=100, description="每页条数")] = 16,
 ) -> JSONResponse:
@@ -58,17 +59,18 @@ async def get_applications(  # noqa: PLR0913
 
     app_cards, total_apps = [], -1
     if my_app:  # 筛选我创建的
-        app_cards, total_apps = await AppCenterManager.fetch_user_apps(user_sub, search_type, keyword, page, page_size)
+        app_cards, total_apps = await AppCenterManager.fetch_user_apps(user_sub, search_type, keyword, app_type, page, page_size)
     elif my_fav:  # 筛选已收藏的
         app_cards, total_apps = await AppCenterManager.fetch_favorite_apps(
             user_sub,
             search_type,
             keyword,
+            app_type,
             page,
             page_size,
         )
     else:  # 获取所有应用
-        app_cards, total_apps = await AppCenterManager.fetch_all_apps(user_sub, search_type, keyword, page, page_size)
+        app_cards, total_apps = await AppCenterManager.fetch_all_apps(user_sub, search_type, keyword, app_type, page, page_size)
     if total_apps == -1:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

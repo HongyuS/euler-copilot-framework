@@ -24,6 +24,7 @@ from apps.entities.mcp import (
     MCPVector,
 )
 from apps.llm.embedding import Embedding
+from apps.manager.mcp_service import MCPServiceManager
 from apps.models.lance import LanceDB
 from apps.models.mongo import MongoDB
 from apps.scheduler.pool.mcp.client import SSEMCPClient, StdioMCPClient
@@ -56,7 +57,6 @@ class MCPLoader(metaclass=SingletonMeta):
             logger.warning("[MCPLoader] users目录不存在，创建中")
             await (MCP_PATH / "users").unlink(missing_ok=True)
             await (MCP_PATH / "users").mkdir(parents=True, exist_ok=True)
-
 
     @staticmethod
     async def _load_config(config_path: Path) -> MCPConfig:
@@ -105,19 +105,15 @@ class MCPLoader(metaclass=SingletonMeta):
             logger.info("[MCPLoader] SSE方式的MCP模板，无法自动安装: %s", mcp_id)
         # 更新数据库
         await MCPLoader._insert_template_db(mcp_id, config)
-        for user_sub in user_subs:
-            user_path = MCP_PATH / "users" / user_sub / mcp_id
-            await asyncer.asyncify(shutil.rmtree)(user_path.as_posix(), ignore_errors=True)
-            await MCPLoader.user_active_template(user_sub, mcp_id)
         await MCPLoader.update_template_status(mcp_id, MCPStatus.READY)
         logger.info("[MCPLoader] MCP模板安装成功: %s", mcp_id)
 
     @staticmethod
     async def _process_install_config(
-            mcp_id: str,
-            config: MCPServerSSEConfig | MCPServerStdioConfig,
-            user_subs: list[str] | None = None
-         ) -> None:
+        mcp_id: str,
+        config: MCPServerSSEConfig | MCPServerStdioConfig,
+        user_subs: list[str] | None = None
+    ) -> None:
         """
         异步安装依赖，并把template同步给用户
 
@@ -128,6 +124,9 @@ class MCPLoader(metaclass=SingletonMeta):
         """
         if user_subs is None:
             user_subs = []
+        mcp_ids = await MCPServiceManager.get_all_failed_or_ready_mcp_ids()
+        for mcp_id in mcp_ids:
+            await ProcessHandler.remove_task(mcp_id)
         if not ProcessHandler.add_task(mcp_id, MCPLoader._install_template_task, mcp_id, config, user_subs):
             logger.warning("安装任务暂时无法执行，请稍后重试: %s", mcp_id)
             await MCPLoader.update_template_status(mcp_id, MCPStatus.INSTALLING)
@@ -204,7 +203,6 @@ class MCPLoader(metaclass=SingletonMeta):
         await f.write(json.dumps(config_data, indent=4, ensure_ascii=False))
         await f.aclose()
 
-
     @staticmethod
     async def _init_all_template() -> None:
         """
@@ -241,7 +239,6 @@ class MCPLoader(metaclass=SingletonMeta):
             server_id, server = next(iter(config.mcp_servers.items()))
             logger.info("[MCPLoader] 初始化MCP模板: %s", mcp_dir.as_posix())
             await MCPLoader.init_one_template(mcp_dir.name, server)
-
 
     @staticmethod
     async def _get_template_tool(
@@ -282,7 +279,6 @@ class MCPLoader(metaclass=SingletonMeta):
             )]
         await client.stop()
         return tool_list
-
 
     @staticmethod
     async def _insert_template_db(mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig) -> None:
@@ -354,7 +350,6 @@ class MCPLoader(metaclass=SingletonMeta):
                     else:
                         raise
         await LanceDB().create_index("mcp_tool")
-
 
     @staticmethod
     async def save_one(user_sub: str | None, mcp_id: str, config: MCPConfig) -> None:
@@ -432,7 +427,6 @@ class MCPLoader(metaclass=SingletonMeta):
             {"$addToSet": {"activated": user_sub}},
         )
 
-
     @staticmethod
     async def user_deactive_template(user_sub: str, mcp_id: str) -> None:
         """
@@ -456,7 +450,6 @@ class MCPLoader(metaclass=SingletonMeta):
             {"$pull": {"activated": user_sub}},
         )
 
-
     @staticmethod
     async def _find_deleted_mcp() -> list[str]:
         """
@@ -475,7 +468,6 @@ class MCPLoader(metaclass=SingletonMeta):
                 deleted_mcp_list.append(db_item["_id"])
         logger.info("[MCPLoader] 这些MCP在文件系统中被删除: %s", deleted_mcp_list)
         return deleted_mcp_list
-
 
     @staticmethod
     async def remove_deleted_mcp(deleted_mcp_list: list[str]) -> None:
@@ -517,11 +509,6 @@ class MCPLoader(metaclass=SingletonMeta):
         template_path = MCP_PATH / "template" / mcp_id
         if await template_path.exists():
             await asyncer.asyncify(shutil.rmtree)(template_path.as_posix(), ignore_errors=True)
-        user_path = MCP_PATH / "users"
-        async for user_id_path in  user_path.iterdir():
-            user_mcp_path = user_id_path / mcp_id
-            if await user_mcp_path.exists():
-                await asyncer.asyncify(shutil.rmtree)(user_mcp_path.as_posix(), ignore_errors=True)
 
     @staticmethod
     async def _load_user_mcp() -> None:
@@ -566,7 +553,6 @@ class MCPLoader(metaclass=SingletonMeta):
             )
             # 确保已激活的MCP依赖已安装
             await MCPLoader.process_install_mcp(mcp_id, user_list)
-
 
     @staticmethod
     async def init() -> None:
