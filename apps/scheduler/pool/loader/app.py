@@ -42,7 +42,7 @@ class AppLoader:
             err = f"[AppLoader] 元数据类型错误: {metadata_path}"
             raise TypeError(err)
 
-        if metadata.app_type == AppType.FLOW:
+        if metadata.app_type == AppType.FLOW and isinstance(metadata, AppMetadata):
             # 加载工作流
             flow_path = app_path / "flow"
             flow_loader = FlowLoader()
@@ -74,7 +74,7 @@ class AppLoader:
                 err = "[AppLoader] Flow应用元数据验证失败"
                 logger.exception(err)
                 raise RuntimeError(err) from e
-        elif metadata.app_type == AppType.AGENT:
+        elif metadata.app_type == AppType.AGENT and isinstance(metadata, AgentAppMetadata):
             # 加载模型
             try:
                 metadata = AgentAppMetadata.model_validate(metadata)
@@ -134,7 +134,7 @@ class AppLoader:
                 shutil.rmtree(str(app_path), ignore_errors=True)
 
     @staticmethod
-    async def _update_db(metadata: AppMetadata) -> None:
+    async def _update_db(metadata: AppMetadata | AgentAppMetadata) -> None:
         """更新数据库"""
         if not metadata.hashes:
             err = f"[AppLoader] 应用 {metadata.id} 的哈希值为空"

@@ -51,16 +51,12 @@ class TaskManager:
         """获取组ID的最后一条问答组关联的任务"""
         task_collection = MongoDB().get_collection("task")
         record_group_collection = MongoDB().get_collection("record_group")
-        try:
-            record_group = await record_group_collection.find_one({"conversation_id": conversation_id, "_id": group_id})
-            if not record_group:
-                return None
-            record_group_obj = RecordGroup.model_validate(record_group)
-            task = await task_collection.find_one({"_id": record_group_obj.task_id})
-            return Task.model_validate(task)
-        except Exception:
-            logger.exception("[TaskManager] 获取组ID的最后一条问答组关联的任务失败")
+        record_group = await record_group_collection.find_one({"conversation_id": conversation_id, "_id": group_id})
+        if not record_group:
             return None
+        record_group_obj = RecordGroup.model_validate(record_group)
+        task = await task_collection.find_one({"_id": record_group_obj.task_id})
+        return Task.model_validate(task)
 
 
     @staticmethod
