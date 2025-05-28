@@ -396,7 +396,9 @@ class MCPServiceManager:
         )
         await MCPServiceManager.save(mcpservice_metadata)
         mcp_loader = MCPLoader()
-        await MCPServiceManager.deactive_mcpservice(user_sub=user_sub, service_id=mcpservice_id)
+        doc = MCPCollection.model_validate(db_service)
+        for user_sub in doc.activated:
+            await MCPServiceManager.deactive_mcpservice(user_sub=user_sub, service_id=mcpservice_id)
         for server in config.mcp_servers.values():
             logger.info("[MCPServiceManager] 初始化mcp")
             await mcp_loader.init_one_template(mcp_id=mcpservice_id, config=server)
@@ -416,6 +418,7 @@ class MCPServiceManager:
         :return: 是否删除成功
         """
         service_collection = MongoDB().get_collection("mcp_service")
+        application_collection = MongoDB().get_collection("application")
         db_service = await service_collection.find_one({"id": service_id}, {"_id": False})
         if not db_service:
             msg = "[MCPServiceManager] MCP服务未找到"
@@ -425,10 +428,6 @@ class MCPServiceManager:
         if service_pool_store.author != user_sub:
             msg = "[MCPServiceManager] 权限不足"
             raise InstancePermissionError(msg)
-        # 删除服务
-        doc = MCPCollection.model_validate(db_service)
-        for user_sub in doc.activated:
-            await MCPServiceManager.deactive_mcpservice(user_sub=user_sub, service_id=service_id)
         await MCPServiceManager.delete(service_id)
         await MCPLoader.delete_mcp(service_id)
         return True
