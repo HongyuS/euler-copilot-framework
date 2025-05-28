@@ -129,7 +129,7 @@ class MCPLoader(metaclass=SingletonMeta):
         for mcp_id in mcp_ids:
             mcp_status = await MCPServiceManager.get_service_status(mcp_id)
             if mcp_status == MCPStatus.FAILED or mcp_status == MCPStatus.READY:
-                await ProcessHandler.remove_task(mcp_id)
+                ProcessHandler.remove_task(mcp_id)
         if not ProcessHandler.add_task(mcp_id, MCPLoader._install_template_task, mcp_id, config, user_subs):
             logger.warning("安装任务暂时无法执行，请稍后重试: %s", mcp_id)
             await MCPLoader.update_template_status(mcp_id, MCPStatus.INSTALLING)
