@@ -7,10 +7,6 @@ from typing import Any
 from lancedb.pydantic import LanceModel, Vector
 from pydantic import BaseModel, Field
 
-from apps.entities.enum_var import (
-    MetadataType,
-)
-
 
 class MCPStatus(str, Enum):
     """MCP 服务状态"""
@@ -26,22 +22,6 @@ class MCPType(str, Enum):
     SSE = "sse"
     STDIO = "stdio"
     STREAMABLE = "stream"
-
-
-class MCPMetadataBase(BaseModel):
-    """
-    MCPService或MCPApp的元数据
-
-    注意：hash字段在save和load的时候exclude
-    """
-
-    id: str = Field(description="元数据ID")
-    type: MetadataType = Field(description="元数据类型")
-    icon: str = Field(description="图标", default="")
-    name: str = Field(description="元数据名称")
-    description: str = Field(description="元数据描述")
-    author: str = Field(description="创建者的用户名")
-    hashes: dict[str, str] = Field(description="配置文件的hash值", default={})
 
 
 class MCPServerConfig(BaseModel):
@@ -126,16 +106,6 @@ class MCPToolSelectResult(BaseModel):
     """MCP工具选择结果"""
 
     name: str = Field(description="工具名称")
-
-
-class MCPServiceMetadata(MCPMetadataBase):
-    """MCPService的元数据"""
-
-    type: MetadataType = MetadataType.SERVICE
-    config: MCPConfig = Field(description="MCP服务配置")
-    config_str: str = Field(description="MCP服务配置字符串", alias="configStr")
-    tools: list[MCPTool] = Field(description="MCP服务Tools列表")
-    mcp_type: MCPType = Field(description="MCP 类型", alias="mcpType")
 
 
 class MCPPlanItem(BaseModel):

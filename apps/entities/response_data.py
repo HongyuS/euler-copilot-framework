@@ -452,7 +452,6 @@ class GetMCPServiceListMsg(BaseModel):
     """GET /api/service Result数据结构"""
 
     current_page: int = Field(..., alias="currentPage", description="当前页码")
-    total_count: int = Field(..., alias="totalCount", description="总服务数")
     services: list[MCPServiceCardItem] = Field(..., description="解析后的服务列表")
 
 
@@ -570,10 +569,10 @@ class ActiveMCPServiceRsp(ResponseData):
 class LLMProvider(BaseModel):
     """LLM提供商数据结构"""
 
-    provider: str = Field(..., description="LLM提供商")
-    description: str = Field(..., description="LLM提供商描述")
+    provider: str = Field(description="LLM提供商")
+    description: str = Field(description="LLM提供商描述")
     url: str | None = Field(default=None, description="LLM提供商URL")
-    icon: str = Field(..., description="LLM提供商图标")
+    icon: str = Field(description="LLM提供商图标")
 
 
 class ListLLMProviderRsp(ResponseData):
@@ -585,7 +584,7 @@ class ListLLMProviderRsp(ResponseData):
 class LLMProviderInfo(BaseModel):
     """LLM数据结构"""
 
-    llm_id: str = Field(..., alias="llmId", description="LLM ID")
+    llm_id: str = Field(alias="llmId", description="LLM ID")
     icon: str = Field(default="", description="LLM图标", max_length=25536)
     openai_base_url: str = Field(
         default="https://api.openai.com/v1",
