@@ -7,10 +7,10 @@ from apps.entities.enum_var import (
     AppType,
     MetadataType,
 )
-from apps.entities.flow import Permission
+from apps.entities.flow import MetadataBase, Permission
 
 
-class AgentAppMetadata(MCPMetadataBase):
+class AgentAppMetadata(MetadataBase):
     """智能体App的元数据"""
 
     type: MetadataType = MetadataType.APP

@@ -3,7 +3,6 @@
 
 import logging
 import uuid
-from hashlib import sha256
 from typing import Any
 
 from apps.constants import SERVICE_PAGE_SIZE
@@ -96,7 +95,7 @@ class MCPServiceManager:
     async def get_mcp_service_detail(
             user_sub: str,
             mcpservice_id: str,
-    ) -> MCPServiceMetadata:
+    ) -> MCPServerConfig:
         """
         验证用户权限，获取MCP服务详细信息
 
@@ -142,7 +141,7 @@ class MCPServiceManager:
     async def _search_mcpservice(
             search_conditions: dict[str, Any],
             page: int,
-    ) -> list[MCPServiceMetadata]:
+    ) -> list[MCPServerConfig]:
         """
         基于输入条件搜索MCP服务
 
