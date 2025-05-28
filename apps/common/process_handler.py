@@ -23,7 +23,8 @@ class ProcessHandler:
     """锁对象"""
     max_processes = max((os.cpu_count() or 1) // 2, 1)
     """最大进程数"""
-
+    timeout = 5
+    """超时时间"""
     @staticmethod
     def subprocess_target(target: Callable, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         """子进程目标函数"""
@@ -32,14 +33,31 @@ class ProcessHandler:
         loop.run_until_complete(target(*args, **kwargs))
 
     @staticmethod
+    def get_all_task_ids() -> list[str]:
+        """获取所有任务ID"""
+        acquired = False
+        acquired = ProcessHandler.lock.acquire(timeout=ProcessHandler.timeout)
+        if not acquired:
+            logger.warning("[ProcessHandler] 获取任务ID时锁超时。")
+            return []
+        taks_ids = list(ProcessHandler.tasks.keys())
+        ProcessHandler.lock.release()
+        return taks_ids
+
+    @staticmethod
     def add_task(task_id: str, target: Callable, *args, **kwargs) -> bool:  # noqa: ANN002, ANN003
         """添加任务"""
+        acquired = False
+        acquired = ProcessHandler.lock.acquire(timeout=ProcessHandler.timeout)
+        if not acquired:
+            logger.warning("[ProcessHandler] 获取任务ID时锁超时。")
+            return False
         logger.info("[ProcessHandler] 添加任务 %s", task_id)
-        with ProcessHandler.lock:
-            if len(ProcessHandler.tasks) >= ProcessHandler.max_processes:
-                logger.warning("[ProcessHandler] 任务数量已达上限(%s)，请稍后再试。", ProcessHandler.max_processes)
-                return False
-
+        if len(ProcessHandler.tasks) >= ProcessHandler.max_processes:
+            logger.warning("[ProcessHandler] 任务数量已达上限(%s)，请稍后再试。", ProcessHandler.max_processes)
+            ProcessHandler.lock.release()
+            return False
+        try:
             if task_id not in ProcessHandler.tasks:
                 process = mp.Process(
                     target=ProcessHandler.subprocess_target,
@@ -50,26 +68,40 @@ class ProcessHandler:
                 process.start()
             else:
                 logger.warning("[ProcessHandler] 任务ID %s 已存在，无法添加。", task_id)
-        logger.info("[ProcessHandler] 添加任务成功 %s", task_id)
-        return True
+                return False
+            logger.info("[ProcessHandler] 添加任务成功 %s", task_id)
+            return True
+        except Exception as e:
+            logger.exception("[ProcessHandler] 添加任务 %s 时发生异常: %s", task_id, e)
+            return False
+        finally:
+            if acquired:
+                ProcessHandler.lock.release()
 
     @staticmethod
     def remove_task(task_id: str) -> None:
         """删除任务"""
-        with ProcessHandler.lock:
-            if task_id not in ProcessHandler.tasks:
-                logger.warning("[ProcessHandler] 任务ID %s 不存在，无法删除。", task_id)
-                return
-            process = ProcessHandler.tasks[task_id]
-
+        acquired = False
+        acquired = ProcessHandler.lock.acquire(timeout=ProcessHandler.timeout)
+        if not acquired:
+            logger.warning("[ProcessHandler] 获取任务ID时锁超时。")
+            return
+        if task_id not in ProcessHandler.tasks:
+            ProcessHandler.lock.release()
+            logger.warning("[ProcessHandler] 任务ID %s 不存在，无法删除。", task_id)
+            return
+        process = ProcessHandler.tasks[task_id]
+        del ProcessHandler.tasks[task_id]
+        logger.info("[ProcessHandler] 任务ID %s 被删除。", task_id)
+        try:
             pid = process.pid if process.is_alive() else None
             if pid is not None:
-                try:
-                    os.kill(pid, signal.SIGKILL)  # type: ignore[arg-type]
-                    logger.info("[ProcessHandler] 进程 %s (%s) 被杀死。", task_id, pid)
-                except Exception:
-                    logger.exception("[ProcessHandler] 进程 %s 可能已结束", task_id)
+                os.kill(pid, signal.SIGKILL)  # type: ignore[arg-type]
+                logger.info("[ProcessHandler] 进程 %s (%s) 被杀死。", task_id, pid)
             else:
                 process.close()
-            del ProcessHandler.tasks[task_id]
-            logger.info("[ProcessHandler] 任务ID %s 被删除。", task_id)
+        except Exception as e:
+            logger.exception("[ProcessHandler] 杀死进程 %s 时发生异常: %s", task_id, e)
+        finally:
+            if acquired:
+                ProcessHandler.lock.release()
