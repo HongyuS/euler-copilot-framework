@@ -4,6 +4,7 @@
 import logging
 from abc import ABCMeta, abstractmethod
 from typing import Optional
+
 from anyio import Path
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
@@ -21,7 +22,7 @@ MCP_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "mcp"
 class MCPClientTool(BaseTool):
     """客户端调用MCP服务器上的工具"""
 
-    session: Optional[ClientSession] = None
+    session: ClientSession | None = None
     server_id: str = ""  # Add server identifier
     original_name: str = ""
 
@@ -91,11 +92,6 @@ class MCPClient(metaclass=ABCMeta):
             await self._session_context.__aexit__(None, None, None) # type: ignore[attr-defined]
         if self._streams_context: # type: ignore[attr-defined]
             await self._streams_context.__aexit__(None, None, None) # type: ignore[attr-defined]
-
-    @property
-    def session(self):
-        return self._session
-
 
 class SSEMCPClient(MCPClient):
     """SSE协议的MCP Client"""

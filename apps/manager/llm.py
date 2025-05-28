@@ -4,7 +4,7 @@
 import logging
 
 from apps.common.config import Config
-from apps.entities.collection import LLM
+from apps.entities.collection import LLM, LLMItem
 from apps.entities.request_data import (
     UpdateLLMReq,
 )
@@ -219,9 +219,9 @@ class LLMManager:
             logger.error(err_msg)
             raise ValueError(err_msg)
 
-        llm_item = LLMProviderInfo(
-            llmId=llm_id,
-            modelName=llm_dict["model_name"],
+        llm_item = LLMItem(
+            llm_id=llm_id,
+            model_name=llm_dict["model_name"],
             icon=llm_dict["icon"],
         )
         await conv_collection.update_one(

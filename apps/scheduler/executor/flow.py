@@ -92,7 +92,7 @@ class FlowExecutor(BaseExecutor):
 
 
     async def _step_process(self) -> None:
-        """单一Step执行"""
+        """执行当前queue里面的所有步骤（在用户看来是单一Step）"""
         while True:
             try:
                 queue_item = self.step_queue.pop()

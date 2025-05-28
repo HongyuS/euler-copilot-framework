@@ -7,9 +7,10 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, Path, Query, status
 from fastapi.responses import JSONResponse
 
+from apps.constants import SERVICE_PAGE_SIZE
 from apps.dependency.user import get_user, verify_user
 from apps.entities.appcenter import AppFlowInfo, AppPermissionData
-from apps.entities.enum_var import SearchType, AppType
+from apps.entities.enum_var import AppType, SearchType
 from apps.entities.request_data import CreateAppRequest, ModFavAppRequest
 from apps.entities.response_data import (
     BaseAppOperationMsg,
@@ -43,7 +44,6 @@ async def get_applications(  # noqa: PLR0913
     keyword: Annotated[str | None, Query(..., alias="keyword", description="搜索关键字")] = None,
     app_type: Annotated[AppType | None, Query(..., alias="appType", description="应用类型")] = None,
     page: Annotated[int, Query(..., alias="page", ge=1, description="页码")] = 1,
-    page_size: Annotated[int, Query(..., alias="pageSize", ge=1, le=100, description="每页条数")] = 16,
 ) -> JSONResponse:
     """获取应用列表"""
     if my_app and my_fav:  # 只能同时使用一个过滤条件
@@ -58,17 +58,31 @@ async def get_applications(  # noqa: PLR0913
 
     app_cards, total_apps = [], -1
     if my_app:  # 筛选我创建的
-        app_cards, total_apps = await AppCenterManager.fetch_user_apps(user_sub, keyword, app_type, page, page_size)
+        app_cards, total_apps = await AppCenterManager.fetch_user_apps(
+            user_sub,
+            search_type,
+            keyword,
+            app_type,
+            page,
+            SERVICE_PAGE_SIZE,
+        )
     elif my_fav:  # 筛选已收藏的
         app_cards, total_apps = await AppCenterManager.fetch_favorite_apps(
             user_sub,
             keyword,
             app_type,
             page,
-            page_size,
+            SERVICE_PAGE_SIZE,
         )
     else:  # 获取所有应用
-        app_cards, total_apps = await AppCenterManager.fetch_all_apps(user_sub, keyword, app_type, page, page_size)
+        app_cards, total_apps = await AppCenterManager.fetch_all_apps(
+            user_sub,
+            search_type,
+            keyword,
+            app_type,
+            page,
+            SERVICE_PAGE_SIZE,
+        )
     if total_apps == -1:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -305,25 +319,22 @@ async def publish_application(
     try:
         published = await AppCenterManager.update_app_publish_status(app_id, user_sub)
         if not published:
-            msg = "发布应用失败"
-            raise ValueError(msg)
-    except ValueError:
-        logger.exception("[AppCenter] 发布应用请求无效")
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content=ResponseData(
-                code=status.HTTP_400_BAD_REQUEST,
-                message="BAD_REQUEST",
-                result={},
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
+            logger.error("[AppCenter] 发布应用失败")
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content=ResponseData(
+                    code=status.HTTP_400_BAD_REQUEST,
+                    message="发布应用失败",
+                    result={},
+                ).model_dump(exclude_none=True, by_alias=True),
+            )
     except InstancePermissionError:
         logger.exception("[AppCenter] 发布应用鉴权失败")
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
             content=ResponseData(
                 code=status.HTTP_403_FORBIDDEN,
-                message="UNAUTHORIZED",
+                message="鉴权失败",
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
@@ -333,7 +344,7 @@ async def publish_application(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
                 code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                message=str(e),
+                message=f"发布应用失败: {e!s}",
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )

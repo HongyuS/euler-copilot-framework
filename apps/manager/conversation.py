@@ -23,28 +23,20 @@ class ConversationManager:
     @staticmethod
     async def get_conversation_by_user_sub(user_sub: str) -> list[Conversation]:
         """根据用户ID获取对话列表，按时间由近到远排序"""
-        try:
-            conv_collection = MongoDB().get_collection("conversation")
-            return [
-                Conversation(**conv)
-                async for conv in conv_collection.find({"user_sub": user_sub, "debug": False}).sort({"created_at": 1})
-            ]
-        except Exception:
-            logger.exception("[ConversationManager] 通过用户ID获取对话失败")
-        return []
+        conv_collection = MongoDB().get_collection("conversation")
+        return [
+            Conversation(**conv)
+            async for conv in conv_collection.find({"user_sub": user_sub, "debug": False}).sort({"created_at": 1})
+        ]
 
     @staticmethod
     async def get_conversation_by_conversation_id(user_sub: str, conversation_id: str) -> Conversation | None:
         """通过ConversationID查询对话信息"""
-        try:
-            conv_collection = MongoDB().get_collection("conversation")
-            result = await conv_collection.find_one({"_id": conversation_id, "user_sub": user_sub})
-            if not result:
-                return None
-            return Conversation.model_validate(result)
-        except Exception:
-            logger.exception("[ConversationManager] 通过ConversationID获取对话失败")
+        conv_collection = MongoDB().get_collection("conversation")
+        result = await conv_collection.find_one({"_id": conversation_id, "user_sub": user_sub})
+        if not result:
             return None
+        return Conversation.model_validate(result)
 
     @staticmethod
     async def add_conversation_by_user_sub(

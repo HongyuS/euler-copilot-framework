@@ -30,3 +30,5 @@ REASONING_BEGIN_TOKEN = [
 REASONING_END_TOKEN = [
     "</think>",
 ]
+# 插件中心每页卡片数量
+SERVICE_PAGE_SIZE = 16
