@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Path, Query, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import get_user, verify_user
-from apps.entities.enum_var import MCPSearchType
+from apps.entities.enum_var import SearchType
 from apps.entities.request_data import ActiveMCPServiceRequest, UpdateMCPServiceRequest
 from apps.entities.response_data import (
     ActiveMCPServiceRsp,
@@ -38,14 +38,14 @@ router = APIRouter(
 async def get_mcpservice_list(
         user_sub: Annotated[str, Depends(get_user)],
         search_type: Annotated[
-            MCPSearchType, Query(..., alias="searchType", description="搜索类型"),
-        ] = MCPSearchType.ALL,
+            SearchType, Query(..., alias="searchType", description="搜索类型"),
+        ] = SearchType.ALL,
         keyword: Annotated[str | None, Query(..., alias="keyword", description="搜索关键字")] = None,
         page: Annotated[int, Query(..., alias="page", ge=1, description="页码")] = 1,
 ) -> JSONResponse:
     """获取服务列表"""
     try:
-        service_cards = await MCPServiceManager.fetch_all_mcpservices(
+        service_cards = await MCPServiceManager.fetch_mcp_services(
             search_type,
             user_sub,
             keyword,
@@ -77,8 +77,8 @@ async def get_mcpservice_list(
 
 
 @router.post("", response_model=UpdateMCPServiceRsp)
-async def create_or_update_mcpservice(  # noqa: PLR0911
-        user_sub: Annotated[str, Depends(get_user)],
+async def create_or_update_mcpservice(
+        user_sub: Annotated[str, Depends(get_user)],  # TODO: get_user直接获取所有用户信息
         data: UpdateMCPServiceRequest,
 ) -> JSONResponse:
     """新建或更新MCP服务"""
@@ -92,23 +92,6 @@ async def create_or_update_mcpservice(  # noqa: PLR0911
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    try:
-        config = await MCPServiceManager.load_mcp_config(
-            description=data.description,
-            config_str=data.config,
-            mcp_type=data.mcp_type,
-        )
-    except Exception as e:
-        err = f"[MCPServiceCenter] 更新MCP服务失败: {e}"
-        logger.exception(err)
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=ResponseData(
-                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                message=f"更新MCP服务失败: {e!s}",
-                result={},
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
     if not data.service_id:
         try:
             service_id = await MCPServiceManager.create_mcpservice(
@@ -117,7 +100,6 @@ async def create_or_update_mcpservice(  # noqa: PLR0911
                 icon=data.icon,
                 description=data.description,
                 config=config,
-                config_str=data.config,
                 mcp_type=data.mcp_type,
             )
         except Exception as e:
@@ -139,17 +121,7 @@ async def create_or_update_mcpservice(  # noqa: PLR0911
                 icon=data.icon,
                 description=data.description,
                 config=config,
-                config_str=data.config,
                 mcp_type=data.mcp_type,
-            )
-        except ServiceIDError:
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content=ResponseData(
-                    code=status.HTTP_400_BAD_REQUEST,
-                    message="MCPService ID错误",
-                    result={},
-                ).model_dump(exclude_none=True, by_alias=True),
             )
         except InstancePermissionError:
             return JSONResponse(
@@ -170,9 +142,14 @@ async def create_or_update_mcpservice(  # noqa: PLR0911
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
-    msg = UpdateMCPServiceMsg(serviceId=service_id, name=data.name)
-    rsp = UpdateMCPServiceRsp(code=status.HTTP_200_OK, message="OK", result=msg)
-    return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))
+    return JSONResponse(status_code=status.HTTP_200_OK, content=UpdateMCPServiceRsp(
+        code=status.HTTP_200_OK,
+        message="OK",
+        result=UpdateMCPServiceMsg(
+            serviceId=service_id,
+            name=data.name,
+        ),
+    ).model_dump(exclude_none=True, by_alias=True))
 
 
 @router.get("/{serviceId}", response_model=GetMCPServiceDetailRsp)
@@ -186,7 +163,7 @@ async def get_service_detail(
     # 示例：返回指定MCP服务的详情
     if edit:
         try:
-            data = await MCPServiceManager.get_mcpservice_data(user_sub, service_id)
+            data = await MCPServiceManager.get_mcp_service_detail(user_sub, service_id)
             is_active = await MCPServiceManager.is_active(user_sub, service_id)
         except ServiceIDError:
             return JSONResponse(

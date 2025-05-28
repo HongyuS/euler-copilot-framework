@@ -9,7 +9,7 @@ from typing import Any
 from apps.entities.agent import AgentAppMetadata
 from apps.entities.appcenter import AppCenterCardItem, AppData
 from apps.entities.collection import User
-from apps.entities.enum_var import AppType, SearchType
+from apps.entities.enum_var import AppType
 from apps.entities.flow import AppMetadata, MetadataType, Permission
 from apps.entities.pool import AppPool
 from apps.entities.response_data import RecentAppList, RecentAppListItem
@@ -45,7 +45,7 @@ class AppCenterManager:
         """
         try:
             # 搜索条件，仅显示已发布的应用
-            filters = {"published": True}
+            filters: dict[str, Any] = {"published": True}
             if keyword:
                 filters["$or"] = [
                     {"name": {"$regex": keyword, "$options": "i"}},
@@ -94,7 +94,7 @@ class AppCenterManager:
         :return: 应用列表, 总应用数
         """
         try:
-            filters = {"author": user_sub}
+            filters: dict[str, Any] = {"author": user_sub}
             if keyword:
                 filters["$or"] = [
                     {"name": {"$regex": keyword, "$options": "i"}},
@@ -523,27 +523,6 @@ class AppCenterManager:
         except Exception:
             logger.exception("[AppCenterManager] 获取默认工作流ID失败")
         return None
-
-    @staticmethod
-    def _build_filters(
-        base_filters: dict[str, Any],
-        search_type: SearchType,
-        keyword: str,
-    ) -> dict[str, Any]:
-        search_filters = [
-            {"name": {"$regex": keyword, "$options": "i"}},
-            {"description": {"$regex": keyword, "$options": "i"}},
-            {"author": {"$regex": keyword, "$options": "i"}},
-        ]
-        if search_type == SearchType.ALL:
-            base_filters["$or"] = search_filters
-        elif search_type == SearchType.NAME:
-            base_filters["name"] = {"$regex": keyword, "$options": "i"}
-        elif search_type == SearchType.DESCRIPTION:
-            base_filters["description"] = {"$regex": keyword, "$options": "i"}
-        elif search_type == SearchType.AUTHOR:
-            base_filters["author"] = {"$regex": keyword, "$options": "i"}
-        return base_filters
 
     @staticmethod
     async def _search_apps_by_filter(

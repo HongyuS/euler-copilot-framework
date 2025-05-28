@@ -24,7 +24,6 @@ from apps.entities.mcp import (
     MCPVector,
 )
 from apps.llm.embedding import Embedding
-from apps.manager.mcp_service import MCPServiceManager
 from apps.models.lance import LanceDB
 from apps.models.mongo import MongoDB
 from apps.scheduler.pool.mcp.client import SSEMCPClient, StdioMCPClient
@@ -80,7 +79,7 @@ class MCPLoader(metaclass=SingletonMeta):
 
     @staticmethod
     async def _install_template_task(
-        mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig, user_subs: list[str]
+        mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig,
     ) -> None:
         """
         安装依赖
@@ -113,7 +112,7 @@ class MCPLoader(metaclass=SingletonMeta):
     async def _process_install_config(
         mcp_id: str,
         config: MCPServerSSEConfig | MCPServerStdioConfig,
-        user_subs: list[str] | None = None
+        user_subs: list[str] | None = None,
     ) -> None:
         """
         异步安装依赖，并把template同步给用户

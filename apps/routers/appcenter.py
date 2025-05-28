@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from apps.constants import SERVICE_PAGE_SIZE
 from apps.dependency.user import get_user, verify_user
 from apps.entities.appcenter import AppFlowInfo, AppPermissionData
-from apps.entities.enum_var import AppType, SearchType
+from apps.entities.enum_var import AppType
 from apps.entities.request_data import CreateAppRequest, ModFavAppRequest
 from apps.entities.response_data import (
     BaseAppOperationMsg,
@@ -60,7 +60,6 @@ async def get_applications(  # noqa: PLR0913
     if my_app:  # 筛选我创建的
         app_cards, total_apps = await AppCenterManager.fetch_user_apps(
             user_sub,
-            search_type,
             keyword,
             app_type,
             page,
@@ -77,7 +76,6 @@ async def get_applications(  # noqa: PLR0913
     else:  # 获取所有应用
         app_cards, total_apps = await AppCenterManager.fetch_all_apps(
             user_sub,
-            search_type,
             keyword,
             app_type,
             page,

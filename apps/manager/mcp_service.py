@@ -7,7 +7,7 @@ from hashlib import sha256
 from typing import Any
 
 from apps.constants import SERVICE_PAGE_SIZE
-from apps.entities.enum_var import MCPSearchType
+from apps.entities.enum_var import SearchType
 from apps.entities.mcp import (
     MCPCollection,
     MCPConfig,
@@ -62,8 +62,8 @@ class MCPServiceManager:
         return MCPStatus.FAILED
 
     @staticmethod
-    async def fetch_all_mcpservices(
-            search_type: MCPSearchType,
+    async def fetch_mcp_services(
+            search_type: SearchType,
             user_sub: str,
             keyword: str | None,
             page: int,
@@ -71,31 +71,29 @@ class MCPServiceManager:
         """
         获取所有MCP服务列表
 
-        :param search_type: MCPSearchType: str: MCP描述
+        :param search_type: SearchType: str: MCP描述
         :param user_sub: str: 用户ID
         :param keyword: str: 搜索关键字
         :param page: int: 页码
         :return: MCP服务列表
         """
-        filters = MCPServiceManager._build_filters({}, search_type, keyword) if keyword else {}
-        mcpservice_pools = await MCPServiceManager._search_mcpservice(filters, page, SERVICE_PAGE_SIZE)
-        mcpservices = [
+        filters = MCPServiceManager._build_filters(search_type, keyword)
+        mcpservice_pools = await MCPServiceManager._search_mcpservice(filters, page)
+        return [
             MCPServiceCardItem(
                 mcpserviceId=mcpservice_pool.id,
                 icon=mcpservice_pool.icon,
                 name=mcpservice_pool.name,
                 description=mcpservice_pool.description,
                 author=mcpservice_pool.author,
+                isActive=await MCPServiceManager.is_active(user_sub, mcpservice_pool.id),
+                status=await MCPServiceManager.get_service_status(mcpservice_pool.id),
             )
             for mcpservice_pool in mcpservice_pools
         ]
-        for mcp in mcpservices:
-            mcp.is_active = await MCPServiceManager.is_active(user_sub, mcp.mcpservice_id)
-            mcp.status = await MCPServiceManager.get_service_status(mcp.mcpservice_id)
-        return mcpservices
 
     @staticmethod
-    async def get_mcpservice_data(
+    async def get_mcp_service_detail(
             user_sub: str,
             mcpservice_id: str,
     ) -> MCPServiceMetadata:
@@ -168,20 +166,26 @@ class MCPServiceManager:
 
     @staticmethod
     def _build_filters(
-            base_filters: dict[str, Any],
-            search_type: MCPSearchType,
-            keyword: str,
+            search_type: SearchType,
+            keyword: str | None,
     ) -> dict[str, Any]:
+        if not keyword:
+            return {}
+
+        base_filters = {}
         search_filters = [
             {"name": {"$regex": keyword, "$options": "i"}},
             {"description": {"$regex": keyword, "$options": "i"}},
             {"author": {"$regex": keyword, "$options": "i"}},
         ]
-        if search_type == MCPSearchType.ALL:
+
+        if search_type == SearchType.ALL:
             base_filters["$or"] = search_filters
-        elif search_type == MCPSearchType.NAME:
+        elif search_type == SearchType.NAME:
             base_filters["name"] = {"$regex": keyword, "$options": "i"}
-        elif search_type == MCPSearchType.AUTHOR:
+        elif search_type == SearchType.DESCRIPTION:
+            base_filters["description"] = {"$regex": keyword, "$options": "i"}
+        elif search_type == SearchType.AUTHOR:
             base_filters["author"] = {"$regex": keyword, "$options": "i"}
         return base_filters
 
@@ -233,7 +237,6 @@ class MCPServiceManager:
             author=user_sub,
             config=config,
             tools=tools,
-            configStr=config_str,
             mcpType=mcp_type,
         )
         await MCPServiceManager.save(service_metadata)
@@ -251,7 +254,6 @@ class MCPServiceManager:
             icon: str,
             description: str,
             config: MCPConfig,
-            config_str: str,
             mcp_type: MCPType,
     ) -> str:
         """
@@ -263,7 +265,6 @@ class MCPServiceManager:
         :param icon: str: MCP服务图标，base64格式字符串
         :param description: str: MCP服务描述
         :param config: MCPConfig: MCP服务配置
-        :param config_str: str: MCP服务配置字符串
         :param mcp_type: MCPType: MCP服务类型
         :return: MCP服务ID
         """
@@ -287,7 +288,6 @@ class MCPServiceManager:
             config=config,
             tools=service_pool_store.tools,
             hashes=service_pool_store.hashes,
-            configStr=config_str,
             mcpType=mcp_type,
         )
         await MCPServiceManager.save(mcpservice_metadata)
@@ -314,7 +314,6 @@ class MCPServiceManager:
         :return: 是否删除成功
         """
         service_collection = MongoDB().get_collection("mcp")
-        application_collection = MongoDB().get_collection("application")
         db_service = await service_collection.find_one({"id": service_id}, {"_id": False})
         if not db_service:
             msg = "[MCPServiceManager] MCP服务未找到"

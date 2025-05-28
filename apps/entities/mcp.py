@@ -78,7 +78,7 @@ class MCPCollection(BaseModel):
     type: MCPType = Field(description="MCP 类型", default=MCPType.SSE)
     activated: list[str] = Field(description="激活该MCP的用户ID列表", default=[])
     tools: list[MCPTool] = Field(description="MCP工具列表", default=[])
-    status: MCPStatus = Field(description="MCP服务状态", default=MCPStatus.INSTALLING,)
+    status: MCPStatus = Field(description="MCP服务状态", default=MCPStatus.INSTALLING)
 
 
 class MCPVector(LanceModel):

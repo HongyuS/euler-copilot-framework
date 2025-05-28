@@ -8,7 +8,6 @@ from apps.entities.enum_var import (
     MetadataType,
 )
 from apps.entities.flow import Permission
-from apps.entities.mcp import MCPMetadataBase
 
 
 class AgentAppMetadata(MCPMetadataBase):
