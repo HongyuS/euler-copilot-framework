@@ -7,10 +7,9 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, Path, Query, status
 from fastapi.responses import JSONResponse
 
-from apps.constants import SERVICE_PAGE_SIZE
 from apps.dependency.user import get_user, verify_user
 from apps.entities.appcenter import AppFlowInfo, AppPermissionData
-from apps.entities.enum_var import AppType
+from apps.entities.enum_var import AppFilterType, AppType
 from apps.entities.request_data import CreateAppRequest, ModFavAppRequest
 from apps.entities.response_data import (
     BaseAppOperationMsg,
@@ -55,33 +54,17 @@ async def get_applications(  # noqa: PLR0913
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-
-    app_cards, total_apps = [], -1
-    if my_app:  # 筛选我创建的
-        app_cards, total_apps = await AppCenterManager.fetch_user_apps(
+    try:
+        filter_type = AppFilterType.USER if my_app else (AppFilterType.FAVORITE if my_fav else AppFilterType.ALL)
+        app_cards, total_apps = await AppCenterManager.fetch_apps(
             user_sub,
             keyword,
             app_type,
             page,
-            SERVICE_PAGE_SIZE,
+            filter_type,
         )
-    elif my_fav:  # 筛选已收藏的
-        app_cards, total_apps = await AppCenterManager.fetch_favorite_apps(
-            user_sub,
-            keyword,
-            app_type,
-            page,
-            SERVICE_PAGE_SIZE,
-        )
-    else:  # 获取所有应用
-        app_cards, total_apps = await AppCenterManager.fetch_all_apps(
-            user_sub,
-            keyword,
-            app_type,
-            page,
-            SERVICE_PAGE_SIZE,
-        )
-    if total_apps == -1:
+    except Exception:
+        logger.exception("[AppCenter] 获取应用列表失败")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(

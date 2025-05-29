@@ -6,10 +6,11 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from apps.constants import SERVICE_PAGE_SIZE
 from apps.entities.agent import AgentAppMetadata
-from apps.entities.appcenter import AppCenterCardItem, AppData
+from apps.entities.appcenter import AppCenterCardItem, AppData, AppPermissionData
 from apps.entities.collection import User
-from apps.entities.enum_var import AppType
+from apps.entities.enum_var import AppFilterType, AppType
 from apps.entities.flow import AppMetadata, MetadataType, Permission
 from apps.entities.pool import AppPool
 from apps.entities.response_data import RecentAppList, RecentAppListItem
@@ -26,166 +27,85 @@ class AppCenterManager:
     """应用中心管理器"""
 
     @staticmethod
-    async def fetch_all_apps(
+    async def fetch_apps(
         user_sub: str,
         keyword: str | None,
         app_type: AppType | None,
         page: int,
-        page_size: int,
+        filter_type: AppFilterType,
     ) -> tuple[list[AppCenterCardItem], int]:
         """
-        获取所有应用列表
+        获取应用列表
 
         :param user_sub: 用户唯一标识
         :param keyword: 搜索关键字
         :param app_type: 应用类型
         :param page: 页码
-        :param page_size: 每页条数
+        :param filter_type: 过滤类型
         :return: 应用列表, 总应用数
         """
-        try:
-            # 搜索条件，仅显示已发布的应用
-            filters: dict[str, Any] = {"published": True}
-            if keyword:
-                filters["$or"] = [
-                    {"name": {"$regex": keyword, "$options": "i"}},
-                    {"description": {"$regex": keyword, "$options": "i"}},
-                    {"author": {"$regex": keyword, "$options": "i"}},
-                ]
-            if app_type is not None:
-                filters["app_type"] = app_type.value
-            apps, total_apps = await AppCenterManager._search_apps_by_filter(filters, page, page_size)
-            fav_apps = await AppCenterManager._get_favorite_app_ids_by_user(user_sub)
-            # 构建返回的应用卡片列表
-            return [
-                AppCenterCardItem(
-                    appId=app.id,
-                    appType=app.app_type,
-                    icon=app.icon,
-                    name=app.name,
-                    description=app.description,
-                    author=app.author,
-                    favorited=(app.id in fav_apps),
-                    published=app.published,
-                )
-                for app in apps
-            ], total_apps
+        filters: dict[str, Any] = {}
 
-        except Exception:
-            logger.exception("[AppCenterManager] 获取应用列表失败")
-        return [], -1
+        user_favorite_app_ids = await AppCenterManager._get_favorite_app_ids_by_user(user_sub)
 
-    @staticmethod
-    async def fetch_user_apps(
-        user_sub: str,
-        keyword: str | None,
-        app_type: AppType | None,
-        page: int,
-        page_size: int,
-    ) -> tuple[list[AppCenterCardItem], int]:
-        """
-        获取用户应用列表
-
-        :param user_sub: 用户唯一标识
-        :param keyword: 搜索关键词
-        :param app_type: 应用类型
-        :param page: 页码
-        :param page_size: 每页数量
-        :return: 应用列表, 总应用数
-        """
-        try:
-            filters: dict[str, Any] = {"author": user_sub}
-            if keyword:
-                filters["$or"] = [
-                    {"name": {"$regex": keyword, "$options": "i"}},
-                    {"description": {"$regex": keyword, "$options": "i"}},
-                    {"author": {"$regex": keyword, "$options": "i"}},
-                ]
-            if app_type is not None:
-                filters["app_type"] = app_type.value
-            apps, total_apps = await AppCenterManager._search_apps_by_filter(filters, page, page_size)
-            fav_apps = await AppCenterManager._get_favorite_app_ids_by_user(user_sub)
-            return [
-                AppCenterCardItem(
-                    appId=app.id,
-                    appType=app.app_type,
-                    icon=app.icon,
-                    name=app.name,
-                    description=app.description,
-                    author=app.author,
-                    favorited=(app.id in fav_apps),
-                    published=app.published,
-                )
-                for app in apps
-            ], total_apps
-        except Exception:
-            logger.exception("[AppCenterManager] 获取用户应用列表失败")
-        return [], -1
-
-    @staticmethod
-    async def fetch_favorite_apps(
-        user_sub: str,
-        keyword: str | None,
-        app_type: AppType | None,
-        page: int,
-        page_size: int,
-    ) -> tuple[list[AppCenterCardItem], int]:
-        """
-        获取用户收藏的应用列表
-
-        :param user_sub: 用户唯一标识
-        :param keyword: 搜索关键词
-        :param app_type: 应用类型
-        :param page: 页码
-        :param page_size: 每页数量
-        :return: 应用列表，总应用数
-        """
-        try:
-            fav_apps = await AppCenterManager._get_favorite_app_ids_by_user(user_sub)
-            # 搜索条件
+        if filter_type == AppFilterType.ALL:
+            # 获取所有已发布的应用
+            filters["published"] = True
+        elif filter_type == AppFilterType.USER:
+            # 获取用户创建的应用
+            filters["author"] = user_sub
+        elif filter_type == AppFilterType.FAVORITE:
+            # 获取用户收藏的应用
             filters = {
-                "_id": {"$in": fav_apps},
+                "_id": {"$in": user_favorite_app_ids},
                 "published": True,
             }
-            if keyword:
-                filters["$or"] = [
-                    {"name": {"$regex": keyword, "$options": "i"}},
-                    {"description": {"$regex": keyword, "$options": "i"}},
-                    {"author": {"$regex": keyword, "$options": "i"}},
-                ]
-            if app_type is not None:
-                filters["app_type"] = app_type.value
-            apps, total_apps = await AppCenterManager._search_apps_by_filter(filters, page, page_size)
-            return [
-                AppCenterCardItem(
-                    appId=app.id,
-                    appType=app.app_type,
-                    icon=app.icon,
-                    name=app.name,
-                    description=app.description,
-                    author=app.author,
-                    favorited=True,
-                    published=app.published,
-                )
-                for app in apps
-            ], total_apps
-        except Exception:
-            logger.exception("[AppCenterManager] 获取用户收藏应用列表失败")
-        return [], -1
+
+        # 添加关键字搜索条件
+        if keyword:
+            filters["$or"] = [
+                {"name": {"$regex": keyword, "$options": "i"}},
+                {"description": {"$regex": keyword, "$options": "i"}},
+                {"author": {"$regex": keyword, "$options": "i"}},
+            ]
+
+        # 添加应用类型过滤条件
+        if app_type is not None:
+            filters["app_type"] = app_type.value
+
+        # 获取应用列表
+        apps, total_apps = await AppCenterManager._search_apps_by_filter(filters, page, SERVICE_PAGE_SIZE)
+
+        # 构建返回的应用卡片列表
+        app_cards = [
+            AppCenterCardItem(
+                appId=app.id,
+                appType=app.app_type,
+                icon=app.icon,
+                name=app.name,
+                description=app.description,
+                author=app.author,
+                favorited=(app.id in user_favorite_app_ids),
+                published=app.published,
+            )
+            for app in apps
+        ]
+
+        return app_cards, total_apps
 
     @staticmethod
     async def fetch_app_data_by_id(app_id: str) -> AppPool:
         """
         根据应用ID获取应用元数据
 
-        :param app_id: 应用ID
+        :param app_id: 应用唯一标识
         :return: 应用元数据
         """
         mongo = MongoDB()
         app_collection = mongo.get_collection("app")
         db_data = await app_collection.find_one({"_id": app_id})
         if not db_data:
-            msg = "App not found"
+            msg = "应用不存在"
             raise ValueError(msg)
         return AppPool.model_validate(db_data)
 
@@ -196,54 +116,15 @@ class AppCenterManager:
 
         :param user_sub: 用户唯一标识
         :param data: 应用数据
-        :return: 应用ID
+        :return: 应用唯一标识
         """
         app_id = str(uuid.uuid4())
-        if data.app_type == AppType.FLOW:
-            metadata = AppMetadata(
-                app_type=data.app_type,
-                type=MetadataType.APP,
-                id=app_id,
-                icon=data.icon,
-                name=data.name,
-                description=data.description,
-                version="1.0.0",
-                author=user_sub,
-                links=data.links,
-                first_questions=data.first_questions,
-                history_len=data.history_len,
-                permission=Permission(
-                    type=data.permission.type,
-                    users=data.permission.users or [],
-                ),
-            )
-        elif data.app_type == AppType.AGENT:
-            new_mcp_service = []
-            for mcp_service in data.mcp_service:
-                if MCPServiceManager.is_active(user_sub, mcp_service):
-                    new_mcp_service.append(mcp_service)
-            data.mcp_service = new_mcp_service
-            metadata = AgentAppMetadata(
-                app_type=data.app_type,
-                type=MetadataType.APP,
-                id=app_id,
-                icon=data.icon,
-                name=data.name,
-                description=data.description,
-                version="1.0.0",
-                author=user_sub,
-                mcpService=data.mcp_service,
-                history_len=data.history_len,
-                permission=Permission(
-                    type=data.permission.type,
-                    users=data.permission.users or [],
-                ),
-            )
-        else:
-            msg = "Invalid app type"
-            raise ValueError(msg)
-        app_loader = AppLoader()
-        await app_loader.save(metadata, app_id)
+        await AppCenterManager._process_app_and_save(
+            app_type=data.app_type,
+            app_id=app_id,
+            user_sub=user_sub,
+            data=data,
+        )
         return app_id
 
     @staticmethod
@@ -255,58 +136,21 @@ class AppCenterManager:
         :param app_id: 应用唯一标识
         :param data: 应用数据
         """
-        mongo = MongoDB()
-        app_collection = mongo.get_collection("app")
-        app_data = AppPool.model_validate(await app_collection.find_one({"_id": app_id}))
-        if not app_data:
-            msg = "App not found"
-            raise ValueError(msg)
-        if app_data.author != user_sub:
-            msg = "Permission denied"
-            raise InstancePermissionError(msg)
+        # 获取应用数据并验证权限
+        app_data = await AppCenterManager._get_app_data(app_id, user_sub)
+
+        # 不允许更改应用类型
         if app_data.app_type != data.app_type:
-            err = "Can not change app type"
+            err = "不允许更改应用类型"
             raise ValueError(err)
-        if data.app_type == AppType.FLOW:
-            metadata = AppMetadata(
-                type=MetadataType.APP,
-                id=app_id,
-                icon=data.icon,
-                name=data.name,
-                description=data.description,
-                version="1.0.0",
-                author=user_sub,
-                links=data.links,
-                first_questions=data.first_questions,
-                history_len=data.history_len,
-                permission=Permission(
-                    type=data.permission.type,
-                    users=data.permission.users or [],
-                ),
-            )
-            metadata.flows = app_data.flows
-            metadata.published = app_data.published
-        elif data.app_type == AppType.AGENT:
-            metadata = AgentAppMetadata(
-                type=MetadataType.APP,
-                id=app_id,
-                icon=data.icon,
-                name=data.name,
-                description=data.description,
-                version="1.0.0",
-                author=user_sub,
-                mcpService=data.mcp_service,
-                history_len=data.history_len,
-                permission=Permission(
-                    type=data.permission.type,
-                    users=data.permission.users or [],
-                ),
-            )
-        else:
-            msg = "Invalid app type"
-            raise ValueError(msg)
-        app_loader = AppLoader()
-        await app_loader.save(metadata, app_id)
+
+        await AppCenterManager._process_app_and_save(
+            app_type=data.app_type,
+            app_id=app_id,
+            user_sub=user_sub,
+            data=data,
+            app_data=app_data,
+        )
 
     @staticmethod
     async def update_app_publish_status(app_id: str, user_sub: str) -> bool:
@@ -315,60 +159,34 @@ class AppCenterManager:
 
         :param app_id: 应用唯一标识
         :param user_sub: 用户唯一标识
+        :return: 发布状态
         """
-        mongo = MongoDB()
-        app_collection = mongo.get_collection("app")
-        app_data = AppPool.model_validate(await app_collection.find_one({"_id": app_id}))
-        if not app_data:
-            msg = "App not found"
-            raise ValueError(msg)
-        if app_data.author != user_sub:
-            msg = "Permission denied"
-            raise InstancePermissionError(msg)
+        # 获取应用数据并验证权限
+        app_data = await AppCenterManager._get_app_data(app_id, user_sub)
+
+        # 计算发布状态
         published = True
         for flow in app_data.flows:
             if not flow.debug:
                 published = False
                 break
+
+        # 更新数据库
+        mongo = MongoDB()
+        app_collection = mongo.get_collection("app")
         await app_collection.update_one(
             {"_id": app_id},
             {"$set": {"published": published}},
         )
-        if app_data.app_type == AppType.FLOW:
-            metadata = AppMetadata(
-                type=MetadataType.APP,
-                id=app_id,
-                icon=app_data.icon,
-                name=app_data.name,
-                description=app_data.description,
-                version="1.0.0",
-                author=user_sub,
-                links=app_data.links,
-                first_questions=app_data.first_questions,
-                history_len=app_data.history_len,
-                permission=app_data.permission,
-                published=published,
-                flows=app_data.flows,
-            )
-        elif app_data.app_type == AppType.AGENT:
-            metadata = AgentAppMetadata(
-                type=MetadataType.APP,
-                id=app_id,
-                icon=app_data.icon,
-                name=app_data.name,
-                description=app_data.description,
-                version="1.0.0",
-                author=user_sub,
-                mcpService=app_data.mcp_service,
-                history_len=app_data.history_len,
-                permission=app_data.permission,
-                published=published,
-            )
-        else:
-            msg = "Invalid app type"
-            raise ValueError(msg)
-        app_loader = AppLoader()
-        await app_loader.save(metadata, app_id)
+
+        await AppCenterManager._process_app_and_save(
+            app_type=app_data.app_type,
+            app_id=app_id,
+            user_sub=user_sub,
+            app_data=app_data,
+            published=published,
+        )
+
         return published
 
     @staticmethod
@@ -385,17 +203,17 @@ class AppCenterManager:
         user_collection = mongo.get_collection("user")
         db_data = await app_collection.find_one({"_id": app_id})
         if not db_data:
-            msg = "App not found"
+            msg = "应用不存在"
             raise ValueError(msg)
         db_user = await user_collection.find_one({"_id": user_sub})
         if not db_user:
-            msg = "User not found"
+            msg = "用户不存在"
             raise ValueError(msg)
         user_data = User.model_validate(db_user)
 
         already_favorited = app_id in user_data.fav_apps
         if favorited == already_favorited:
-            msg = "Duplicate operation"
+            msg = "重复操作"
             raise ValueError(msg)
 
         if favorited:
@@ -421,10 +239,10 @@ class AppCenterManager:
         app_collection = mongo.get_collection("app")
         app_data = AppPool.model_validate(await app_collection.find_one({"_id": app_id}))
         if not app_data:
-            msg = "App not found"
+            msg = "应用不存在"
             raise ValueError(msg)
         if app_data.author != user_sub:
-            msg = "Permission denied"
+            msg = "权限不足"
             raise InstancePermissionError(msg)
         # 删除应用
         await AppLoader.delete(app_id)
@@ -458,7 +276,7 @@ class AppCenterManager:
             apps = []  # 如果 app_ids 为空，直接返回空列表
         else:
             # 查询 MongoDB，获取符合条件的应用
-            apps = await app_collection.find({"_id": {"$in": app_ids}}, {"name": 1}).to_list(len(app_ids))
+            apps = await app_collection.find({"_id": {"$in": app_ids}}, {"name": 1}).to_list(length=len(app_ids))
         app_map = {str(a["_id"]): a.get("name", "") for a in apps}
         return RecentAppList(
             applications=[RecentAppListItem(appId=app_id, name=app_map.get(app_id, "")) for app_id in app_ids],
@@ -505,7 +323,7 @@ class AppCenterManager:
         """
         获取默认工作流ID
 
-        :param app_id: 应用ID
+        :param app_id: 应用唯一标识
         :return: 默认工作流ID
         """
         try:
@@ -531,33 +349,231 @@ class AppCenterManager:
         page_size: int,
     ) -> tuple[list[AppPool], int]:
         """根据过滤条件搜索应用并计算总页数"""
-        try:
-            mongo = MongoDB()
-            app_collection = mongo.get_collection("app")
-            total_apps = await app_collection.count_documents(search_conditions)
-            db_data = (
-                await app_collection.find(search_conditions)
-                .sort("created_at", -1)
-                .skip((page - 1) * page_size)
-                .limit(page_size)
-                .to_list(length=page_size)
-            )
-            apps = [AppPool.model_validate(doc) for doc in db_data]
-        except Exception:
-            logger.exception("[AppCenterManager] 根据过滤条件搜索应用失败")
-            return [], -1
+        mongo = MongoDB()
+        app_collection = mongo.get_collection("app")
+        total_apps = await app_collection.count_documents(search_conditions)
+        db_data = (
+            await app_collection.find(search_conditions)
+            .sort("created_at", -1)
+            .skip((page - 1) * page_size)
+            .limit(page_size)
+            .to_list(length=page_size)
+        )
+        apps = [AppPool.model_validate(doc) for doc in db_data]
+        return apps, total_apps
+
+    @staticmethod
+    async def _get_app_data(app_id: str, user_sub: str, *, check_permission: bool = True) -> AppPool:
+        """
+        从数据库获取应用数据并验证权限
+
+        :param app_id: 应用唯一标识
+        :param user_sub: 用户唯一标识
+        :param check_permission: 是否检查权限
+        :return: 应用数据
+        :raises ValueError: 应用不存在
+        :raises InstancePermissionError: 权限不足
+        """
+        mongo = MongoDB()
+        app_collection = mongo.get_collection("app")
+        app_data = AppPool.model_validate(await app_collection.find_one({"_id": app_id}))
+        if not app_data:
+            msg = "应用不存在"
+            raise ValueError(msg)
+        if check_permission and app_data.author != user_sub:
+            msg = "权限不足"
+            raise InstancePermissionError(msg)
+        return app_data
+
+    @staticmethod
+    def _build_common_metadata_params(app_id: str, user_sub: str, source: AppPool | AppData) -> dict:
+        """构建元数据通用参数"""
+        return {
+            "type": MetadataType.APP,
+            "id": app_id,
+            "version": "1.0.0",
+            "author": user_sub,
+            "icon": source.icon,
+            "name": source.name,
+            "description": source.description,
+            "history_len": source.history_len,
+        }
+
+    @staticmethod
+    def _create_permission(permission_data: AppPermissionData) -> Permission:
+        """创建权限对象"""
+        return Permission(
+            type=permission_data.type,
+            users=permission_data.users or [],
+        )
+
+    @staticmethod
+    def _create_flow_metadata(
+        common_params: dict,
+        data: AppData | None = None,
+        app_data: AppPool | None = None,
+        published: bool | None = None,
+    ) -> AppMetadata:
+        """创建工作流应用的元数据"""
+        metadata = AppMetadata(**common_params)
+
+        # 设置工作流应用特有属性
+        if data:
+            metadata.links = data.links
+            metadata.first_questions = data.first_questions
+
+        # 处理 'flows' 字段
+        if app_data:
+            # 更新场景 (update_app, update_app_publish_status):
+            # 总是使用 app_data 中已存在的 flows。
+            metadata.flows = app_data.flows
         else:
-            return apps, total_apps
+            # 创建场景 (create_app, app_data is None):
+            # flows 默认为空列表。
+            metadata.flows = []
+
+        # 处理 'published' 字段
+        if app_data:
+            if published is None:  # 对应 update_app
+                metadata.published = getattr(app_data, "published", False)
+            else:  # 对应 update_app_publish_status
+                metadata.published = published
+        elif published is not None:  # 对应 _process_app_and_save 被直接调用且提供了 published，但无 app_data
+            metadata.published = published
+        else:  # 对应 create_app (app_data is None, published 参数为 None)
+            metadata.published = False
+
+        return metadata
+
+    @staticmethod
+    def _create_agent_metadata(
+        common_params: dict,
+        user_sub: str,
+        data: AppData | None = None,
+        app_data: AppPool | None = None,
+        published: bool | None = None,
+    ) -> AgentAppMetadata:
+        """创建 Agent 应用的元数据"""
+        metadata = AgentAppMetadata(**common_params)
+
+        # mcp_service 逻辑
+        if data is not None and hasattr(data, "mcp_service") and data.mcp_service:
+            # 创建应用场景，验证传入的 mcp_service 状态，确保只使用已经激活的 (create_app)
+            metadata.mcp_service = [svc for svc in data.mcp_service if MCPServiceManager.is_active(user_sub, svc)]
+        elif data is not None and hasattr(data, "mcp_service"):
+            # 更新应用场景，使用 data 中的 mcp_service (update_app)
+            metadata.mcp_service = data.mcp_service if data.mcp_service is not None else []
+        elif app_data is not None and hasattr(app_data, "mcp_service"):
+            # 更新应用发布状态场景，使用 app_data 中的 mcp_service (update_app_publish_status)
+            metadata.mcp_service = app_data.mcp_service if app_data.mcp_service is not None else []
+        else:
+            # 在预期的条件下，如果在 data 或 app_data 中找不到 mcp_service，则默认回退为空列表。
+            metadata.mcp_service = []
+
+        # Agent 应用的发布状态逻辑
+        if published is not None:  # 从 update_app_publish_status 调用，'published' 参数已提供
+            metadata.published = published
+        else:  # 从 create_app 或 update_app 调用 (此时传递给 _create_metadata 的 'published' 参数为 None)
+            # 'published' 状态重置为 False。
+            metadata.published = False
+
+        return metadata
+
+    @staticmethod
+    async def _create_metadata(
+        app_type: AppType,
+        app_id: str,
+        user_sub: str,
+        **kwargs: Any,
+    ) -> AppMetadata | AgentAppMetadata:
+        """
+        创建应用元数据
+
+        :param app_type: 应用类型
+        :param app_id: 应用唯一标识
+        :param user_sub: 用户唯一标识
+        :param kwargs: 可选参数，包含:
+            - data: 应用数据，用于新建或更新时提供
+            - app_data: 现有应用数据，用于更新时提供
+            - published: 发布状态，用于更新时提供
+        :return: 应用元数据
+        :raises ValueError: 无效应用类型或缺少必要数据
+        """
+        data: AppData | None = kwargs.get("data")
+        app_data: AppPool | None = kwargs.get("app_data")
+        published: bool | None = kwargs.get("published")
+
+        # 验证必要数据
+        source = data if data else app_data
+        if not source:
+            msg = "必须提供 data 或 app_data 参数"
+            raise ValueError(msg)
+
+        # 验证参数类型
+        if data is not None and not isinstance(data, AppData):
+            msg = f"参数 data 类型应为 AppData，但获取到的是 {type(data).__name__}"
+            raise ValueError(msg)
+
+        if app_data is not None and not isinstance(app_data, AppPool):
+            msg = f"参数 app_data 类型应为 AppPool，但获取到的是 {type(app_data).__name__}"
+            raise ValueError(msg)
+
+        if published is not None and not isinstance(published, bool):
+            msg = f"参数 published 类型应为 bool，但获取到的是 {type(published).__name__}"
+            raise ValueError(msg)
+
+        # 构建通用参数
+        common_params = AppCenterManager._build_common_metadata_params(app_id, user_sub, source)
+
+        # 设置权限
+        if data:
+            common_params["permission"] = AppCenterManager._create_permission(data.permission)
+        elif app_data:
+            common_params["permission"] = app_data.permission
+
+        # 根据应用类型创建不同的元数据
+        if app_type == AppType.FLOW:
+            return AppCenterManager._create_flow_metadata(common_params, data, app_data, published)
+
+        if app_type == AppType.AGENT:
+            return AppCenterManager._create_agent_metadata(common_params, user_sub, data, app_data, published)
+
+        msg = "无效的应用类型"
+        raise ValueError(msg)
+
+    @staticmethod
+    async def _process_app_and_save(
+        app_type: AppType,
+        app_id: str,
+        user_sub: str,
+        **kwargs: Any,
+    ) -> Any:
+        """
+        处理应用元数据创建和保存
+
+        :param app_type: 应用类型
+        :param app_id: 应用唯一标识
+        :param user_sub: 用户唯一标识
+        :param kwargs: 其他可选参数(data, app_data, published)
+        :return: 应用元数据
+        """
+        # 创建应用元数据
+        metadata = await AppCenterManager._create_metadata(
+            app_type=app_type,
+            app_id=app_id,
+            user_sub=user_sub,
+            **kwargs,
+        )
+
+        # 保存应用
+        app_loader = AppLoader()
+        await app_loader.save(metadata, app_id)
+        return metadata
 
     @staticmethod
     async def _get_favorite_app_ids_by_user(user_sub: str) -> list[str]:
         """获取用户收藏的应用ID"""
-        try:
-            mongo = MongoDB()
-            user_collection = mongo.get_collection("user")
-            user_data = User.model_validate(await user_collection.find_one({"_id": user_sub}))
-        except Exception:
-            logger.exception("[AppCenterManager] 获取用户收藏应用ID失败")
-            return []
-        else:
-            return user_data.fav_apps
+        mongo = MongoDB()
+        user_collection = mongo.get_collection("user")
+        user_data = User.model_validate(await user_collection.find_one({"_id": user_sub}))
+        return user_data.fav_apps

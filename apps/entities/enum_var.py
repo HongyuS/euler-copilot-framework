@@ -162,6 +162,14 @@ class AppType(str, Enum):
     AGENT = "agent"
 
 
+class AppFilterType(str, Enum):
+    """应用过滤类型"""
+
+    ALL = "all"  # 所有已发布的应用
+    USER = "user"  # 用户创建的应用
+    FAVORITE = "favorite"  # 用户收藏的应用
+
+
 class Role(str, Enum):
     """Message role类型"""
 
