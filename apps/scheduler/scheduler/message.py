@@ -94,7 +94,7 @@ async def _push_rag_chunk(task: Task, queue: MessageQueue, content: str) -> tupl
         # 推送消息
         await queue.push_output(
             task=task,
-            event_type=EventType.TEXT_ADD.value,
+            event_type=content_obj.event_type,
             data=TextAddContent(text=content_obj.content).model_dump(exclude_none=True, by_alias=True),
         )
     except Exception:

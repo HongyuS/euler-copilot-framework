@@ -35,6 +35,7 @@ class EventType(str, Enum):
 
     HEARTBEAT = "heartbeat"
     INIT = "init"
+    DOC_ADD = "doc.add"
     TEXT_ADD = "text.add"
     GRAPH = "graph"
     DOCUMENT_ADD = "document.add"

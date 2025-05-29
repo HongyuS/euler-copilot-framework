@@ -11,6 +11,7 @@ from fastapi import status
 from apps.common.config import Config
 from apps.entities.collection import LLM
 from apps.entities.config import LLMConfig
+from apps.entities.enum_var import EventType
 from apps.entities.rag_data import RAGQueryReq
 from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.llm.reasoning import ReasoningLLM
@@ -95,6 +96,7 @@ class RAG:
 
         reasion_llm = ReasoningLLM(llm_config)
         corpus = []
+        doc_name_link_list = []
         if doc_ids:
             tmp_data = RAGQueryReq(
                 kb_ids=["00000000-0000-0000-0000-000000000000"],
@@ -114,6 +116,12 @@ class RAG:
                     result = response.json()
                     doc_chunk_list = result["result"]["docChunks"]
                     for doc_chunk in doc_chunk_list:
+                        doc_name_link_list.append(
+                            {
+                                "name": doc_chunk["docName"],
+                                "link": doc_chunk["docLink"],
+                            }
+                        )
                         for chunk in doc_chunk["chunks"]:
                             corpus.append(chunk["text"].replace("\n", ""))
 
@@ -125,6 +133,12 @@ class RAG:
                 result = response.json()
                 doc_chunk_list = result["result"]["docChunks"]
                 for doc_chunk in doc_chunk_list:
+                    doc_name_link_list.append(
+                        {
+                            "name": doc_chunk["docName"],
+                            "link": doc_chunk["docLink"],
+                        }
+                    )
                     for chunk in doc_chunk["chunks"]:
                         corpus.append(chunk["text"].replace("\n", ""))
 
@@ -149,6 +163,23 @@ class RAG:
         ]
         input_tokens = TokenCalculator().calculate_token_length(messages=messages)
         output_tokens = 0
+        doc_name_link_set = set()
+        for doc_name_link in doc_name_link_list:
+            if json.dumps(doc_name_link) not in doc_name_link_set:
+                doc_name_link_set.add(json.dumps(doc_name_link))
+                yield (
+                    "data: "
+                    + json.dumps(
+                        {
+                            "event_type": EventType.DOC_ADD.value,
+                            "input_tokens": input_tokens,
+                            "output_tokens": output_tokens,
+                            "content": doc_name_link,
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n\n"
+                )
         async for chunk in reasion_llm.call(
             messages,
             max_tokens=llm.max_tokens,
@@ -167,6 +198,7 @@ class RAG:
                 "data: "
                 + json.dumps(
                     {
+                        "event_type": EventType.text.value,
                         "content": chunk,
                         "input_tokens": input_tokens,
                         "output_tokens": output_tokens,
