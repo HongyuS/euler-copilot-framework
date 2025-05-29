@@ -10,10 +10,10 @@ from apps.entities.enum_var import SearchType
 from apps.entities.mcp import (
     MCPCollection,
     MCPConfig,
-    MCPServerConfig,
+    MCPServerSSEConfig,
+    MCPServerStdioConfig,
     MCPStatus,
     MCPTool,
-    MCPType,
 )
 from apps.entities.response_data import MCPServiceCardItem
 from apps.exceptions import InstancePermissionError
@@ -95,7 +95,7 @@ class MCPServiceManager:
     async def get_mcp_service_detail(
             user_sub: str,
             mcpservice_id: str,
-    ) -> MCPServerConfig:
+    ) -> MCPServerStdioConfig | MCPServerSSEConfig:
         """
         验证用户权限，获取MCP服务详细信息
 
@@ -141,7 +141,7 @@ class MCPServiceManager:
     async def _search_mcpservice(
             search_conditions: dict[str, Any],
             page: int,
-    ) -> list[MCPServerConfig]:
+    ) -> list[MCPServerStdioConfig | MCPServerSSEConfig]:
         """
         基于输入条件搜索MCP服务
 
@@ -171,41 +171,37 @@ class MCPServiceManager:
         if not keyword:
             return {}
 
-        base_filters = {}
-        search_filters = [
-            {"name": {"$regex": keyword, "$options": "i"}},
-            {"description": {"$regex": keyword, "$options": "i"}},
-            {"author": {"$regex": keyword, "$options": "i"}},
-        ]
-
         if search_type == SearchType.ALL:
-            base_filters["$or"] = search_filters
+            base_filters = {"$or": [
+                {"name": {"$regex": keyword, "$options": "i"}},
+                {"description": {"$regex": keyword, "$options": "i"}},
+                {"author": {"$regex": keyword, "$options": "i"}},
+            ]}
         elif search_type == SearchType.NAME:
-            base_filters["name"] = {"$regex": keyword, "$options": "i"}
+            base_filters = {"name": {"$regex": keyword, "$options": "i"}}
         elif search_type == SearchType.DESCRIPTION:
-            base_filters["description"] = {"$regex": keyword, "$options": "i"}
+            base_filters = {"description": {"$regex": keyword, "$options": "i"}}
         elif search_type == SearchType.AUTHOR:
-            base_filters["author"] = {"$regex": keyword, "$options": "i"}
+            base_filters = {"author": {"$regex": keyword, "$options": "i"}}
         return base_filters
 
     @staticmethod
-    async def create_mcpservice(  # noqa: PLR0913
-            user_sub: str,
-            name: str,
-            icon: str,
-            description: str,
-            config: MCPConfig,
-            mcp_type: MCPType,
-    ) -> str:
+    def check_config(config: str) -> MCPConfig:
+        """
+        检查MCP服务配置
+
+        :param config: str: MCP服务配置
+        :return: MCPConfig: MCP服务配置
+        """
+        return MCPConfig.model_validate_json(config)
+
+
+    @staticmethod
+    async def create_mcpservice(data: MCPServerStdioConfig | MCPServerSSEConfig) -> str:
         """
         创建MCP服务
 
-        :param user_sub: str: 用户ID
-        :param name: str: MCP服务名
-        :param icon: str: MCP服务图标，base64格式字符串
-        :param description: str: MCP服务描述
-        :param config: MCPConfig: MCP服务配置
-        :param mcp_type: MCPType: MCP服务类型
+        :param MCPServerStdioConfig | MCPServerSSEConfig data: MCP服务配置
         :return: MCP服务ID
         """
         if len(config.mcp_servers) != 1:
@@ -246,15 +242,7 @@ class MCPServiceManager:
         return mcpservice_id
 
     @staticmethod
-    async def update_mcpservice(  # noqa: PLR0913
-            user_sub: str,
-            mcpservice_id: str,
-            name: str,
-            icon: str,
-            description: str,
-            config: MCPConfig,
-            mcp_type: MCPType,
-    ) -> str:
+    async def update_mcpservice(data: MCPServerStdioConfig | MCPServerSSEConfig) -> str:
         """
         更新MCP服务
 
@@ -267,29 +255,6 @@ class MCPServiceManager:
         :param mcp_type: MCPType: MCP服务类型
         :return: MCP服务ID
         """
-        if len(config.mcp_servers) != 1:
-            msg = "[MCPServiceManager] MCP服务配置不唯一"
-            raise RuntimeError(msg)
-        mcpservice_collection = MongoDB().get_collection("mcp_service")
-        db_service = await mcpservice_collection.find_one({"id": mcpservice_id}, {"_id": False})
-        if not db_service:
-            msg = "[MCPServiceManager] MCP服务未找到"
-            raise RuntimeError(msg)
-        service_pool_store = MCPServiceMetadata.model_validate(db_service)
-
-        # 存入数据库
-        mcpservice_metadata = MCPServiceMetadata(
-            id=mcpservice_id,
-            name=name,
-            icon=icon,
-            description=description,
-            author=user_sub,
-            config=config,
-            tools=service_pool_store.tools,
-            hashes=service_pool_store.hashes,
-            mcpType=mcp_type,
-        )
-        await MCPServiceManager.save(mcpservice_metadata)
         mcp_loader = MCPLoader()
         doc = MCPCollection.model_validate(db_service)
         for user_sub in doc.activated:

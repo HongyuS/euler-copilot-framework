@@ -7,7 +7,7 @@ from anyio import Path
 
 from apps.common.config import Config
 from apps.common.singleton import SingletonMeta
-from apps.entities.mcp import MCPConfig, MCPType
+from apps.entities.mcp import MCPServerConfig, MCPType
 from apps.models.mongo import MongoDB
 from apps.scheduler.pool.mcp.client import SSEMCPClient, StdioMCPClient
 

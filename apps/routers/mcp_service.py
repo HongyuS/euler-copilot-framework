@@ -92,46 +92,23 @@ async def create_or_update_mcpservice(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
+    # TODO：不要使用base64编码
     if not data.service_id:
         try:
-            service_id = await MCPServiceManager.create_mcpservice(
-                user_sub=user_sub,
-                name=data.name,
-                icon=data.icon,
-                description=data.description,
-                config=config,
-                mcp_type=data.mcp_type,
-            )
+            service_id = await MCPServiceManager.create_mcpservice(data)
         except Exception as e:
-            logger.exception("[MCPServiceCenter] 创建MCP服务失败")
+            logger.exception("[MCPServiceCenter] MCP服务创建失败")
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content=ResponseData(
                     code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    message=f"OpenAPI解析错误: {e!s}",
+                    message=f"MCP服务创建失败: {e!s}",
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
     else:
         try:
-            service_id = await MCPServiceManager.update_mcpservice(
-                user_sub=user_sub,
-                mcpservice_id=data.service_id,
-                name=data.name,
-                icon=data.icon,
-                description=data.description,
-                config=config,
-                mcp_type=data.mcp_type,
-            )
-        except InstancePermissionError:
-            return JSONResponse(
-                status_code=status.HTTP_403_FORBIDDEN,
-                content=ResponseData(
-                    code=status.HTTP_403_FORBIDDEN,
-                    message="未授权访问",
-                    result={},
-                ).model_dump(exclude_none=True, by_alias=True),
-            )
+            service_id = await MCPServiceManager.update_mcpservice(data)
         except Exception as e:
             logger.exception("[MCPService] 更新MCP服务失败")
             return JSONResponse(

@@ -3,43 +3,18 @@
 
 import logging
 from abc import ABCMeta, abstractmethod
-from typing import Optional
 
 from anyio import Path
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
-from mcp.types import CallToolResult, TextContent
+from mcp.types import CallToolResult
 
 from apps.common.config import Config
 from apps.entities.mcp import MCPServerSSEConfig, MCPServerStdioConfig
-from apps.scheduler.mcp_agent.tool.base import BaseTool, ToolResult
 
 logger = logging.getLogger(__name__)
 MCP_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "mcp"
-
-
-class MCPClientTool(BaseTool):
-    """客户端调用MCP服务器上的工具"""
-
-    session: ClientSession | None = None
-    server_id: str = ""  # Add server identifier
-    original_name: str = ""
-
-    async def execute(self, **kwargs) -> ToolResult:
-        """通过向MCP服务器发起远程调用来执行该工具"""
-        if not self.session:
-            return ToolResult(error="Not connected to MCP server")
-
-        try:
-            logger.info(f"Executing tool: {self.original_name}")
-            result = await self.session.call_tool(self.original_name, kwargs)
-            content_str = ", ".join(
-                item.text for item in result.content if isinstance(item, TextContent)
-            )
-            return ToolResult(output=content_str or "No output returned.")
-        except Exception as e:
-            return ToolResult(error=f"Error executing tool: {str(e)}")
 
 
 class MCPClient(metaclass=ABCMeta):

@@ -14,9 +14,7 @@ from apps.common.process_handler import ProcessHandler
 from apps.common.singleton import SingletonMeta
 from apps.entities.mcp import (
     MCPCollection,
-    MCPConfig,
-    MCPServerSSEConfig,
-    MCPServerStdioConfig,
+    MCPServerConfig,
     MCPStatus,
     MCPTool,
     MCPToolVector,
