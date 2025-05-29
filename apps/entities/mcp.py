@@ -46,10 +46,9 @@ class MCPServerSSEConfig(MCPBasicConfig):
     url: str = Field(description="MCP 服务器地址", default="")
 
 
-class MCPServerConfig(MCPBasicConfig):
+class MCPServerConfig(BaseModel):
     """MCP 服务器配置"""
 
-    id: str = Field(description="MCP 服务器ID")
     name: str = Field(description="MCP 服务器自然语言名称", default="")
     description: str = Field(description="MCP 服务器自然语言描述", default="")
     type: MCPType = Field(description="MCP 服务器类型", default=MCPType.STDIO)

@@ -14,10 +14,9 @@ from apps.entities.mcp import (
 )
 
 logger = logging.getLogger(__name__)
-sqids = Sqids(min_length=10)
+sqids = Sqids(min_length=6)
 DEFAULT_STDIO = MCPServerConfig(
-    id=sqids.encode([random.randint(0, 1000000) for _ in range(5)]),  # noqa: S311
-    name="MCP服务名称",
+    name="MCP服务_" + sqids.encode([random.randint(0, 1000000) for _ in range(5)]),  # noqa: S311
     description="MCP服务描述",
     type=MCPType.STDIO,
     config=MCPServerStdioConfig(
@@ -33,8 +32,7 @@ DEFAULT_STDIO = MCPServerConfig(
 """默认的Stdio协议MCP Server配置"""
 
 DEFAULT_SSE = MCPServerConfig(
-    id=sqids.encode([random.randint(0, 1000000) for _ in range(5)]),  # noqa: S311
-    name="MCP服务名称",
+    name="MCP服务_" + sqids.encode([random.randint(0, 1000000) for _ in range(5)]),  # noqa: S311
     description="MCP服务描述",
     type=MCPType.SSE,
     config=MCPServerSSEConfig(

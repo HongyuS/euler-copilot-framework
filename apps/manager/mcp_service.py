@@ -2,19 +2,20 @@
 """MCP服务管理器"""
 
 import logging
-import uuid
 from typing import Any
 
 from apps.constants import SERVICE_PAGE_SIZE
 from apps.entities.enum_var import SearchType
 from apps.entities.mcp import (
     MCPCollection,
-    MCPConfig,
+    MCPServerConfig,
     MCPServerSSEConfig,
     MCPServerStdioConfig,
     MCPStatus,
     MCPTool,
+    MCPType,
 )
+from apps.entities.request_data import UpdateMCPServiceRequest
 from apps.entities.response_data import MCPServiceCardItem
 from apps.exceptions import InstancePermissionError
 from apps.models.mongo import MongoDB
@@ -185,38 +186,33 @@ class MCPServiceManager:
             base_filters = {"author": {"$regex": keyword, "$options": "i"}}
         return base_filters
 
-    @staticmethod
-    def check_config(config: str) -> MCPConfig:
-        """
-        检查MCP服务配置
-
-        :param config: str: MCP服务配置
-        :return: MCPConfig: MCP服务配置
-        """
-        return MCPConfig.model_validate_json(config)
-
 
     @staticmethod
-    async def create_mcpservice(data: MCPServerStdioConfig | MCPServerSSEConfig) -> str:
+    async def create_mcpservice(data: UpdateMCPServiceRequest) -> str:
         """
         创建MCP服务
 
-        :param MCPServerStdioConfig | MCPServerSSEConfig data: MCP服务配置
+        :param UpdateMCPServiceRequest data: MCP服务配置
         :return: MCP服务ID
         """
-        if len(config.mcp_servers) != 1:
-            msg = "[MCPServiceManager] MCP服务配置不唯一"
-            raise RuntimeError(msg)
-        mcpservice_id = str(uuid.uuid4())
-        # 检查是否存在相同服务
-        service_collection = MongoDB().get_collection("mcp")
-        db_service = await service_collection.find_one(
-            {
-                "name": name,
-                "description": description,
-            },
-            {"_id": False},
+        # 检查config
+        if data.mcp_type == MCPType.SSE:
+            config = MCPServerSSEConfig.model_validate(data.config)
+        else:
+            config = MCPServerStdioConfig.model_validate(data.config)
+
+        # 构造Server
+        mcp_server = MCPServerConfig(
+            name=data.name,
+            description=data.description,
+            icon=data.icon,
+            config=config,
+            type=data.mcp_type,
         )
+
+        # 检查是否存在相同服务
+        mcp_collection = MongoDB().get_collection("mcp")
+        db_service = await mcp_collection.find_one({"name": mcp_server.name}, {"_id": False})
         if db_service:
             msg = "[MCPServiceManager] 已存在相同名称和描述的MCP服务"
             raise RuntimeError(msg)
