@@ -70,7 +70,7 @@ class RAG:
 
     @staticmethod
     async def get_rag_result(
-        user_sub: str, llm: LLM, history: list[dict[str, str]], data: RAGQueryReq,
+        user_sub: str, llm: LLM, history: list[dict[str, str]], doc_ids: list[str], data: RAGQueryReq,
     ) -> AsyncGenerator[str, None]:
         """获取RAG服务的结果"""
         session_id = await SessionManager.get_session_by_user_sub(user_sub)
@@ -95,6 +95,28 @@ class RAG:
 
         reasion_llm = ReasoningLLM(llm_config)
         corpus = []
+        if doc_ids:
+            tmp_data = RAGQueryReq(
+                kb_ids=["00000000-0000-0000-0000-000000000000"],
+                query=data.query,
+                top_k=data.top_k,
+                doc_ids=doc_ids,
+                search_method=data.search_method,
+                is_related_surrounding=data.is_related_surrounding,
+                is_classify_by_doc=data.is_classify_by_doc,
+                is_rerank=data.is_rerank,
+                tokens_limit=data.tokens_limit
+            )
+            async with httpx.AsyncClient() as client:
+                data_json = tmp_data.model_dump(exclude_none=True, by_alias=True)
+                response = await client.post(url, headers=headers, json=data_json)
+                if response.status_code == status.HTTP_200_OK:
+                    result = response.json()
+                    doc_chunk_list = result["result"]["docChunks"]
+                    for doc_chunk in doc_chunk_list:
+                        for chunk in doc_chunk["chunks"]:
+                            corpus.append(chunk["text"].replace("\n", ""))
+
         async with httpx.AsyncClient() as client:
             data_json = data.model_dump(exclude_none=True, by_alias=True)
             response = await client.post(url, headers=headers, json=data_json)
