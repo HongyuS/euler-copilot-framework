@@ -112,7 +112,7 @@ class Scheduler:
                 query=self.post_body.question,
                 tokensLimit=llm.max_tokens,
             )
-            self.task = await push_rag_message(self.task, self.queue, self.task.ids.user_sub, llm, history, rag_data)
+            self.task = await push_rag_message(self.task, self.queue, self.task.ids.user_sub, llm, history, doc_ids, rag_data)
             self.task.tokens.full_time = round(datetime.now(UTC).timestamp(), 2) - self.task.tokens.time
         else:
             # 查找对应的App元数据

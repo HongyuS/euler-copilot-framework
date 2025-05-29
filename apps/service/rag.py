@@ -11,6 +11,7 @@ from fastapi import status
 from apps.common.config import Config
 from apps.entities.collection import LLM
 from apps.entities.config import LLMConfig
+from apps.entities.enum_var import EventType
 from apps.entities.rag_data import RAGQueryReq
 from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.llm.reasoning import ReasoningLLM
@@ -70,7 +71,7 @@ class RAG:
 
     @staticmethod
     async def get_rag_result(
-        user_sub: str, llm: LLM, history: list[dict[str, str]], data: RAGQueryReq,
+        user_sub: str, llm: LLM, history: list[dict[str, str]], doc_ids: list[str], data: RAGQueryReq,
     ) -> AsyncGenerator[str, None]:
         """获取RAG服务的结果"""
         session_id = await SessionManager.get_session_by_user_sub(user_sub)
@@ -95,6 +96,35 @@ class RAG:
 
         reasion_llm = ReasoningLLM(llm_config)
         corpus = []
+        doc_name_link_list = []
+        if doc_ids:
+            tmp_data = RAGQueryReq(
+                kb_ids=["00000000-0000-0000-0000-000000000000"],
+                query=data.query,
+                top_k=data.top_k,
+                doc_ids=doc_ids,
+                search_method=data.search_method,
+                is_related_surrounding=data.is_related_surrounding,
+                is_classify_by_doc=data.is_classify_by_doc,
+                is_rerank=data.is_rerank,
+                tokens_limit=data.tokens_limit
+            )
+            async with httpx.AsyncClient() as client:
+                data_json = tmp_data.model_dump(exclude_none=True, by_alias=True)
+                response = await client.post(url, headers=headers, json=data_json)
+                if response.status_code == status.HTTP_200_OK:
+                    result = response.json()
+                    doc_chunk_list = result["result"]["docChunks"]
+                    for doc_chunk in doc_chunk_list:
+                        doc_name_link_list.append(
+                            {
+                                "name": doc_chunk["docName"],
+                                "link": doc_chunk["docLink"],
+                            }
+                        )
+                        for chunk in doc_chunk["chunks"]:
+                            corpus.append(chunk["text"].replace("\n", ""))
+
         async with httpx.AsyncClient() as client:
             data_json = data.model_dump(exclude_none=True, by_alias=True)
             response = await client.post(url, headers=headers, json=data_json)
@@ -103,6 +133,12 @@ class RAG:
                 result = response.json()
                 doc_chunk_list = result["result"]["docChunks"]
                 for doc_chunk in doc_chunk_list:
+                    doc_name_link_list.append(
+                        {
+                            "name": doc_chunk["docName"],
+                            "link": doc_chunk["docLink"],
+                        }
+                    )
                     for chunk in doc_chunk["chunks"]:
                         corpus.append(chunk["text"].replace("\n", ""))
 
@@ -127,6 +163,23 @@ class RAG:
         ]
         input_tokens = TokenCalculator().calculate_token_length(messages=messages)
         output_tokens = 0
+        doc_name_link_set = set()
+        for doc_name_link in doc_name_link_list:
+            if json.dumps(doc_name_link) not in doc_name_link_set:
+                doc_name_link_set.add(json.dumps(doc_name_link))
+                yield (
+                    "data: "
+                    + json.dumps(
+                        {
+                            "event_type": EventType.DOC_ADD.value,
+                            "input_tokens": input_tokens,
+                            "output_tokens": output_tokens,
+                            "content": doc_name_link,
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n\n"
+                )
         async for chunk in reasion_llm.call(
             messages,
             max_tokens=llm.max_tokens,
@@ -145,6 +198,7 @@ class RAG:
                 "data: "
                 + json.dumps(
                     {
+                        "event_type": EventType.text.value,
                         "content": chunk,
                         "input_tokens": input_tokens,
                         "output_tokens": output_tokens,
