@@ -90,15 +90,10 @@ class MCPLoader(metaclass=SingletonMeta):
         await MCPLoader.update_template_status(mcp_id, MCPStatus.INSTALLING)
         if isinstance(config, MCPServerStdioConfig):
             logger.info("[MCPLoader] Stdio方式的MCP模板，开始自动安装: %s", mcp_id)
-            try:
-                if "uv" in config.command:
-                    await install_uvx(mcp_id, config)
-                elif "npx" in config.command:
-                    await install_npx(mcp_id, config)
-            except Exception as e:
-                await MCPLoader.update_template_status(mcp_id, MCPStatus.FAILED)
-                logger.exception("[MCPLoader] 安装MCP模板失败: %s, 错误: %s", mcp_id, e)
-                raise e
+            if "uv" in config.command:
+                await install_uvx(mcp_id, config)
+            elif "npx" in config.command:
+                await install_npx(mcp_id, config)
         else:
             logger.info("[MCPLoader] SSE方式的MCP模板，无法自动安装: %s", mcp_id)
         # 更新数据库
@@ -109,7 +104,7 @@ class MCPLoader(metaclass=SingletonMeta):
     @staticmethod
     async def _process_install_config(
         mcp_id: str,
-        config: MCPServerSSEConfig | MCPServerStdioConfig,
+        config: MCPServerConfig,
         user_subs: list[str] | None = None,
     ) -> None:
         """
@@ -122,11 +117,6 @@ class MCPLoader(metaclass=SingletonMeta):
         """
         if user_subs is None:
             user_subs = []
-        mcp_ids = ProcessHandler.get_all_task_ids()
-        for mcp_id in mcp_ids:
-            mcp_status = await MCPServiceManager.get_service_status(mcp_id)
-            if mcp_status == MCPStatus.FAILED or mcp_status == MCPStatus.READY:
-                ProcessHandler.remove_task(mcp_id)
         if not ProcessHandler.add_task(mcp_id, MCPLoader._install_template_task, mcp_id, config, user_subs):
             logger.warning("安装任务暂时无法执行，请稍后重试: %s", mcp_id)
             await MCPLoader.update_template_status(mcp_id, MCPStatus.INSTALLING)
@@ -134,74 +124,60 @@ class MCPLoader(metaclass=SingletonMeta):
     @staticmethod
     async def _install_template(
             mcp_id: str,
-            config: MCPServerSSEConfig | MCPServerStdioConfig,
-            user_subs: list[str] | None = None
-    ) -> MCPServerSSEConfig | MCPServerStdioConfig:
+            config: MCPServerConfig,
+            user_subs: list[str] | None = None,
+    ) -> tuple[MCPServerConfig, bool]:
         """
         初始化MCP模板
 
         单个MCP模板的初始化。若模板中 ``auto_install`` 为 ``True`` ，则自动安装MCP环境
 
         :param str mcp_id: MCP模板ID
-        :param MCPServerSSEConfig | MCPServerStdioConfig config: MCP配置
+        :param MCPServerConfig config: MCP配置
         :param list[str] | None user_subs: 用户IDs
-        :return: 无
+        :return: 初始化后的MCP配置和是否进行了安装
+        :rtype: tuple[MCPServerConfig, bool]
         """
+        # 检查目录
+        template_path = MCP_PATH / "template" / mcp_id
+        if not await template_path.exists():
+            await Path.mkdir(template_path, parents=True, exist_ok=True)
+
         # 跳过自动安装
-        if not config.auto_install:
+        if not config.config.auto_install:
             logger.info("[MCPLoader] autoInstall为False，跳过自动安装: %s", mcp_id)
-            return config
+            return config, False
 
         # 自动安装
         await MCPLoader._process_install_config(mcp_id, config, user_subs)
 
-        config.auto_install = False
-        return config
-
-    @staticmethod
-    async def process_install_mcp(mcp_id: str, user_subs: list[str]) -> None:
-        """
-        异步安装依赖
-
-        :param str mcp_id: MCP模板ID
-        :param list[str] user_subs: 用户IDs
-        :return: 无
-        """
-        config_path = MCP_PATH / "template" / mcp_id / "config.json"
-
-        config = await MCPLoader._load_config(config_path)
-        for server in config.mcp_servers.values():
-            await MCPLoader._process_install_config(mcp_id, server, user_subs)
+        config.config.auto_install = False
+        return config, True
 
     @staticmethod
     async def init_one_template(
             mcp_id: str,
-            config: MCPServerSSEConfig | MCPServerStdioConfig,
-            user_subs: list[str] | None = None
+            config: MCPServerConfig,
+            user_subs: list[str] | None = None,
     ) -> None:
         """
         初始化单个MCP模板
 
         :param str mcp_id: MCP模板ID
-        :param MCPServerSSEConfig | MCPServerStdioConfig config: MCP配置
+        :param MCPServerConfig config: MCP配置
         :param list[str] | None user_subs: 用户IDs
         :return: 无
         """
         # 安装MCP模板
-        new_server_config = await MCPLoader._install_template(mcp_id, config, user_subs)
-        new_config = MCPConfig(
-            mcpServers={
-                mcp_id: new_server_config,
-            },
-        )
+        new_config, is_installed = await MCPLoader._install_template(mcp_id, config, user_subs)
 
         # 保存config
-        template_config = MCP_PATH / "template" / mcp_id / "config.json"
-        await Path.mkdir(template_config.parent, parents=True, exist_ok=True)
-        f = await template_config.open("w+", encoding="utf-8")
-        config_data = new_config.model_dump(by_alias=True, exclude_none=True)
-        await f.write(json.dumps(config_data, indent=4, ensure_ascii=False))
-        await f.aclose()
+        if is_installed:
+            template_config = MCP_PATH / "template" / mcp_id / "config.json"
+            f = await template_config.open("w+", encoding="utf-8")
+            config_data = new_config.model_dump(by_alias=True, exclude_none=True)
+            await f.write(json.dumps(config_data, indent=4, ensure_ascii=False))
+            await f.aclose()
 
     @staticmethod
     async def _init_all_template() -> None:
@@ -352,7 +328,7 @@ class MCPLoader(metaclass=SingletonMeta):
         await LanceDB().create_index("mcp_tool")
 
     @staticmethod
-    async def save_one(user_sub: str | None, mcp_id: str, config: MCPConfig) -> None:
+    async def save_one(user_sub: str | None, mcp_id: str, config: MCPServerConfig) -> None:
         """
         保存单个MCP模板的配置文件（即``template``下的``config.json``文件）
 

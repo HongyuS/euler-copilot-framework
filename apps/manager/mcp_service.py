@@ -2,7 +2,11 @@
 """MCP服务管理器"""
 
 import logging
+import random
+import re
 from typing import Any
+
+from sqids.sqids import Sqids
 
 from apps.constants import SERVICE_PAGE_SIZE
 from apps.entities.enum_var import SearchType
@@ -23,6 +27,7 @@ from apps.scheduler.pool.loader.mcp import MCPLoader
 from apps.scheduler.pool.mcp.pool import MCPPool
 
 logger = logging.getLogger(__name__)
+sqids = Sqids(min_length=6)
 
 
 class MCPServiceManager:
@@ -203,56 +208,33 @@ class MCPServiceManager:
 
         # 构造Server
         mcp_server = MCPServerConfig(
-            name=data.name,
+            name=await MCPServiceManager.clean_name(data.name),
             description=data.description,
-            icon=data.icon,
             config=config,
             type=data.mcp_type,
         )
 
         # 检查是否存在相同服务
         mcp_collection = MongoDB().get_collection("mcp")
-        db_service = await mcp_collection.find_one({"name": mcp_server.name}, {"_id": False})
+        db_service = await mcp_collection.find_one({"name": mcp_server.name})
         if db_service:
-            msg = "[MCPServiceManager] 已存在相同名称和描述的MCP服务"
-            raise RuntimeError(msg)
+            mcp_server.name = f"{mcp_server.name}-{sqids.encode([random.randint(0, 1000000) for _ in range(5)])[:6]}"  # noqa: S311
+            logger.warning("[MCPServiceManager] 已存在相同名称和描述的MCP服务")
 
-        tools = []
-
-        # 存入数据库
-        service_metadata = MCPServiceMetadata(
-            id=mcpservice_id,
-            name=name,
-            icon=icon,
-            description=description,
-            author=user_sub,
-            config=config,
-            tools=tools,
-            mcpType=mcp_type,
-        )
-        await MCPServiceManager.save(service_metadata)
-        mcp_loader = MCPLoader()
-        for server in config.mcp_servers.values():
-            logger.info("[MCPServiceManager] 初始化mcp")
-            await mcp_loader.init_one_template(mcp_id=mcpservice_id, config=server)
-        return mcpservice_id
+        # 保存并载入配置
+        logger.info("[MCPServiceManager] 创建mcp：%s", mcp_server.name)
+        await MCPLoader.save_one(None, mcp_server.name, mcp_server)
+        await MCPLoader.init_one_template(mcp_id=mcp_server.name, config=mcp_server)
+        return mcp_server.name
 
     @staticmethod
-    async def update_mcpservice(data: MCPServerStdioConfig | MCPServerSSEConfig) -> str:
+    async def update_mcpservice(data: UpdateMCPServiceRequest) -> str:
         """
         更新MCP服务
 
-        :param user_sub: str: 用户ID
-        :param mcpservice_id: MCP服务ID,
-        :param name: str: 要修改的MCP服务名
-        :param icon: str: MCP服务图标，base64格式字符串
-        :param description: str: MCP服务描述
-        :param config: MCPConfig: MCP服务配置
-        :param mcp_type: MCPType: MCP服务类型
+        :param UpdateMCPServiceRequest data: MCP服务配置
         :return: MCP服务ID
         """
-        mcp_loader = MCPLoader()
-        doc = MCPCollection.model_validate(db_service)
         for user_sub in doc.activated:
             await MCPServiceManager.deactive_mcpservice(user_sub=user_sub, service_id=mcpservice_id)
         for server in config.mcp_servers.values():
@@ -330,3 +312,14 @@ class MCPServiceManager:
         except KeyError as e:
             logger.warning(e)
         await MCPLoader.user_deactive_template(user_sub, service_id)
+
+    @staticmethod
+    async def clean_name(name: str) -> str:
+        """
+        移除MCP服务名称中的特殊字符
+
+        :param name: str: MCP服务名称
+        :return: 清理后的MCP服务名称
+        """
+        invalid_chars = r'[\\\/:*?"<>|]'
+        return re.sub(invalid_chars, "_", name)
