@@ -59,12 +59,13 @@ async def push_init_message(
 
 
 async def push_rag_message(
-    task: Task, queue: MessageQueue, user_sub: str, llm: LLM, history: list[dict[str, str]], rag_data: RAGQueryReq,
-) -> Task:
+        task: Task, queue: MessageQueue, user_sub: str, llm: LLM, history: list[dict[str, str]],
+        doc_ids: list[str],
+        rag_data: RAGQueryReq,) -> Task:
     """推送RAG消息"""
     full_answer = ""
 
-    async for chunk in RAG.get_rag_result(user_sub, llm, history, rag_data):
+    async for chunk in RAG.get_rag_result(user_sub, llm, history, doc_ids, rag_data):
         task, chunk_content = await _push_rag_chunk(task, queue, chunk)
         full_answer += chunk_content
 
@@ -93,7 +94,7 @@ async def _push_rag_chunk(task: Task, queue: MessageQueue, content: str) -> tupl
         # 推送消息
         await queue.push_output(
             task=task,
-            event_type=EventType.TEXT_ADD.value,
+            event_type=content_obj.event_type,
             data=TextAddContent(text=content_obj.content).model_dump(exclude_none=True, by_alias=True),
         )
     except Exception:

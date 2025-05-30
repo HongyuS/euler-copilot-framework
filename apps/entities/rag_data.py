@@ -34,6 +34,7 @@ class RAGEventData(BaseModel):
     """RAG服务返回的事件数据"""
 
     content: str = ""
+    event_type: str
     input_tokens: int = 0
     output_tokens: int = 0
 
