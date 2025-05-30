@@ -43,7 +43,7 @@ spec:
         fsGroup: 1001
       containers:
         - name: rag
-          image: {{ .Values.euler_copilot.rag.image | default (printf "%s/neocopilot/data_chain_back_end:0.9.5-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
+          image: {{ .Values.euler_copilot.rag.image | default (printf "%s/neocopilot/data_chain_back_end:0.9.6-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (.Values.globals.arch | default "x86")) }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
           securityContext:
             readOnlyRootFilesystem: {{ default false .Values.euler_copilot.framework.readOnly }}
@@ -83,7 +83,7 @@ spec:
               {{ toYaml .Values.euler_copilot.rag.resourceLimits | nindent 14 }}
       initContainers:
         - name: rag-copy-secret
-          image: {{ .Values.euler_copilot.secretInject.image | default (printf "%s/neocopilot/secret_inject:dev-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
+          image: {{ .Values.euler_copilot.secretInject.image | default (printf "%s/neocopilot/secret_inject:dev-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (.Values.globals.arch | default "x86")) }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
           command:
             - python3
