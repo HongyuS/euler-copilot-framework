@@ -24,7 +24,6 @@ from apps.entities.mcp import (
     MCPVector,
 )
 from apps.llm.embedding import Embedding
-from apps.manager.mcp_service import MCPServiceManager
 from apps.models.lance import LanceDB
 from apps.models.mongo import MongoDB
 from apps.scheduler.pool.mcp.client import SSEMCPClient, StdioMCPClient
@@ -127,7 +126,8 @@ class MCPLoader(metaclass=SingletonMeta):
             user_subs = []
         mcp_ids = ProcessHandler.get_all_task_ids()
         for mcp_id in mcp_ids:
-            mcp_status = await MCPServiceManager.get_service_status(mcp_id)
+            # mcp_status = await MCPServiceManager.get_service_status(mcp_id)
+            mcp_status = None
             if mcp_status == MCPStatus.FAILED or mcp_status == MCPStatus.READY:
                 ProcessHandler.remove_task(mcp_id)
         if not ProcessHandler.add_task(mcp_id, MCPLoader._install_template_task, mcp_id, config, user_subs):
@@ -489,7 +489,8 @@ class MCPLoader(metaclass=SingletonMeta):
         for mcp_service in mcp_service_list:
             doc = MCPCollection.model_validate(mcp_service)
             for user_sub in doc.activated:
-                await MCPServiceManager.deactive_mcpservice(user_sub=user_sub, service_id=doc.id)
+                # await MCPServiceManager.deactive_mcpservice(user_sub=user_sub, service_id=doc.id)
+                pass
             await application_collection.update_many(
                 {"mcpService": doc.id},
                 {"$pull": {"mcpService": doc.id}},
