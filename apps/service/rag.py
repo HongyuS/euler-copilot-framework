@@ -135,8 +135,8 @@ class RAG:
                 for doc_chunk in doc_chunk_list:
                     doc_name_link_list.append(
                         {
+                            "id": doc_chunk["docId"],
                             "name": doc_chunk["docName"],
-                            "link": doc_chunk["docLink"],
                         }
                     )
                     for chunk in doc_chunk["chunks"]:
