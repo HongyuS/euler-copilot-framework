@@ -9,6 +9,7 @@ import asyncer
 from apps.entities.collection import Audit
 from apps.manager.audit_log import AuditLogManager
 from apps.manager.user import UserManager
+from apps.manager.session import SessionManager
 from apps.models.mongo import MongoDB
 from apps.service.knowledge_base import KnowledgeBaseService
 
@@ -26,7 +27,8 @@ async def _delete_user(timestamp: float) -> None:
         # 删除文件
         try:
             await doc_collection.delete_many({"_id": {"$in": docs}})
-            await KnowledgeBaseService.delete_doc_from_rag(docs)
+            session_id = await SessionManager.get_session_by_user_sub(user_id)
+            await KnowledgeBaseService.delete_doc_from_rag(session_id, docs)
         except Exception:
             logger.exception("[DeleteUserCron] 自动删除用户 %s 文档失败", user_id)
         audit_log = Audit(

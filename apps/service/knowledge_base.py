@@ -22,8 +22,12 @@ class KnowledgeBaseService:
     """知识库服务"""
 
     @staticmethod
-    async def send_file_to_rag(docs: list[Document]) -> list[str]:
+    async def send_file_to_rag(session_id: str, docs: list[Document]) -> list[str]:
         """上传文件给RAG，进行处理和向量化"""
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {session_id}",
+        }
         rag_docs = [RAGFileParseReqItem(
             id=doc.id,
             name=doc.name,
@@ -32,32 +36,41 @@ class KnowledgeBaseService:
         )
             for doc in docs
         ]
-        post_data = RAGFileParseReq(document_list=rag_docs).model_dump(exclude_none=True, by_alias=True)
+        post_data = RAGFileParseReq(
+            document_list=rag_docs).model_dump(exclude_none=True, by_alias=True)
 
         async with httpx.AsyncClient() as client:
-            resp = await client.post(_RAG_DOC_PARSE_URI, json=post_data)
+            resp = await client.post(_RAG_DOC_PARSE_URI, headers=headers, json=post_data)
             resp_data = resp.json()
             if resp.status_code != status.HTTP_200_OK:
                 return []
             return resp_data["result"]
 
     @staticmethod
-    async def delete_doc_from_rag(doc_ids: list[str]) -> list[str]:
+    async def delete_doc_from_rag(session_id: str, doc_ids: list[str]) -> list[str]:
         """删除文件"""
-        post_data = {"ids": doc_ids}
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {session_id}",
+        }
+        delete_data = {"ids": doc_ids}
         async with httpx.AsyncClient() as client:
-            resp = await client.post(_RAG_DOC_DELETE_URI, json=post_data)
+            resp = await client.delete(_RAG_DOC_DELETE_URI, headers=headers, json=delete_data)
             resp_data = resp.json()
             if resp.status_code != status.HTTP_200_OK:
                 return []
             return resp_data["result"]
 
     @staticmethod
-    async def get_doc_status_from_rag(doc_ids: list[str]) -> list[RAGFileStatusRspItem]:
+    async def get_doc_status_from_rag(session_id: str, doc_ids: list[str]) -> list[RAGFileStatusRspItem]:
         """获取文件状态"""
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {session_id}",
+        }
         post_data = {"ids": doc_ids}
         async with httpx.AsyncClient() as client:
-            resp = await client.post(_RAG_DOC_STATUS_URI, json=post_data)
+            resp = await client.post(_RAG_DOC_STATUS_URI, headers=headers,  json=post_data)
             resp_data = resp.json()
             if resp.status_code != status.HTTP_200_OK:
                 return []

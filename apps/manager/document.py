@@ -8,6 +8,7 @@ import uuid
 import asyncer
 from fastapi import UploadFile
 
+from apps.manager.session import SessionManager
 from apps.entities.collection import (
     Conversation,
     Document,
@@ -42,7 +43,7 @@ class DocumentManager:
             length=-1,
             part_size=10 * 1024 * 1024,
             metadata={
-                "file_name": base64.b64encode(document.filename.encode("utf-8")).decode("ascii"),  # type: ignore[arg-type]
+                "file_name": base64.b64encode(document.filename.encode("utf-8")).decode("ascii") , # type: ignore[arg-type]
             },
         )
         return mime
@@ -213,7 +214,8 @@ class DocumentManager:
                 await asyncer.asyncify(cls._remove_doc_from_minio)(doc["_id"])
                 await doc_collection.delete_one({"_id": doc["_id"]}, session=session)
             await session.commit_transaction()
-            await KnowledgeBaseService.delete_doc_from_rag(doc_ids)
+            session_id = await SessionManager.get_session_by_user_sub(user_sub)
+            await KnowledgeBaseService.delete_doc_from_rag(session_id, doc_ids)
             return doc_ids
 
     @classmethod
