@@ -9,7 +9,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency import get_user, verify_user
+from apps.dependency import get_session, get_user, verify_user
 from apps.entities.enum_var import DocumentStatus
 from apps.entities.response_data import (
     ConversationDocumentItem,
@@ -37,10 +37,11 @@ async def document_upload(  # noqa: ANN201
     conversation_id: str,
     documents: Annotated[list[UploadFile], File(...)],
     user_sub: Annotated[str, Depends(get_user)],
+    session_id: Annotated[str, Depends(get_session)]
 ):
     """上传文档"""
     result = await DocumentManager.storage_docs(user_sub, conversation_id, documents)
-    await KnowledgeBaseService.send_file_to_rag(result)
+    await KnowledgeBaseService.send_file_to_rag(session_id, result)
 
     # 返回所有Framework已知的文档
     succeed_document: list[UploadDocumentMsgItem] = [
@@ -67,6 +68,7 @@ async def document_upload(  # noqa: ANN201
 async def get_document_list(  # noqa: ANN201
     conversation_id: str,
     user_sub: Annotated[str, Depends(get_user)],
+    session_id: Annotated[str, Depends(get_session)],
     *,
     used: Annotated[bool, Query()] = False,
     unused: Annotated[bool, Query()] = True,
@@ -91,29 +93,29 @@ async def get_document_list(  # noqa: ANN201
     if unused:
         # 拿到所有未使用的文档
         unused_docs = await DocumentManager.get_unused_docs(user_sub, conversation_id)
-        # doc_status = await KnowledgeBaseService.get_doc_status_from_rag([item.id for item in unused_docs])
-        # for current_doc in unused_docs:
-        #     for status_item in doc_status:
-        #         if current_doc.id != status_item.id:
-        #             continue
+        doc_status = await KnowledgeBaseService.get_doc_status_from_rag(session_id, [item.id for item in unused_docs])
+        for current_doc in unused_docs:
+            for status_item in doc_status:
+                if current_doc.id != status_item.id:
+                    continue
 
-        #         if status_item.status == "success":
-        #             new_status = DocumentStatus.UNUSED
-        #         elif status_item.status == "failed":
-        #             new_status = DocumentStatus.FAILED
-        #         else:
-        #             new_status = DocumentStatus.PROCESSING
+                if status_item.status == "success":
+                    new_status = DocumentStatus.UNUSED
+                elif status_item.status == "failed":
+                    new_status = DocumentStatus.FAILED
+                else:
+                    new_status = DocumentStatus.PROCESSING
 
-        #         result += [
-        #             ConversationDocumentItem(
-        #                 _id=current_doc.id,
-        #                 name=current_doc.name,
-        #                 type=current_doc.type,
-        #                 size=round(current_doc.size, 2),
-        #                 status=new_status,
-        #                 created_at=current_doc.created_at,
-        #             ),
-        #         ]
+                result += [
+                    ConversationDocumentItem(
+                        _id=current_doc.id,
+                        name=current_doc.name,
+                        type=current_doc.type,
+                        size=round(current_doc.size, 2),
+                        status=new_status,
+                        created_at=current_doc.created_at,
+                    ),
+                ]
 
     # 对外展示的时候用id，不用alias
     return JSONResponse(
@@ -127,7 +129,7 @@ async def get_document_list(  # noqa: ANN201
 
 
 @router.delete("/{document_id}", response_model=ResponseData)
-async def delete_single_document(document_id: str, user_sub: Annotated[str, Depends(get_user)]):  # noqa: ANN201
+async def delete_single_document(document_id: str, user_sub: Annotated[str, Depends(get_user)], session_id=Annotated[str, Depends(get_session)]):  # noqa: ANN201
     """删除单个文件"""
     # 在Framework侧删除
     result = await DocumentManager.delete_document(user_sub, [document_id])
@@ -141,16 +143,16 @@ async def delete_single_document(document_id: str, user_sub: Annotated[str, Depe
             ).model_dump(exclude_none=True, by_alias=False),
         )
     # 在RAG侧删除
-    # result = await KnowledgeBaseService.delete_doc_from_rag([document_id])
-    # if not result:
-    #     return JSONResponse(
-    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-    #         content=ResponseData(
-    #             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-    #             message="RAG端删除文件失败",
-    #             result={},
-    #         ).model_dump(exclude_none=True, by_alias=False),
-    #     )
+    result = await KnowledgeBaseService.delete_doc_from_rag(session_id, [document_id])
+    if not result:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ResponseData(
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message="RAG端删除文件失败",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=False),
+        )
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,

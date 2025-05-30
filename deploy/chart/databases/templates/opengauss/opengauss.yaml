@@ -37,7 +37,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: opengauss
-          image: {{ .Values.databases.opengauss.image | default (printf "%s/neocopilot/opengauss:latest-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
+          image: {{ .Values.databases.opengauss.image | default (printf "%s/neocopilot/opengauss:latest-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (.Values.globals.arch | default "x86")) }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
           ports:
             - containerPort: 5432
@@ -75,8 +75,8 @@ spec:
               name: opengauss-log
           resources:
             requests:
-              cpu: 0.25
-              memory: 512Mi
+              cpu: 0.5
+              memory: 1024Mi
             limits:
                 {{ toYaml .Values.databases.opengauss.resourceLimits | indent 4 | trim }}
       volumes:
@@ -86,7 +86,7 @@ spec:
         - name: opengauss-init
           configMap:
             name: opengauss-config
-            defaultMode: 0744
+            defaultMode: {{ 0744 | toDecimal }}
         - name: opengauss-log
           emptyDir: {}
 {{- end -}}

@@ -171,7 +171,7 @@ class RAG:
                     "data: "
                     + json.dumps(
                         {
-                            "event_type": EventType.DOC_ADD.value,
+                            "event_type": EventType.DOCUMENT_ADD.value,
                             "input_tokens": input_tokens,
                             "output_tokens": output_tokens,
                             "content": doc_name_link,
