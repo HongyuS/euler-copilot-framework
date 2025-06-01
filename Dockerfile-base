@@ -26,5 +26,5 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     # 使用正确的参数替代 --no-extra-index-url
     uv sync --no-dev --no-install-project --no-cache-dir \
     --index-url https://mirrors.aliyun.com/pypi/simple/ \
-    --config-set installer.pip.index-urls=https://mirrors.aliyun.com/pypi/simple/ \
-    --config-set installer.pip.trusted-hosts=mirrors.aliyun.com
+    --config-setting installer.pip.index-urls=https://mirrors.aliyun.com/pypi/simple/ \
+    --config-setting installer.pip.trusted-hosts=mirrors.aliyun.com
