@@ -483,7 +483,6 @@ class GetMCPServiceDetailMsg(BaseModel):
     description: str = Field(description="MCP服务描述")
     data: str = Field(description="MCP服务配置")
     tools: list[MCPTool] = Field(description="MCP服务Tools列表", default=[])
-    is_active: bool = Field(alias="isActive", description="mcp服务是否激活", default=False)
     mcp_type: MCPType = Field(alias="mcpType", description="MCP 类型")
 
 

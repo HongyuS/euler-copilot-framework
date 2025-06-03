@@ -6,9 +6,11 @@ import base64
 import json
 import logging
 import shutil
+from io import BytesIO
 
 import asyncer
 from anyio import Path
+from PIL import Image
 
 from apps.common.config import Config
 from apps.common.process_handler import ProcessHandler
@@ -341,11 +343,8 @@ class MCPLoader(metaclass=SingletonMeta):
         config_path = MCP_PATH / "template" / mcp_id / "config.json"
         await Path.mkdir(config_path.parent, parents=True, exist_ok=True)
 
-        # TODO：用pillow做转换
-        icon_path = MCP_PATH / "template" / mcp_id / "icon.png"
-        f = await icon_path.open("wb")
-        await f.write(base64.b64decode(icon))
-        await f.aclose()
+        image = Image.open(BytesIO(base64.b64decode(icon)))
+        image.save(MCP_PATH / "template" / mcp_id / "icon.ico", format="ICO", sizes=[(64, 64)])
 
         f = await config_path.open("w+", encoding="utf-8")
         config_dict = config.model_dump(by_alias=True, exclude_none=True)
@@ -363,6 +362,7 @@ class MCPLoader(metaclass=SingletonMeta):
         """
         icon_path = MCP_PATH / "template" / mcp_id / "icon.png"
         if not await icon_path.exists():
+            logger.warning("[MCPLoader] MCP模板图标不存在: %s", mcp_id)
             return ""
         f = await icon_path.open("rb")
         icon = await f.read()

@@ -139,75 +139,38 @@ async def get_service_detail(
     """获取MCP服务详情"""
     # 示例：返回指定MCP服务的详情
     if edit:
-        try:
-            data = await MCPServiceManager.get_mcp_service_detail(user_sub, service_id)
-            is_active = await MCPServiceManager.is_active(user_sub, service_id)
-        except ServiceIDError:
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content=ResponseData(
-                    code=status.HTTP_400_BAD_REQUEST,
-                    message="MCPService ID错误",
-                    result={},
-                ).model_dump(exclude_none=True, by_alias=True),
-            )
-        except InstancePermissionError:
-            return JSONResponse(
-                status_code=status.HTTP_403_FORBIDDEN,
-                content=ResponseData(
-                    code=status.HTTP_403_FORBIDDEN,
-                    message="未授权访问",
-                    result={},
-                ).model_dump(exclude_none=True, by_alias=True),
-            )
-        except Exception as e:
-            err = f"[MCPService] 获取MCP服务数据失败: {e}"
-            logger.exception(err)
-            return JSONResponse(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content=ResponseData(
-                    code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    message="ERROR",
-                    result={},
-                ).model_dump(exclude_none=True, by_alias=True),
-            )
-        detail = GetMCPServiceDetailMsg(
-            serviceId=data.service_id,
-            icon=data.icon,
-            name=data.name,
-            description=data.description,
-            data=data.config_str,
-            tools=data.tools,
-            isActive=is_active,
-            mcpType=data.mcp_type,
+        pass
+
+    try:
+        data = await MCPServiceManager.get_mcp_service_detail(user_sub, service_id)
+    except Exception as e:
+        err = f"[MCPService] 获取MCP服务API失败: {e}"
+        logger.exception(err)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ResponseData(
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message="ERROR",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
         )
-    else:
-        try:
-            data = await MCPServiceManager.get_service_details(service_id)
-            is_active = await MCPServiceManager.is_active(user_sub, service_id)
-        except Exception as e:
-            err = f"[MCPService] 获取MCP服务API失败: {e}"
-            logger.exception(err)
-            return JSONResponse(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                content=ResponseData(
-                    code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    message="ERROR",
-                    result={},
-                ).model_dump(exclude_none=True, by_alias=True),
-            )
-        detail = GetMCPServiceDetailMsg(
-            serviceId=service_id,
-            icon=data.icon,
-            name=data.name,
-            description=data.description,
-            tools=data.tools,
-            data=data.config_str,
-            isActive=is_active,
-            mcpType=data.mcp_type,
-        )
-    rsp = GetMCPServiceDetailRsp(code=status.HTTP_200_OK, message="OK", result=detail)
-    return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))
+    detail = GetMCPServiceDetailMsg(
+        serviceId=service_id,
+        icon=data.icon,
+        name=data.name,
+        description=data.description,
+        tools=data.tools,
+        data=data.config_str,
+        mcpType=data.mcp_type,
+    )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=GetMCPServiceDetailRsp(
+            code=status.HTTP_200_OK,
+            message="OK",
+            result=detail,
+        ).model_dump(exclude_none=True, by_alias=True),
+    )
 
 
 @router.delete("/{serviceId}", response_model=DeleteMCPServiceRsp)
