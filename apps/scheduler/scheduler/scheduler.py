@@ -92,7 +92,6 @@ class Scheduler:
             await self.queue.close()
             return
         history, _ = await get_context(self.task.ids.user_sub, self.post_body, 3)
-
         # 已使用文档
         self.used_docs = []
 

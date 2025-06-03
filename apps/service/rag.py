@@ -99,15 +99,15 @@ class RAG:
         doc_id_name_list = []
         if doc_ids:
             tmp_data = RAGQueryReq(
-                kb_ids=["00000000-0000-0000-0000-000000000000"],
+                kbIds=["00000000-0000-0000-0000-000000000000"],
                 query=data.query,
-                top_k=data.top_k,
-                doc_ids=doc_ids,
-                search_method=data.search_method,
-                is_related_surrounding=data.is_related_surrounding,
-                is_classify_by_doc=data.is_classify_by_doc,
-                is_rerank=data.is_rerank,
-                tokens_limit=data.tokens_limit
+                topK=data.top_k,
+                docIds=doc_ids,
+                searchMethod=data.search_method,
+                isRelatedSurrounding=data.is_related_surrounding,
+                isClassifyByDoc=data.is_classify_by_doc,
+                isRerank=data.is_rerank,
+                tokensLimit=data.tokens_limit
             )
             async with httpx.AsyncClient() as client:
                 data_json = tmp_data.model_dump(exclude_none=True, by_alias=True)
