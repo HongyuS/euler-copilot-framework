@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 """FastAPI 语义接口中心相关路由"""
 
+import json
 import logging
 from typing import Annotated
 
@@ -14,6 +15,7 @@ from apps.entities.response_data import (
     ActiveMCPServiceRsp,
     BaseMCPServiceOperationMsg,
     DeleteMCPServiceRsp,
+    EditMCPServiceMsg,
     GetMCPServiceDetailMsg,
     GetMCPServiceDetailRsp,
     GetMCPServiceListMsg,
@@ -22,7 +24,6 @@ from apps.entities.response_data import (
     UpdateMCPServiceMsg,
     UpdateMCPServiceRsp,
 )
-from apps.exceptions import InstancePermissionError, ServiceIDError
 from apps.manager.mcp_service import MCPServiceManager
 from apps.manager.user import UserManager
 
@@ -137,12 +138,13 @@ async def get_service_detail(
         edit: Annotated[bool, Query(..., description="是否为编辑模式")] = False,
 ) -> JSONResponse:
     """获取MCP服务详情"""
-    # 示例：返回指定MCP服务的详情
+    # 检查用户权限
     if edit:
         pass
 
+    # 获取MCP服务详情
     try:
-        data = await MCPServiceManager.get_mcp_service_detail(service_id)
+        data = await MCPServiceManager.get_mcp_service(service_id)
     except Exception as e:
         err = f"[MCPService] 获取MCP服务API失败: {e}"
         logger.exception(err)
@@ -154,15 +156,29 @@ async def get_service_detail(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    detail = GetMCPServiceDetailMsg(
-        serviceId=service_id,
-        icon=data.icon,
-        name=data.name,
-        description=data.description,
-        tools=data.tools,
-        data=data.config_str,
-        mcpType=data.mcp_type,
-    )
+
+    if edit:
+        # 组装编辑所需信息
+        detail = EditMCPServiceMsg(
+            serviceId=service_id,
+            icon=data.icon,
+            name=data.name,
+            description=data.description,
+            overview=data.overview,
+            data=json.dumps(data.config),
+            mcpType=data.mcp_type,
+        )
+    else:
+        # 组装详情所需信息
+        detail = GetMCPServiceDetailMsg(
+            serviceId=service_id,
+            icon=data.icon,
+            name=data.name,
+            description=data.description,
+            overview=data.overview,
+            tools=data.tools,
+        )
+
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=GetMCPServiceDetailRsp(
@@ -215,7 +231,7 @@ async def active_or_deactivate_mcp_service(
         else:
             await MCPServiceManager.deactive_mcpservice(user_sub, service_id)
     except Exception as e:
-        err = f"[MCPService] 激活mcp服务失败: {e}" if data.active else f"[MCPService] 取消激活mcp服务失败: {e}"
+        err = f"[MCPService] 激活mcp服务失败: {e!s}" if data.active else f"[MCPService] 取消激活mcp服务失败: {e!s}"
         logger.exception(err)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -59,7 +59,7 @@ class MCPLoader(metaclass=SingletonMeta):
             await (MCP_PATH / "users").mkdir(parents=True, exist_ok=True)
 
     @staticmethod
-    async def _load_config(config_path: Path) -> MCPConfig:
+    async def _load_config(config_path: Path) -> MCPServerConfig:
         """
         加载 MCP 配置
 
@@ -80,14 +80,13 @@ class MCPLoader(metaclass=SingletonMeta):
 
     @staticmethod
     async def _install_template_task(
-        mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig,
+        mcp_id: str, config: MCPServerConfig,
     ) -> None:
         """
         安装依赖
 
         :param str mcp_id: MCP模板ID
-        :param MCPServerSSEConfig | MCPServerStdioConfig config: MCP配置
-        :param list[str] user_subs: 用户IDs
+        :param MCPServerConfig config: MCP配置
         :return: 无
         """
         await MCPLoader.update_template_status(mcp_id, MCPStatus.INSTALLING)
@@ -114,7 +113,7 @@ class MCPLoader(metaclass=SingletonMeta):
         异步安装依赖，并把template同步给用户
 
         :param str mcp_id: MCP模板ID
-        :param MCPServerSSEConfig | MCPServerStdioConfig config: MCP配置
+        :param MCPServerConfig config: MCP配置
         :param list[str] | None user_subs: 用户IDs
         :return: 无
         """
@@ -222,14 +221,14 @@ class MCPLoader(metaclass=SingletonMeta):
     @staticmethod
     async def _get_template_tool(
             mcp_id: str,
-            config: MCPServerSSEConfig | MCPServerStdioConfig,
+            config: MCPServerConfig,
             user_sub: str | None = None,
     ) -> list[MCPTool]:
         """
         获取MCP模板的工具列表
 
         :param str mcp_id: MCP模板ID
-        :param MCPServerSSEConfig | MCPServerStdioConfig config: MCP配置
+        :param MCPServerConfig config: MCP配置
         :param str | None user_sub: 用户ID,默认为None
         :return: 工具列表
         :rtype: list[str]
@@ -260,7 +259,7 @@ class MCPLoader(metaclass=SingletonMeta):
         return tool_list
 
     @staticmethod
-    async def _insert_template_db(mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig) -> None:
+    async def _insert_template_db(mcp_id: str, config: MCPServerConfig) -> None:
         """
         插入单个MCP Server模板信息到数据库
 
@@ -370,6 +369,24 @@ class MCPLoader(metaclass=SingletonMeta):
         return base64.b64encode(icon).decode("utf-8")
 
     @staticmethod
+    async def get_config(mcp_id: str) -> MCPServerConfig:
+        """
+        获取MCP服务配置
+
+        :param mcp_id: str: MCP服务ID
+        :return: MCP服务配置
+        """
+        config_path = MCP_PATH / "template" / mcp_id / "config.json"
+        if not await config_path.exists():
+            err = f"MCP模板配置文件不存在: {mcp_id}"
+            logger.error(err)
+            raise FileNotFoundError(err)
+        f = await config_path.open("r", encoding="utf-8")
+        config = json.loads(await f.read())
+        await f.aclose()
+        return MCPServerConfig.model_validate(config)
+
+    @staticmethod
     async def update_template_status(mcp_id: str, status: MCPStatus) -> None:
         """
         更新数据库中MCP模板状态
@@ -405,7 +422,6 @@ class MCPLoader(metaclass=SingletonMeta):
         # 判断是否存在
         if await user_path.exists():
             err = f"MCP模板“{mcp_id}”已存在或有同名文件，无法激活"
-            logger.error(err)
             raise FileExistsError(err)
 
         # 拷贝文件

@@ -481,15 +481,26 @@ class GetMCPServiceDetailMsg(BaseModel):
     icon: str = Field(description="图标", default="")
     name: str = Field(..., description="MCP服务名称")
     description: str = Field(description="MCP服务描述")
-    data: str = Field(description="MCP服务配置")
+    overview: str = Field(description="MCP服务概述")
     tools: list[MCPTool] = Field(description="MCP服务Tools列表", default=[])
+
+
+class EditMCPServiceMsg(BaseModel):
+    """编辑MCP服务"""
+
+    service_id: str = Field(..., alias="serviceId", description="MCP服务ID")
+    icon: str = Field(description="图标", default="")
+    name: str = Field(..., description="MCP服务名称")
+    description: str = Field(description="MCP服务描述")
+    overview: str = Field(description="MCP服务概述")
+    data: str = Field(description="MCP服务配置")
     mcp_type: MCPType = Field(alias="mcpType", description="MCP 类型")
 
 
 class GetMCPServiceDetailRsp(ResponseData):
     """GET /api/service/{serviceId} 返回数据结构"""
 
-    result: GetMCPServiceDetailMsg = Field(..., title="Result")
+    result: GetMCPServiceDetailMsg | EditMCPServiceMsg = Field(..., title="Result")
 
 
 class DeleteMCPServiceRsp(ResponseData):

@@ -98,27 +98,33 @@ class MCPServiceManager:
         ]
 
     @staticmethod
-    async def get_mcp_service_detail(mcpservice_id: str) -> MCPServerStdioConfig | MCPServerSSEConfig:
+    async def get_mcp_service(mcpservice_id: str) -> MCPCollection:
         """
-        验证用户权限，获取MCP服务详细信息
+        获取MCP服务详细信息
 
-        :param user_sub: str: 用户ID
         :param mcpservice_id: str: MCP服务ID
         :return: MCP服务详细信息
         """
         # 验证用户权限
         mcpservice_collection = MongoDB().get_collection("mcp")
-        query = {"$and": [{"service_id": mcpservice_id}, {"author": user_sub}]}
-        db_service = await mcpservice_collection.find_one(query, {"_id": False})
+        db_service = await mcpservice_collection.find_one({"_id": mcpservice_id})
         if not db_service:
             msg = "[MCPServiceManager] MCP服务未找到或用户无权限"
             raise RuntimeError(msg)
-        mcpservice_pool_store = MCPServiceMetadata.model_validate(db_service)
-        if mcpservice_pool_store.author != user_sub:
-            msg = "[MCPServiceManager] 权限不足"
-            raise InstancePermissionError(msg)
+        return MCPCollection.model_validate(db_service)
 
-        return mcpservice_pool_store
+
+    @staticmethod
+    async def get_mcp_config(mcpservice_id: str) -> tuple[MCPServerConfig, str]:
+        """
+        获取MCP服务配置
+
+        :param mcpservice_id: str: MCP服务ID
+        :return: MCP服务配置
+        """
+        icon = MCPLoader.get_icon(mcpservice_id)
+        config = MCPLoader.get_config(mcpservice_id)
+
 
     @staticmethod
     async def get_service_tools(
@@ -283,16 +289,13 @@ class MCPServiceManager:
         :return: 无
         """
         mcp_collection = MongoDB().get_collection("mcp")
-        status = await mcp_collection.find({"_id": service_id}, {"status": 1, "_id": False}).to_list(None)
-        loader = MCPLoader()
+        status = await mcp_collection.find({"_id": service_id}, {"status": 1}).to_list()
         for item in status:
             mcp_status = item.get("status", MCPStatus.INSTALLING)
             if mcp_status == MCPStatus.READY:
-                loader = MCPLoader()
-                await loader.user_active_template(user_sub, service_id)
+                await MCPLoader.user_active_template(user_sub, service_id)
             else:
                 err = "[MCPServiceManager] MCP服务未准备就绪"
-                logger.error(err)
                 raise RuntimeError(err)
 
     @staticmethod
@@ -311,7 +314,7 @@ class MCPServiceManager:
         try:
             await mcp_pool.stop(mcp_id=service_id, user_sub=user_sub)
         except KeyError as e:
-            logger.warning(e)
+            logger.warning("[MCPServiceManager] MCP服务未找到: %s", str(e))
         await MCPLoader.user_deactive_template(user_sub, service_id)
 
     @staticmethod

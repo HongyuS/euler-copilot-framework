@@ -98,6 +98,7 @@ class UpdateMCPServiceRequest(BaseModel):
     icon: str = Field(description="图标", default="")
     name: str = Field(..., description="MCP服务名称")
     description: str = Field(..., description="MCP服务描述")
+    overview: str = Field(..., description="MCP服务概述")
     config: str = Field(..., description="MCP服务配置")
     mcp_type: MCPType = Field(description="MCP传输协议(Stdio/SSE/Streamable)", default=MCPType.STDIO, alias="mcpType")
 
