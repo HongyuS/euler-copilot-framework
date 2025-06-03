@@ -1,7 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """请求RAG相关接口时，使用的数据类型"""
 
-from typing import Literal
+from typing import Literal, Any
 
 from pydantic import BaseModel, Field
 
@@ -33,7 +33,7 @@ class RAGFileParseReqItem(BaseModel):
 class RAGEventData(BaseModel):
     """RAG服务返回的事件数据"""
 
-    content: str = ""
+    content: Any
     event_type: str
     input_tokens: int = 0
     output_tokens: int = 0
