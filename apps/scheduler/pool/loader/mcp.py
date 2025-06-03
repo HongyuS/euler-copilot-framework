@@ -2,6 +2,7 @@
 """MCP 加载器"""
 
 import asyncio
+import base64
 import json
 import logging
 import shutil
@@ -328,25 +329,45 @@ class MCPLoader(metaclass=SingletonMeta):
         await LanceDB().create_index("mcp_tool")
 
     @staticmethod
-    async def save_one(user_sub: str | None, mcp_id: str, config: MCPServerConfig) -> None:
+    async def save_one(mcp_id: str, icon: str, config: MCPServerConfig) -> None:
         """
-        保存单个MCP模板的配置文件（即``template``下的``config.json``文件）
+        保存单个MCP模板的配置文件（``config.json``文件和``icon.png``文件）
 
-        :param str user_sub: 用户ID
         :param str mcp_id: MCP模板ID
+        :param str icon: MCP模板图标
         :param MCPConfig config: MCP配置
         :return: 无
         """
-        if user_sub:
-            config_path = MCP_PATH / "users" / user_sub / mcp_id / "config.json"
-        else:
-            config_path = MCP_PATH / "template" / mcp_id / "config.json"
+        config_path = MCP_PATH / "template" / mcp_id / "config.json"
         await Path.mkdir(config_path.parent, parents=True, exist_ok=True)
+
+        # TODO：用pillow做转换
+        icon_path = MCP_PATH / "template" / mcp_id / "icon.png"
+        f = await icon_path.open("wb")
+        await f.write(base64.b64decode(icon))
+        await f.aclose()
 
         f = await config_path.open("w+", encoding="utf-8")
         config_dict = config.model_dump(by_alias=True, exclude_none=True)
         await f.write(json.dumps(config_dict, indent=4, ensure_ascii=False))
         await f.aclose()
+
+    @staticmethod
+    async def get_icon(mcp_id: str) -> str:
+        """
+        获取MCP模板的图标
+
+        :param str mcp_id: MCP模板ID
+        :return: 图标
+        :rtype: str
+        """
+        icon_path = MCP_PATH / "template" / mcp_id / "icon.png"
+        if not await icon_path.exists():
+            return ""
+        f = await icon_path.open("rb")
+        icon = await f.read()
+        await f.aclose()
+        return base64.b64encode(icon).decode("utf-8")
 
     @staticmethod
     async def update_template_status(mcp_id: str, status: MCPStatus) -> None:

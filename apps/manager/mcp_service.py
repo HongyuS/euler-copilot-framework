@@ -76,9 +76,9 @@ class MCPServiceManager:
         """
         获取所有MCP服务列表
 
-        :param search_type: SearchType: str: MCP描述
+        :param search_type: SearchType: str: MCP搜索类型
         :param user_sub: str: 用户ID
-        :param keyword: str: 搜索关键字
+        :param keyword: str: MCP搜索关键字
         :param page: int: 页码
         :return: MCP服务列表
         """
@@ -86,15 +86,15 @@ class MCPServiceManager:
         mcpservice_pools = await MCPServiceManager._search_mcpservice(filters, page)
         return [
             MCPServiceCardItem(
-                mcpserviceId=mcpservice_pool.id,
-                icon=mcpservice_pool.icon,
-                name=mcpservice_pool.name,
-                description=mcpservice_pool.description,
-                author=mcpservice_pool.author,
-                isActive=await MCPServiceManager.is_active(user_sub, mcpservice_pool.id),
-                status=await MCPServiceManager.get_service_status(mcpservice_pool.id),
+                mcpserviceId=item.id,
+                icon=await MCPLoader.get_icon(item.id),
+                name=item.name,
+                description=item.description,
+                author=item.author,
+                isActive=await MCPServiceManager.is_active(user_sub, item.id),
+                status=await MCPServiceManager.get_service_status(item.id),
             )
-            for mcpservice_pool in mcpservice_pools
+            for item in mcpservice_pools
         ]
 
     @staticmethod
@@ -147,7 +147,7 @@ class MCPServiceManager:
     async def _search_mcpservice(
             search_conditions: dict[str, Any],
             page: int,
-    ) -> list[MCPServerStdioConfig | MCPServerSSEConfig]:
+    ) -> list[MCPCollection]:
         """
         基于输入条件搜索MCP服务
 
@@ -156,18 +156,17 @@ class MCPServiceManager:
         :return: MCP列表
         """
         mcpservice_collection = MongoDB().get_collection("mcp")
-        # 获取服务总数
-        total = await mcpservice_collection.count_documents(search_conditions)
         # 分页查询
         skip = (page - 1) * SERVICE_PAGE_SIZE
-        db_mcpservices = await mcpservice_collection.find(
-            search_conditions, {"_id": False},
-        ).skip(skip).limit(SERVICE_PAGE_SIZE).to_list()
+        db_mcpservices = await mcpservice_collection.find(search_conditions).skip(skip).limit(
+            SERVICE_PAGE_SIZE,
+        ).to_list()
+        # 如果未找到，返回空列表
         if not db_mcpservices:
             logger.warning("[MCPServiceManager] 没有找到符合条件的MCP服务: %s", search_conditions)
             return []
-        mcpservice_pools = [MCPServiceMetadata.model_validate(db_mcpservice) for db_mcpservice in db_mcpservices]
-        return mcpservice_pools
+        # 将数据库中的MCP服务转换为对象
+        return [MCPCollection.model_validate(db_mcpservice) for db_mcpservice in db_mcpservices]
 
     @staticmethod
     def _build_filters(
@@ -217,15 +216,16 @@ class MCPServiceManager:
         # 检查是否存在相同服务
         mcp_collection = MongoDB().get_collection("mcp")
         db_service = await mcp_collection.find_one({"name": mcp_server.name})
+        mcp_id = sqids.encode([random.randint(0, 1000000) for _ in range(5)])[:6]  # noqa: S311
         if db_service:
-            mcp_server.name = f"{mcp_server.name}-{sqids.encode([random.randint(0, 1000000) for _ in range(5)])[:6]}"  # noqa: S311
+            mcp_server.name = f"{mcp_server.name}-{mcp_id}"
             logger.warning("[MCPServiceManager] 已存在相同名称和描述的MCP服务")
 
         # 保存并载入配置
         logger.info("[MCPServiceManager] 创建mcp：%s", mcp_server.name)
-        await MCPLoader.save_one(None, mcp_server.name, mcp_server)
-        await MCPLoader.init_one_template(mcp_id=mcp_server.name, config=mcp_server)
-        return mcp_server.name
+        await MCPLoader.save_one(mcp_id, data.icon, mcp_server)
+        await MCPLoader.init_one_template(mcp_id=mcp_id, config=mcp_server)
+        return mcp_id
 
     @staticmethod
     async def update_mcpservice(data: UpdateMCPServiceRequest) -> str:
