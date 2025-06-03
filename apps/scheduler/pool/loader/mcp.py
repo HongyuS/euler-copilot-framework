@@ -455,18 +455,13 @@ class MCPLoader(metaclass=SingletonMeta):
         """
         # 从MongoDB中移除
         mcp_collection = MongoDB().get_collection("mcp")
-        application_collection = MongoDB().get_collection("application")
         mcp_service_list = await mcp_collection.find(
             {"_id": {"$in": deleted_mcp_list}},
         ).to_list(None)
         for mcp_service in mcp_service_list:
-            doc = MCPCollection.model_validate(mcp_service)
-            for user_sub in doc.activated:
-                await MCPServiceManager.deactive_mcpservice(user_sub=user_sub, service_id=doc.id)
-            await application_collection.update_many(
-                {"mcpService": doc.id},
-                {"$pull": {"mcpService": doc.id}},
-            )
+            item = MCPCollection.model_validate(mcp_service)
+            for user_sub in item.activated:
+                await MCPLoader.user_deactive_template(user_sub=user_sub, mcp_id=item.id)
         await mcp_collection.delete_many({"_id": {"$in": deleted_mcp_list}})
         logger.info("[MCPLoader] 清除数据库中无效的MCP")
 

@@ -218,24 +218,6 @@ async def delete_service(
     """删除服务"""
     try:
         await MCPServiceManager.delete_mcpservice(user_sub, service_id)
-    except ServiceIDError:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content=ResponseData(
-                code=status.HTTP_400_BAD_REQUEST,
-                message="MCPService ID错误",
-                result={},
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
-    except InstancePermissionError:
-        return JSONResponse(
-            status_code=status.HTTP_403_FORBIDDEN,
-            content=ResponseData(
-                code=status.HTTP_403_FORBIDDEN,
-                message="未授权访问",
-                result={},
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
     except Exception as e:
         err = f"[MCPServiceManager] 删除MCP服务失败: {e}"
         logger.exception(err)
@@ -247,9 +229,14 @@ async def delete_service(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    msg = BaseMCPServiceOperationMsg(serviceId=service_id)
-    rsp = DeleteMCPServiceRsp(code=status.HTTP_200_OK, message="OK", result=msg)
-    return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=DeleteMCPServiceRsp(
+            code=status.HTTP_200_OK,
+            message="OK",
+            result=BaseMCPServiceOperationMsg(serviceId=service_id),
+        ).model_dump(exclude_none=True, by_alias=True),
+    )
 
 
 @router.post("/{serviceId}", response_model=ActiveMCPServiceRsp)

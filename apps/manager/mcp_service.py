@@ -247,7 +247,7 @@ class MCPServiceManager:
     async def delete_mcpservice(
             user_sub: str,
             service_id: str,
-    ) -> bool:
+    ) -> None:
         """
         删除MCP服务
 
@@ -256,18 +256,22 @@ class MCPServiceManager:
         :return: 是否删除成功
         """
         service_collection = MongoDB().get_collection("mcp")
-        db_service = await service_collection.find_one({"id": service_id}, {"_id": False})
+        db_service = await service_collection.find_one(
+            {"id": service_id, "author": user_sub},
+            {"_id": False},
+        )
         if not db_service:
-            msg = "[MCPServiceManager] MCP服务未找到"
+            msg = "[MCPServiceManager] MCP服务未找到或无权限"
             raise ValueError(msg)
-        # 验证用户权限
-        service_pool_store = MCPServiceMetadata.model_validate(db_service)
-        if service_pool_store.author != user_sub:
-            msg = "[MCPServiceManager] 权限不足"
-            raise InstancePermissionError(msg)
-        await MCPServiceManager.delete(service_id)
+        # 删除对应的mcp
         await MCPLoader.delete_mcp(service_id)
-        return True
+
+        # 遍历所有应用，将其中的MCP删除
+        app_collection = MongoDB().get_collection("application")
+        await app_collection.update_many(
+            {"mcp_service": service_id},
+            {"$pull": {"mcp_service": service_id}},
+        )
 
     @staticmethod
     async def active_mcpservice(
