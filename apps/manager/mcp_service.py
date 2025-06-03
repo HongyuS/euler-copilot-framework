@@ -98,10 +98,7 @@ class MCPServiceManager:
         ]
 
     @staticmethod
-    async def get_mcp_service_detail(
-            user_sub: str,
-            mcpservice_id: str,
-    ) -> MCPServerStdioConfig | MCPServerSSEConfig:
+    async def get_mcp_service_detail(mcpservice_id: str) -> MCPServerStdioConfig | MCPServerSSEConfig:
         """
         验证用户权限，获取MCP服务详细信息
 
@@ -114,7 +111,7 @@ class MCPServiceManager:
         query = {"$and": [{"service_id": mcpservice_id}, {"author": user_sub}]}
         db_service = await mcpservice_collection.find_one(query, {"_id": False})
         if not db_service:
-            msg = "[MCPServiceManager] MCP服务未找到"
+            msg = "[MCPServiceManager] MCP服务未找到或用户无权限"
             raise RuntimeError(msg)
         mcpservice_pool_store = MCPServiceMetadata.model_validate(db_service)
         if mcpservice_pool_store.author != user_sub:
@@ -266,7 +263,7 @@ class MCPServiceManager:
         # 删除对应的mcp
         await MCPLoader.delete_mcp(service_id)
 
-        # 遍历所有应用，将其中的MCP删除
+        # 遍历所有应用，将其中的MCP依赖删除
         app_collection = MongoDB().get_collection("application")
         await app_collection.update_many(
             {"mcp_service": service_id},

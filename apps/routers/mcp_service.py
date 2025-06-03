@@ -142,7 +142,7 @@ async def get_service_detail(
         pass
 
     try:
-        data = await MCPServiceManager.get_mcp_service_detail(user_sub, service_id)
+        data = await MCPServiceManager.get_mcp_service_detail(service_id)
     except Exception as e:
         err = f"[MCPService] 获取MCP服务API失败: {e}"
         logger.exception(err)
@@ -214,17 +214,6 @@ async def active_or_deactivate_mcp_service(
             await MCPServiceManager.active_mcpservice(user_sub, service_id)
         else:
             await MCPServiceManager.deactive_mcpservice(user_sub, service_id)
-    except FileExistsError as e:
-        err = f"[MCPService] 激活mcp服务失败: {e}" if data.active else f"[MCPService] 取消激活mcp服务失败: {e}"
-        logger.exception(err)
-        return JSONResponse(
-            status_code=status.HTTP_403_FORBIDDEN,
-            content=ResponseData(
-                code=status.HTTP_403_FORBIDDEN,
-                message=err,
-                result={},
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
     except Exception as e:
         err = f"[MCPService] 激活mcp服务失败: {e}" if data.active else f"[MCPService] 取消激活mcp服务失败: {e}"
         logger.exception(err)
@@ -236,6 +225,11 @@ async def active_or_deactivate_mcp_service(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    msg = BaseMCPServiceOperationMsg(serviceId=service_id)
-    rsp = ActiveMCPServiceRsp(code=status.HTTP_200_OK, message="OK", result=msg)
-    return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=ActiveMCPServiceRsp(
+            code=status.HTTP_200_OK,
+            message="OK",
+            result=BaseMCPServiceOperationMsg(serviceId=service_id),
+        ).model_dump(exclude_none=True, by_alias=True),
+    )
