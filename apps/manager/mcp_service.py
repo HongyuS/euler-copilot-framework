@@ -113,7 +113,6 @@ class MCPServiceManager:
             raise RuntimeError(msg)
         return MCPCollection.model_validate(db_service)
 
-
     @staticmethod
     async def get_mcp_config(mcpservice_id: str) -> tuple[MCPServerConfig, str]:
         """
@@ -122,9 +121,9 @@ class MCPServiceManager:
         :param mcpservice_id: str: MCP服务ID
         :return: MCP服务配置
         """
-        icon = MCPLoader.get_icon(mcpservice_id)
-        config = MCPLoader.get_config(mcpservice_id)
-
+        icon = await MCPLoader.get_icon(mcpservice_id)
+        config = await MCPLoader.get_config(mcpservice_id)
+        return config, icon
 
     @staticmethod
     async def get_service_tools(

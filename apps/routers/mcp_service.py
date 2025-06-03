@@ -145,6 +145,7 @@ async def get_service_detail(
     # 获取MCP服务详情
     try:
         data = await MCPServiceManager.get_mcp_service(service_id)
+        config, icon = await MCPServiceManager.get_mcp_config(service_id)
     except Exception as e:
         err = f"[MCPService] 获取MCP服务API失败: {e}"
         logger.exception(err)
@@ -161,21 +162,21 @@ async def get_service_detail(
         # 组装编辑所需信息
         detail = EditMCPServiceMsg(
             serviceId=service_id,
-            icon=data.icon,
+            icon=icon,
             name=data.name,
             description=data.description,
-            overview=data.overview,
+            overview=config.overview,
             data=json.dumps(data.config),
-            mcpType=data.mcp_type,
+            mcpType=config.type,
         )
     else:
         # 组装详情所需信息
         detail = GetMCPServiceDetailMsg(
             serviceId=service_id,
-            icon=data.icon,
+            icon=icon,
             name=data.name,
             description=data.description,
-            overview=data.overview,
+            overview=config.overview,
             tools=data.tools,
         )
 
