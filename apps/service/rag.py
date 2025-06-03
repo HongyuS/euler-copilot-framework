@@ -124,23 +124,23 @@ class RAG:
                         )
                         for chunk in doc_chunk["chunks"]:
                             corpus.append(chunk["text"].replace("\n", ""))
-
-        async with httpx.AsyncClient() as client:
-            data_json = data.model_dump(exclude_none=True, by_alias=True)
-            response = await client.post(url, headers=headers, json=data_json)
-            # 检查响应状态码
-            if response.status_code == status.HTTP_200_OK:
-                result = response.json()
-                doc_chunk_list = result["result"]["docChunks"]
-                for doc_chunk in doc_chunk_list:
-                    doc_id_name_list.append(
-                        {
-                            "id": doc_chunk["docId"],
-                            "name": doc_chunk["docName"],
-                        }
-                    )
-                    for chunk in doc_chunk["chunks"]:
-                        corpus.append(chunk["text"].replace("\n", ""))
+        if data.kb_ids:
+            async with httpx.AsyncClient() as client:
+                data_json = data.model_dump(exclude_none=True, by_alias=True)
+                response = await client.post(url, headers=headers, json=data_json)
+                # 检查响应状态码
+                if response.status_code == status.HTTP_200_OK:
+                    result = response.json()
+                    doc_chunk_list = result["result"]["docChunks"]
+                    for doc_chunk in doc_chunk_list:
+                        doc_id_name_list.append(
+                            {
+                                "id": doc_chunk["docId"],
+                                "name": doc_chunk["docName"],
+                            }
+                        )
+                        for chunk in doc_chunk["chunks"]:
+                            corpus.append(chunk["text"].replace("\n", ""))
 
         text = ""
         for i in range(len(corpus)):

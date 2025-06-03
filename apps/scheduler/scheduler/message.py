@@ -102,7 +102,10 @@ async def _push_rag_chunk(task: Task, queue: MessageQueue, content: str) -> tupl
             await queue.push_output(
                 task=task,
                 event_type=content_obj.event_type,
-                data=content_obj.content,
+                data=DocumentAddContent(
+                    documentId=content_obj.content.get("id", ""),
+                    documentName=content_obj.content.get("name", ""),
+                ).model_dump(exclude_none=True, by_alias=True),
             )
     except Exception:
         logger.exception("[Scheduler] RAG服务返回错误数据")

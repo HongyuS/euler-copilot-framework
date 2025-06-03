@@ -24,7 +24,6 @@ from apps.scheduler.pool.pool import Pool
 from apps.scheduler.scheduler.context import get_context, get_docs
 from apps.scheduler.scheduler.flow import FlowChooser
 from apps.scheduler.scheduler.message import (
-    push_document_message,
     push_init_message,
     push_rag_message,
 )
@@ -101,12 +100,6 @@ class Scheduler:
         logger.info("[Scheduler] 开始执行")
         if not self.post_body.app or self.post_body.app.app_id == "":
             self.task = await push_init_message(self.task, self.queue, 3, is_flow=False)
-            await asyncio.sleep(0.1)
-            for doc in docs:
-                # 保存使用的文件ID
-                self.used_docs.append(doc.id)
-                self.task = await push_document_message(self.task, self.queue, doc)
-                await asyncio.sleep(0.1)
             rag_data = RAGQueryReq(
                 kbIds=kb_ids,
                 query=self.post_body.question,
