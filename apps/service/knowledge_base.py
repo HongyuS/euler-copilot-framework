@@ -3,6 +3,7 @@
 
 import httpx
 from fastapi import status
+import json
 
 from apps.common.config import Config
 from apps.entities.collection import Document
@@ -55,7 +56,7 @@ class KnowledgeBaseService:
         }
         delete_data = {"ids": doc_ids}
         async with httpx.AsyncClient() as client:
-            resp = await client.delete(_RAG_DOC_DELETE_URI, headers=headers, json=delete_data)
+            resp = await client.post(_RAG_DOC_DELETE_URI, headers=headers, json=delete_data)
             resp_data = resp.json()
             if resp.status_code != status.HTTP_200_OK:
                 return []
