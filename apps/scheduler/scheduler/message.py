@@ -92,11 +92,18 @@ async def _push_rag_chunk(task: Task, queue: MessageQueue, content: str) -> tupl
 
         await TaskManager.save_task(task.id, task)
         # 推送消息
-        await queue.push_output(
-            task=task,
-            event_type=content_obj.event_type,
-            data=TextAddContent(text=content_obj.content).model_dump(exclude_none=True, by_alias=True),
-        )
+        if content_obj.event_type == EventType.TEXT_ADD.value:
+            await queue.push_output(
+                task=task,
+                event_type=content_obj.event_type,
+                data=TextAddContent(text=content_obj.content).model_dump(exclude_none=True, by_alias=True),
+            )
+        elif content_obj.event_type == EventType.DOCUMENT_ADD.value:
+            await queue.push_output(
+                task=task,
+                event_type=content_obj.event_type,
+                data=content_obj.content,
+            )
     except Exception:
         logger.exception("[Scheduler] RAG服务返回错误数据")
         return task, ""

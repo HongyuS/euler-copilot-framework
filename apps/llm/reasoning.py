@@ -163,7 +163,8 @@ class ReasoningLLM:
             max_tokens = self._config.max_tokens
         if temperature is None:
             temperature = self._config.temperature
-
+        if model is None:
+            model = self._config.model
         msg_list = self._validate_messages(messages)
         stream = await self._create_stream(msg_list, max_tokens, temperature, model)
         reasoning = ReasoningContent()
