@@ -96,7 +96,7 @@ class RAG:
 
         reasion_llm = ReasoningLLM(llm_config)
         corpus = []
-        doc_name_link_list = []
+        doc_id_name_list = []
         if doc_ids:
             tmp_data = RAGQueryReq(
                 kb_ids=["00000000-0000-0000-0000-000000000000"],
@@ -116,10 +116,10 @@ class RAG:
                     result = response.json()
                     doc_chunk_list = result["result"]["docChunks"]
                     for doc_chunk in doc_chunk_list:
-                        doc_name_link_list.append(
+                        doc_id_name_list.append(
                             {
+                                "id": doc_chunk["docId"],
                                 "name": doc_chunk["docName"],
-                                "link": doc_chunk["docLink"],
                             }
                         )
                         for chunk in doc_chunk["chunks"]:
@@ -133,7 +133,7 @@ class RAG:
                 result = response.json()
                 doc_chunk_list = result["result"]["docChunks"]
                 for doc_chunk in doc_chunk_list:
-                    doc_name_link_list.append(
+                    doc_id_name_list.append(
                         {
                             "id": doc_chunk["docId"],
                             "name": doc_chunk["docName"],
@@ -163,10 +163,10 @@ class RAG:
         ]
         input_tokens = TokenCalculator().calculate_token_length(messages=messages)
         output_tokens = 0
-        doc_name_link_set = set()
-        for doc_name_link in doc_name_link_list:
-            if json.dumps(doc_name_link) not in doc_name_link_set:
-                doc_name_link_set.add(json.dumps(doc_name_link))
+        doc_id_name_set = set()
+        for doc_id_name in doc_id_name_list:
+            if json.dumps(doc_id_name) not in doc_id_name_set:
+                doc_id_name_set.add(json.dumps(doc_id_name))
                 yield (
                     "data: "
                     + json.dumps(
@@ -174,7 +174,7 @@ class RAG:
                             "event_type": EventType.DOCUMENT_ADD.value,
                             "input_tokens": input_tokens,
                             "output_tokens": output_tokens,
-                            "content": doc_name_link,
+                            "content": doc_id_name,
                         },
                         ensure_ascii=False,
                     )
@@ -186,6 +186,7 @@ class RAG:
             streaming=True,
             temperature=0.7,
             result_only=False,
+            model=llm.model_name,
         ):
             if not await Activity.is_active(user_sub):
                 return
@@ -198,7 +199,7 @@ class RAG:
                 "data: "
                 + json.dumps(
                     {
-                        "event_type": EventType.text.value,
+                        "event_type": EventType.TEXT_ADD.value,
                         "content": chunk,
                         "input_tokens": input_tokens,
                         "output_tokens": output_tokens,
