@@ -7,10 +7,6 @@ from typing import Any
 from lancedb.pydantic import LanceModel, Vector
 from pydantic import BaseModel, Field
 
-from apps.entities.enum_var import (
-    MetadataType,
-)
-
 
 class MCPStatus(str, Enum):
     """MCP 服务状态"""
@@ -28,55 +24,37 @@ class MCPType(str, Enum):
     STREAMABLE = "stream"
 
 
-class MCPMetadataBase(BaseModel):
-    """
-    MCPService或MCPApp的元数据
+class MCPBasicConfig(BaseModel):
+    """MCP 基本配置"""
 
-    注意：hash字段在save和load的时候exclude
-    """
-
-    id: str = Field(description="元数据ID")
-    type: MetadataType = Field(description="元数据类型")
-    icon: str = Field(description="图标", default="")
-    name: str = Field(description="元数据名称")
-    description: str = Field(description="元数据描述")
-    author: str = Field(description="创建者的用户名")
-    hashes: dict[str, str] = Field(description="配置文件的hash值", default={})
-
-
-class MCPServerConfig(BaseModel):
-    """MCP 服务器配置"""
-
-    name: str = Field(description="MCP 服务器自然语言名称", default="")
-    description: str = Field(description="MCP 服务器自然语言描述", default="")
-    type: MCPType = Field(description="MCP 服务器类型", default=MCPType.STDIO)
-    disabled: bool = Field(description="MCP 服务器是否禁用", default=False)
-    auto_install: bool = Field(description="是否自动安装MCP服务器", default=True, alias="autoInstall")
-    icon_path: str = Field(description="MCP 服务器图标路径", default="", alias="iconPath")
     env: dict[str, str] = Field(description="MCP 服务器环境变量", default={})
     auto_approve: list[str] = Field(description="自动批准的MCP工具ID列表", default=[], alias="autoApprove")
+    disabled: bool = Field(description="MCP 服务器是否禁用", default=False)
+    auto_install: bool = Field(description="是否自动安装MCP服务器", default=True, alias="autoInstall")
 
 
-class MCPServerStdioConfig(MCPServerConfig):
+class MCPServerStdioConfig(MCPBasicConfig):
     """MCP 服务器配置"""
 
     command: str = Field(description="MCP 服务器命令")
     args: list[str] = Field(description="MCP 服务器命令参数")
 
 
-class MCPServerSSEConfig(MCPServerConfig):
+class MCPServerSSEConfig(MCPBasicConfig):
     """MCP 服务器配置"""
 
     url: str = Field(description="MCP 服务器地址", default="")
 
 
-class MCPConfig(BaseModel):
-    """MCP 配置"""
+class MCPServerConfig(BaseModel):
+    """MCP 服务器配置"""
 
-    mcp_servers: dict[
-        str,
-        MCPServerSSEConfig | MCPServerStdioConfig,
-    ] = Field(description="MCP 服务器配置", alias="mcpServers")
+    name: str = Field(description="MCP 服务器自然语言名称", default="")
+    overview: str = Field(description="MCP 服务器概述", default="")
+    description: str = Field(description="MCP 服务器自然语言描述", default="")
+    type: MCPType = Field(description="MCP 服务器类型", default=MCPType.STDIO)
+    author: str = Field(description="MCP 服务器上传者", default="")
+    config: MCPServerStdioConfig | MCPServerSSEConfig = Field(description="MCP 服务器配置")
 
 
 class MCPTool(BaseModel):
@@ -98,7 +76,8 @@ class MCPCollection(BaseModel):
     type: MCPType = Field(description="MCP 类型", default=MCPType.SSE)
     activated: list[str] = Field(description="激活该MCP的用户ID列表", default=[])
     tools: list[MCPTool] = Field(description="MCP工具列表", default=[])
-    status: MCPStatus = Field(description="MCP服务状态", default=MCPStatus.INSTALLING,)
+    status: MCPStatus = Field(description="MCP服务状态", default=MCPStatus.INSTALLING)
+    author: str = Field(description="MCP作者", default="")
 
 
 class MCPVector(LanceModel):
@@ -126,16 +105,6 @@ class MCPToolSelectResult(BaseModel):
     """MCP工具选择结果"""
 
     name: str = Field(description="工具名称")
-
-
-class MCPServiceMetadata(MCPMetadataBase):
-    """MCPService的元数据"""
-
-    type: MetadataType = MetadataType.SERVICE
-    config: MCPConfig = Field(description="MCP服务配置")
-    config_str: str = Field(description="MCP服务配置字符串", alias="configStr")
-    tools: list[MCPTool] = Field(description="MCP服务Tools列表")
-    mcp_type: MCPType = Field(description="MCP 类型", alias="mcpType")
 
 
 class MCPPlanItem(BaseModel):

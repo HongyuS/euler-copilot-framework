@@ -7,7 +7,7 @@ from anyio import Path
 
 from apps.common.config import Config
 from apps.common.singleton import SingletonMeta
-from apps.entities.mcp import MCPConfig, MCPType
+from apps.entities.mcp import MCPServerConfig, MCPType
 from apps.models.mongo import MongoDB
 from apps.scheduler.pool.mcp.client import SSEMCPClient, StdioMCPClient
 
@@ -32,18 +32,17 @@ class MCPPool(metaclass=SingletonMeta):
             logger.warning("[MCPPool] 用户 %s 的MCP %s 未激活", user_sub, mcp_id)
             return None
 
-        config = MCPConfig.model_validate_json(await config_path.read_text())
-        server_config = next(iter(config.mcp_servers.values()))
+        config = MCPServerConfig.model_validate_json(await config_path.read_text())
 
-        if server_config.type == MCPType.SSE:
+        if config.type == MCPType.SSE:
             client = SSEMCPClient()
-        elif server_config.type == MCPType.STDIO:
+        elif config.type == MCPType.STDIO:
             client = StdioMCPClient()
         else:
             logger.warning("[MCPPool] 用户 %s 的MCP %s 类型错误", user_sub, mcp_id)
             return None
 
-        await client.init(user_sub, mcp_id, server_config)
+        await client.init(user_sub, mcp_id, config.config)
         return client
 
 

@@ -452,7 +452,6 @@ class GetMCPServiceListMsg(BaseModel):
     """GET /api/service Result数据结构"""
 
     current_page: int = Field(..., alias="currentPage", description="当前页码")
-    total_count: int = Field(..., alias="totalCount", description="总服务数")
     services: list[MCPServiceCardItem] = Field(..., description="解析后的服务列表")
 
 
@@ -482,16 +481,26 @@ class GetMCPServiceDetailMsg(BaseModel):
     icon: str = Field(description="图标", default="")
     name: str = Field(..., description="MCP服务名称")
     description: str = Field(description="MCP服务描述")
-    data: str = Field(description="MCP服务配置")
+    overview: str = Field(description="MCP服务概述")
     tools: list[MCPTool] = Field(description="MCP服务Tools列表", default=[])
-    is_active: bool = Field(alias="isActive", description="mcp服务是否激活", default=False)
+
+
+class EditMCPServiceMsg(BaseModel):
+    """编辑MCP服务"""
+
+    service_id: str = Field(..., alias="serviceId", description="MCP服务ID")
+    icon: str = Field(description="图标", default="")
+    name: str = Field(..., description="MCP服务名称")
+    description: str = Field(description="MCP服务描述")
+    overview: str = Field(description="MCP服务概述")
+    data: str = Field(description="MCP服务配置")
     mcp_type: MCPType = Field(alias="mcpType", description="MCP 类型")
 
 
 class GetMCPServiceDetailRsp(ResponseData):
     """GET /api/service/{serviceId} 返回数据结构"""
 
-    result: GetMCPServiceDetailMsg = Field(..., title="Result")
+    result: GetMCPServiceDetailMsg | EditMCPServiceMsg = Field(..., title="Result")
 
 
 class DeleteMCPServiceRsp(ResponseData):
@@ -570,10 +579,10 @@ class ActiveMCPServiceRsp(ResponseData):
 class LLMProvider(BaseModel):
     """LLM提供商数据结构"""
 
-    provider: str = Field(..., description="LLM提供商")
-    description: str = Field(..., description="LLM提供商描述")
+    provider: str = Field(description="LLM提供商")
+    description: str = Field(description="LLM提供商描述")
     url: str | None = Field(default=None, description="LLM提供商URL")
-    icon: str = Field(..., description="LLM提供商图标")
+    icon: str = Field(description="LLM提供商图标")
 
 
 class ListLLMProviderRsp(ResponseData):
@@ -585,7 +594,7 @@ class ListLLMProviderRsp(ResponseData):
 class LLMProviderInfo(BaseModel):
     """LLM数据结构"""
 
-    llm_id: str = Field(..., alias="llmId", description="LLM ID")
+    llm_id: str = Field(alias="llmId", description="LLM ID")
     icon: str = Field(default="", description="LLM图标", max_length=25536)
     openai_base_url: str = Field(
         default="https://api.openai.com/v1",

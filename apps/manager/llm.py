@@ -70,7 +70,7 @@ class LLMManager:
         return LLM.model_validate(result)
 
     @staticmethod
-    async def list_llm(user_sub: str, llm_id: str) -> list[LLMProviderInfo]:
+    async def list_llm(user_sub: str, llm_id: str | None) -> list[LLMProviderInfo]:
         """
         获取大模型列表
 
@@ -109,7 +109,7 @@ class LLMManager:
         return llm_list
 
     @staticmethod
-    async def update_llm(user_sub: str, llm_id: str, req: UpdateLLMReq) -> str:
+    async def update_llm(user_sub: str, llm_id: str | None, req: UpdateLLMReq) -> str:
         """
         创建大模型
 

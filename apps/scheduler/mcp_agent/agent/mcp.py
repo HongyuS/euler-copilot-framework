@@ -6,7 +6,6 @@ from pydantic import Field
 from apps.scheduler.mcp.host import MCPHost
 from apps.scheduler.mcp_agent.agent.toolcall import ToolCallAgent
 from apps.scheduler.mcp_agent.tool import Terminate, ToolCollection
-from apps.scheduler.pool.mcp.client import MCPClientTool
 
 logger = logging.getLogger(__name__)
 

@@ -155,14 +155,6 @@ class CommentType(str, Enum):
     NONE = "none"
 
 
-class MCPSearchType(str, Enum):
-    """搜索类型"""
-
-    ALL = "all"
-    NAME = "name"
-    AUTHOR = "author"
-
-
 class AppType(str, Enum):
     """应用中心应用类型"""
 

@@ -32,7 +32,7 @@ class MockRequestData(BaseModel):
 class RequestDataFeatures(BaseModel):
     """POST /api/chat的features字段数据"""
 
-    max_tokens: int = Field(default=Config().get_config().llm.max_tokens, description="最大生成token数", ge=0)
+    max_tokens: int | None = Field(default=Config().get_config().llm.max_tokens, description="最大生成token数")
     context_num: int = Field(default=5, description="上下文消息数量", le=10, ge=0)
 
 
@@ -98,6 +98,7 @@ class UpdateMCPServiceRequest(BaseModel):
     icon: str = Field(description="图标", default="")
     name: str = Field(..., description="MCP服务名称")
     description: str = Field(..., description="MCP服务描述")
+    overview: str = Field(..., description="MCP服务概述")
     config: str = Field(..., description="MCP服务配置")
     mcp_type: MCPType = Field(description="MCP传输协议(Stdio/SSE/Streamable)", default=MCPType.STDIO, alias="mcpType")
 
