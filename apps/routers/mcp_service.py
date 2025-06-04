@@ -140,7 +140,16 @@ async def get_service_detail(
     """获取MCP服务详情"""
     # 检查用户权限
     if edit:
-        pass
+        user = await UserManager.get_userinfo_by_user_sub(user_sub)
+        if not user or not user.is_admin:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content=ResponseData(
+                    code=status.HTTP_403_FORBIDDEN,
+                    message="非管理员无法编辑MCP服务",
+                    result={},
+                ).model_dump(exclude_none=True, by_alias=True),
+            )
 
     # 获取MCP服务详情
     try:
@@ -166,7 +175,11 @@ async def get_service_detail(
             name=data.name,
             description=data.description,
             overview=config.overview,
-            data=json.dumps(data.config),
+            data=json.dumps(
+                config.config.model_dump(by_alias=True, exclude_none=True),
+                indent=4,
+                ensure_ascii=False,
+            ),
             mcpType=config.type,
         )
     else:

@@ -21,7 +21,6 @@ from apps.entities.mcp import (
 )
 from apps.entities.request_data import UpdateMCPServiceRequest
 from apps.entities.response_data import MCPServiceCardItem
-from apps.exceptions import InstancePermissionError
 from apps.models.mongo import MongoDB
 from apps.scheduler.pool.loader.mcp import MCPLoader
 from apps.scheduler.pool.mcp.pool import MCPPool

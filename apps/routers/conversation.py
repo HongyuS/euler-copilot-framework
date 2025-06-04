@@ -49,7 +49,7 @@ async def create_new_conversation(  # noqa: PLR0913
     conv_list: list[Conversation],
     app_id: str = "",
     llm_id: str = "empty",
-    kb_ids: list[str] = [],
+    kb_ids: list[str] | None = None,
     *,
     debug: bool = False,
 ) -> Conversation | None:
@@ -74,7 +74,7 @@ async def create_new_conversation(  # noqa: PLR0913
             user_sub,
             app_id=app_id,
             llm_id=llm_id,
-            kb_ids=kb_ids,
+            kb_ids=kb_ids or [],
             debug=debug,
         )
         if not new_conv:
@@ -171,7 +171,7 @@ async def add_conversation(
     user_sub: Annotated[str, Depends(get_user)],
     app_id: Annotated[str, Query(..., alias="appId")] = "",
     llm_id: Annotated[str, Body(..., alias="llmId")] = "empty",
-    kb_ids: Annotated[list[str], Body(..., alias="kbIds")] = [],
+    kb_ids: Annotated[list[str] | None, Body(..., alias="kbIds")] = None,
     *,
     debug: Annotated[bool, Query()] = False,
 ) -> JSONResponse:
@@ -186,7 +186,7 @@ async def add_conversation(
             conversations,
             app_id=app_id,
             llm_id=llm_id,
-            kb_ids=kb_ids,
+            kb_ids=kb_ids or [],
             debug=debug,
         )
     except RuntimeError as e:
