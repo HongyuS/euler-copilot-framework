@@ -14,9 +14,9 @@ sysHAX共包含两部分交付件：
 
 ![sysHAX图示](./pictures/sysHAX图示.png "sysHAX图示")
 交付件包括：
+
 - sysHAX：负责请求的处理和prefill、decode请求的调度
 - vllm：vllm是一款大模型推理服务，在部署时包含GPU/NPU和CPU两种，分别用于处理prefill和decode请求。从开发者使用易用性角度来说，vllm将使用容器化发布。
-
 
 vllm是一款**高吞吐、低内存占用**的**大语言模型（LLM）推理与服务引擎**，支持**CPU 计算加速**，提供高效的算子下发机制，包括：
 
@@ -47,7 +47,7 @@ vllm是一款**高吞吐、低内存占用**的**大语言模型（LLM）推理�
 
 已经安装NVIDIA Container Toolkit可忽略该步骤。否则按照如下流程安装：
 
-https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+<https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html>
 
 - 执行 `systemctl restart docker` 命令重启docker，使容器引擎插件在docker配置文件中添加的内容生效。
 
@@ -60,15 +60,16 @@ docker pull hub.oepkgs.net/neocopilot/syshax/syshax-vllm-gpu:2.0
 
 docker run --name vllm_gpu \
     --ipc="shareable" \
-	--shm-size=64g \
+    --shm-size=64g \
     --gpus=all \
-	-p 8001:8001 \
+    -p 8001:8001 \
     -v /home/models:/home/models \
-	-w /home/ \
-	-itd hub.oepkgs.net/neocopilot/syshax/syshax-vllm-gpu:2.0 bash
+    -w /home/ \
+    -itd hub.oepkgs.net/neocopilot/syshax/syshax-vllm-gpu:2.0 bash
 ```
 
 在上述脚本中：
+
 - `--ipc="shareable"`：允许容器共享IPC命名空间，可进行进程间通信。
 - `--shm-size=64g`：设置容器共享内存为64G。
 - `--gpus=all`：允许容器使用宿主机所有GPU设备
@@ -90,6 +91,7 @@ vllm serve /home/models/DeepSeek-R1-Distill-Qwen-32B \
 ```
 
 在上述脚本中：
+
 - `--tensor-parallel-size 2`：启用张量并行，将模型拆分到2张GPU上运行，需至少2张GPU，开发者可自行修改。
 - `--gpu_memory_utilization=0.8`：限制显存使用率为80%，避免因为显存耗尽而导致服务崩溃，开发者可自行修改。
 
@@ -100,15 +102,16 @@ docker pull hub.oepkgs.net/neocopilot/syshax/syshax-vllm-cpu:2.0
 
 docker run --name vllm_cpu \
     --ipc container:vllm_gpu \
-	--shm-size=64g \
+    --shm-size=64g \
     --privileged \
-	-p 8002:8002 \
+    -p 8002:8002 \
     -v /home/models:/home/models \
-	-w /home/ \
-	-itd hub.oepkgs.net/neocopilot/syshax/syshax-vllm-cpu:2.0 bash
+    -w /home/ \
+    -itd hub.oepkgs.net/neocopilot/syshax/syshax-vllm-cpu:2.0 bash
 ```
 
 在上述脚本中：
+
 - `--ipc container:vllm_gpu`共享名为vllm_gpu的容器的IPC（进程间通信）命名空间。允许此容器直接通过共享内存交换数据，避免跨容器复制。
 
 ```shell
@@ -124,6 +127,7 @@ vllm serve /home/models/DeepSeek-R1-Distill-Qwen-32B \
 ```
 
 在上述脚本中：
+
 - `INFERENCE_OP_MODE=fused`：启动CPU推理加速
 - `OMP_NUM_THREADS=160`：指定CPU推理启动线程数为160，该环境变量需要在指定INFERENCE_OP_MODE=fused后才能生效
 - `CUSTOM_CPU_AFFINITY=0-159`：指定CPU绑核方案，后续会详细介绍。
@@ -163,7 +167,6 @@ NUMA:
 - 每一个NUMA上使用的CPU个数需要相同，以保持负载均衡。
 
 例如，在上述脚本中，绑定了0-159号CPU。其中，0-39属于0号NUMA节点，40-79属于1号NUMA节点，80-119属于2号NUMA节点，120-159属于3号NUMA节点。每个NUMA均使用了40个CPU，保证了每个NUMA的负载均衡。
-
 
 ### sysHAX安装
 
