@@ -12,7 +12,7 @@ sysHAX功能定位为K+X异构融合推理加速，主要包含两部分功能�
 
 sysHAX共包含两部分交付件：
 
-![sysHAX图示](./pictures/sysHAX图示.png "sysHAX图示")
+![syshax-deploy](./pictures/syshax-deploy.png "syshax-deploy")
 交付件包括：
 
 - sysHAX：负责请求的处理和prefill、decode请求的调度
@@ -146,7 +146,6 @@ CPU(s):                   160
 Vendor ID:                HiSilicon
   BIOS Vendor ID:         HiSilicon
   Model name:             -
-    BIOS Model name:      Kunpeng 920 7280Z
     Model:                0
     Thread(s) per core:   1
     Core(s) per socket:   80
