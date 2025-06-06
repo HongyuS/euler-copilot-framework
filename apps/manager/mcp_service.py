@@ -193,7 +193,7 @@ class MCPServiceManager:
 
 
     @staticmethod
-    async def create_mcpservice(data: UpdateMCPServiceRequest) -> str:
+    async def create_mcpservice(data: UpdateMCPServiceRequest, user_sub: str) -> str:
         """
         创建MCP服务
 
@@ -202,16 +202,18 @@ class MCPServiceManager:
         """
         # 检查config
         if data.mcp_type == MCPType.SSE:
-            config = MCPServerSSEConfig.model_validate(data.config)
+            config = MCPServerSSEConfig.model_validate_json(data.config)
         else:
-            config = MCPServerStdioConfig.model_validate(data.config)
+            config = MCPServerStdioConfig.model_validate_json(data.config)
 
         # 构造Server
         mcp_server = MCPServerConfig(
             name=await MCPServiceManager.clean_name(data.name),
+            overview=data.overview,
             description=data.description,
             config=config,
             type=data.mcp_type,
+            author=user_sub,
         )
 
         # 检查是否存在相同服务
@@ -229,7 +231,7 @@ class MCPServiceManager:
         return mcp_id
 
     @staticmethod
-    async def update_mcpservice(data: UpdateMCPServiceRequest) -> str:
+    async def update_mcpservice(data: UpdateMCPServiceRequest, user_sub: str) -> str:
         """
         更新MCP服务
 

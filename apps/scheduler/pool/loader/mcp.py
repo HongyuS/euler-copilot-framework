@@ -92,12 +92,12 @@ class MCPLoader(metaclass=SingletonMeta):
         :return: 无
         """
         await MCPLoader.update_template_status(mcp_id, MCPStatus.INSTALLING)
-        if isinstance(config, MCPServerStdioConfig):
+        if isinstance(config.config, MCPServerStdioConfig):
             logger.info("[MCPLoader] Stdio方式的MCP模板，开始自动安装: %s", mcp_id)
-            if "uv" in config.command:
-                await install_uvx(mcp_id, config)
-            elif "npx" in config.command:
-                await install_npx(mcp_id, config)
+            if "uv" in config.config.command:
+                await install_uvx(mcp_id, config.config)
+            elif "npx" in config.config.command:
+                await install_npx(mcp_id, config.config)
         else:
             logger.info("[MCPLoader] SSE方式的MCP模板，无法自动安装: %s", mcp_id)
         # 更新数据库
@@ -135,7 +135,7 @@ class MCPLoader(metaclass=SingletonMeta):
         # 自动安装
         if user_subs is None:
             user_subs = []
-        if not ProcessHandler.add_task(mcp_id, MCPLoader._install_template_task, mcp_id, config, user_subs):
+        if not ProcessHandler.add_task(mcp_id, MCPLoader._install_template_task, mcp_id, config):
             logger.warning("安装任务暂时无法执行，请稍后重试: %s", mcp_id)
             await MCPLoader.update_template_status(mcp_id, MCPStatus.INSTALLING)
 
@@ -214,16 +214,16 @@ class MCPLoader(metaclass=SingletonMeta):
         :rtype: list[str]
         """
         # 创建客户端
-        if config.type == MCPType.STDIO and isinstance(config, MCPServerStdioConfig):
+        if config.type == MCPType.STDIO and isinstance(config.config, MCPServerStdioConfig):
             client = StdioMCPClient()
-        elif config.type == MCPType.SSE and isinstance(config, MCPServerSSEConfig):
+        elif config.type == MCPType.SSE and isinstance(config.config, MCPServerSSEConfig):
             client = SSEMCPClient()
         else:
             err = f"MCP {mcp_id}：未知的MCP服务类型“{config.type}”"
             logger.error(err)
             raise ValueError(err)
 
-        await client.init(user_sub, mcp_id, config)
+        await client.init(user_sub, mcp_id, config.config)
 
         # 获取工具列表
         tool_list = []
@@ -260,6 +260,7 @@ class MCPLoader(metaclass=SingletonMeta):
                     name=config.name,
                     description=config.description,
                     type=config.type,
+                    author=config.author,
                     tools=tool_list,
                 ).model_dump(by_alias=True, exclude_none=True),
             },
@@ -324,8 +325,10 @@ class MCPLoader(metaclass=SingletonMeta):
         config_path = MCP_PATH / "template" / mcp_id / "config.json"
         await Path.mkdir(config_path.parent, parents=True, exist_ok=True)
 
+        icon = icon.removeprefix("data:image/png;base64,")
         image = Image.open(BytesIO(base64.b64decode(icon)))
-        image.save(MCP_PATH / "template" / mcp_id / "icon.ico", format="ICO", sizes=[(64, 64)])
+        image = image.resize((64, 64), resample=Image.Resampling.LANCZOS)
+        image.save(MCP_PATH / "template" / mcp_id / "icon.png", format="PNG", optimize=True, compress_level=9)
 
         f = await config_path.open("w+", encoding="utf-8")
         config_dict = config.model_dump(by_alias=True, exclude_none=True)

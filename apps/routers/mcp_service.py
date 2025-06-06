@@ -96,7 +96,7 @@ async def create_or_update_mcpservice(
     # TODO：不要使用base64编码
     if not data.service_id:
         try:
-            service_id = await MCPServiceManager.create_mcpservice(data)
+            service_id = await MCPServiceManager.create_mcpservice(data, user_sub)
         except Exception as e:
             logger.exception("[MCPServiceCenter] MCP服务创建失败")
             return JSONResponse(
@@ -109,7 +109,7 @@ async def create_or_update_mcpservice(
             )
     else:
         try:
-            service_id = await MCPServiceManager.update_mcpservice(data)
+            service_id = await MCPServiceManager.update_mcpservice(data, user_sub)
         except Exception as e:
             logger.exception("[MCPService] 更新MCP服务失败")
             return JSONResponse(

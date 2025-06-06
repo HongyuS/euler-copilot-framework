@@ -70,10 +70,11 @@ class ProcessHandler:
                 logger.warning("[ProcessHandler] 任务ID %s 已存在，无法添加。", task_id)
                 return False
             logger.info("[ProcessHandler] 添加任务成功 %s", task_id)
-            return True
         except Exception as e:
             logger.exception("[ProcessHandler] 添加任务 %s 时发生异常: %s", task_id, e)
             return False
+        else:
+            return True
         finally:
             if acquired:
                 ProcessHandler.lock.release()
@@ -100,8 +101,8 @@ class ProcessHandler:
                 logger.info("[ProcessHandler] 进程 %s (%s) 被杀死。", task_id, pid)
             else:
                 process.close()
-        except Exception as e:
-            logger.exception("[ProcessHandler] 杀死进程 %s 时发生异常: %s", task_id, e)
+        except Exception:
+            logger.exception("[ProcessHandler] 杀死进程 %s 时发生异常", task_id)
         finally:
             if acquired:
                 ProcessHandler.lock.release()

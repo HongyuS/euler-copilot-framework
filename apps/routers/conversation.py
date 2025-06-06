@@ -129,33 +129,6 @@ async def get_conversation_list(user_sub: Annotated[str, Depends(get_user)]) -> 
         conversation_list_item.kb_list = kb_item_list
         result_conversations.append(conversation_list_item)
 
-    # 新建对话
-    try:
-        new_conv = await create_new_conversation(user_sub, conversations)
-    except RuntimeError as e:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-                "message": str(e),
-                "result": {},
-            },
-        )
-
-    if new_conv:
-        result_conversations.append(
-            ConversationListItem(
-                conversationId=new_conv.id,
-                title=new_conv.title,
-                docCount=0,
-                createdTime=datetime.fromtimestamp(new_conv.created_at, tz=pytz.timezone("Asia/Shanghai")).strftime(
-                    "%Y-%m-%d %H:%M:%S",
-                ),
-                appId=new_conv.app_id if new_conv.app_id else "",
-                debug=new_conv.debug if new_conv.debug else False,
-            ),
-        )
-
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ConversationListRsp(
