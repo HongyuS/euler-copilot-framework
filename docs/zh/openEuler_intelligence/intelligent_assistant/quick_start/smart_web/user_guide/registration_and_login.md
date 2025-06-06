@@ -1,6 +1,6 @@
-# 登录 EulerCopilot
+# 登录 openEuler intelligence
 
-本章节介绍如何登录已部署的 EulerCopilot 网页端的具体步骤。
+本章节介绍如何登录已部署的 openEuler intelligence 网页端的具体步骤。
 
 ## 浏览器要求
 
@@ -16,21 +16,21 @@
 
 ## 操作步骤
 
-**步骤1** 打开本地 PC 机的浏览器，在地址栏输入部署指南中配置好的域名，按下 `Enter`。在未登录状态，进入 EulerCopilot，会出现登录提示弹出框，如图 1 所示。
+**步骤1** 打开本地 PC 机的浏览器，在地址栏输入部署指南中配置好的域名，按下 `Enter`。在未登录状态，进入 openEuler intelligence，会出现登录提示弹出框，如图 1 所示。
 
 - 图 1 未登录
 
 ![未登录](./pictures/login-popup.png)
 
-**步骤2** 登录 EulerCopilot（已注册账号）。
+**步骤2** 登录 openEuler intelligence（已注册账号）。
 
 打开登录界面，如图 2 所示。
 
-- 图 2 登录 EulerCopilot
+- 图 2 登录 openEuler intelligence
 
-![登录 EulerCopilot](./pictures/authhub-login.png)
+![登录 openEuler intelligence](./pictures/authhub-login.png)
 
-## 注册 EulerCopilot 账号
+## 注册 openEuler intelligence 账号
 
 **步骤1**  在登录信息输入框右下角单击“立即注册”，如图 3 所示。
 
