@@ -49,7 +49,7 @@ async def create_new_conversation(  # noqa: PLR0913
     conv_list: list[Conversation],
     app_id: str = "",
     llm_id: str = "empty",
-    kb_ids: list[str] = [],
+    kb_ids: list[str] | None = None,
     *,
     debug: bool = False,
 ) -> Conversation | None:
@@ -74,7 +74,7 @@ async def create_new_conversation(  # noqa: PLR0913
             user_sub,
             app_id=app_id,
             llm_id=llm_id,
-            kb_ids=kb_ids,
+            kb_ids=kb_ids or [],
             debug=debug,
         )
         if not new_conv:
@@ -129,33 +129,6 @@ async def get_conversation_list(user_sub: Annotated[str, Depends(get_user)]) -> 
         conversation_list_item.kb_list = kb_item_list
         result_conversations.append(conversation_list_item)
 
-    # 新建对话
-    try:
-        new_conv = await create_new_conversation(user_sub, conversations)
-    except RuntimeError as e:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-                "message": str(e),
-                "result": {},
-            },
-        )
-
-    if new_conv:
-        result_conversations.append(
-            ConversationListItem(
-                conversationId=new_conv.id,
-                title=new_conv.title,
-                docCount=0,
-                createdTime=datetime.fromtimestamp(new_conv.created_at, tz=pytz.timezone("Asia/Shanghai")).strftime(
-                    "%Y-%m-%d %H:%M:%S",
-                ),
-                appId=new_conv.app_id if new_conv.app_id else "",
-                debug=new_conv.debug if new_conv.debug else False,
-            ),
-        )
-
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ConversationListRsp(
@@ -171,7 +144,7 @@ async def add_conversation(
     user_sub: Annotated[str, Depends(get_user)],
     app_id: Annotated[str, Query(..., alias="appId")] = "",
     llm_id: Annotated[str, Body(..., alias="llmId")] = "empty",
-    kb_ids: Annotated[list[str], Body(..., alias="kbIds")] = [],
+    kb_ids: Annotated[list[str] | None, Body(..., alias="kbIds")] = None,
     *,
     debug: Annotated[bool, Query()] = False,
 ) -> JSONResponse:
@@ -186,7 +159,7 @@ async def add_conversation(
             conversations,
             app_id=app_id,
             llm_id=llm_id,
-            kb_ids=kb_ids,
+            kb_ids=kb_ids or [],
             debug=debug,
         )
     except RuntimeError as e:

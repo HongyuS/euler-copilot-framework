@@ -18,6 +18,8 @@ from apps.common.singleton import SingletonMeta
 from apps.entities.mcp import (
     MCPCollection,
     MCPServerConfig,
+    MCPServerSSEConfig,
+    MCPServerStdioConfig,
     MCPStatus,
     MCPTool,
     MCPToolVector,
@@ -76,7 +78,7 @@ class MCPLoader(metaclass=SingletonMeta):
         f_content = json.loads(await f.read())
         await f.aclose()
 
-        return MCPConfig.model_validate(f_content)
+        return MCPServerConfig.model_validate(f_content)
 
     @staticmethod
     async def _install_template_task(
@@ -90,38 +92,18 @@ class MCPLoader(metaclass=SingletonMeta):
         :return: 无
         """
         await MCPLoader.update_template_status(mcp_id, MCPStatus.INSTALLING)
-        if isinstance(config, MCPServerStdioConfig):
+        if isinstance(config.config, MCPServerStdioConfig):
             logger.info("[MCPLoader] Stdio方式的MCP模板，开始自动安装: %s", mcp_id)
-            if "uv" in config.command:
-                await install_uvx(mcp_id, config)
-            elif "npx" in config.command:
-                await install_npx(mcp_id, config)
+            if "uv" in config.config.command:
+                await install_uvx(mcp_id, config.config)
+            elif "npx" in config.config.command:
+                await install_npx(mcp_id, config.config)
         else:
             logger.info("[MCPLoader] SSE方式的MCP模板，无法自动安装: %s", mcp_id)
         # 更新数据库
         await MCPLoader._insert_template_db(mcp_id, config)
         await MCPLoader.update_template_status(mcp_id, MCPStatus.READY)
         logger.info("[MCPLoader] MCP模板安装成功: %s", mcp_id)
-
-    @staticmethod
-    async def _process_install_config(
-        mcp_id: str,
-        config: MCPServerConfig,
-        user_subs: list[str] | None = None,
-    ) -> None:
-        """
-        异步安装依赖，并把template同步给用户
-
-        :param str mcp_id: MCP模板ID
-        :param MCPServerConfig config: MCP配置
-        :param list[str] | None user_subs: 用户IDs
-        :return: 无
-        """
-        if user_subs is None:
-            user_subs = []
-        if not ProcessHandler.add_task(mcp_id, MCPLoader._install_template_task, mcp_id, config, user_subs):
-            logger.warning("安装任务暂时无法执行，请稍后重试: %s", mcp_id)
-            await MCPLoader.update_template_status(mcp_id, MCPStatus.INSTALLING)
 
     @staticmethod
     async def _install_template(
@@ -135,7 +117,7 @@ class MCPLoader(metaclass=SingletonMeta):
         单个MCP模板的初始化。若模板中 ``auto_install`` 为 ``True`` ，则自动安装MCP环境
 
         :param str mcp_id: MCP模板ID
-        :param MCPServerConfig config: MCP配置
+        :param MCPServerSSEConfig | MCPServerStdioConfig config: MCP配置
         :param list[str] | None user_subs: 用户IDs
         :return: 初始化后的MCP配置和是否进行了安装
         :rtype: tuple[MCPServerConfig, bool]
@@ -151,7 +133,11 @@ class MCPLoader(metaclass=SingletonMeta):
             return config, False
 
         # 自动安装
-        await MCPLoader._process_install_config(mcp_id, config, user_subs)
+        if user_subs is None:
+            user_subs = []
+        if not ProcessHandler.add_task(mcp_id, MCPLoader._install_template_task, mcp_id, config):
+            logger.warning("安装任务暂时无法执行，请稍后重试: %s", mcp_id)
+            await MCPLoader.update_template_status(mcp_id, MCPStatus.INSTALLING)
 
         config.config.auto_install = False
         return config, True
@@ -207,16 +193,10 @@ class MCPLoader(metaclass=SingletonMeta):
 
             # 读取配置并加载
             config = await MCPLoader._load_config(config_path)
-            if len(config.mcp_servers) == 0:
-                logger.warning("[MCPLoader] 跳过没有MCP Server的MCP模板: %s", mcp_dir.as_posix())
-                continue
-            if len(config.mcp_servers) > 1:
-                logger.warning("[MCPLoader] MCP模板中包含多个MCP Server，只会使用第一个: %s", mcp_dir.as_posix())
 
             # 初始化第一个MCP Server
-            server_id, server = next(iter(config.mcp_servers.items()))
             logger.info("[MCPLoader] 初始化MCP模板: %s", mcp_dir.as_posix())
-            await MCPLoader.init_one_template(mcp_dir.name, server)
+            await MCPLoader.init_one_template(mcp_dir.name, config)
 
     @staticmethod
     async def _get_template_tool(
@@ -234,16 +214,16 @@ class MCPLoader(metaclass=SingletonMeta):
         :rtype: list[str]
         """
         # 创建客户端
-        if config.type == MCPType.STDIO and isinstance(config, MCPServerStdioConfig):
+        if config.type == MCPType.STDIO and isinstance(config.config, MCPServerStdioConfig):
             client = StdioMCPClient()
-        elif config.type == MCPType.SSE and isinstance(config, MCPServerSSEConfig):
+        elif config.type == MCPType.SSE and isinstance(config.config, MCPServerSSEConfig):
             client = SSEMCPClient()
         else:
             err = f"MCP {mcp_id}：未知的MCP服务类型“{config.type}”"
             logger.error(err)
             raise ValueError(err)
 
-        await client.init(user_sub, mcp_id, config)
+        await client.init(user_sub, mcp_id, config.config)
 
         # 获取工具列表
         tool_list = []
@@ -280,6 +260,7 @@ class MCPLoader(metaclass=SingletonMeta):
                     name=config.name,
                     description=config.description,
                     type=config.type,
+                    author=config.author,
                     tools=tool_list,
                 ).model_dump(by_alias=True, exclude_none=True),
             },
@@ -313,7 +294,9 @@ class MCPLoader(metaclass=SingletonMeta):
             while True:
                 try:
                     mcp_tool_table = await LanceDB().get_table("mcp_tool")
-                    await mcp_tool_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute([
+                    await mcp_tool_table.merge_insert(
+                        "id",
+                    ).when_matched_update_all().when_not_matched_insert_all().execute([
                         MCPToolVector(
                             id=tool.id,
                             mcp_id=mcp_id,
@@ -342,8 +325,10 @@ class MCPLoader(metaclass=SingletonMeta):
         config_path = MCP_PATH / "template" / mcp_id / "config.json"
         await Path.mkdir(config_path.parent, parents=True, exist_ok=True)
 
+        icon = icon.removeprefix("data:image/png;base64,")
         image = Image.open(BytesIO(base64.b64decode(icon)))
-        image.save(MCP_PATH / "template" / mcp_id / "icon.ico", format="ICO", sizes=[(64, 64)])
+        image = image.resize((64, 64), resample=Image.Resampling.LANCZOS)
+        image.save(MCP_PATH / "template" / mcp_id / "icon.png", format="PNG", optimize=True, compress_level=9)
 
         f = await config_path.open("w+", encoding="utf-8")
         config_dict = config.model_dump(by_alias=True, exclude_none=True)
@@ -571,8 +556,6 @@ class MCPLoader(metaclass=SingletonMeta):
                 {"_id": mcp_id},
                 {"$set": {"activated": user_list}},
             )
-            # 确保已激活的MCP依赖已安装
-            await MCPLoader.process_install_mcp(mcp_id, user_list)
 
     @staticmethod
     async def init() -> None:

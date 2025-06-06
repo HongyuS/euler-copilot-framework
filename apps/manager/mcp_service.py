@@ -21,7 +21,6 @@ from apps.entities.mcp import (
 )
 from apps.entities.request_data import UpdateMCPServiceRequest
 from apps.entities.response_data import MCPServiceCardItem
-from apps.exceptions import InstancePermissionError
 from apps.models.mongo import MongoDB
 from apps.scheduler.pool.loader.mcp import MCPLoader
 from apps.scheduler.pool.mcp.pool import MCPPool
@@ -194,7 +193,7 @@ class MCPServiceManager:
 
 
     @staticmethod
-    async def create_mcpservice(data: UpdateMCPServiceRequest) -> str:
+    async def create_mcpservice(data: UpdateMCPServiceRequest, user_sub: str) -> str:
         """
         创建MCP服务
 
@@ -203,16 +202,18 @@ class MCPServiceManager:
         """
         # 检查config
         if data.mcp_type == MCPType.SSE:
-            config = MCPServerSSEConfig.model_validate(data.config)
+            config = MCPServerSSEConfig.model_validate_json(data.config)
         else:
-            config = MCPServerStdioConfig.model_validate(data.config)
+            config = MCPServerStdioConfig.model_validate_json(data.config)
 
         # 构造Server
         mcp_server = MCPServerConfig(
             name=await MCPServiceManager.clean_name(data.name),
+            overview=data.overview,
             description=data.description,
             config=config,
             type=data.mcp_type,
+            author=user_sub,
         )
 
         # 检查是否存在相同服务
@@ -230,7 +231,7 @@ class MCPServiceManager:
         return mcp_id
 
     @staticmethod
-    async def update_mcpservice(data: UpdateMCPServiceRequest) -> str:
+    async def update_mcpservice(data: UpdateMCPServiceRequest, user_sub: str) -> str:
         """
         更新MCP服务
 
@@ -312,8 +313,8 @@ class MCPServiceManager:
         mcp_pool = MCPPool()
         try:
             await mcp_pool.stop(mcp_id=service_id, user_sub=user_sub)
-        except KeyError as e:
-            logger.warning("[MCPServiceManager] MCP服务未找到: %s", str(e))
+        except KeyError:
+            logger.warning("[MCPServiceManager] MCP服务无进程")
         await MCPLoader.user_deactive_template(user_sub, service_id)
 
     @staticmethod
