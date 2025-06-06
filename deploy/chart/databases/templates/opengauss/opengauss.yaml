@@ -86,7 +86,7 @@ spec:
         - name: opengauss-init
           configMap:
             name: opengauss-config
-            defaultMode: {{ 0744 | toDecimal }}
+            defaultMode: 484
         - name: opengauss-log
           emptyDir: {}
 {{- end -}}
