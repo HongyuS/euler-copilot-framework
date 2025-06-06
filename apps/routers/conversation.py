@@ -32,7 +32,6 @@ from apps.manager.application import AppManager
 from apps.manager.audit_log import AuditLogManager
 from apps.manager.conversation import ConversationManager
 from apps.manager.document import DocumentManager
-from apps.manager.record import RecordManager
 
 router = APIRouter(
     prefix="/api/conversation",
@@ -44,45 +43,30 @@ router = APIRouter(
 logger = logging.getLogger(__name__)
 
 
-async def create_new_conversation(  # noqa: PLR0913
+async def create_new_conversation(
     user_sub: str,
-    conv_list: list[Conversation],
     app_id: str = "",
     llm_id: str = "empty",
     kb_ids: list[str] | None = None,
     *,
     debug: bool = False,
-) -> Conversation | None:
+) -> Conversation:
     """判断并创建新对话"""
-    create_new = False
-    if debug:
-        create_new = True
-    if not conv_list:
-        create_new = True
-    else:
-        last_conv = conv_list[-1]
-        conv_records = await RecordManager.query_record_by_conversation_id(user_sub, last_conv.id, 1, "desc")
-        if len(conv_records) > 0:
-            create_new = True
-
     # 新建对话
-    if create_new:
-        if app_id and not await AppManager.validate_user_app_access(user_sub, app_id):
-            err = "Invalid app_id."
-            raise RuntimeError(err)
-        new_conv = await ConversationManager.add_conversation_by_user_sub(
-            user_sub,
-            app_id=app_id,
-            llm_id=llm_id,
-            kb_ids=kb_ids or [],
-            debug=debug,
-        )
-        if not new_conv:
-            err = "Create new conversation failed."
-            raise RuntimeError(err)
-        return new_conv
-    return None
-
+    if app_id and not await AppManager.validate_user_app_access(user_sub, app_id):
+        err = "Invalid app_id."
+        raise RuntimeError(err)
+    new_conv = await ConversationManager.add_conversation_by_user_sub(
+        user_sub,
+        app_id=app_id,
+        llm_id=llm_id,
+        kb_ids=kb_ids or [],
+        debug=debug,
+    )
+    if not new_conv:
+        err = "Create new conversation failed."
+        raise RuntimeError(err)
+    return new_conv
 
 @router.get(
     "",
@@ -149,14 +133,12 @@ async def add_conversation(
     debug: Annotated[bool, Query()] = False,
 ) -> JSONResponse:
     """手动创建新对话"""
-    conversations = await ConversationManager.get_conversation_by_user_sub(user_sub)
     # 尝试创建新对话
     try:
         app_id = app_id if app_id else ""
         debug = debug if debug is not None else False
         new_conv = await create_new_conversation(
             user_sub,
-            conversations,
             app_id=app_id,
             llm_id=llm_id,
             kb_ids=kb_ids or [],
@@ -168,15 +150,6 @@ async def add_conversation(
             content=ResponseData(
                 code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 message=str(e),
-                result={},
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
-    if not new_conv:
-        return JSONResponse(
-            status_code=status.HTTP_409_CONFLICT,
-            content=ResponseData(
-                code=status.HTTP_409_CONFLICT,
-                message="No need to create new conversation.",
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
