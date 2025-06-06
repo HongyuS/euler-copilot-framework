@@ -4,7 +4,7 @@
 import httpx
 from fastapi import status
 import json
-
+import logging
 from apps.common.config import Config
 from apps.entities.collection import Document
 from apps.entities.rag_data import (
@@ -12,7 +12,7 @@ from apps.entities.rag_data import (
     RAGFileParseReqItem,
     RAGFileStatusRspItem,
 )
-
+logger = logging.getLogger(__name__)
 rag_host = Config().get_config().rag.rag_service
 _RAG_DOC_PARSE_URI = rag_host.rstrip("/") + "/doc/temporary/parser"
 _RAG_DOC_STATUS_URI = rag_host.rstrip("/") + "/doc/temporary/status"
@@ -50,6 +50,7 @@ class KnowledgeBaseService:
     @staticmethod
     async def delete_doc_from_rag(session_id: str, doc_ids: list[str]) -> list[str]:
         """删除文件"""
+        logging.error(f"session_id: {session_id}, doc_ids: {doc_ids}")
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {session_id}",
