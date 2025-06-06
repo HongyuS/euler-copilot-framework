@@ -50,7 +50,6 @@ class KnowledgeBaseService:
     @staticmethod
     async def delete_doc_from_rag(session_id: str, doc_ids: list[str]) -> list[str]:
         """删除文件"""
-        logging.error(f"session_id: {session_id}, doc_ids: {doc_ids}")
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {session_id}",

@@ -129,7 +129,7 @@ async def get_document_list(  # noqa: ANN201
 
 
 @router.delete("/{document_id}", response_model=ResponseData)
-async def delete_single_document(document_id: str, user_sub: Annotated[str, Depends(get_user)], session_id=Annotated[str, Depends(get_session)]):  # noqa: ANN201
+async def delete_single_document(document_id: str, user_sub: Annotated[str, Depends(get_user)], session_id: Annotated[str, Depends(get_session)]):  # noqa: ANN201
     """删除单个文件"""
     # 在Framework侧删除
     result = await DocumentManager.delete_document(user_sub, [document_id])
