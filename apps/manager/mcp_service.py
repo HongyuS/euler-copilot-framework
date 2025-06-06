@@ -313,8 +313,8 @@ class MCPServiceManager:
         mcp_pool = MCPPool()
         try:
             await mcp_pool.stop(mcp_id=service_id, user_sub=user_sub)
-        except KeyError as e:
-            logger.warning("[MCPServiceManager] MCP服务未找到: %s", str(e))
+        except KeyError:
+            logger.warning("[MCPServiceManager] MCP服务无进程")
         await MCPLoader.user_deactive_template(user_sub, service_id)
 
     @staticmethod

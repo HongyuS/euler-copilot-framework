@@ -165,12 +165,12 @@ class MCPSelector:
         )).where(f"mcp_id IN {MCPSelector._assemble_sql(mcp_list)}").limit(top_n).to_list()
 
         # 拿到工具
-        logger.info("[MCPHelper] 查询MCP Tool名称和描述: %s", tool_vecs)
         tool_collection = MongoDB().get_collection("mcp")
         llm_tool_list = []
 
         for tool_vec in tool_vecs:
             # 到MongoDB里找对应的工具
+            logger.info("[MCPHelper] 查询MCP Tool名称和描述: %s", tool_vec["mcp_id"])
             tool_data = await tool_collection.find_one({"_id": tool_vec["mcp_id"], "tools.id": tool_vec["id"]})
             if not tool_data:
                 logger.warning("[MCPHelper] 查询MCP Tool名称和描述失败: %s/%s", tool_vec["mcp_id"], tool_vec["id"])

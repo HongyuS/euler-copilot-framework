@@ -89,4 +89,4 @@ class MCPPool(metaclass=SingletonMeta):
 
     async def stop(self, mcp_id: str, user_sub: str) -> None:
         """停止MCP客户端"""
-        await self.pool[mcp_id][user_sub].stop()
+        await self.pool[user_sub][mcp_id].stop()
