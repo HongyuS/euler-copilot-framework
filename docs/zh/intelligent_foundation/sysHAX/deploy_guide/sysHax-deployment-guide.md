@@ -56,7 +56,7 @@ vllm是一款**高吞吐、低内存占用**的**大语言模型（LLM）推理�
 如下流程为在GPU容器中部署vllm。
 
 ```shell
-docker pull hub.oepkgs.net/neocopilot/syshax/syshax-vllm-gpu:2.0
+docker pull hub.oepkgs.net/neocopilot/syshax/syshax-vllm-gpu:0.2.0
 
 docker run --name vllm_gpu \
     --ipc="shareable" \
@@ -65,7 +65,7 @@ docker run --name vllm_gpu \
     -p 8001:8001 \
     -v /home/models:/home/models \
     -w /home/ \
-    -itd hub.oepkgs.net/neocopilot/syshax/syshax-vllm-gpu:2.0 bash
+    -itd hub.oepkgs.net/neocopilot/syshax/syshax-vllm-gpu:0.2.0 bash
 ```
 
 在上述脚本中：
@@ -98,7 +98,7 @@ vllm serve /home/models/DeepSeek-R1-Distill-Qwen-32B \
 如下流程为在CPU容器中部署vllm。
 
 ```shell
-docker pull hub.oepkgs.net/neocopilot/syshax/syshax-vllm-cpu:2.0
+docker pull hub.oepkgs.net/neocopilot/syshax/syshax-vllm-cpu:0.2.0
 
 docker run --name vllm_cpu \
     --ipc container:vllm_gpu \
@@ -107,7 +107,7 @@ docker run --name vllm_cpu \
     -p 8002:8002 \
     -v /home/models:/home/models \
     -w /home/ \
-    -itd hub.oepkgs.net/neocopilot/syshax/syshax-vllm-cpu:2.0 bash
+    -itd hub.oepkgs.net/neocopilot/syshax/syshax-vllm-cpu:0.2.0 bash
 ```
 
 在上述脚本中：
