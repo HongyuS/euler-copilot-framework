@@ -14,21 +14,23 @@
 > **说明**
 >
 >知识库配置位于页面的右侧部分，如图二所示，用户可以通过配置知识库增强问答体验
+
 - 图二 知识库配置
 
-  ![知识库设置](.\pictures\knowledge-base-setting.png)
+  ![知识库设置](./pictures/knowledge-base-setting.png)
 > **说明**
 >
 > 用户可以点击左下角的设置按钮进入模型配置页面，现提供8中供应商的基础模板用于大模型创建
+
 - 图三 大模型创建
 
-  ![大模型创建](.\pictures\llm_creating.png)
+  ![大模型创建](./pictures/llm_creating.png)
 
 > **说明**
 >
 >用户可以通过左下角的下拉框选择已经配置了的模型（系统提供一个默认模型）
 
-![llm_setting](.\pictures\llm_setting.png)
+![llm_setting](./pictures/llm_setting.png)
 
 ### 多轮连续对话
 
