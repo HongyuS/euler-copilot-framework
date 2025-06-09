@@ -17,10 +17,10 @@ from apps.common.process_handler import ProcessHandler
 from apps.common.singleton import SingletonMeta
 from apps.entities.mcp import (
     MCPCollection,
+    MCPInstallStatus,
     MCPServerConfig,
     MCPServerSSEConfig,
     MCPServerStdioConfig,
-    MCPStatus,
     MCPTool,
     MCPToolVector,
     MCPType,
@@ -29,7 +29,7 @@ from apps.entities.mcp import (
 from apps.llm.embedding import Embedding
 from apps.models.lance import LanceDB
 from apps.models.mongo import MongoDB
-from apps.scheduler.pool.mcp.client import SSEMCPClient, StdioMCPClient
+from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.install import install_npx, install_uvx
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ class MCPLoader(metaclass=SingletonMeta):
         :param MCPServerConfig config: MCP配置
         :return: 无
         """
-        await MCPLoader.update_template_status(mcp_id, MCPStatus.INSTALLING)
+        await MCPLoader.update_template_status(mcp_id, MCPInstallStatus.INSTALLING)
         if isinstance(config.config, MCPServerStdioConfig):
             logger.info("[MCPLoader] Stdio方式的MCP模板，开始自动安装: %s", mcp_id)
             if "uv" in config.config.command:
@@ -102,7 +102,7 @@ class MCPLoader(metaclass=SingletonMeta):
             logger.info("[MCPLoader] SSE方式的MCP模板，无法自动安装: %s", mcp_id)
         # 更新数据库
         await MCPLoader._insert_template_db(mcp_id, config)
-        await MCPLoader.update_template_status(mcp_id, MCPStatus.READY)
+        await MCPLoader.update_template_status(mcp_id, MCPInstallStatus.READY)
         logger.info("[MCPLoader] MCP模板安装成功: %s", mcp_id)
 
     @staticmethod
@@ -137,7 +137,7 @@ class MCPLoader(metaclass=SingletonMeta):
             user_subs = []
         if not ProcessHandler.add_task(mcp_id, MCPLoader._install_template_task, mcp_id, config):
             logger.warning("安装任务暂时无法执行，请稍后重试: %s", mcp_id)
-            await MCPLoader.update_template_status(mcp_id, MCPStatus.INSTALLING)
+            await MCPLoader.update_template_status(mcp_id, MCPInstallStatus.INSTALLING)
 
         config.config.auto_install = False
         return config, True
@@ -214,10 +214,11 @@ class MCPLoader(metaclass=SingletonMeta):
         :rtype: list[str]
         """
         # 创建客户端
-        if config.type == MCPType.STDIO and isinstance(config.config, MCPServerStdioConfig):
-            client = StdioMCPClient()
-        elif config.type == MCPType.SSE and isinstance(config.config, MCPServerSSEConfig):
-            client = SSEMCPClient()
+        if (
+            (config.type == MCPType.STDIO and isinstance(config.config, MCPServerStdioConfig))
+            or (config.type == MCPType.SSE and isinstance(config.config, MCPServerSSEConfig))
+        ):
+            client = MCPClient()
         else:
             err = f"MCP {mcp_id}：未知的MCP服务类型“{config.type}”"
             logger.error(err)
@@ -372,7 +373,7 @@ class MCPLoader(metaclass=SingletonMeta):
         return MCPServerConfig.model_validate(config)
 
     @staticmethod
-    async def update_template_status(mcp_id: str, status: MCPStatus) -> None:
+    async def update_template_status(mcp_id: str, status: MCPInstallStatus) -> None:
         """
         更新数据库中MCP模板状态
 

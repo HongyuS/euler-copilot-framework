@@ -1,8 +1,9 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MCP Client"""
 
+import asyncio
 import logging
-from abc import ABCMeta, abstractmethod
+from contextlib import AsyncExitStack
 
 from anyio import Path
 from mcp import ClientSession, StdioServerParameters
@@ -11,19 +12,33 @@ from mcp.client.stdio import stdio_client
 from mcp.types import CallToolResult
 
 from apps.common.config import Config
-from apps.entities.mcp import MCPServerSSEConfig, MCPServerStdioConfig
+from apps.entities.mcp import (
+    MCPServerSSEConfig,
+    MCPServerStdioConfig,
+    MCPStatus,
+)
 
 logger = logging.getLogger(__name__)
 MCP_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "mcp"
 
 
-class MCPClient(metaclass=ABCMeta):
+class MCPClient:
     """MCP客户端基类"""
 
-    @abstractmethod
-    async def _create_client(
+    mcp_id: str
+    task: asyncio.Task
+    ready_sign: asyncio.Event
+    stop_sign: asyncio.Event
+    client: ClientSession
+    status: MCPStatus
+
+    def __init__(self) -> None:
+        """初始化MCP Client"""
+        self.status = MCPStatus.UNINITIALIZED
+
+    async def _main_loop(
         self, user_sub: str | None, mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig,
-    ) -> ClientSession:
+    ) -> None:
         """
         创建MCP Client
 
@@ -36,7 +51,55 @@ class MCPClient(metaclass=ABCMeta):
         :return: MCP ClientSession
         :rtype: ClientSession
         """
-        ...
+        # 创建Client
+        if isinstance(config, MCPServerSSEConfig):
+            client = sse_client(
+                url=config.url,
+                headers=config.env,
+            )
+        elif isinstance(config, MCPServerStdioConfig):
+            if user_sub:
+                cwd = MCP_PATH / "users" / user_sub / mcp_id / "project"
+            else:
+                cwd = MCP_PATH / "template" / mcp_id / "project"
+            await cwd.mkdir(parents=True, exist_ok=True)
+
+            client = stdio_client(server=StdioServerParameters(
+                command=config.command,
+                args=config.args,
+                env=config.env,
+                cwd=cwd.as_posix(),
+            ))
+        else:
+            err = f"[MCPClient] MCP {mcp_id}：未知的MCP服务类型“{config.type}”"
+            logger.error(err)
+            raise TypeError(err)
+
+        # 创建Client、Session
+        try:
+            exit_stack = AsyncExitStack()
+            read, write = await exit_stack.enter_async_context(client)
+            self.client = ClientSession(read, write)
+            session = await exit_stack.enter_async_context(self.client)
+            # 初始化Client
+            await session.initialize()
+        except Exception:
+            logger.exception("[MCPClient] MCP %s：初始化失败", mcp_id)
+            raise
+
+        self.ready_sign.set()
+        self.status = MCPStatus.RUNNING
+
+        # 等待关闭信号
+        await self.stop_sign.wait()
+
+        # 关闭Client
+        try:
+            await exit_stack.aclose() # type: ignore[attr-defined]
+            self.status = MCPStatus.STOPPED
+        except Exception:
+            logger.exception("[MCPClient] MCP %s：关闭失败", mcp_id)
+
 
     async def init(self, user_sub: str | None, mcp_id: str, config: MCPServerSSEConfig | MCPServerStdioConfig) -> None:
         """
@@ -50,73 +113,29 @@ class MCPClient(metaclass=ABCMeta):
         :return: None
         """
         # 初始化变量
-        self._config = config
-        self._session = await self._create_client(user_sub, mcp_id, config)
+        self.mcp_id = mcp_id
+        self.ready_sign = asyncio.Event()
+        self.stop_sign = asyncio.Event()
 
-        # 初始化逻辑
-        await self._session.initialize()
-        self.tools = (await self._session.list_tools()).tools
+        # 创建协程
+        self.task = asyncio.create_task(self._main_loop(user_sub, mcp_id, config))
+
+        # 等待初始化完成
+        await self.ready_sign.wait()
+
+        # 获取工具列表
+        self.tools = (await self.client.list_tools()).tools
+
 
     async def call_tool(self, tool_name: str, params: dict) -> CallToolResult:
         """调用MCP Server的工具"""
-        return await self._session.call_tool(tool_name, params)
+        return await self.client.call_tool(tool_name, params)
+
 
     async def stop(self) -> None:
         """停止MCP Client"""
-        if self._session_context: # type: ignore[attr-defined]
-            await self._session_context.__aexit__(None, None, None) # type: ignore[attr-defined]
-        if self._streams_context: # type: ignore[attr-defined]
-            await self._streams_context.__aexit__(None, None, None) # type: ignore[attr-defined]
-
-class SSEMCPClient(MCPClient):
-    """SSE协议的MCP Client"""
-
-    async def _create_client(self, user_sub: str | None, mcp_id: str, config: MCPServerSSEConfig) -> ClientSession:
-        """
-        初始化 SSE协议的MCP Client
-
-        :param str user_sub: 用户ID
-        :param str mcp_id: MCP ID
-        :param MCPServerSSEConfig config: MCP配置
-        :return: SSE协议的MCP Client
-        :rtype: ClientSession
-        """
-        self._streams_context = sse_client(
-            url=config.url,
-            headers=config.env,
-        )
-        streams = await self._streams_context.__aenter__()
-
-        self._session_context = ClientSession(*streams)
-        return await self._session_context.__aenter__()
-
-
-class StdioMCPClient(MCPClient):
-    """Stdio协议的MCP Client"""
-
-    async def _create_client(self, user_sub: str | None, mcp_id: str, config: MCPServerStdioConfig) -> ClientSession:
-        """
-        初始化 Stdio协议的MCP Client
-
-        :param str user_sub: 用户ID
-        :param str mcp_id: MCP ID
-        :param MCPServerStdioConfig config: MCP配置
-        :return: Stdio协议的MCP Client
-        :rtype: ClientSession
-        """
-        if user_sub:
-            cwd = MCP_PATH / "users" / user_sub / mcp_id / "project"
-        else:
-            cwd = MCP_PATH / "template" / mcp_id / "project"
-        await cwd.mkdir(parents=True, exist_ok=True)
-        server_params = StdioServerParameters(
-            command=config.command,
-            args=config.args,
-            env=config.env,
-            cwd=cwd.as_posix(),
-        )
-
-        self._streams_context = stdio_client(server=server_params)
-        streams = await self._streams_context.__aenter__()
-        self._session_context = ClientSession(*streams)
-        return await self._session_context.__aenter__()
+        self.stop_sign.set()
+        try:
+            await self.task
+        except Exception:
+            logger.exception("[MCPClient] MCP %s：停止失败", self.mcp_id)

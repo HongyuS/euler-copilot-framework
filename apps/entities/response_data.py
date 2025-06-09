@@ -14,7 +14,7 @@ from apps.entities.flow_topology import (
     NodeServiceItem,
     PositionItem,
 )
-from apps.entities.mcp import MCPStatus, MCPTool, MCPType
+from apps.entities.mcp import MCPInstallStatus, MCPTool, MCPType
 from apps.entities.record import RecordData
 from apps.entities.user import UserInfo
 from apps.templates.generate_llm_operator_config import llm_provider_dict
@@ -439,7 +439,7 @@ class MCPServiceCardItem(BaseModel):
     icon: str = Field(..., description="mcp服务图标")
     author: str = Field(..., description="mcp服务作者")
     is_active: bool = Field(default=False, alias="isActive", description="mcp服务是否激活")
-    status: MCPStatus = Field(default=MCPStatus.INSTALLING, description="mcp服务状态")
+    status: MCPInstallStatus = Field(default=MCPInstallStatus.INSTALLING, description="mcp服务状态")
 
 
 class BaseMCPServiceOperationMsg(BaseModel):

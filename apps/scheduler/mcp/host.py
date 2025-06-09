@@ -16,10 +16,7 @@ from apps.llm.function import JsonGenerator
 from apps.manager.task import TaskManager
 from apps.models.mongo import MongoDB
 from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
-from apps.scheduler.pool.mcp.client import (
-    SSEMCPClient,
-    StdioMCPClient,
-)
+from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.pool import MCPPool
 
 logger = logging.getLogger(__name__)
@@ -44,7 +41,7 @@ class MCPHost:
         )
 
 
-    async def get_client(self, mcp_id: str) -> SSEMCPClient | StdioMCPClient | None:
+    async def get_client(self, mcp_id: str) -> MCPClient | None:
         """获取MCP客户端"""
         mongo = MongoDB()
         mcp_collection = mongo.get_collection("mcp")
