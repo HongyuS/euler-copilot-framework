@@ -8,12 +8,20 @@ from lancedb.pydantic import LanceModel, Vector
 from pydantic import BaseModel, Field
 
 
-class MCPStatus(str, Enum):
+class MCPInstallStatus(str, Enum):
     """MCP 服务状态"""
 
     INSTALLING = "installing"
     READY = "ready"
     FAILED = "failed"
+
+
+class MCPStatus(str, Enum):
+    """MCP 状态"""
+
+    UNINITIALIZED = "uninitialized"
+    RUNNING = "running"
+    STOPPED = "stopped"
 
 
 class MCPType(str, Enum):
@@ -76,7 +84,7 @@ class MCPCollection(BaseModel):
     type: MCPType = Field(description="MCP 类型", default=MCPType.SSE)
     activated: list[str] = Field(description="激活该MCP的用户ID列表", default=[])
     tools: list[MCPTool] = Field(description="MCP工具列表", default=[])
-    status: MCPStatus = Field(description="MCP服务状态", default=MCPStatus.INSTALLING)
+    status: MCPInstallStatus = Field(description="MCP服务状态", default=MCPInstallStatus.INSTALLING)
     author: str = Field(description="MCP作者", default="")
 
 

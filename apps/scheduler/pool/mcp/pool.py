@@ -9,7 +9,7 @@ from apps.common.config import Config
 from apps.common.singleton import SingletonMeta
 from apps.entities.mcp import MCPServerConfig, MCPType
 from apps.models.mongo import MongoDB
-from apps.scheduler.pool.mcp.client import SSEMCPClient, StdioMCPClient
+from apps.scheduler.pool.mcp.client import MCPClient
 
 logger = logging.getLogger(__name__)
 MCP_USER_PATH = MCP_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "mcp" / "users"
@@ -23,7 +23,7 @@ class MCPPool(metaclass=SingletonMeta):
         self.pool = {}
 
 
-    async def _init_mcp(self, mcp_id: str, user_sub: str) -> SSEMCPClient | StdioMCPClient | None:
+    async def _init_mcp(self, mcp_id: str, user_sub: str) -> MCPClient | None:
         """初始化MCP池"""
         mcp_math = MCP_USER_PATH / user_sub / mcp_id / "project"
         config_path = MCP_USER_PATH / user_sub / mcp_id / "config.json"
@@ -34,10 +34,8 @@ class MCPPool(metaclass=SingletonMeta):
 
         config = MCPServerConfig.model_validate_json(await config_path.read_text())
 
-        if config.type == MCPType.SSE:
-            client = SSEMCPClient()
-        elif config.type == MCPType.STDIO:
-            client = StdioMCPClient()
+        if config.type in (MCPType.SSE, MCPType.STDIO):
+            client = MCPClient()
         else:
             logger.warning("[MCPPool] 用户 %s 的MCP %s 类型错误", user_sub, mcp_id)
             return None
@@ -46,7 +44,7 @@ class MCPPool(metaclass=SingletonMeta):
         return client
 
 
-    async def _get_from_dict(self, mcp_id: str, user_sub: str) -> SSEMCPClient | StdioMCPClient | None:
+    async def _get_from_dict(self, mcp_id: str, user_sub: str) -> MCPClient | None:
         """从字典中获取MCP客户端"""
         if user_sub not in self.pool:
             return None
@@ -65,7 +63,7 @@ class MCPPool(metaclass=SingletonMeta):
         return mcp_db_result is not None
 
 
-    async def get(self, mcp_id: str, user_sub: str) -> SSEMCPClient | StdioMCPClient | None:
+    async def get(self, mcp_id: str, user_sub: str) -> MCPClient | None:
         """获取MCP客户端"""
         item = await self._get_from_dict(mcp_id, user_sub)
         if item is None:

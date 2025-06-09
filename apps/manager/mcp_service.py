@@ -15,7 +15,7 @@ from apps.entities.mcp import (
     MCPServerConfig,
     MCPServerSSEConfig,
     MCPServerStdioConfig,
-    MCPStatus,
+    MCPInstallStatus,
     MCPTool,
     MCPType,
 )
@@ -47,7 +47,7 @@ class MCPServiceManager:
         return any(user_sub in db_item.get("activated", []) for db_item in mcp_list)
 
     @staticmethod
-    async def get_service_status(mcp_id: str) -> MCPStatus:
+    async def get_service_status(mcp_id: str) -> MCPInstallStatus:
         """
         获取MCP服务状态
 
@@ -59,11 +59,11 @@ class MCPServiceManager:
         mcp_list = await mcp_collection.find({"_id": mcp_id}, {"status": True}).to_list(None)
         for db_item in mcp_list:
             status = db_item.get("status")
-            if MCPStatus.READY.value == status:
-                return MCPStatus.READY
-            if MCPStatus.INSTALLING.value == status:
-                return MCPStatus.INSTALLING
-        return MCPStatus.FAILED
+            if MCPInstallStatus.READY.value == status:
+                return MCPInstallStatus.READY
+            if MCPInstallStatus.INSTALLING.value == status:
+                return MCPInstallStatus.INSTALLING
+        return MCPInstallStatus.FAILED
 
     @staticmethod
     async def fetch_mcp_services(
@@ -238,13 +238,34 @@ class MCPServiceManager:
         :param UpdateMCPServiceRequest data: MCP服务配置
         :return: MCP服务ID
         """
-        for user_sub in doc.activated:
-            await MCPServiceManager.deactive_mcpservice(user_sub=user_sub, service_id=mcpservice_id)
-        for server in config.mcp_servers.values():
-            logger.info("[MCPServiceManager] 初始化mcp")
-            await mcp_loader.init_one_template(mcp_id=mcpservice_id, config=server)
+        if not data.service_id:
+            msg = "[MCPServiceManager] MCP服务ID为空"
+            raise ValueError(msg)
+
+        mcp_collection = MongoDB().get_collection("mcp")
+        db_service = await mcp_collection.find_one({"_id": data.service_id, "author": user_sub})
+        if not db_service:
+            msg = "[MCPServiceManager] MCP服务未找到或无权限"
+            raise ValueError(msg)
+
+        db_service = MCPCollection.model_validate(db_service)
+        for user_id in db_service.activated:
+            await MCPServiceManager.deactive_mcpservice(user_sub=user_id, service_id=data.service_id)
+
+        await MCPLoader.init_one_template(mcp_id=data.service_id, config=MCPServerConfig(
+            name=data.name,
+            overview=data.overview,
+            description=data.description,
+            config=MCPServerStdioConfig.model_validate_json(
+                data.config,
+            ) if data.mcp_type == MCPType.STDIO else MCPServerSSEConfig.model_validate_json(
+                data.config,
+            ),
+            type=data.mcp_type,
+            author=user_sub,
+        ))
         # 返回服务ID
-        return mcpservice_id
+        return data.service_id
 
     @staticmethod
     async def delete_mcpservice(
@@ -259,10 +280,7 @@ class MCPServiceManager:
         :return: 是否删除成功
         """
         service_collection = MongoDB().get_collection("mcp")
-        db_service = await service_collection.find_one(
-            {"id": service_id, "author": user_sub},
-            {"_id": False},
-        )
+        db_service = await service_collection.find_one({"_id": service_id, "author": user_sub})
         if not db_service:
             msg = "[MCPServiceManager] MCP服务未找到或无权限"
             raise ValueError(msg)
@@ -291,8 +309,8 @@ class MCPServiceManager:
         mcp_collection = MongoDB().get_collection("mcp")
         status = await mcp_collection.find({"_id": service_id}, {"status": 1}).to_list()
         for item in status:
-            mcp_status = item.get("status", MCPStatus.INSTALLING)
-            if mcp_status == MCPStatus.READY:
+            mcp_status = item.get("status", MCPInstallStatus.INSTALLING)
+            if mcp_status == MCPInstallStatus.READY:
                 await MCPLoader.user_active_template(user_sub, service_id)
             else:
                 err = "[MCPServiceManager] MCP服务未准备就绪"
