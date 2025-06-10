@@ -421,6 +421,9 @@ class AppCenterManager:
         if data:
             metadata.links = data.links
             metadata.first_questions = data.first_questions
+        elif app_data:
+            metadata.links = app_data.links
+            metadata.first_questions = app_data.first_questions
 
         # 处理 'flows' 字段
         if app_data:
