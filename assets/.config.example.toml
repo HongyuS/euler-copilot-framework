@@ -1,19 +1,19 @@
 [deploy]
 mode = 'local'
 cookie = 'domain'
-data_dir = '/app/data'
+data_dir = '/var/lib/euler_copilot'
 
 [login]
 provider = 'authhub'
 [login.settings]
-host = ''
-host_inner = ''
-login_api = 'https://www.eulercopilot.local/api/auth/login'
+host = 'http://127.0.0.1:8000'
+host_inner = 'http://127.0.0.1:11120'
+login_api = 'http://127.0.0.1:8080/api/auth/login'
 app_id = ''
 app_secret = ''
 
 [fastapi]
-domain = 'www.eulercopilot.local'
+domain = '127.0.0.1'
 
 [security]
 half_key1 = ''
@@ -28,17 +28,17 @@ api_key = ''
 model = 'bge-m3'
 
 [rag]
-rag_service = ''
+rag_service = 'http://127.0.0.1:9988'
 
 [mongodb]
-host = ''
+host = '127.0.0.1'
 port = 27017
 user = 'euler_copilot'
 password = ''
 database = 'euler_copilot'
 
 [minio]
-endpoint = ''
+endpoint = '127.0.0.1:9000'
 access_key = 'minioadmin'
 secret_key = ''
 secure = false
@@ -53,11 +53,14 @@ temperature = 0.7
 [function_call]
 backend = 'ollama'
 endpoint = 'http://localhost:11434'
-model = 'llama3.1:8b'
+model = 'qwen2.5:7b'
 api_key = ''
 max_tokens = 8192
 temperature = 0.7
 
 [check]
 enable = false
-words_list = ""
+words_list = ''
+
+[extra]
+sql_url = 'http://127.0.0.1:9015'
