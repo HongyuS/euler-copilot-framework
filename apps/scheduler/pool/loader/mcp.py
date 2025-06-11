@@ -91,7 +91,6 @@ class MCPLoader(metaclass=SingletonMeta):
         :param MCPServerConfig config: MCP配置
         :return: 无
         """
-        await MCPLoader.update_template_status(mcp_id, MCPInstallStatus.INSTALLING)
         if isinstance(config.config, MCPServerStdioConfig):
             logger.info("[MCPLoader] Stdio方式的MCP模板，开始自动安装: %s", mcp_id)
             if "uv" in config.config.command:
@@ -99,10 +98,7 @@ class MCPLoader(metaclass=SingletonMeta):
             elif "npx" in config.config.command:
                 await install_npx(mcp_id, config.config)
         else:
-            logger.info("[MCPLoader] SSE方式的MCP模板，无法自动安装: %s", mcp_id)
-        # 更新数据库
-        await MCPLoader._insert_template_db(mcp_id, config)
-        await MCPLoader.update_template_status(mcp_id, MCPInstallStatus.READY)
+            logger.info("[MCPLoader] SSE方式的MCP模板，无需安装: %s", mcp_id)
         logger.info("[MCPLoader] MCP模板安装成功: %s", mcp_id)
 
     @staticmethod
@@ -130,14 +126,16 @@ class MCPLoader(metaclass=SingletonMeta):
         # 跳过自动安装
         if not config.config.auto_install:
             logger.info("[MCPLoader] autoInstall为False，跳过自动安装: %s", mcp_id)
+            await MCPLoader.update_template_status(mcp_id, MCPInstallStatus.READY)
             return config, False
 
         # 自动安装
         if user_subs is None:
             user_subs = []
         if not ProcessHandler.add_task(mcp_id, MCPLoader._install_template_task, mcp_id, config):
-            logger.warning("安装任务暂时无法执行，请稍后重试: %s", mcp_id)
-            await MCPLoader.update_template_status(mcp_id, MCPInstallStatus.INSTALLING)
+            err = f"安装任务无法执行，请稍后重试: {mcp_id}"
+            logger.error(err)
+            raise RuntimeError(err)
 
         config.config.auto_install = False
         return config, True
@@ -156,10 +154,20 @@ class MCPLoader(metaclass=SingletonMeta):
         :param list[str] | None user_subs: 用户IDs
         :return: 无
         """
-        # 安装MCP模板
-        new_config, is_installed = await MCPLoader._install_template(mcp_id, config, user_subs)
+        # 插入数据库；这里用旧的config就可以
+        await MCPLoader._insert_template_db(mcp_id, config)
 
-        # 保存config
+        # 安装MCP模板
+        try:
+            new_config, is_installed = await MCPLoader._install_template(mcp_id, config, user_subs)
+        except Exception:
+            logger.exception("[MCPLoader] 初始化MCP模板失败: %s", mcp_id)
+            await MCPLoader.update_template_status(mcp_id, MCPInstallStatus.FAILED)
+
+        await MCPLoader.update_template_status(mcp_id, MCPInstallStatus.READY)
+        await MCPLoader._insert_template_tool(mcp_id, new_config)
+
+        # config有更新，重新保存config
         if is_installed:
             template_config = MCP_PATH / "template" / mcp_id / "config.json"
             f = await template_config.open("w+", encoding="utf-8")
@@ -241,6 +249,24 @@ class MCPLoader(metaclass=SingletonMeta):
 
     @staticmethod
     async def _insert_template_db(mcp_id: str, config: MCPServerConfig) -> None:
+        """插入单个MCP Server模板信息到数据库"""
+        mcp_collection = MongoDB().get_collection("mcp")
+        await mcp_collection.update_one(
+            {"_id": mcp_id},
+            {
+                "$set": MCPCollection(
+                    _id=mcp_id,
+                    name=config.name,
+                    description=config.description,
+                    type=config.type,
+                    author=config.author,
+                ).model_dump(by_alias=True, exclude_none=True),
+            },
+        )
+
+
+    @staticmethod
+    async def _insert_template_tool(mcp_id: str, config: MCPServerConfig) -> None:
         """
         插入单个MCP Server模板信息到数据库
 
@@ -256,14 +282,9 @@ class MCPLoader(metaclass=SingletonMeta):
         await mcp_collection.update_one(
             {"_id": mcp_id},
             {
-                "$set": MCPCollection(
-                    _id=mcp_id,
-                    name=config.name,
-                    description=config.description,
-                    type=config.type,
-                    author=config.author,
-                    tools=tool_list,
-                ).model_dump(by_alias=True, exclude_none=True),
+                "$set": {
+                    "tools": [tool.model_dump(by_alias=True, exclude_none=True) for tool in tool_list],
+                },
             },
             upsert=True,
         )

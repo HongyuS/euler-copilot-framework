@@ -1,14 +1,8 @@
-FROM hub.oepkgs.net/neocopilot/framework_base:0.9.5-x86-test
-
-USER root
-RUN sed -i 's/umask 002/umask 027/g' /etc/bashrc && \
-    sed -i 's/umask 022/umask 027/g' /etc/bashrc && \
-    yum remove -y gdb-gdbserver
-
-USER eulercopilot
-COPY --chown=1001:1001 --chmod=550 ./ /app/
+FROM hub.oepkgs.net/neocopilot/framework_base:0.9.6-x86-test
 
 ENV PYTHONPATH=/app
 ENV TIKTOKEN_CACHE_DIR=/app/assets/tiktoken
+
+COPY --chmod=550 ./ /app/
 
 CMD ["uv", "run", "--no-sync", "--no-dev", "apps/main.py"]

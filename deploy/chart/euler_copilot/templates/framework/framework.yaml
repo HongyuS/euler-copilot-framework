@@ -35,8 +35,6 @@ spec:
         app: framework
     spec:
       automountServiceAccountToken: false
-      securityContext:
-        fsGroup: 1001
       containers:
         - name: framework
           image: {{ .Values.euler_copilot.framework.image | default (printf "%s/neocopilot/euler-copilot-framework:0.9.6-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (.Values.globals.arch | default "x86")) }} 
@@ -69,8 +67,6 @@ spec:
             capabilities:
               drop:
                 - ALL
-            runAsUser: 1001
-            runAsGroup: 1001
             runAsNonRoot: true
             allowPrivilegeEscalation: false
           resources:
@@ -93,8 +89,6 @@ spec:
             capabilities:
               drop:
                 - ALL
-            runAsUser: 1001
-            runAsGroup: 1001
             runAsNonRoot: true
           volumeMounts:
             - mountPath: /config/config.toml
