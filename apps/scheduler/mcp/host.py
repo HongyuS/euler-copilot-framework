@@ -89,8 +89,8 @@ class MCPHost:
         """保存记忆"""
         try:
             output_data = json.loads(result)
-        except Exception:
-            logger.exception("[MCPHost] 得到的数据不是dict格式！")
+        except Exception:  # noqa: BLE001
+            logger.warning("[MCPHost] 得到的数据不是dict格式！尝试转换为str")
             output_data = {
                 "message": result,
             }

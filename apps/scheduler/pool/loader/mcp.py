@@ -5,12 +5,14 @@ import asyncio
 import base64
 import json
 import logging
+import random
 import shutil
 from io import BytesIO
 
 import asyncer
 from anyio import Path
 from PIL import Image
+from sqids.sqids import Sqids
 
 from apps.common.config import Config
 from apps.common.process_handler import ProcessHandler
@@ -34,6 +36,7 @@ from apps.scheduler.pool.mcp.install import install_npx, install_uvx
 
 logger = logging.getLogger(__name__)
 MCP_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "mcp"
+sqids = Sqids(min_length=12)
 
 
 class MCPLoader(metaclass=SingletonMeta):
@@ -238,7 +241,7 @@ class MCPLoader(metaclass=SingletonMeta):
         tool_list = []
         for item in client.tools:
             tool_list += [MCPTool(
-                id=f"{mcp_id}/{item.name}",
+                id=sqids.encode([random.randint(0, 1000000) for _ in range(5)])[:6],  # noqa: S311
                 name=item.name,
                 mcp_id=mcp_id,
                 description=item.description or "",

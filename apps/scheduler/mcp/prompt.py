@@ -77,7 +77,7 @@ CREATE_PLAN = dedent(r"""
 
     - 每一条计划包含3个部分：
         - 计划内容：描述单个计划步骤的大致内容
-        - 工具名称：必须从下文的工具列表中选择
+        - 工具ID：必须从下文的工具列表中选择
         - 工具指令：改写用户的目标，使其更符合工具的输入要求
     - 必须按照如下格式生成计划，不要输出任何额外数据：
 
@@ -86,7 +86,7 @@ CREATE_PLAN = dedent(r"""
         "plans": [
             {
                 "content": "计划内容",
-                "tool": "工具名称",
+                "tool": "工具ID",
                 "instruction": "工具指令"
             }
         ]
@@ -104,9 +104,10 @@ CREATE_PLAN = dedent(r"""
 
     <tools>
         {% for tool in tools %}
-        - **{{ tool.name }}**: {{ tool.description }}
+        - <id>{{ tool.id }}</id><description>{{tool.name}}；{{ tool.description }}</description>
         {% endfor %}
-        - **Final**: 结束步骤，当执行到这一步时，表示计划执行结束，所得到的结果将作为最终结果。
+        - <id>Final</id><description>结束步骤，当执行到这一步时，\
+表示计划执行结束，所得到的结果将作为最终结果。</description>
     </tools>
 
     # 样例
@@ -132,17 +133,17 @@ CREATE_PLAN = dedent(r"""
         "plans": [
             {
                 "content": "选择一个支持Docker的MCP Server",
-                "tool": "MCP Selector",
+                "tool": "mcp_selector",
                 "instruction": "需要一个支持Docker容器运行的MCP Server"
             },
             {
                 "content": "使用Result[0]中选择的MCP Server，生成Docker命令",
-                "tool": "Command Generator",
+                "tool": "command_generator",
                 "instruction": "生成Docker命令：在后台运行alpine:latest容器，挂载/root到/data，执行top命令"
             },
             {
                 "content": "在Result[0]的MCP Server上执行Result[1]生成的命令",
-                "tool": "Command Executor",
+                "tool": "command_executor",
                 "instruction": "执行Docker命令"
             },
             {
@@ -199,7 +200,7 @@ EVALUATE_PLAN = dedent(r"""
         "plan": [
             {
                 "content": "改进后的计划内容",
-                "tool": "工具名称",
+                "tool": "工具ID",
                 "instruction": "工具指令"
             }
         ]
