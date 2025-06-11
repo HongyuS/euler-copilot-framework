@@ -4,5 +4,6 @@ ENV PYTHONPATH=/app
 ENV TIKTOKEN_CACHE_DIR=/app/assets/tiktoken
 
 COPY --chmod=550 ./ /app/
+RUN chmod 766 /root
 
 CMD ["uv", "run", "--no-sync", "--no-dev", "apps/main.py"]

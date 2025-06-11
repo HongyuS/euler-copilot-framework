@@ -1,6 +1,7 @@
 FROM hub.oepkgs.net/openeuler/openeuler:24.03-lts-sp1
 
 COPY --from=ghcr.io/astral-sh/uv:0.6.10 /uv /uvx /bin/
+COPY deploy/devstation.repo /etc/yum.repos.d/
 
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
