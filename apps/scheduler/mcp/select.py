@@ -171,11 +171,15 @@ class MCPSelector:
         for tool_vec in tool_vecs:
             # 到MongoDB里找对应的工具
             logger.info("[MCPHelper] 查询MCP Tool名称和描述: %s", tool_vec["mcp_id"])
-            tool_data = await tool_collection.find_one({"_id": tool_vec["mcp_id"], "tools.id": tool_vec["id"]})
-            if not tool_data:
-                logger.warning("[MCPHelper] 查询MCP Tool名称和描述失败: %s/%s", tool_vec["mcp_id"], tool_vec["id"])
-                continue
-            tool_data = MCPTool.model_validate(tool_data["tools"][0])
-            llm_tool_list.append(tool_data)
+            tool_data = await tool_collection.aggregate([
+                {"$match": {"_id": tool_vec["mcp_id"]}},
+                {"$unwind": "$tools"},
+                {"$match": {"tools.id": tool_vec["id"]}},
+                {"$project": {"_id": 0, "tools": 1}},
+                {"$replaceRoot": {"newRoot": "$tools"}},
+            ])
+            async for tool in tool_data:
+                tool_obj = MCPTool.model_validate(tool)
+                llm_tool_list.append(tool_obj)
 
         return llm_tool_list
