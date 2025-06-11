@@ -64,11 +64,6 @@ spec:
               name: framework-semantics-vl
           securityContext:
             readOnlyRootFilesystem: {{ default false .Values.euler_copilot.framework.readOnly }}
-            capabilities:
-              drop:
-                - ALL
-            runAsNonRoot: true
-            allowPrivilegeEscalation: false
           resources:
             requests:
               cpu: 0.2

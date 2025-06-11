@@ -12,10 +12,10 @@ from apps.constants import SERVICE_PAGE_SIZE
 from apps.entities.enum_var import SearchType
 from apps.entities.mcp import (
     MCPCollection,
+    MCPInstallStatus,
     MCPServerConfig,
     MCPServerSSEConfig,
     MCPServerStdioConfig,
-    MCPInstallStatus,
     MCPTool,
     MCPType,
 )

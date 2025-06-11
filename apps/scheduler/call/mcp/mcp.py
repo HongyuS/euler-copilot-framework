@@ -111,7 +111,7 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
             return
 
         # 获取工具
-        tool = next((tool for tool in self._tool_list if tool.name == plan_item.tool), None)
+        tool = next((tool for tool in self._tool_list if tool.id == plan_item.tool), None)
         if tool is None:
             err = f"[MCP] 工具 {plan_item.tool} 不存在"
             logger.error(err)

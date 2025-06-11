@@ -10,7 +10,7 @@ from apps.constants import SERVICE_PAGE_SIZE
 from apps.entities.agent import AgentAppMetadata
 from apps.entities.appcenter import AppCenterCardItem, AppData, AppPermissionData
 from apps.entities.collection import User
-from apps.entities.enum_var import AppFilterType, AppType
+from apps.entities.enum_var import AppFilterType, AppType, PermissionType
 from apps.entities.flow import AppMetadata, MetadataType, Permission
 from apps.entities.pool import AppPool
 from apps.entities.response_data import RecentAppList, RecentAppListItem
@@ -44,7 +44,19 @@ class AppCenterManager:
         :param filter_type: 过滤类型
         :return: 应用列表, 总应用数
         """
-        filters: dict[str, Any] = {}
+        filters: dict[str, Any] = {
+            "$or": [
+                {"permission.type": PermissionType.PUBLIC.value},
+                {"$and": [
+                    {"permission.type": PermissionType.PROTECTED.value},
+                    {"permission.users": {"$in": [user_sub]}},
+                ]},
+                {"$and": [
+                    {"permission.type": PermissionType.PRIVATE.value},
+                    {"author": user_sub},
+                ]},
+            ],
+        }
 
         user_favorite_app_ids = await AppCenterManager._get_favorite_app_ids_by_user(user_sub)
 
