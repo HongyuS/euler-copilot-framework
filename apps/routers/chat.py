@@ -1,8 +1,5 @@
-"""
-FastAPI 聊天接口
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""FastAPI 聊天接口"""
 
 import asyncio
 import logging
@@ -15,12 +12,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from apps.common.queue import MessageQueue
 from apps.common.wordscheck import WordsCheck
-from apps.dependency import (
-    get_session,
-    get_user,
-    verify_csrf_token,
-    verify_user,
-)
+from apps.dependency import get_session, get_user
 from apps.entities.request_data import RequestData
 from apps.entities.response_data import ResponseData
 from apps.entities.task import Task
@@ -118,7 +110,7 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
         await Activity.remove_active(user_sub)
 
 
-@router.post("/chat", dependencies=[Depends(verify_csrf_token), Depends(verify_user)])
+@router.post("/chat")
 async def chat(
     post_body: RequestData,
     user_sub: Annotated[str, Depends(get_user)],
@@ -145,7 +137,7 @@ async def chat(
     )
 
 
-@router.post("/stop", response_model=ResponseData, dependencies=[Depends(verify_csrf_token)])
+@router.post("/stop", response_model=ResponseData)
 async def stop_generation(user_sub: Annotated[str, Depends(get_user)]):  # noqa: ANN201
     """停止生成"""
     await Activity.remove_active(user_sub)

@@ -1,18 +1,25 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """提取事实工具"""
 
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any, Self
 
+from jinja2 import BaseLoader
+from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
 from apps.entities.enum_var import CallOutputType
 from apps.entities.pool import NodePool
 from apps.entities.scheduler import CallInfo, CallOutputChunk, CallVars
-from apps.llm.patterns.domain import Domain
-from apps.llm.patterns.facts import Facts
 from apps.manager.user_domain import UserDomainManager
 from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.facts.schema import FactsInput, FactsOutput
+from apps.scheduler.call.facts.prompt import DOMAIN_PROMPT, FACTS_PROMPT
+from apps.scheduler.call.facts.schema import (
+    DomainGen,
+    FactsGen,
+    FactsInput,
+    FactsOutput,
+)
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor
@@ -62,27 +69,38 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """执行工具"""
         data = FactsInput(**input_data)
+        # jinja2 环境
+        env = SandboxedEnvironment(
+            loader=BaseLoader(),
+            autoescape=False,
+            trim_blocks=True,
+            lstrip_blocks=True,
+        )
 
         # 提取事实信息
-        facts_obj = Facts()
-        facts = await facts_obj.generate(conversation=data.message)
-        self.tokens.input_tokens += facts_obj.input_tokens
-        self.tokens.output_tokens += facts_obj.output_tokens
+        facts_tpl = env.from_string(FACTS_PROMPT)
+        facts_prompt = facts_tpl.render(conversation=data.message)
+        facts_obj: FactsGen = await self._json([
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": facts_prompt},
+        ], FactsGen) # type: ignore[arg-type]
 
         # 更新用户画像
-        domain_obj = Domain()
-        domain_list = await domain_obj.generate(conversation=data.message)
-        self.tokens.input_tokens += domain_obj.input_tokens
-        self.tokens.output_tokens += domain_obj.output_tokens
+        domain_tpl = env.from_string(DOMAIN_PROMPT)
+        domain_prompt = domain_tpl.render(conversation=data.message)
+        domain_list: DomainGen = await self._json([
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": domain_prompt},
+        ], DomainGen) # type: ignore[arg-type]
 
-        for domain in domain_list:
+        for domain in domain_list.keywords:
             await UserDomainManager.update_user_domain_by_user_sub_and_domain_name(data.user_sub, domain)
 
         yield CallOutputChunk(
             type=CallOutputType.DATA,
             content=FactsOutput(
-                facts=facts,
-                domain=domain_list,
+                facts=facts_obj.facts,
+                domain=domain_list.keywords,
             ).model_dump(by_alias=True, exclude_none=True),
         )
 

@@ -1,8 +1,5 @@
-"""
-OpenAPI文档载入器
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""OpenAPI文档载入器"""
 
 import logging
 from hashlib import shake_128

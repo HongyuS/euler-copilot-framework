@@ -1,8 +1,5 @@
-"""
-文件检查器；检查文件是否存在、Hash是否发生变化；生成更新列表和删除列表
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""文件检查器"""
 
 import logging
 from hashlib import sha256
@@ -56,10 +53,10 @@ class FileChecker:
     async def diff(self, check_type: MetadataType) -> tuple[list[str], list[str]]:
         """生成更新列表和删除列表"""
         if check_type == MetadataType.APP:
-            collection = MongoDB.get_collection("app")
+            collection = MongoDB().get_collection("app")
             self._dir_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "app"
         elif check_type == MetadataType.SERVICE:
-            collection = MongoDB.get_collection("service")
+            collection = MongoDB().get_collection("service")
             self._dir_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "service"
 
         changed_list = []

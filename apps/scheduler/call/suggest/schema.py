@@ -1,8 +1,15 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """问题推荐工具的输入输出"""
 
 from pydantic import BaseModel, Field
 
 from apps.scheduler.call.core import DataBase
+
+
+class SuggestGenResult(BaseModel):
+    """问题推荐结果"""
+
+    predicted_questions: list[str] = Field(description="预测的问题列表")
 
 
 class SingleFlowSuggestionConfig(BaseModel):

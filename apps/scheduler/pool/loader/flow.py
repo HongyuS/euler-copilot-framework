@@ -1,9 +1,7 @@
-"""
-Flow加载器
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""Flow加载器"""
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
-
+import asyncio
 import logging
 from hashlib import sha256
 from typing import Any
@@ -24,7 +22,7 @@ from apps.models.mongo import MongoDB
 from apps.scheduler.util import yaml_enum_presenter, yaml_str_presenter
 
 logger = logging.getLogger(__name__)
-
+BASE_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "app"
 
 class FlowLoader:
     """工作流加载器"""
@@ -105,9 +103,7 @@ class FlowLoader:
         logger.info("[FlowLoader] 应用 %s：加载工作流 %s...", flow_id, app_id)
 
         # 构建工作流文件路径
-        flow_path = (
-            Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / app_id / "flow" / f"{flow_id}.yaml"
-        )
+        flow_path = BASE_PATH / app_id / "flow" / f"{flow_id}.yaml"
         if not await flow_path.exists():
             logger.error("[FlowLoader] 应用 %s：工作流文件 %s 不存在", app_id, flow_path)
             return None
@@ -146,9 +142,7 @@ class FlowLoader:
 
     async def save(self, app_id: str, flow_id: str, flow: Flow) -> None:
         """保存工作流"""
-        flow_path = (
-            Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / app_id / "flow" / f"{flow_id}.yaml"
-        )
+        flow_path = BASE_PATH / app_id / "flow" / f"{flow_id}.yaml"
         if not await flow_path.parent.exists():
             await flow_path.parent.mkdir(parents=True)
 
@@ -177,9 +171,7 @@ class FlowLoader:
 
     async def delete(self, app_id: str, flow_id: str) -> bool:
         """删除指定工作流文件"""
-        flow_path = (
-            Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / app_id / "flow" / f"{flow_id}.yaml"
-        )
+        flow_path = BASE_PATH / app_id / "flow" / f"{flow_id}.yaml"
         # 确保目标为文件且存在
         if await flow_path.exists():
             try:
@@ -198,10 +190,10 @@ class FlowLoader:
         logger.warning("[FlowLoader] 工作流文件不存在或不是文件：%s", flow_path)
         return True
 
-    async def _update_db(self, app_id: str, metadata: AppFlow) -> None:
+    async def _update_db(self, app_id: str, metadata: AppFlow) -> None:  # noqa: C901
         """更新数据库"""
         try:
-            app_collection = MongoDB.get_collection("app")
+            app_collection = MongoDB().get_collection("app")
             # 获取当前的flows
             app_data = await app_collection.find_one({"_id": app_id})
             if not app_data:
@@ -229,14 +221,7 @@ class FlowLoader:
                 },
                 upsert=True,
             )
-            flow_path = (
-                Path(Config().get_config().deploy.data_dir)
-                / "semantics"
-                / "app"
-                / app_id
-                / "flow"
-                / f"{metadata.id}.yaml"
-            )
+            flow_path = BASE_PATH / app_id / "flow" / f"{metadata.id}.yaml"
             async with aiofiles.open(flow_path, "rb") as f:
                 new_hash = sha256(await f.read()).hexdigest()
 
@@ -250,10 +235,18 @@ class FlowLoader:
         except Exception:
             logger.exception("[FlowLoader] 更新 MongoDB 失败")
 
-        # 向量化所有数据并保存
-        table = await LanceDB().get_table("flow")
         # 删除重复的ID
-        await table.delete(f"id = '{metadata.id}'")
+        while True:
+            try:
+                table = await LanceDB().get_table("flow")
+                await table.delete(f"id = '{metadata.id}'")
+                break
+            except RuntimeError as e:
+                if "Commit conflict" in str(e):
+                    logger.error("[FlowLoader] LanceDB删除flow冲突，重试中...")  # noqa: TRY400
+                    await asyncio.sleep(0.01)
+                else:
+                    raise
         # 进行向量化
         service_embedding = await Embedding.get_embedding([metadata.description])
         vector_data = [
@@ -263,6 +256,16 @@ class FlowLoader:
                 embedding=service_embedding[0],
             ),
         ]
-        await table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
-            vector_data,
-        )
+        while True:
+            try:
+                table = await LanceDB().get_table("flow")
+                await table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
+                    vector_data,
+                )
+                break
+            except RuntimeError as e:
+                if "Commit conflict" in str(e):
+                    logger.error("[FlowLoader] LanceDB插入flow冲突，重试中...")  # noqa: TRY400
+                    await asyncio.sleep(0.01)
+                else:
+                    raise

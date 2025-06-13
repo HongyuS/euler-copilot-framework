@@ -1,6 +1,8 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Executor基类"""
 
 import logging
+from abc import ABC, abstractmethod
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
@@ -14,7 +16,7 @@ from apps.entities.task import Task
 logger = logging.getLogger(__name__)
 
 
-class BaseExecutor(BaseModel):
+class BaseExecutor(BaseModel, ABC):
     """Executor基类"""
 
     task: Task
@@ -62,3 +64,8 @@ class BaseExecutor(BaseModel):
             event_type=event_type,
             data=data, # type: ignore[arg-type]
         )
+
+    @abstractmethod
+    async def run(self) -> None:
+        """运行Executor"""
+        raise NotImplementedError

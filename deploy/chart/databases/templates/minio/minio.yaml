@@ -20,25 +20,6 @@ spec:
       nodePort: {{ default nil .Values.databases.minio.service.consoleNodePort }}
 
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: minio-ingress
-  namespace: {{ .Release.Namespace }}
-spec:
-  rules:
-  - host: {{ default "minio.eulercopilot.local" .Values.domain.minioConsole }}
-    http:
-      paths:
-      - path: {{ default "/" .Values.databases.minio.ingress.prefix }}
-        pathType: Prefix
-        backend:
-          service:
-            name: minio-service
-            port:
-              number: 9001
-
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -59,7 +40,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: minio
-          image: {{ .Values.databases.minio.image | default (printf "%s/neocopilot/minio:empty-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
+          image: {{ .Values.databases.minio.image | default (printf "%s/neocopilot/minio:empty-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (.Values.globals.arch | default "x86")) }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
           args:
             - "server"

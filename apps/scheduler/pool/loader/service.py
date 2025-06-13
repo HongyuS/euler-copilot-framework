@@ -1,9 +1,7 @@
-"""
-加载配置文件夹的Service部分
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""加载配置文件夹的Service部分"""
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
-
+import asyncio
 import logging
 import shutil
 
@@ -22,6 +20,7 @@ from apps.scheduler.pool.loader.metadata import MetadataLoader, MetadataType
 from apps.scheduler.pool.loader.openapi import OpenAPILoader
 
 logger = logging.getLogger(__name__)
+BASE_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "service"
 
 
 class ServiceLoader:
@@ -29,7 +28,7 @@ class ServiceLoader:
 
     async def load(self, service_id: str, hashes: dict[str, str]) -> None:
         """加载单个Service"""
-        service_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id
+        service_path = BASE_PATH / service_id
         # 载入元数据
         metadata = await MetadataLoader().load_one(service_path / "metadata.yaml")
         if not isinstance(metadata, ServiceMetadata):
@@ -52,7 +51,7 @@ class ServiceLoader:
 
     async def save(self, service_id: str, metadata: ServiceMetadata, data: dict) -> None:
         """在文件系统上保存Service，并更新数据库"""
-        service_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id
+        service_path = BASE_PATH / service_id
         # 创建文件夹
         if not await service_path.exists():
             await service_path.mkdir(parents=True, exist_ok=True)
@@ -71,8 +70,9 @@ class ServiceLoader:
 
     async def delete(self, service_id: str, *, is_reload: bool = False) -> None:
         """删除Service，并更新数据库"""
-        service_collection = MongoDB.get_collection("service")
-        node_collection = MongoDB.get_collection("node")
+        mongo = MongoDB()
+        service_collection = mongo.get_collection("service")
+        node_collection = mongo.get_collection("node")
         try:
             await service_collection.delete_one({"_id": service_id})
             await node_collection.delete_many({"service_id": service_id})
@@ -91,20 +91,21 @@ class ServiceLoader:
             logger.exception("[ServiceLoader] 删除数据库失败")
 
         if not is_reload:
-            path = Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id
+            path = BASE_PATH / service_id
             if await path.exists():
                 shutil.rmtree(path)
 
 
-    async def _update_db(self, nodes: list[NodePool], metadata: ServiceMetadata) -> None:
+    async def _update_db(self, nodes: list[NodePool], metadata: ServiceMetadata) -> None:  # noqa: C901, PLR0912, PLR0915
         """更新数据库"""
         if not metadata.hashes:
             err = f"[ServiceLoader] 服务 {metadata.id} 的哈希值为空"
             logger.error(err)
             raise ValueError(err)
         # 更新MongoDB
-        service_collection = MongoDB.get_collection("service")
-        node_collection = MongoDB.get_collection("node")
+        mongo = MongoDB()
+        service_collection = mongo.get_collection("service")
+        node_collection = mongo.get_collection("node")
         try:
             # 先删除旧的节点
             await node_collection.delete_many({"service_id": metadata.id})
@@ -133,12 +134,19 @@ class ServiceLoader:
             raise RuntimeError(err) from e
 
         # 向量化所有数据并保存
-        service_table = await LanceDB().get_table("service")
-        node_table = await LanceDB().get_table("node")
-
-        # 删除重复的ID
-        await service_table.delete(f"id = '{metadata.id}'")
-        await node_table.delete(f"service_id = '{metadata.id}'")
+        while True:
+            try:
+                service_table = await LanceDB().get_table("service")
+                node_table = await LanceDB().get_table("node")
+                await service_table.delete(f"id = '{metadata.id}'")
+                await node_table.delete(f"service_id = '{metadata.id}'")
+                break
+            except Exception as e:
+                if "Commit conflict" in str(e):
+                    logger.error("[ServiceLoader] LanceDB删除service冲突，重试中...")  # noqa: TRY400
+                    await asyncio.sleep(0.01)
+                else:
+                    raise
 
         # 进行向量化，更新LanceDB
         service_vecs = await Embedding.get_embedding([metadata.description])
@@ -148,9 +156,19 @@ class ServiceLoader:
                 embedding=service_vecs[0],
             ),
         ]
-        await service_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
-            service_vector_data,
-        )
+        while True:
+            try:
+                service_table = await LanceDB().get_table("service")
+                await service_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
+                    service_vector_data,
+                )
+                break
+            except Exception as e:
+                if "Commit conflict" in str(e):
+                    logger.error("[ServiceLoader] LanceDB插入service冲突，重试中...")  # noqa: TRY400
+                    await asyncio.sleep(0.01)
+                else:
+                    raise
 
         node_descriptions = []
         for node in nodes:
@@ -166,6 +184,17 @@ class ServiceLoader:
                     embedding=vec,
                 ),
             )
-        await node_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
-            node_vector_data,
-        )
+        while True:
+            try:
+                node_table = await LanceDB().get_table("node")
+                await node_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
+                    node_vector_data,
+                )
+                break
+            except Exception as e:
+                if "Commit conflict" in str(e):
+                    logger.error("[ServiceLoader] LanceDB插入node冲突，重试中...")  # noqa: TRY400
+                    await asyncio.sleep(0.01)
+                else:
+                    raise
+

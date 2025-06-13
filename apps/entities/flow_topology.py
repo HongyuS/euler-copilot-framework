@@ -1,8 +1,5 @@
-"""
-前端展示flow用到的数据结构
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""前端展示flow用到的数据结构"""
 
 from typing import Any
 

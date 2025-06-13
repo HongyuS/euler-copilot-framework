@@ -1,8 +1,5 @@
-"""
-API调用工具的输入和输出
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""API调用工具的输入和输出"""
 
 from typing import Any
 

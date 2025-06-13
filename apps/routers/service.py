@@ -1,8 +1,5 @@
-"""
-FastAPI 语义接口中心相关路由
-
-Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+"""FastAPI 语义接口中心相关路由"""
 
 import logging
 from typing import Annotated
@@ -10,7 +7,6 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, Path, Query, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency.csrf import verify_csrf_token
 from apps.dependency.user import get_user, verify_user
 from apps.entities.enum_var import SearchType
 from apps.entities.request_data import ModFavServiceRequest, UpdateServiceRequest
@@ -119,7 +115,7 @@ async def get_service_list(  # noqa: PLR0913
     )
 
 
-@router.post("", response_model=UpdateServiceRsp, dependencies=[Depends(verify_csrf_token)])
+@router.post("", response_model=UpdateServiceRsp)
 async def update_service(
     user_sub: Annotated[str, Depends(get_user)],
     data: Annotated[UpdateServiceRequest, Body(..., description="上传 YAML 文本对应数据对象")],
@@ -254,7 +250,7 @@ async def get_service_detail(
     return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))
 
 
-@router.delete("/{serviceId}", response_model=DeleteServiceRsp, dependencies=[Depends(verify_csrf_token)])
+@router.delete("/{serviceId}", response_model=DeleteServiceRsp)
 async def delete_service(
     user_sub: Annotated[str, Depends(get_user)],
     service_id: Annotated[str, Path(..., alias="serviceId", description="服务ID")],
@@ -295,7 +291,7 @@ async def delete_service(
     return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))
 
 
-@router.put("/{serviceId}", response_model=ModFavServiceRsp, dependencies=[Depends(verify_csrf_token)])
+@router.put("/{serviceId}", response_model=ModFavServiceRsp)
 async def modify_favorite_service(
     user_sub: Annotated[str, Depends(get_user)],
     service_id: Annotated[str, Path(..., alias="serviceId", description="服务ID")],

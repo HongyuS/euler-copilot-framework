@@ -1,8 +1,5 @@
-"""
-BTDL：命令行组装器
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""命令行组装器"""
 
 import string
 from typing import Any, Literal, Optional

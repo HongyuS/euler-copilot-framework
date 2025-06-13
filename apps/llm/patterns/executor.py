@@ -1,8 +1,5 @@
-"""
-使用大模型生成Executor的思考内容
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""使用大模型生成Executor的思考内容"""
 
 from typing import TYPE_CHECKING, Any
 
@@ -54,7 +51,6 @@ class ExecutorThought(CorePattern):
         """处理Prompt"""
         super().__init__(system_prompt, user_prompt)
 
-
     async def generate(self, **kwargs) -> str:  # noqa: ANN003
         """调用大模型，生成对话总结"""
         try:
@@ -66,7 +62,7 @@ class ExecutorThought(CorePattern):
             raise ValueError(err) from e
 
         messages = [
-            {"role": "system", "content": ""},
+            {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": self.user_prompt.format(
                 last_thought=last_thought,
                 user_question=user_question,
@@ -123,7 +119,7 @@ class ExecutorSummary(CorePattern):
         facts_str = facts_to_prompt(background.facts)
 
         messages = [
-            {"role": "system", "content": self.system_prompt},
+            {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": self.user_prompt.format(
                 facts=facts_str,
                 conversation=conversation_str,

@@ -1,8 +1,5 @@
-"""
-元数据加载器
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""元数据加载器"""
 
 import logging
 from typing import Any
@@ -12,7 +9,8 @@ from anyio import Path
 from fastapi.encoders import jsonable_encoder
 
 from apps.common.config import Config
-from apps.entities.enum_var import MetadataType
+from apps.entities.agent import AgentAppMetadata
+from apps.entities.enum_var import AppType, MetadataType
 from apps.entities.flow import (
     AppMetadata,
     ServiceMetadata,
@@ -20,12 +18,13 @@ from apps.entities.flow import (
 from apps.scheduler.util import yaml_str_presenter
 
 logger = logging.getLogger(__name__)
+BASE_PATH = Path(Config().get_config().deploy.data_dir) / "semantics"
 
 
 class MetadataLoader:
     """元数据加载器"""
 
-    async def load_one(self, file_path: Path) -> AppMetadata | ServiceMetadata | None:
+    async def load_one(self, file_path: Path) -> AppMetadata | ServiceMetadata | AgentAppMetadata | None:
         """加载单个元数据"""
         # 检查yaml格式
         try:
@@ -44,13 +43,23 @@ class MetadataLoader:
 
         # 尝试匹配格式
         if metadata_type == MetadataType.APP.value:
-            try:
-                app_id = file_path.parent.name
-                metadata = AppMetadata(id=app_id, **metadata_dict)
-            except Exception as e:
-                err = "[MetadataLoader] App metadata.yaml格式错误"
-                logger.exception(err)
-                raise RuntimeError(err) from e
+            app_type = metadata_dict.get("app_type", AppType.FLOW)
+            if app_type == AppType.FLOW:
+                try:
+                    app_id = file_path.parent.name
+                    metadata = AppMetadata(id=app_id, **metadata_dict)
+                except Exception as e:
+                    err = "[MetadataLoader] App metadata.yaml格式错误"
+                    logger.exception(err)
+                    raise RuntimeError(err) from e
+            else:
+                try:
+                    app_id = file_path.parent.name
+                    metadata = AgentAppMetadata(id=app_id, **metadata_dict)
+                except Exception as e:
+                    err = "[MetadataLoader] Agent app metadata.yaml格式错误"
+                    logger.exception(err)
+                    raise RuntimeError(err) from e
         elif metadata_type == MetadataType.SERVICE.value:
             try:
                 service_id = file_path.parent.name
@@ -69,24 +78,20 @@ class MetadataLoader:
     async def save_one(
         self,
         metadata_type: MetadataType,
-        metadata: dict[str, Any] | AppMetadata | ServiceMetadata,
+        metadata: dict[str, Any] | AppMetadata | ServiceMetadata | AgentAppMetadata,
         resource_id: str,
     ) -> None:
         """保存单个元数据"""
         class_dict = {
-            MetadataType.APP: AppMetadata,
+            MetadataType.APP: AppMetadata | AgentAppMetadata,
             MetadataType.SERVICE: ServiceMetadata,
         }
 
         # 检查资源路径
         if metadata_type == MetadataType.APP.value:
-            resource_path = (
-                Path(Config().get_config().deploy.data_dir) / "semantics" / "app" / resource_id / "metadata.yaml"
-            )
+            resource_path = BASE_PATH / "app" / resource_id / "metadata.yaml"
         elif metadata_type == MetadataType.SERVICE.value:
-            resource_path = (
-                Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / resource_id / "metadata.yaml"
-            )
+            resource_path = BASE_PATH / "service" / resource_id / "metadata.yaml"
         else:
             err = f"[MetadataLoader] metadata_type类型错误: {metadata_type}"
             logger.error(err)

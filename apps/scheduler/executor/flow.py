@@ -1,8 +1,5 @@
-"""
-Flow执行Executor
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""Flow执行Executor"""
 
 import logging
 import uuid
@@ -16,7 +13,7 @@ from apps.entities.flow import Flow, Step
 from apps.entities.request_data import RequestDataApp
 from apps.entities.task import ExecutorState, StepQueueItem
 from apps.manager.task import TaskManager
-from apps.scheduler.call.llm.schema import LLM_ERROR_PROMPT
+from apps.scheduler.call.llm.prompt import LLM_ERROR_PROMPT
 from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.executor.step import StepExecutor
 
@@ -39,16 +36,6 @@ FIXED_STEPS_AFTER_END = [
         type=SpecialCallType.FACTS.value,
     ),
 ]
-# 错误处理步骤
-ERROR_STEP = Step(
-    name="错误处理",
-    description="错误处理",
-    node=SpecialCallType.LLM.value,
-    type=SpecialCallType.LLM.value,
-    params={
-        "user_prompt": LLM_ERROR_PROMPT,
-    },
-)
 
 
 # 单个流的执行工具
@@ -60,8 +47,6 @@ class FlowExecutor(BaseExecutor):
     question: str = Field(description="用户输入")
     post_body_app: RequestDataApp = Field(description="请求体中的app信息")
 
-
-    """Pydantic配置"""
 
     async def load_state(self) -> None:
         """从数据库中加载FlowExecutor的状态"""
@@ -100,14 +85,14 @@ class FlowExecutor(BaseExecutor):
         # 初始化步骤
         await step_runner.init()
         # 运行Step
-        await step_runner.run_step()
+        await step_runner.run()
 
         # 更新Task（已存过库）
         self.task = step_runner.task
 
 
     async def _step_process(self) -> None:
-        """单一Step执行"""
+        """执行当前queue里面的所有步骤（在用户看来是单一Step）"""
         while True:
             try:
                 queue_item = self.step_queue.pop()
@@ -190,9 +175,20 @@ class FlowExecutor(BaseExecutor):
                 self.step_queue.clear()
                 self.step_queue.appendleft(StepQueueItem(
                     step_id=str(uuid.uuid4()),
-                    step=ERROR_STEP,
+                    step=Step(
+                        name="错误处理",
+                        description="错误处理",
+                        node=SpecialCallType.LLM.value,
+                        type=SpecialCallType.LLM.value,
+                        params={
+                            "user_prompt": LLM_ERROR_PROMPT.replace(
+                                "{{ error_info }}",
+                                self.task.state.error_info["err_msg"], # type: ignore[arg-type]
+                            ),
+                        },
+                    ),
                     enable_filling=False,
-                    to_user=True,
+                    to_user=False,
                 ))
                 # 错误处理后结束
                 self._reached_end = True

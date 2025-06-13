@@ -1,8 +1,5 @@
-"""
-用户限流
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""用户限流"""
 
 import uuid
 from datetime import UTC, datetime
@@ -26,14 +23,14 @@ class Activity:
         time = round(datetime.now(UTC).timestamp(), 3)
 
         # 检查窗口内总请求数
-        count = await MongoDB.get_collection("activity").count_documents(
+        count = await MongoDB().get_collection("activity").count_documents(
             {"timestamp": {"$gte": time - SLIDE_WINDOW_TIME, "$lte": time}},
         )
         if count >= SLIDE_WINDOW_QUESTION_COUNT:
             return True
 
         # 检查用户是否正在提问
-        active = await MongoDB.get_collection("activity").find_one(
+        active = await MongoDB().get_collection("activity").find_one(
             {"user_sub": user_sub},
         )
         return bool(active)
@@ -43,7 +40,7 @@ class Activity:
         """设置用户的活跃标识"""
         time = round(datetime.now(UTC).timestamp(), 3)
         # 设置用户活跃状态
-        collection = MongoDB.get_collection("activity")
+        collection = MongoDB().get_collection("activity")
         active = await collection.find_one({"user_sub": user_sub})
         if active:
             err = "用户正在提问"
@@ -65,11 +62,11 @@ class Activity:
         """
         time = round(datetime.now(UTC).timestamp(), 3)
         # 清除用户当前活动标识
-        await MongoDB.get_collection("activity").delete_one(
+        await MongoDB().get_collection("activity").delete_one(
             {"user_sub": user_sub},
         )
 
         # 清除超出窗口范围的请求记录
-        await MongoDB.get_collection("activity").delete_many(
+        await MongoDB().get_collection("activity").delete_many(
             {"timestamp": {"$lte": time - SLIDE_WINDOW_TIME}},
         )

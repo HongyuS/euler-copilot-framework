@@ -1,7 +1,6 @@
-"""命令行解析器
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""命令行解析器"""
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
 import copy
 import re
 from typing import Any

@@ -1,8 +1,5 @@
-"""
-插件、工作流、步骤相关数据结构定义
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""插件、工作流、步骤相关数据结构定义"""
 
 from typing import Any
 
