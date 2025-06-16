@@ -80,11 +80,6 @@ spec:
             - --config
             - config.yaml
             - --copy
-          securityContext:
-            capabilities:
-              drop:
-                - ALL
-            runAsNonRoot: true
           volumeMounts:
             - mountPath: /config/config.toml
               name: framework-config
