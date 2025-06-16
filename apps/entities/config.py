@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """配置文件数据结构"""
 
 from typing import Literal
@@ -55,8 +56,6 @@ class FastAPIConfig(BaseModel):
     """FastAPI配置"""
 
     domain: str = Field(description="当前实例的域名")
-    session_ttl: int = Field(description="用户需要刷新Token的间隔(min)", default=30)
-    csrf: bool = Field(description="是否启用CSRF Token功能", default=False)
 
 
 class MinioConfig(BaseModel):
@@ -84,8 +83,8 @@ class LLMConfig(BaseModel):
     key: str = Field(description="LLM API密钥")
     endpoint: str = Field(description="LLM API URL地址")
     model: str = Field(description="LLM API 模型名")
-    max_tokens: int = Field(description="LLM API 最大Token数", default=8192)
-    temperature: float = Field(description="LLM API 温度", default=0.7)
+    max_tokens: int | None = Field(description="LLM API 最大Token数", default=None)
+    temperature: float | None = Field(description="LLM API 温度", default=None)
 
 
 class FunctionCallConfig(BaseModel):
@@ -95,8 +94,8 @@ class FunctionCallConfig(BaseModel):
     model: str = Field(description="Function Call 模型名")
     endpoint: str = Field(description="Function Call API URL地址")
     api_key: str = Field(description="Function Call API密钥")
-    max_tokens: int = Field(description="Function Call 最大Token数", default=8192)
-    temperature: float = Field(description="Function Call 温度", default=0.7)
+    max_tokens: int | None = Field(description="Function Call 最大Token数", default=None)
+    temperature: float | None = Field(description="Function Call 温度", default=None)
 
 
 class SecurityConfig(BaseModel):

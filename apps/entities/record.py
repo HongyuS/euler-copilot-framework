@@ -1,8 +1,5 @@
-"""
-Record数据结构
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""Record数据结构"""
 
 import uuid
 from datetime import UTC, datetime
@@ -103,7 +100,7 @@ class Record(RecordData):
     user_sub: str
     key: dict[str, Any] = {}
     content: str
-    comment: RecordComment= Field(default=RecordComment())
+    comment: RecordComment = Field(default=RecordComment())
     flow: list[str] = Field(default=[])
 
 

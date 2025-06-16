@@ -1,15 +1,11 @@
-"""
-SQL工具。
-
-用于调用外置的Chat2DB工具的API，获得SQL语句；再在PostgreSQL中执行SQL语句，获得数据。
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""SQL工具"""
 
 import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
-import aiohttp
+import httpx
 from fastapi import status
 from pydantic import Field
 
@@ -61,28 +57,28 @@ class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
         headers = {"Content-Type": "application/json"}
 
         sql_list = []
-        retry = 0
-        max_retry = 3
+        request_num = 0
+        max_request = 5
 
-        while retry < max_retry and len(sql_list) < self.top_k:
+        while request_num < max_request and len(sql_list) < self.top_k:
             try:
-                async with aiohttp.ClientSession() as session, session.post(
-                    Config().get_config().extra.sql_url + "/database/sql",
-                    headers=headers,
-                    json=post_data,
-                    timeout=aiohttp.ClientTimeout(total=60),
-                ) as response:
-                    if response.status == status.HTTP_200_OK:
-                        result = await response.json()
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        Config().get_config().extra.sql_url + "/database/sql",
+                        headers=headers,
+                        json=post_data,
+                        timeout=60.0,
+                    )
+                    request_num += 1
+                    if response.status_code == status.HTTP_200_OK:
+                        result = response.json()
                         if result["code"] == status.HTTP_200_OK:
                             sql_list.extend(result["result"]["sql_list"])
                     else:
-                        text = await response.text()
-                        logger.error("[SQL] 生成失败：%s", text)
-                        retry += 1
+                        logger.error("[SQL] 生成失败：%s", response.text)
             except Exception:
                 logger.exception("[SQL] 生成失败")
-                retry += 1
+                request_num += 1
 
         return sql_list
 
@@ -96,22 +92,22 @@ class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
 
         for sql_dict in sql_list:
             try:
-                async with aiohttp.ClientSession() as session, session.post(
-                    Config().get_config().extra.sql_url + "/sql/execute",
-                    headers=headers,
-                    json={
-                        "database_id": sql_dict["database_id"],
-                        "sql": sql_dict["sql"],
-                    },
-                    timeout=aiohttp.ClientTimeout(total=60),
-                ) as response:
-                    if response.status == status.HTTP_200_OK:
-                        result = await response.json()
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        Config().get_config().extra.sql_url + "/sql/execute",
+                        headers=headers,
+                        json={
+                            "database_id": sql_dict["database_id"],
+                            "sql": sql_dict["sql"],
+                        },
+                        timeout=60.0,
+                    )
+                    if response.status_code == status.HTTP_200_OK:
+                        result = response.json()
                         if result["code"] == status.HTTP_200_OK:
                             return result["result"], sql_dict["sql"]
                     else:
-                        text = await response.text()
-                        logger.error("[SQL] 调用失败：%s", text)
+                        logger.error("[SQL] 调用失败：%s", response.text)
             except Exception:
                 logger.exception("[SQL] 调用失败")
 

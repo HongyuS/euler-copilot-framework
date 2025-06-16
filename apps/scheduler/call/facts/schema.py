@@ -1,8 +1,21 @@
-"""Facts工具的输入和输出"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""记忆提取工具的输入和输出"""
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from apps.scheduler.call.core import DataBase
+
+
+class DomainGen(BaseModel):
+    """生成的领域信息结果"""
+
+    keywords: list[str] = Field(description="关键词或标签列表，可以为空。")
+
+
+class FactsGen(BaseModel):
+    """生成的提取事实结果"""
+
+    facts: list[str] = Field(description="从对话中提取的事实条目，可以为空。")
 
 
 class FactsInput(DataBase):

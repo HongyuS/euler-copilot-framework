@@ -1,8 +1,5 @@
-"""
-总结上下文工具
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""总结上下文工具"""
 
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any, Self

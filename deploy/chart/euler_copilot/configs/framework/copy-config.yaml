@@ -2,8 +2,8 @@ copy:
   - from: /config/config.toml
     to: /config-rw/config.toml
     mode:
-      uid: 1001
-      gid: 1001
+      uid: 0
+      gid: 0
       mode: "0o650"
     secrets:
       - /db-secrets

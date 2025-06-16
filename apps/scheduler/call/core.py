@@ -1,8 +1,8 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
-Core Call类，定义了所有Call的抽象类和基础参数。
+Core Call类是定义了所有Call都应具有的方法和参数的PyDantic类。
 
-所有Call类必须继承此类，并实现所有方法。
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+所有Call类必须继承此类，并根据需求重载方法。
 """
 
 import logging
@@ -23,6 +23,8 @@ from apps.entities.scheduler import (
     CallVars,
 )
 from apps.entities.task import FlowStepHistory
+from apps.llm.function import FunctionLLM
+from apps.llm.reasoning import ReasoningLLM
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor
@@ -45,13 +47,17 @@ class DataBase(BaseModel):
 
 
 class CoreCall(BaseModel):
-    """所有Call的父类，所有Call必须继承此类。"""
+    """所有Call的父类，包含通用的逻辑"""
 
     name: SkipJsonSchema[str] = Field(description="Step的名称", exclude=True)
     description: SkipJsonSchema[str] = Field(description="Step的描述", exclude=True)
     node: SkipJsonSchema[NodePool | None] = Field(description="节点信息", exclude=True)
     enable_filling: SkipJsonSchema[bool] = Field(description="是否需要进行自动参数填充", default=False, exclude=True)
-    tokens: SkipJsonSchema[CallTokens] = Field(description="Call的Tokens", default=CallTokens(), exclude=True)
+    tokens: SkipJsonSchema[CallTokens] = Field(
+        description="Call的输入输出Tokens信息",
+        default=CallTokens(),
+        exclude=True,
+    )
     input_model: ClassVar[SkipJsonSchema[type[DataBase]]] = Field(
         description="Call的输入Pydantic类型；不包含override的模板",
         exclude=True,
@@ -192,3 +198,21 @@ class CoreCall(BaseModel):
         async for chunk in self._exec(input_data):
             yield chunk
         await self._after_exec(input_data)
+
+
+    async def _llm(self, messages: list[dict[str, Any]]) -> str:
+        """Call可直接使用的LLM非流式调用"""
+        result = ""
+        llm = ReasoningLLM()
+        async for chunk in llm.call(messages, streaming=False):
+            result += chunk
+        self.input_tokens = llm.input_tokens
+        self.output_tokens = llm.output_tokens
+        return result
+
+
+    async def _json(self, messages: list[dict[str, Any]], schema: type[BaseModel]) -> BaseModel:
+        """Call可直接使用的JSON生成"""
+        json = FunctionLLM()
+        result = await json.call(messages=messages, schema=schema.model_json_schema())
+        return schema.model_validate(result)

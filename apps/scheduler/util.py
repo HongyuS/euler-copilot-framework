@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """YAML表示器"""
 
 def yaml_str_presenter(dumper, data):  # noqa: ANN001, ANN201, D103

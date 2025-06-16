@@ -1,8 +1,5 @@
-"""
-工具：调用大模型
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""调用大模型"""
 
 import logging
 from collections.abc import AsyncGenerator
@@ -23,7 +20,8 @@ from apps.entities.scheduler import (
 )
 from apps.llm.reasoning import ReasoningLLM
 from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.llm.schema import LLM_CONTEXT_PROMPT, LLM_DEFAULT_PROMPT, LLMInput, LLMOutput
+from apps.scheduler.call.llm.prompt import LLM_CONTEXT_PROMPT, LLM_DEFAULT_PROMPT
+from apps.scheduler.call.llm.schema import LLMInput, LLMOutput
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +35,7 @@ class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
     temperature: float = Field(description="大模型温度（随机化程度）", default=0.7)
     enable_context: bool = Field(description="是否启用上下文", default=True)
     step_history_size: int = Field(description="上下文信息中包含的步骤历史数量", default=3, ge=1, le=10)
-    system_prompt: str = Field(description="大模型系统提示词", default="")
+    system_prompt: str = Field(description="大模型系统提示词", default="You are a helpful assistant.")
     user_prompt: str = Field(description="大模型用户提示词", default=LLM_DEFAULT_PROMPT)
 
 

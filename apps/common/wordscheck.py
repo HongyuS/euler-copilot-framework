@@ -1,8 +1,5 @@
-"""
-敏感词检查模块
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""敏感词检查模块"""
 
 import logging
 from pathlib import Path
@@ -24,12 +21,9 @@ class WordsCheck(metaclass=SingletonMeta):
     def _init_words_list(self) -> None:
         """同步初始化敏感词列表"""
         if not self._initialized and Config().get_config().check.enable:
-            try:
-                with Path(Config().get_config().check.words_list).open(encoding="utf-8") as f:
-                    self._words_list = f.read().splitlines()
-                self._initialized = True
-            except Exception:
-                logger.exception("[WordsCheck] Failed to initialize words list")
+            with Path(Config().get_config().check.words_list).open(encoding="utf-8") as f:
+                self._words_list = f.read().splitlines()
+            self._initialized = True
 
     async def _check_wordlist(self, message: str) -> int:
         """使用关键词列表检查敏感词"""

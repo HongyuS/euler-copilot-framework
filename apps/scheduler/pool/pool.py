@@ -1,8 +1,6 @@
-"""
-资源池，包含语义接口、应用等的载入和保存
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""资源池，包含语义接口、应用等的载入和保存"""
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
 import importlib
 import logging
 from typing import Any
@@ -10,7 +8,6 @@ from typing import Any
 from anyio import Path
 
 from apps.common.config import Config
-from apps.common.singleton import SingletonMeta
 from apps.entities.enum_var import MetadataType
 from apps.entities.flow import Flow
 from apps.entities.pool import AppFlow, CallPool
@@ -20,34 +17,69 @@ from apps.scheduler.pool.loader import (
     AppLoader,
     CallLoader,
     FlowLoader,
+    MCPLoader,
     ServiceLoader,
 )
 
 logger = logging.getLogger(__name__)
 
 
-class Pool(metaclass=SingletonMeta):
-    """资源池"""
+class Pool:
+    """
+    资源池
+
+    在Framework启动时，执行全局的载入流程；同时在内存中维持部分变量，满足MCP、Call等含Python类的模块能够驻留在内存中。
+    """
 
     @staticmethod
     async def check_dir() -> None:
-        """检查文件夹是否存在"""
+        """
+        检查必要的文件夹是否存在
+
+        检查 ``data_dir`` 目录下是否存在 ``semantics/`` 目录，
+        并检查是否存在 ``app/``、``service/``、``call/``、``mcp/`` 目录。
+        如果目录不存在，则自动创建目录。
+
+        :return: 无
+        """
         root_dir = Config().get_config().deploy.data_dir.rstrip("/") + "/semantics/"
-        if not await Path(root_dir + "app").exists():
+        if not await Path(root_dir + "app").exists() or not await Path(root_dir + "app").is_dir():
             logger.warning("[Pool] App目录%s不存在，创建中", root_dir + "app")
+            await Path(root_dir + "app").unlink(missing_ok=True)
             await Path(root_dir + "app").mkdir(parents=True, exist_ok=True)
-        if not await Path(root_dir + "service").exists():
+        if not await Path(root_dir + "service").exists() or not await Path(root_dir + "service").is_dir():
             logger.warning("[Pool] Service目录%s不存在，创建中", root_dir + "service")
+            await Path(root_dir + "service").unlink(missing_ok=True)
             await Path(root_dir + "service").mkdir(parents=True, exist_ok=True)
-        if not await Path(root_dir + "call").exists():
+        if not await Path(root_dir + "call").exists() or not await Path(root_dir + "call").is_dir():
             logger.warning("[Pool] Call目录%s不存在，创建中", root_dir + "call")
+            await Path(root_dir + "call").unlink(missing_ok=True)
             await Path(root_dir + "call").mkdir(parents=True, exist_ok=True)
+        if not await Path(root_dir + "mcp").exists() or not await Path(root_dir + "mcp").is_dir():
+            logger.warning("[Pool] MCP目录%s不存在，创建中", root_dir + "mcp")
+            await Path(root_dir + "mcp").unlink(missing_ok=True)
+            await Path(root_dir + "mcp").mkdir(parents=True, exist_ok=True)
 
 
-    async def init(self) -> None:
-        """加载全部文件系统内的资源"""
+    @staticmethod
+    async def init() -> None:
+        """
+        加载全部文件系统内的资源
+
+        包含：
+
+        - 检查文件变动
+        - 载入Call
+        - 载入Service
+        - 载入App
+        - 载入MCP
+
+        这一流程在Framework启动时执行。
+
+        :return: 无
+        """
         # 检查文件夹是否存在
-        await self.check_dir()
+        await Pool.check_dir()
 
         # 加载Call
         logger.info("[Pool] 载入Call")
@@ -91,10 +123,15 @@ class Pool(metaclass=SingletonMeta):
             if hash_key in checker.hashes:
                 await app_loader.load(app, checker.hashes[hash_key])
 
+        # 载入MCP
+        logger.info("[Pool] 载入MCP")
+        await MCPLoader.init()
+
 
     async def get_flow_metadata(self, app_id: str) -> list[AppFlow]:
         """从数据库中获取特定App的全部Flow的元数据"""
-        app_collection = MongoDB.get_collection("app")
+        mongo = MongoDB()
+        app_collection = mongo.get_collection("app")
         flow_metadata_list = []
         try:
             flow_list = await app_collection.find_one({"_id": app_id}, {"flows": 1})
@@ -119,7 +156,8 @@ class Pool(metaclass=SingletonMeta):
     async def get_call(self, call_id: str) -> Any:
         """[Exception] 拿到Call的信息"""
         # 从MongoDB里拿到数据
-        call_collection = MongoDB.get_collection("call")
+        mongo = MongoDB()
+        call_collection = mongo.get_collection("call")
         call_db_data = await call_collection.find_one({"_id": call_id})
         if not call_db_data:
             err = f"[Pool] Call{call_id}不存在"

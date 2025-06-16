@@ -1,4 +1,6 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """上下文转提示词"""
+
 from typing import Any
 
 
@@ -17,15 +19,6 @@ def facts_to_prompt(facts: list[str]) -> str:
     for item in facts:
         prompt += f"- {item}\n"
     prompt += "</facts>\n"
-    return prompt
-
-
-def history_questions_to_prompt(history_questions: list[str]) -> str:
-    """历史问题转提示词"""
-    prompt = "<history_list>\n"
-    for item in history_questions:
-        prompt += f"<question>{item}</question>\n"
-    prompt += "</history_list>\n"
     return prompt
 
 

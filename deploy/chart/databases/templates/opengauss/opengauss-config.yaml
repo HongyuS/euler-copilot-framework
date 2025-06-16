@@ -13,3 +13,4 @@ data:
     #!/bin/bash
     su - omm -c "gs_guc reload -D /var/lib/opengauss/data -c \"behavior_compat_options = 'accept_empty_str'\""
 {{- end -}}
+

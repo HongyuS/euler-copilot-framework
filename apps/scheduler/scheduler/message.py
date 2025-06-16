@@ -1,8 +1,5 @@
-"""
-Scheduler消息推送
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""Scheduler消息推送"""
 
 import logging
 from datetime import UTC, datetime
@@ -10,7 +7,7 @@ from textwrap import dedent
 
 from apps.common.config import Config
 from apps.common.queue import MessageQueue
-from apps.entities.collection import Document
+from apps.entities.collection import LLM, Document
 from apps.entities.enum_var import EventType
 from apps.entities.message import (
     DocumentAddContent,
@@ -34,14 +31,14 @@ async def push_init_message(
     # 组装feature
     if is_flow:
         feature = InitContentFeature(
-            maxTokens=Config().get_config().llm.max_tokens,
+            maxTokens=Config().get_config().llm.max_tokens or 0,
             contextNum=context_num,
             enableFeedback=False,
             enableRegenerate=False,
         )
     else:
         feature = InitContentFeature(
-            maxTokens=Config().get_config().llm.max_tokens,
+            maxTokens=Config().get_config().llm.max_tokens or 0,
             contextNum=context_num,
             enableFeedback=True,
             enableRegenerate=True,
@@ -62,13 +59,16 @@ async def push_init_message(
 
 
 async def push_rag_message(
-    task: Task, queue: MessageQueue, user_sub: str, rag_data: RAGQueryReq,
-) -> Task:
+        task: Task, queue: MessageQueue, user_sub: str, llm: LLM, history: list[dict[str, str]],
+        doc_ids: list[str],
+        rag_data: RAGQueryReq,) -> Task:
     """推送RAG消息"""
     full_answer = ""
 
-    async for chunk in RAG.get_rag_result(user_sub, rag_data):
+    async for chunk in RAG.get_rag_result(user_sub, llm, history, doc_ids, rag_data):
         task, chunk_content = await _push_rag_chunk(task, queue, chunk)
+        if not isinstance(chunk_content, str):
+            chunk_content = ""
         full_answer += chunk_content
 
     # 保存答案
@@ -94,11 +94,21 @@ async def _push_rag_chunk(task: Task, queue: MessageQueue, content: str) -> tupl
 
         await TaskManager.save_task(task.id, task)
         # 推送消息
-        await queue.push_output(
-            task=task,
-            event_type=EventType.TEXT_ADD.value,
-            data=TextAddContent(text=content_obj.content).model_dump(exclude_none=True, by_alias=True),
-        )
+        if content_obj.event_type == EventType.TEXT_ADD.value:
+            await queue.push_output(
+                task=task,
+                event_type=content_obj.event_type,
+                data=TextAddContent(text=content_obj.content).model_dump(exclude_none=True, by_alias=True),
+            )
+        elif content_obj.event_type == EventType.DOCUMENT_ADD.value:
+            await queue.push_output(
+                task=task,
+                event_type=content_obj.event_type,
+                data=DocumentAddContent(
+                    documentId=content_obj.content.get("id", ""),
+                    documentName=content_obj.content.get("name", ""),
+                ).model_dump(exclude_none=True, by_alias=True),
+            )
     except Exception:
         logger.exception("[Scheduler] RAG服务返回错误数据")
         return task, ""

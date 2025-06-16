@@ -1,19 +1,12 @@
-"""
-用户相关接口
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""用户相关接口"""
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency import (
-    get_user,
-    verify_csrf_token,
-    verify_user,
-)
+from apps.dependency import get_user
 from apps.entities.response_data import UserGetMsp, UserGetRsp
 from apps.entities.user import UserInfo
 from apps.manager.user import UserManager
@@ -23,7 +16,8 @@ router = APIRouter(
     tags=["user"],
 )
 
-@router.get("", dependencies=[Depends(verify_csrf_token), Depends(verify_user)])
+
+@router.get("")
 async def chat(
     user_sub: Annotated[str, Depends(get_user)],
 ) -> JSONResponse:
@@ -35,13 +29,16 @@ async def chat(
         if user == user_sub:
             continue
         info = UserInfo(
-                userName=user,
-                userSub=user,
-            )
+            userName=user,
+            userSub=user,
+        )
         user_info_list.append(info)
 
-    return JSONResponse(status_code=status.HTTP_200_OK, content=UserGetRsp(
-        code=status.HTTP_200_OK,
-        message="用户数据详细信息获取成功",
-        result=UserGetMsp(userInfoList=user_info_list),
-    ).model_dump(exclude_none=True, by_alias=True))
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=UserGetRsp(
+            code=status.HTTP_200_OK,
+            message="用户数据详细信息获取成功",
+            result=UserGetMsp(userInfoList=user_info_list),
+        ).model_dump(exclude_none=True, by_alias=True),
+    )

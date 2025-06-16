@@ -1,8 +1,5 @@
-"""
-FastAPI 请求体
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""FastAPI 请求体"""
 
 from typing import Any
 
@@ -12,6 +9,7 @@ from apps.common.config import Config
 from apps.entities.appcenter import AppData
 from apps.entities.enum_var import CommentType
 from apps.entities.flow_topology import FlowItem
+from apps.entities.mcp import MCPType
 
 
 class RequestDataApp(BaseModel):
@@ -34,7 +32,7 @@ class MockRequestData(BaseModel):
 class RequestDataFeatures(BaseModel):
     """POST /api/chat的features字段数据"""
 
-    max_tokens: int = Field(default=Config().get_config().llm.max_tokens, description="最大生成token数", ge=0)
+    max_tokens: int | None = Field(default=Config().get_config().llm.max_tokens, description="最大生成token数")
     context_num: int = Field(default=5, description="上下文消息数量", le=10, ge=0)
 
 
@@ -93,6 +91,24 @@ class ModFavAppRequest(BaseModel):
     favorited: bool = Field(..., description="是否收藏")
 
 
+class UpdateMCPServiceRequest(BaseModel):
+    """POST /api/mcpservice 请求数据结构"""
+
+    service_id: str | None = Field(None, alias="serviceId", description="服务ID（更新时传递）")
+    icon: str = Field(description="图标", default="")
+    name: str = Field(..., description="MCP服务名称")
+    description: str = Field(..., description="MCP服务描述")
+    overview: str = Field(..., description="MCP服务概述")
+    config: str = Field(..., description="MCP服务配置")
+    mcp_type: MCPType = Field(description="MCP传输协议(Stdio/SSE/Streamable)", default=MCPType.STDIO, alias="mcpType")
+
+
+class ActiveMCPServiceRequest(BaseModel):
+    """POST /api/mcp/{serviceId} 请求数据结构"""
+
+    active: bool = Field(description="是否激活mcp服务")
+
+
 class UpdateServiceRequest(BaseModel):
     """POST /api/service 请求数据结构"""
 
@@ -142,13 +158,29 @@ class PostDomainData(BaseModel):
     domain_description: str = Field(..., max_length=2000)
 
 
-class PostKnowledgeIDData(BaseModel):
-    """添加知识库"""
-
-    kb_id: str
-
-
 class PutFlowReq(BaseModel):
     """创建/修改流拓扑结构"""
 
     flow: FlowItem
+
+
+class UpdateLLMReq(BaseModel):
+    """更新大模型请求体"""
+
+    icon: str = Field(description="图标", default="")
+    openai_base_url: str = Field(default="", description="OpenAI API Base URL", alias="openaiBaseUrl")
+    openai_api_key: str = Field(default="", description="OpenAI API Key", alias="openaiApiKey")
+    model_name: str = Field(default="", description="模型名称", alias="modelName")
+    max_tokens: int = Field(default=8192, description="最大token数", alias="maxTokens")
+
+
+class DeleteLLMReq(BaseModel):
+    """删除大模型请求体"""
+
+    llm_id: str = Field(description="大模型ID", alias="llmId")
+
+
+class UpdateKbReq(BaseModel):
+    """更新知识库请求体"""
+
+    kb_ids: list[str] = Field(description="知识库ID列表", alias="kbIds", default=[])

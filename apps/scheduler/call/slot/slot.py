@@ -1,5 +1,7 @@
-"""参数填充工具"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""自动参数填充工具"""
 
+import json
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any, Self
 
@@ -10,10 +12,11 @@ from pydantic import Field
 from apps.entities.enum_var import CallOutputType
 from apps.entities.pool import NodePool
 from apps.entities.scheduler import CallInfo, CallOutputChunk, CallVars
-from apps.llm.patterns.json_gen import Json
+from apps.llm.function import FunctionLLM, JsonGenerator
 from apps.llm.reasoning import ReasoningLLM
 from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.slot.schema import SLOT_GEN_PROMPT, SlotInput, SlotOutput
+from apps.scheduler.call.slot.prompt import SLOT_GEN_PROMPT
+from apps.scheduler.call.slot.schema import SlotInput, SlotOutput
 from apps.scheduler.slot.slot import Slot as SlotProcessor
 
 if TYPE_CHECKING:
@@ -36,8 +39,8 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
         return CallInfo(name="参数自动填充", description="根据步骤历史，自动填充参数")
 
 
-    async def _llm_slot_fill(self, remaining_schema: dict[str, Any]) -> dict[str, Any]:
-        """使用LLM填充参数"""
+    async def _llm_slot_fill(self, remaining_schema: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        """使用大模型填充参数；若大模型解析度足够，则直接返回结果"""
         env = SandboxedEnvironment(
             loader=BaseLoader(),
             autoescape=False,
@@ -47,7 +50,7 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
         template = env.from_string(SLOT_GEN_PROMPT)
 
         conversation = [
-            {"role": "system", "content": ""},
+            {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": template.render(
                 current_tool={
                     "name": self.name,
@@ -69,19 +72,25 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
         self.tokens.input_tokens += reasoning.input_tokens
         self.tokens.output_tokens += reasoning.output_tokens
 
-        conversation = [
-            {"role": "user", "content": f"""
-                    用户问题：{self._question}
+        answer = await FunctionLLM.process_response(answer)
+        try:
+            data = json.loads(answer)
+        except Exception:  # noqa: BLE001
+            data = {}
+        return answer, data
 
-                    参考数据：
-                    {answer}
-                """,
-            },
+    async def _function_slot_fill(self, answer: str, remaining_schema: dict[str, Any]) -> dict[str, Any]:
+        """使用FunctionCall填充参数"""
+        conversation = [
+            {"role": "user", "content": self._question},
+            {"role": "assistant", "content": answer},
         ]
-        return await Json().generate(
+        json_gen = JsonGenerator(
+            query=self._question,
             conversation=conversation,
-            spec=remaining_schema,
+            schema=remaining_schema,
         )
+        return await json_gen.generate()
 
     @classmethod
     async def instance(cls, executor: "StepExecutor", node: NodePool | None, **kwargs: Any) -> Self:
@@ -132,8 +141,14 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
                 ).model_dump(by_alias=True, exclude_none=True),
             )
             return
-        slot_data = await self._llm_slot_fill(data.remaining_schema)
+        answer, slot_data = await self._llm_slot_fill(data.remaining_schema)
+
         slot_data = self._processor.convert_json(slot_data)
+        remaining_schema = self._processor.check_json(slot_data)
+        if remaining_schema:
+            slot_data = await self._function_slot_fill(answer, remaining_schema)
+            slot_data = self._processor.convert_json(slot_data)
+            remaining_schema = self._processor.check_json(slot_data)
 
         # 再次检查
         remaining_schema = self._processor.check_json(slot_data)

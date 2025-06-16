@@ -1,8 +1,6 @@
-"""
-OIDC模块
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""OIDC模块"""
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -33,37 +31,34 @@ class OIDCProvider:
     @staticmethod
     async def set_token(user_sub: str, access_token: str, refresh_token: str) -> None:
         """设置MongoDB中的OIDC Token到sessions集合"""
-        sessions_collection = MongoDB.get_collection("session")
+        mongo = MongoDB()
+        sessions_collection = mongo.get_collection("session")
 
-        try:
-            await sessions_collection.update_one(
-                {"_id": f"access_token_{user_sub}"},
-                {
-                    "$set": {
-                        "token": access_token,
-                        "expired_at": datetime.now(UTC) + timedelta(minutes=OIDC_ACCESS_TOKEN_EXPIRE_TIME),
-                    },
+        await sessions_collection.update_one(
+            {"_id": f"access_token_{user_sub}"},
+            {
+                "$set": {
+                    "token": access_token,
+                    "expired_at": datetime.now(UTC) + timedelta(minutes=OIDC_ACCESS_TOKEN_EXPIRE_TIME),
                 },
-                upsert=True,
-            )
-            await sessions_collection.update_one(
-                {"_id": f"refresh_token_{user_sub}"},
-                {
-                    "$set": {
-                        "token": refresh_token,
-                        "expired_at": datetime.now(UTC) + timedelta(minutes=OIDC_REFRESH_TOKEN_EXPIRE_TIME),
-                    },
+            },
+            upsert=True,
+        )
+        await sessions_collection.update_one(
+            {"_id": f"refresh_token_{user_sub}"},
+            {
+                "$set": {
+                    "token": refresh_token,
+                    "expired_at": datetime.now(UTC) + timedelta(minutes=OIDC_REFRESH_TOKEN_EXPIRE_TIME),
                 },
-                upsert=True,
-            )
+            },
+            upsert=True,
+        )
 
-            await sessions_collection.create_index(
-                "expired_at",
-                expireAfterSeconds=0,
-            )
-        except Exception as e:
-            logger.exception("[OIDC] 设置MongoDB Token失败")
-            raise RuntimeError(str(e)) from e
+        await sessions_collection.create_index(
+            "expired_at",
+            expireAfterSeconds=0,
+        )
 
     async def get_login_status(self, cookie: dict[str, str]) -> dict[str, Any]:
         """检查登录状态"""

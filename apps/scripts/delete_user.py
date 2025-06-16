@@ -1,8 +1,5 @@
-"""
-删除30天未登录用户
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""删除30天未登录用户"""
 
 import logging
 from datetime import UTC, datetime, timedelta
@@ -12,6 +9,7 @@ import asyncer
 from apps.entities.collection import Audit
 from apps.manager.audit_log import AuditLogManager
 from apps.manager.user import UserManager
+from apps.manager.session import SessionManager
 from apps.models.mongo import MongoDB
 from apps.service.knowledge_base import KnowledgeBaseService
 
@@ -24,12 +22,13 @@ async def _delete_user(timestamp: float) -> None:
     for user_id in user_ids:
         await UserManager.delete_userinfo_by_user_sub(user_id)
         # 查找用户关联的文件
-        doc_collection = MongoDB.get_collection("document")
+        doc_collection = MongoDB().get_collection("document")
         docs = [doc["_id"] async for doc in doc_collection.find({"user_sub": user_id})]
         # 删除文件
         try:
             await doc_collection.delete_many({"_id": {"$in": docs}})
-            await KnowledgeBaseService.delete_doc_from_rag(docs)
+            session_id = await SessionManager.get_session_by_user_sub(user_id)
+            await KnowledgeBaseService.delete_doc_from_rag(session_id, docs)
         except Exception:
             logger.exception("[DeleteUserCron] 自动删除用户 %s 文档失败", user_id)
         audit_log = Audit(

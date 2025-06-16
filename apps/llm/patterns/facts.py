@@ -1,16 +1,28 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """事实提取"""
-from typing import Any, ClassVar
 
+import logging
+
+from pydantic import BaseModel, Field
+
+from apps.llm.function import JsonGenerator
 from apps.llm.patterns.core import CorePattern
-from apps.llm.patterns.json_gen import Json
 from apps.llm.reasoning import ReasoningLLM
 from apps.llm.snippet import convert_context_to_prompt
+
+logger = logging.getLogger(__name__)
+
+
+class FactsResult(BaseModel):
+    """事实提取结果"""
+
+    facts: list[str] = Field(description="从对话中提取的事实列表，可以为空")
 
 
 class Facts(CorePattern):
     """事实提取"""
 
-    system_prompt: str = ""
+    system_prompt: str = "You are a helpful assistant."
     """系统提示词（暂不使用）"""
 
     user_prompt: str = r"""
@@ -54,22 +66,6 @@ class Facts(CorePattern):
     """
     """用户提示词"""
 
-    slot_schema: ClassVar[dict[str, Any]] = {
-        "type": "object",
-        "properties": {
-            "facts": {
-                "type": "array",
-                "description": "The facts extracted from the conversation.",
-                "items": {
-                    "type": "string",
-                    "description": "A fact string.",
-                },
-            },
-        },
-        "required": ["facts"],
-    }
-    """最终输出的JSON Schema"""
-
 
     def __init__(self, system_prompt: str | None = None, user_prompt: str | None = None) -> None:
         """初始化Prompt"""
@@ -91,8 +87,16 @@ class Facts(CorePattern):
         self.output_tokens = llm.output_tokens
 
         messages += [{"role": "assistant", "content": result}]
-        fact_dict = await Json().generate(conversation=messages, spec=self.slot_schema)
+        json_gen = JsonGenerator(
+            query="根据给定的背景信息，提取事实条目",
+            conversation=messages,
+            schema=FactsResult.model_json_schema(),
+        )
 
-        if not fact_dict or "facts" not in fact_dict or not fact_dict["facts"]:
+        try:
+            fact_dict = FactsResult.model_validate(await json_gen.generate())
+        except Exception:
+            logger.exception("[Facts] 事实提取失败")
             return []
-        return fact_dict.get("facts", [])
+
+        return fact_dict.facts

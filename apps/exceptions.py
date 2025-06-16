@@ -28,9 +28,5 @@ class LoginSettingsError(Exception):
     """manager.session 登录设置错误"""
 
 
-class SessionError(Exception):
-    """manager.session Session错误"""
-
-
 class ActivityError(Exception):
     """service.activity 活动错误"""
