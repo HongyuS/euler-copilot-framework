@@ -1,10 +1,11 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """文件上传至RAG，作为临时语料"""
 
+import logging
+
 import httpx
 from fastapi import status
-import json
-import logging
+
 from apps.common.config import Config
 from apps.entities.collection import Document
 from apps.entities.rag_data import (
@@ -12,6 +13,7 @@ from apps.entities.rag_data import (
     RAGFileParseReqItem,
     RAGFileStatusRspItem,
 )
+
 logger = logging.getLogger(__name__)
 rag_host = Config().get_config().rag.rag_service
 _RAG_DOC_PARSE_URI = rag_host.rstrip("/") + "/doc/temporary/parser"
@@ -41,7 +43,7 @@ class KnowledgeBaseService:
             document_list=rag_docs).model_dump(exclude_none=True, by_alias=True)
 
         async with httpx.AsyncClient() as client:
-            resp = await client.post(_RAG_DOC_PARSE_URI, headers=headers, json=post_data)
+            resp = await client.post(_RAG_DOC_PARSE_URI, headers=headers, json=post_data, timeout=30.0)
             resp_data = resp.json()
             if resp.status_code != status.HTTP_200_OK:
                 return []
@@ -56,7 +58,7 @@ class KnowledgeBaseService:
         }
         delete_data = {"ids": doc_ids}
         async with httpx.AsyncClient() as client:
-            resp = await client.post(_RAG_DOC_DELETE_URI, headers=headers, json=delete_data)
+            resp = await client.post(_RAG_DOC_DELETE_URI, headers=headers, json=delete_data, timeout=30.0)
             resp_data = resp.json()
             if resp.status_code != status.HTTP_200_OK:
                 return []
@@ -71,7 +73,7 @@ class KnowledgeBaseService:
         }
         post_data = {"ids": doc_ids}
         async with httpx.AsyncClient() as client:
-            resp = await client.post(_RAG_DOC_STATUS_URI, headers=headers,  json=post_data)
+            resp = await client.post(_RAG_DOC_STATUS_URI, headers=headers,  json=post_data, timeout=30.0)
             resp_data = resp.json()
             if resp.status_code != status.HTTP_200_OK:
                 return []

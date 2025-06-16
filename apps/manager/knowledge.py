@@ -66,7 +66,7 @@ class KnowledgeBaseManager:
             }
             if kb_id:
                 data["kbId"] = kb_id
-            resp = await client.get(url, headers=headers, params=data)
+            resp = await client.get(url, headers=headers, params=data, timeout=30.0)
             resp_data = resp.json()
             if resp.status_code != status.HTTP_200_OK:
                 return []
