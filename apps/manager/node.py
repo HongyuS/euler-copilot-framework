@@ -1,4 +1,6 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Node管理器"""
+
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -36,20 +38,13 @@ class NodeManager:
         if not node:
             err = f"[NodeManager] Node {node_id} not found."
             raise ValueError(err)
-
-        try:
-            node = NodePool.model_validate(node)
-        except Exception as e:
-            err = f"[NodeManager] Node {node_id} 验证失败"
-            logger.exception(err)
-            raise ValueError(err) from e
-        return node
+        return NodePool.model_validate(node)
 
 
     @staticmethod
     async def get_node_name(node_id: str) -> str:
         """获取node的名称"""
-        node_collection = MongoDB.get_collection("node")
+        node_collection = MongoDB().get_collection("node")
         # 查询 Node 集合获取对应的 name
         node_doc = await node_collection.find_one({"_id": node_id}, {"name": 1})
         if not node_doc:
@@ -95,13 +90,7 @@ class NodeManager:
             logger.error(err)
             raise ValueError(err)
 
-        try:
-            node_data = NodePool.model_validate(node)
-        except Exception as e:
-            err = "[NodeManager] 获取节点数据失败"
-            logger.exception(err)
-            raise ValueError(err) from e
-
+        node_data = NodePool.model_validate(node)
         call_id = node_data.call_id
 
         # 查找Call信息

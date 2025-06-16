@@ -1,9 +1,10 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Authhub OIDC Provider"""
 
 import logging
 from typing import Any
 
-import aiohttp
+import httpx
 from fastapi import status
 
 from apps.common.config import Config
@@ -41,15 +42,18 @@ class AuthhubOIDCProvider(OIDCProviderBase):
         }
         url = await cls.get_access_token_url()
         result = None
-        async with (
-            aiohttp.ClientSession() as session,
-            session.post(url, headers=headers, json=data, timeout=aiohttp.ClientTimeout(total=10)) as resp,
-        ):
-            if resp.status != status.HTTP_200_OK:
-                err = f"[Authhub] 获取OIDC Token失败: {resp.status}，完整输出: {await resp.text()}"
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                url,
+                headers=headers,
+                json=data,
+                timeout=10,
+            )
+            if resp.status_code != status.HTTP_200_OK:
+                err = f"[Authhub] 获取OIDC Token失败: {resp.status_code}，完整输出: {resp.text}"
                 raise RuntimeError(err)
-            logger.info("[Authhub] 获取OIDC Token成功: %s", await resp.text())
-            result = await resp.json()
+            logger.info("[Authhub] 获取OIDC Token成功: %s", resp.text)
+            result = resp.json()
         return {
             "access_token": result["data"]["access_token"],
             "refresh_token": result["data"]["refresh_token"],
@@ -72,15 +76,18 @@ class AuthhubOIDCProvider(OIDCProviderBase):
             "client_id": login_config.app_id,
         }
         result = None
-        async with (
-            aiohttp.ClientSession() as session,
-            session.post(url, headers=headers, json=data, timeout=aiohttp.ClientTimeout(total=10)) as resp,
-        ):
-            if resp.status != status.HTTP_200_OK:
-                err = f"[Authhub] 获取用户信息失败: {resp.status}，完整输出: {await resp.text()}"
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                url,
+                headers=headers,
+                json=data,
+                timeout=10,
+            )
+            if resp.status_code != status.HTTP_200_OK:
+                err = f"[Authhub] 获取用户信息失败: {resp.status_code}，完整输出: {resp.text}"
                 raise RuntimeError(err)
-            logger.info("[Authhub] 获取用户信息成功: %s", await resp.text())
-            result = await resp.json()
+            logger.info("[Authhub] 获取用户信息成功: %s", resp.text)
+            result = resp.json()
 
         return {
             "user_sub": result["data"],
@@ -98,20 +105,18 @@ class AuthhubOIDCProvider(OIDCProviderBase):
             "Content-Type": "application/json",
         }
         url = login_config.host_inner.rstrip("/") + "/oauth2/login-status"
-        async with (
-            aiohttp.ClientSession() as session,
-            session.post(
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
                 url,
                 headers=headers,
                 json=data,
                 cookies=cookie,
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp,
-        ):
-            if resp.status != status.HTTP_200_OK:
-                err = f"[Authhub] 获取登录状态失败: {resp.status}，完整输出: {await resp.text()}"
+                timeout=10,
+            )
+            if resp.status_code != status.HTTP_200_OK:
+                err = f"[Authhub] 获取登录状态失败: {resp.status_code}，完整输出: {resp.text}"
                 raise RuntimeError(err)
-            result = await resp.json()
+            result = resp.json()
             return {
                 "access_token": result["data"]["access_token"],
                 "refresh_token": result["data"]["refresh_token"],
@@ -126,12 +131,15 @@ class AuthhubOIDCProvider(OIDCProviderBase):
             "Content-Type": "application/json",
         }
         url = login_config.host_inner.rstrip("/") + "/oauth2/logout"
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(url, headers=headers, cookies=cookie, timeout=aiohttp.ClientTimeout(total=10)) as resp,
-        ):
-            if resp.status != status.HTTP_200_OK:
-                err = f"[Authhub] 登出失败: {resp.status}，完整输出: {await resp.text()}"
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                url,
+                headers=headers,
+                cookies=cookie,
+                timeout=10,
+            )
+            if resp.status_code != status.HTTP_200_OK:
+                err = f"[Authhub] 登出失败: {resp.status_code}，完整输出: {resp.text}"
                 raise RuntimeError(err)
 
     @classmethod

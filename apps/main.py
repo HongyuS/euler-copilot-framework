@@ -17,7 +17,6 @@ from rich.logging import RichHandler
 
 from apps.common.config import Config
 from apps.common.wordscheck import WordsCheck
-from apps.dependency.session import VerifySessionMiddleware
 from apps.llm.token import TokenCalculator
 from apps.models.lance import LanceDB
 from apps.routers import (
@@ -26,13 +25,14 @@ from apps.routers import (
     auth,
     blacklist,
     chat,
-    client,
     comment,
     conversation,
     document,
     flow,
     health,
     knowledge,
+    llm,
+    mcp_service,
     record,
     service,
     user,
@@ -49,7 +49,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(VerifySessionMiddleware)
 # 关联API路由
 app.include_router(conversation.router)
 app.include_router(auth.router)
@@ -60,10 +59,11 @@ app.include_router(comment.router)
 app.include_router(record.router)
 app.include_router(health.router)
 app.include_router(chat.router)
-app.include_router(client.router)
 app.include_router(blacklist.router)
 app.include_router(document.router)
 app.include_router(knowledge.router)
+app.include_router(llm.router)
+app.include_router(mcp_service.router)
 app.include_router(flow.router)
 app.include_router(user.router)
 
@@ -85,7 +85,7 @@ async def init_resources() -> None:
     """初始化必要资源"""
     WordsCheck()
     await LanceDB().init()
-    await Pool().init()
+    await Pool.init()
     TokenCalculator()
 
 # 运行

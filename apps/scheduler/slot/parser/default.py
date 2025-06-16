@@ -1,8 +1,5 @@
-"""
-默认值设置器
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""默认值设置器"""
 
 from typing import Any
 

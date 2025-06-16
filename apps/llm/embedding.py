@@ -1,6 +1,6 @@
 """Embedding模型"""
 
-import aiohttp
+import httpx
 
 from apps.common.config import Config
 
@@ -9,6 +9,12 @@ class Embedding:
     """Embedding模型"""
 
     # TODO: 应当自动检测向量维度
+    @classmethod
+    async def _get_embedding_dimension(cls) -> int:
+        """获取Embedding的维度"""
+        embedding = await cls.get_embedding(["测试文本"])
+        return len(embedding[0])
+
 
     @classmethod
     async def _get_openai_embedding(cls, text: list[str]) -> list[list[float]]:
@@ -26,16 +32,14 @@ class Embedding:
         if Config().get_config().embedding.api_key:
             headers["Authorization"] = f"Bearer {Config().get_config().embedding.api_key}"
 
-        async with (
-            aiohttp.ClientSession() as session,
-            session.post(
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
                 api,
                 json=data,
                 headers=headers,
-                timeout=aiohttp.ClientTimeout(total=60),
-            ) as response,
-        ):
-            json = await response.json()
+                timeout=60.0,
+            )
+            json = response.json()
             return [item["embedding"] for item in json["data"]]
 
     @classmethod
@@ -48,22 +52,20 @@ class Embedding:
         if Config().get_config().embedding.api_key:
             headers["Authorization"] = f"Bearer {Config().get_config().embedding.api_key}"
 
-        session = aiohttp.ClientSession()
-
-        result = []
-        for single_text in text:
-            data = {
-                "inputs": single_text,
-                "normalize": True,
-            }
-            async with session.post(
-                api, json=data, headers=headers, timeout=aiohttp.ClientTimeout(total=60),
-            ) as response:
-                json = await response.json()
+        async with httpx.AsyncClient() as client:
+            result = []
+            for single_text in text:
+                data = {
+                    "inputs": single_text,
+                    "normalize": True,
+                }
+                response = await client.post(
+                    api, json=data, headers=headers, timeout=60.0,
+                )
+                json = response.json()
                 result.append(json[0])
 
-        await session.close()
-        return result
+            return result
 
     @classmethod
     async def get_embedding(cls, text: list[str]) -> list[list[float]]:

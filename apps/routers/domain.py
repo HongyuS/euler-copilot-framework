@@ -1,13 +1,9 @@
-"""
-FastAPI 用户画像相关API
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""FastAPI 用户画像相关API"""
 
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency.csrf import verify_csrf_token
 from apps.dependency.user import verify_user
 from apps.entities.request_data import PostDomainData
 from apps.entities.response_data import ResponseData
@@ -17,7 +13,6 @@ router = APIRouter(
     prefix="/api/domain",
     tags=["domain"],
     dependencies=[
-        Depends(verify_csrf_token),
         Depends(verify_user),
     ],
 )
@@ -33,10 +28,12 @@ async def add_domain(post_body: PostDomainData) -> JSONResponse:
             result={},
         ).model_dump(exclude_none=True, by_alias=True))
 
-    if not await DomainManager.add_domain(post_body):
+    try:
+        await DomainManager.add_domain(post_body)
+    except Exception as e:  # noqa: BLE001
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ResponseData(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="add domain failed",
+            message=f"add domain failed: {e!s}",
             result={},
         ).model_dump(exclude_none=True, by_alias=True))
     return JSONResponse(status_code=status.HTTP_200_OK, content=ResponseData(
@@ -77,10 +74,12 @@ async def delete_domain(post_body: PostDomainData) -> JSONResponse:
             message="delete domain name is not exist.",
             result={},
         ).model_dump(exclude_none=True, by_alias=True))
-    if not await DomainManager.delete_domain_by_domain_name(post_body):
+    try:
+        await DomainManager.delete_domain_by_domain_name(post_body)
+    except Exception as e:  # noqa: BLE001
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ResponseData(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="delete domain failed",
+            message=f"delete domain failed: {e!s}",
             result={},
         ).model_dump(exclude_none=True, by_alias=True))
     return JSONResponse(status_code=status.HTTP_200_OK, content=ResponseData(

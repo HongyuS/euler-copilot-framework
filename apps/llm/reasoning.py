@@ -1,8 +1,5 @@
-"""
-问答大模型调用
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""问答大模型调用"""
 
 import logging
 from collections.abc import AsyncGenerator
@@ -13,6 +10,7 @@ from openai.types.chat import ChatCompletionChunk
 
 from apps.common.config import Config
 from apps.constants import REASONING_BEGIN_TOKEN, REASONING_END_TOKEN
+from apps.entities.config import LLMConfig
 from apps.llm.token import TokenCalculator
 
 logger = logging.getLogger(__name__)
@@ -55,25 +53,36 @@ class ReasoningContent:
         reason = ""
         text = ""
 
+        content = chunk.choices[0].delta.content or ""
+
         if not self.is_reasoning:
-            text = chunk.choices[0].delta.content or ""
+            # 非推理模式，直接返回内容作为文本
+            text = content
             return reason, text
 
         if self.reasoning_type == "args":
             if hasattr(chunk.choices[0].delta, "reasoning_content"):
                 reason = chunk.choices[0].delta.reasoning_content or ""  # type: ignore[attr-defined]
             else:
+                # 推理结束，设置标志并添加结束标签
                 self.is_reasoning = False
                 reason = "</think>"
+                # 如果当前内容不是推理内容标签，将其作为文本返回
+                if content and not content.startswith("</think>"):
+                    text = content
         elif self.reasoning_type == "tokens":
             for token in REASONING_END_TOKEN:
-                if token == (chunk.choices[0].delta.content or ""):
+                if token == content:
+                    # 遇到结束标记，推理结束
                     self.is_reasoning = False
                     reason = "</think>"
-                    text = ""
                     break
             if self.is_reasoning:
-                reason = chunk.choices[0].delta.content or ""
+                # 仍在推理中，将内容作为推理内容
+                reason = content
+            else:
+                # 推理已结束，将内容作为文本
+                text = content
 
         return reason, text
 
@@ -84,22 +93,26 @@ class ReasoningLLM:
     input_tokens: int = 0
     output_tokens: int = 0
 
-    def __init__(self) -> None:
+    def __init__(self, llm_config: LLMConfig | None = None) -> None:
         """判断配置文件里用了哪种大模型；初始化大模型客户端"""
-        self._config = Config().get_config()
-        self._init_client()
+        if not llm_config:
+            self._config: LLMConfig = Config().get_config().llm
+            self._init_client()
+        else:
+            self._config: LLMConfig = llm_config
+            self._init_client()
 
     def _init_client(self) -> None:
         """初始化OpenAI客户端"""
-        if not self._config.llm.key:
+        if not self._config.key:
             self._client = AsyncOpenAI(
-                base_url=self._config.llm.endpoint,
+                base_url=self._config.endpoint,
             )
             return
 
         self._client = AsyncOpenAI(
-            api_key=self._config.llm.key,
-            base_url=self._config.llm.endpoint,
+            api_key=self._config.key,
+            base_url=self._config.endpoint,
         )
 
     @staticmethod
@@ -120,18 +133,21 @@ class ReasoningLLM:
         messages: list[dict[str, str]],
         max_tokens: int | None,
         temperature: float | None,
+        model: str | None = None,
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         """创建流式响应"""
+        if model is None:
+            model = self._config.model
         return await self._client.chat.completions.create(
-            model=self._config.llm.model,
+            model=model,
             messages=messages,  # type: ignore[]
-            max_tokens=max_tokens or self._config.llm.max_tokens,
-            temperature=temperature or self._config.llm.temperature,
+            max_tokens=max_tokens or self._config.max_tokens,
+            temperature=temperature or self._config.temperature,
             stream=True,
             stream_options={"include_usage": True},
         )  # type: ignore[]
 
-    async def call(  # noqa: C901, PLR0912
+    async def call(  # noqa: C901, PLR0912, PLR0913
         self,
         messages: list[dict[str, str]],
         max_tokens: int | None = None,
@@ -139,65 +155,61 @@ class ReasoningLLM:
         *,
         streaming: bool = True,
         result_only: bool = True,
+        model: str | None = None,
     ) -> AsyncGenerator[str, None]:
         """调用大模型，分为流式和非流式两种"""
-        try:
-            msg_list = self._validate_messages(messages)
-        except ValueError as e:
-            err = "消息格式错误"
-            logger.exception(err)
-            raise ValueError(err) from e
-
-        stream = await self._create_stream(msg_list, max_tokens, temperature)
+        # 检查max_tokens和temperature
+        if max_tokens is None:
+            max_tokens = self._config.max_tokens
+        if temperature is None:
+            temperature = self._config.temperature
+        if model is None:
+            model = self._config.model
+        msg_list = self._validate_messages(messages)
+        stream = await self._create_stream(msg_list, max_tokens, temperature, model)
         reasoning = ReasoningContent()
         reasoning_content = ""
         result = ""
 
-        try:
-            async for chunk in stream:
-                # 如果包含统计信息
-                if chunk.usage:
-                    self.input_tokens = chunk.usage.prompt_tokens
-                    self.output_tokens = chunk.usage.completion_tokens
-                # 如果没有Choices
-                if not chunk.choices:
-                    continue
+        async for chunk in stream:
+            # 如果包含统计信息
+            if chunk.usage:
+                self.input_tokens = chunk.usage.prompt_tokens
+                self.output_tokens = chunk.usage.completion_tokens
+            # 如果没有Choices
+            if not chunk.choices:
+                continue
 
-                # 处理chunk
-                if reasoning.is_first_chunk:
-                    reason, text = reasoning.process_first_chunk(chunk)
-                else:
-                    reason, text = reasoning.process_chunk(chunk)
+            # 处理chunk
+            if reasoning.is_first_chunk:
+                reason, text = reasoning.process_first_chunk(chunk)
+            else:
+                reason, text = reasoning.process_chunk(chunk)
 
-                # 推送消息
-                if streaming:
-                    if reason and not result_only:
-                        yield reason
-                    if text:
-                        yield text
+            # 推送消息
+            if streaming:
+                if reason and not result_only:
+                    yield reason
+                if text:
+                    yield text
 
-                # 整理结果
-                reasoning_content += reason
-                result += text
+            # 整理结果
+            reasoning_content += reason
+            result += text
 
-            if not streaming:
-                if not result_only:
-                    yield reasoning_content
-                yield result
+        if not streaming:
+            if not result_only:
+                yield reasoning_content
+            yield result
 
-            logger.info("[Reasoning] 推理内容: %s\n\n%s", reasoning_content, result)
+        logger.info("[Reasoning] 推理内容: %s\n\n%s", reasoning_content, result)
 
-            # 更新token统计
-            if self.input_tokens == 0 or self.output_tokens == 0:
-                self.input_tokens = TokenCalculator().calculate_token_length(
-                    messages,
-                )
-                self.output_tokens = TokenCalculator().calculate_token_length(
-                    [{"role": "assistant", "content": result}],
-                    pure_text=True,
-                )
-
-        except Exception as e:
-            err = "调用大模型失败"
-            logger.exception(err)
-            raise RuntimeError(err) from e
+        # 更新token统计
+        if self.input_tokens == 0 or self.output_tokens == 0:
+            self.input_tokens = TokenCalculator().calculate_token_length(
+                messages,
+            )
+            self.output_tokens = TokenCalculator().calculate_token_length(
+                [{"role": "assistant", "content": result}],
+                pure_text=True,
+            )

@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """用于计算Token消耗量"""
 
 from apps.common.singleton import SingletonMeta

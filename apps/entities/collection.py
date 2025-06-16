@@ -1,15 +1,14 @@
-"""
-MongoDB中的数据结构
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""MongoDB中的数据结构"""
 
 import uuid
 from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
 
+from apps.common.config import Config
 from apps.constants import NEW_CHAT
+from apps.templates.generate_llm_operator_config import llm_provider_dict
 
 
 class Blacklist(BaseModel):
@@ -56,12 +55,44 @@ class User(BaseModel):
     is_whitelisted: bool = False
     credit: int = 100
     api_key: str | None = None
-    kb_id: str | None = None
     conversations: list[str] = []
     domains: list[UserDomainData] = []
     app_usage: dict[str, AppUsageData] = {}
     fav_apps: list[str] = []
     fav_services: list[str] = []
+    is_admin: bool = Field(default=False, description="是否为管理员")
+
+
+class LLM(BaseModel):
+    """
+    大模型信息
+
+    Collection: llm
+    """
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
+    user_sub: str = Field(default="", description="用户ID")
+    icon: str = Field(default=llm_provider_dict["ollama"]["icon"], description="图标")
+    openai_base_url: str = Field(default=Config().get_config().llm.endpoint)
+    openai_api_key: str = Field(default=Config().get_config().llm.key)
+    model_name: str = Field(default=Config().get_config().llm.model)
+    max_tokens: int | None = Field(default=Config().get_config().llm.max_tokens)
+    created_at: float = Field(default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3))
+
+
+class LLMItem(BaseModel):
+    """大模型信息"""
+
+    llm_id: str = Field(default="empty")
+    model_name: str = Field(default=Config().get_config().llm.model)
+    icon: str = Field(default=llm_provider_dict["ollama"]["icon"])
+
+
+class KnowledgeBaseItem(BaseModel):
+    """知识库信息"""
+
+    kb_id: str
+    kb_name: str
 
 
 class Conversation(BaseModel):
@@ -80,7 +111,9 @@ class Conversation(BaseModel):
     tasks: list[str] = []
     unused_docs: list[str] = []
     record_groups: list[str] = []
-    debug : bool = Field(default=False)
+    debug: bool = Field(default=False)
+    llm: LLMItem | None = None
+    kb_list: list[KnowledgeBaseItem] = Field(default=[])
 
 
 class Document(BaseModel):

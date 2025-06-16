@@ -1,8 +1,5 @@
-"""
-BTDL文档加载器
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""BTDL文档加载器"""
 
 import hashlib
 from typing import Any

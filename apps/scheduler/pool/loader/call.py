@@ -1,9 +1,7 @@
-"""
-Call 加载器
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""Call 加载器"""
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
-
+import asyncio
 import importlib
 import logging
 import sys
@@ -12,6 +10,7 @@ from pathlib import Path
 
 import apps.scheduler.call as system_call
 from apps.common.config import Config
+from apps.common.singleton import SingletonMeta
 from apps.entities.enum_var import CallType
 from apps.entities.pool import CallPool, NodePool
 from apps.entities.vector import CallPoolVector
@@ -20,9 +19,10 @@ from apps.models.lance import LanceDB
 from apps.models.mongo import MongoDB
 
 logger = logging.getLogger(__name__)
+BASE_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "call"
 
 
-class CallLoader:
+class CallLoader(metaclass=SingletonMeta):
     """
     Call 加载器
 
@@ -55,7 +55,7 @@ class CallLoader:
         """加载单个Call package"""
         call_metadata = []
 
-        call_dir = Path(Config().get_config().deploy.data_dir) / "semantics" / "call" / call_dir_name
+        call_dir = BASE_PATH / call_dir_name
         if not (call_dir / "__init__.py").exists():
             logger.info("[CallLoader] 模块 %s 不存在__init__.py文件，尝试自动创建。", call_dir)
             try:
@@ -104,7 +104,7 @@ class CallLoader:
 
     async def _load_all_user_call(self) -> list[CallPool]:
         """加载Python Call"""
-        call_dir = Path(Config().get_config().deploy.data_dir) / "semantics" / "call"
+        call_dir = BASE_PATH
         call_metadata = []
 
         # 载入父包
@@ -138,7 +138,7 @@ class CallLoader:
         await self._delete_from_db(call_name)
 
         # 从Python中卸载模块
-        call_dir = Path(Config().get_config().deploy.data_dir) / "semantics" / "call" / call_name
+        call_dir = BASE_PATH / call_name
         if call_dir.exists():
             module_name = f"call.{call_name}"
             if module_name in sys.modules:
@@ -147,8 +147,9 @@ class CallLoader:
     async def _delete_from_db(self, call_name: str) -> None:
         """从数据库中删除单个Call"""
         # 从MongoDB中删除
-        call_collection = MongoDB.get_collection("call")
-        node_collection = MongoDB.get_collection("node")
+        mongo = MongoDB()
+        call_collection = mongo.get_collection("call")
+        node_collection = mongo.get_collection("node")
         try:
             await call_collection.delete_one({"_id": call_name})
             await node_collection.delete_many({"call_id": call_name})
@@ -158,20 +159,26 @@ class CallLoader:
             raise RuntimeError(err) from e
 
         # 从LanceDB中删除
-        try:
-            table = await LanceDB().get_table("call")
-            await table.delete(f"id = '{call_name}'")
-        except Exception as e:
-            err = f"[CallLoader] 从LanceDB删除Call失败：{e}"
-            logger.exception(err)
-            raise RuntimeError(err) from e
+        while True:
+            try:
+                table = await LanceDB().get_table("call")
+                await table.delete(f"id = '{call_name}'")
+                break
+            except RuntimeError as e:
+                if "Commit conflict" in str(e):
+                    logger.error("[CallLoader] LanceDB删除call冲突，重试中...")  # noqa: TRY400
+                    await asyncio.sleep(0.01)
+                else:
+                    raise
+
 
     # 更新数据库
-    async def _add_to_db(self, call_metadata: list[CallPool]) -> None:
+    async def _add_to_db(self, call_metadata: list[CallPool]) -> None:  # noqa: C901
         """更新数据库"""
         # 更新MongoDB
-        call_collection = MongoDB.get_collection("call")
-        node_collection = MongoDB.get_collection("node")
+        mongo = MongoDB()
+        call_collection = mongo.get_collection("call")
+        node_collection = mongo.get_collection("node")
         call_descriptions = []
         try:
             for call in call_metadata:
@@ -193,10 +200,20 @@ class CallLoader:
             logger.exception(err)
             raise RuntimeError(err) from e
 
-        table = await LanceDB().get_table("call")
-        # 删除重复的ID
-        for call in call_metadata:
-            await table.delete(f"id = '{call.id}'")
+        while True:
+            try:
+                table = await LanceDB().get_table("call")
+                # 删除重复的ID
+                for call in call_metadata:
+                    await table.delete(f"id = '{call.id}'")
+                break
+            except RuntimeError as e:
+                if "Commit conflict" in str(e):
+                    logger.error("[CallLoader] LanceDB插入call冲突，重试中...")  # noqa: TRY400
+                    await asyncio.sleep(0.01)
+                else:
+                    raise
+
         # 进行向量化，更新LanceDB
         call_vecs = await Embedding.get_embedding(call_descriptions)
         vector_data = []
@@ -207,15 +224,26 @@ class CallLoader:
                     embedding=vec,
                 ),
             )
-        await table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
-            vector_data,
-        )
+        while True:
+            try:
+                table = await LanceDB().get_table("call")
+                await table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
+                    vector_data,
+                )
+                break
+            except RuntimeError as e:
+                if "Commit conflict" in str(e):
+                    logger.error("[CallLoader] LanceDB插入call冲突，重试中...")  # noqa: TRY400
+                    await asyncio.sleep(0.01)
+                else:
+                    raise
 
     async def load(self) -> None:
         """初始化Call信息"""
         # 清空collection
-        call_collection = MongoDB.get_collection("call")
-        node_collection = MongoDB.get_collection("node")
+        mongo = MongoDB()
+        call_collection = mongo.get_collection("call")
+        node_collection = mongo.get_collection("node")
         try:
             await call_collection.delete_many({})
             await node_collection.delete_many({"service_id": ""})

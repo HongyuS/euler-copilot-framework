@@ -1,8 +1,5 @@
-"""
-参数槽位管理
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""参数槽位管理"""
 
 import json
 import logging
@@ -369,6 +366,7 @@ class Slot:
             if additional_path:
                 pointer = pointer.rstrip("/") + "/" + "/".join(additional_path)
             schema_template["properties"][pointer] = slot_schema
+            schema_template["required"].append(pointer)
 
         # 如果有错误
         if not empty:

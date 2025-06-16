@@ -13,3 +13,5 @@ apps/embedding
 logs
 .git-credentials
 .ruff_cache/
+config
+uv.lock

@@ -1,8 +1,5 @@
-"""
-队列中的消息结构
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""队列中的消息结构"""
 
 from typing import Any
 
@@ -63,8 +60,8 @@ class DocumentAddContent(BaseModel):
 
     document_id: str = Field(min_length=36, max_length=36, description="文档UUID", alias="documentId")
     document_name: str = Field(description="文档名称", alias="documentName")
-    document_type: str = Field(description="文档MIME类型", alias="documentType")
-    document_size: float = Field(ge=0, description="文档大小，单位是KB，保留两位小数", alias="documentSize")
+    document_type: str = Field(description="文档MIME类型", alias="documentType", default="")
+    document_size: float = Field(ge=0, description="文档大小，单位是KB，保留两位小数", alias="documentSize", default=0)
 
 
 class FlowStartContent(BaseModel):

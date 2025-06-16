@@ -1,8 +1,5 @@
-"""
-枚举类型
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""枚举类型"""
 
 from enum import Enum
 
@@ -37,7 +34,7 @@ class EventType(str, Enum):
     """事件类型"""
 
     HEARTBEAT = "heartbeat"
-    INIT = "init"
+    INIT = "init",
     TEXT_ADD = "text.add"
     GRAPH = "graph"
     DOCUMENT_ADD = "document.add"
@@ -60,6 +57,7 @@ class MetadataType(str, Enum):
 
     SERVICE = "service"
     APP = "app"
+    MCP_SERVICE = "mcp_service"
 
 
 class EdgeType(str, Enum):
@@ -155,3 +153,36 @@ class CommentType(str, Enum):
     LIKE = "liked"
     DISLIKE = "disliked"
     NONE = "none"
+
+
+class AppType(str, Enum):
+    """应用中心应用类型"""
+
+    FLOW = "flow"
+    AGENT = "agent"
+
+
+class AppFilterType(str, Enum):
+    """应用过滤类型"""
+
+    ALL = "all"  # 所有已发布的应用
+    USER = "user"  # 用户创建的应用
+    FAVORITE = "favorite"  # 用户收藏的应用
+
+
+class Role(str, Enum):
+    """Message role类型"""
+
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+    TOOL = "tool"
+
+
+class AgentState(str, Enum):
+    """Agent执行状态"""
+
+    IDLE = "IDLE"
+    RUNNING = "RUNNING"
+    FINISHED = "FINISHED"
+    ERROR = "ERROR"

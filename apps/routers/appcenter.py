@@ -1,8 +1,5 @@
-"""
-FastAPI 应用中心相关路由
-
-Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+"""FastAPI 应用中心相关路由"""
 
 import logging
 from typing import Annotated
@@ -10,10 +7,9 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, Path, Query, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency.csrf import verify_csrf_token
 from apps.dependency.user import get_user, verify_user
 from apps.entities.appcenter import AppFlowInfo, AppPermissionData
-from apps.entities.enum_var import SearchType
+from apps.entities.enum_var import AppFilterType, AppType
 from apps.entities.request_data import CreateAppRequest, ModFavAppRequest
 from apps.entities.response_data import (
     BaseAppOperationMsg,
@@ -44,10 +40,9 @@ async def get_applications(  # noqa: PLR0913
     *,
     my_app: Annotated[bool, Query(..., alias="createdByMe", description="筛选我创建的")] = False,
     my_fav: Annotated[bool, Query(..., alias="favorited", description="筛选我收藏的")] = False,
-    search_type: Annotated[SearchType, Query(..., alias="searchType", description="搜索类型")] = SearchType.ALL,
     keyword: Annotated[str | None, Query(..., alias="keyword", description="搜索关键字")] = None,
+    app_type: Annotated[AppType | None, Query(..., alias="appType", description="应用类型")] = None,
     page: Annotated[int, Query(..., alias="page", ge=1, description="页码")] = 1,
-    page_size: Annotated[int, Query(..., alias="pageSize", ge=1, le=100, description="每页条数")] = 16,
 ) -> JSONResponse:
     """获取应用列表"""
     if my_app and my_fav:  # 只能同时使用一个过滤条件
@@ -59,21 +54,17 @@ async def get_applications(  # noqa: PLR0913
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-
-    app_cards, total_apps = [], -1
-    if my_app:  # 筛选我创建的
-        app_cards, total_apps = await AppCenterManager.fetch_user_apps(user_sub, search_type, keyword, page, page_size)
-    elif my_fav:  # 筛选已收藏的
-        app_cards, total_apps = await AppCenterManager.fetch_favorite_apps(
+    try:
+        filter_type = AppFilterType.USER if my_app else (AppFilterType.FAVORITE if my_fav else AppFilterType.ALL)
+        app_cards, total_apps = await AppCenterManager.fetch_apps(
             user_sub,
-            search_type,
             keyword,
+            app_type,
             page,
-            page_size,
+            filter_type,
         )
-    else:  # 获取所有应用
-        app_cards, total_apps = await AppCenterManager.fetch_all_apps(user_sub, search_type, keyword, page, page_size)
-    if total_apps == -1:
+    except Exception:
+        logger.exception("[AppCenter] 获取应用列表失败")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
@@ -96,7 +87,7 @@ async def get_applications(  # noqa: PLR0913
     )
 
 
-@router.post("", dependencies=[Depends(verify_csrf_token)], response_model=BaseAppOperationRsp | ResponseData)
+@router.post("", response_model=BaseAppOperationRsp | ResponseData)
 async def create_or_update_application(
     request: Annotated[CreateAppRequest, Body(...)],
     user_sub: Annotated[str, Depends(get_user)],
@@ -230,6 +221,7 @@ async def get_application(
             message="OK",
             result=GetAppPropertyMsg(
                 appId=app_data.id,
+                appType=app_data.app_type,
                 published=app_data.published,
                 name=app_data.name,
                 description=app_data.description,
@@ -242,6 +234,7 @@ async def get_application(
                     authorizedUsers=app_data.permission.users,
                 ),
                 workflows=workflows,
+                mcpService=app_data.mcp_service,
             ),
         ).model_dump(exclude_none=True, by_alias=True),
     )
@@ -249,7 +242,6 @@ async def get_application(
 
 @router.delete(
     "/{appId}",
-    dependencies=[Depends(verify_csrf_token)],
     response_model=BaseAppOperationRsp | ResponseData,
 )
 async def delete_application(
@@ -299,7 +291,7 @@ async def delete_application(
     )
 
 
-@router.post("/{appId}", dependencies=[Depends(verify_csrf_token)], response_model=BaseAppOperationRsp)
+@router.post("/{appId}", response_model=BaseAppOperationRsp)
 async def publish_application(
     app_id: Annotated[str, Path(..., alias="appId", description="应用ID")],
     user_sub: Annotated[str, Depends(get_user)],
@@ -308,25 +300,22 @@ async def publish_application(
     try:
         published = await AppCenterManager.update_app_publish_status(app_id, user_sub)
         if not published:
-            msg = "发布应用失败"
-            raise ValueError(msg)
-    except ValueError:
-        logger.exception("[AppCenter] 发布应用请求无效")
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content=ResponseData(
-                code=status.HTTP_400_BAD_REQUEST,
-                message="BAD_REQUEST",
-                result={},
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
+            logger.error("[AppCenter] 发布应用失败")
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content=ResponseData(
+                    code=status.HTTP_400_BAD_REQUEST,
+                    message="发布应用失败",
+                    result={},
+                ).model_dump(exclude_none=True, by_alias=True),
+            )
     except InstancePermissionError:
         logger.exception("[AppCenter] 发布应用鉴权失败")
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
             content=ResponseData(
                 code=status.HTTP_403_FORBIDDEN,
-                message="UNAUTHORIZED",
+                message="鉴权失败",
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
@@ -336,7 +325,7 @@ async def publish_application(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
                 code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                message=str(e),
+                message=f"发布应用失败: {e!s}",
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
@@ -350,7 +339,7 @@ async def publish_application(
     )
 
 
-@router.put("/{appId}", dependencies=[Depends(verify_csrf_token)], response_model=ModFavAppRsp | ResponseData)
+@router.put("/{appId}", response_model=ModFavAppRsp | ResponseData)
 async def modify_favorite_application(
     app_id: Annotated[str, Path(..., alias="appId", description="应用ID")],
     request: Annotated[ModFavAppRequest, Body(...)],

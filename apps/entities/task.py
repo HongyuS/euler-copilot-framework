@@ -1,8 +1,5 @@
-"""
-Task相关数据结构定义
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""Task相关数据结构定义"""
 
 import uuid
 from datetime import UTC, datetime
@@ -47,6 +44,7 @@ class ExecutorState(BaseModel):
     step_name: str = Field(description="当前步骤名称")
     app_id: str = Field(description="应用ID")
     slot: dict[str, Any] = Field(description="待填充参数的JSON Schema", default={})
+    error_info: dict[str, Any] = Field(description="错误信息", default={})
 
 
 class TaskIds(BaseModel):

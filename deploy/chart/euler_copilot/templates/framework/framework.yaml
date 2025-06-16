@@ -35,11 +35,9 @@ spec:
         app: framework
     spec:
       automountServiceAccountToken: false
-      securityContext:
-        fsGroup: 1001
       containers:
         - name: framework
-          image: {{ .Values.euler_copilot.framework.image | default (printf "%s/neocopilot/euler-copilot-framework:0.9.5-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }} 
+          image: {{ .Values.euler_copilot.framework.image | default (printf "%s/neocopilot/euler-copilot-framework:0.9.6-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (.Values.globals.arch | default "x86")) }} 
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
           ports:
             - containerPort: 8002
@@ -66,13 +64,6 @@ spec:
               name: framework-semantics-vl
           securityContext:
             readOnlyRootFilesystem: {{ default false .Values.euler_copilot.framework.readOnly }}
-            capabilities:
-              drop:
-                - ALL
-            runAsUser: 1001
-            runAsGroup: 1001
-            runAsNonRoot: true
-            allowPrivilegeEscalation: false
           resources:
             requests:
               cpu: 0.2
@@ -81,7 +72,7 @@ spec:
               {{ toYaml .Values.euler_copilot.framework.resourceLimits | nindent 14 }}
       initContainers:
         - name: framework-copy
-          image: {{ .Values.euler_copilot.secretInject.image | default (printf "%s/neocopilot/secret_inject:dev-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (ternary "arm" "x86" (eq (.Values.globals.arch | default "x86") "arm"))) }}
+          image: {{ .Values.euler_copilot.secretInject.image | default (printf "%s/neocopilot/secret_inject:dev-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (.Values.globals.arch | default "x86")) }}
           imagePullPolicy: {{ default "IfNotPresent" .Values.globals.imagePullPolicy }}
           command:
             - python3
@@ -89,13 +80,6 @@ spec:
             - --config
             - config.yaml
             - --copy
-          securityContext:
-            capabilities:
-              drop:
-                - ALL
-            runAsUser: 1001
-            runAsGroup: 1001
-            runAsNonRoot: true
           volumeMounts:
             - mountPath: /config/config.toml
               name: framework-config

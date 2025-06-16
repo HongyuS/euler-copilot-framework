@@ -1,8 +1,5 @@
-"""
-App、Flow和Service等外置配置数据结构
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""App、Flow和Service等外置配置数据结构"""
 
 from typing import Any
 
@@ -10,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from apps.entities.appcenter import AppLink
 from apps.entities.enum_var import (
+    AppType,
     EdgeType,
     MetadataType,
     PermissionType,
@@ -134,6 +132,7 @@ class AppMetadata(MetadataBase):
     """App的元数据"""
 
     type: MetadataType = MetadataType.APP
+    app_type: AppType = Field(default=AppType.FLOW, description="应用类型", frozen=True)
     published: bool = Field(description="是否发布", default=False)
     links: list[AppLink] = Field(description="相关链接", default=[])
     first_questions: list[str] = Field(description="首次提问", default=[])

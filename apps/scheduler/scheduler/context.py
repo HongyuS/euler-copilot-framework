@@ -1,8 +1,6 @@
-"""
-上下文管理
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""上下文管理"""
 
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
 import logging
 from datetime import UTC, datetime
 
@@ -48,6 +46,22 @@ async def get_docs(user_sub: str, post_body: RequestData) -> tuple[list[RecordDo
         doc_ids += [doc.id for doc in docs]
 
     return docs, doc_ids
+
+
+async def assemble_history(history: list[dict[str, str]]) -> str:
+    """
+    组装历史问题
+
+    :param history: 历史问题列表
+    :return: 组装后的字符串
+    """
+    history_str = ""
+    for item in history:
+        role = item.get("role")
+        content = item.get("content")
+        if role and content:
+            history_str += f"{role}: {content}\n"
+    return history_str.strip()
 
 
 async def get_context(user_sub: str, post_body: RequestData, n: int) -> tuple[list[dict[str, str]], list[str]]:
