@@ -115,6 +115,7 @@ class TokenManager:
                     "client_id": oidc_config.app_id,
                     "access_token": oidc_access_token,
                 },
+                timeout=10.0,
             )
             ret = response.json()
             if response.status_code != status.HTTP_200_OK:

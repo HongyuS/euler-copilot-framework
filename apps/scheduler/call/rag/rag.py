@@ -76,7 +76,7 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
         # 发送请求
         data_json = data.model_dump(exclude_none=True, by_alias=True)
         del data_json["session_id"]
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=300) as client:
             response = await client.post(url, headers=headers, json=data_json)
 
             # 检查响应状态码

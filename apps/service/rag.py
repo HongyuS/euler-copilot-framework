@@ -109,7 +109,7 @@ class RAG:
                 isRerank=data.is_rerank,
                 tokensLimit=data.tokens_limit
             )
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=30) as client:
                 data_json = tmp_data.model_dump(exclude_none=True, by_alias=True)
                 response = await client.post(url, headers=headers, json=data_json)
                 if response.status_code == status.HTTP_200_OK:
@@ -125,7 +125,7 @@ class RAG:
                         for chunk in doc_chunk["chunks"]:
                             corpus.append(chunk["text"].replace("\n", ""))
         if data.kb_ids:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=30) as client:
                 data_json = data.model_dump(exclude_none=True, by_alias=True)
                 response = await client.post(url, headers=headers, json=data_json)
                 # 检查响应状态码
