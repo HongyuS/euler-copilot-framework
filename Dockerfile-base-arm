@@ -15,10 +15,7 @@ RUN sed -i 's|repo.openeuler.org|repo.huaweicloud.com/openeuler|g' /etc/yum.repo
     yum makecache && \
     yum update -y --skip-broken && \
     yum install -y python3 python3-pip python3-devel gcc-g++ shadow-utils findutils git nodejs npm && \
-    groupadd -g 1001 eulercopilot && useradd -u 1001 -g eulercopilot eulercopilot && \
     yum clean all
-
-USER eulercopilot
 
 WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
