@@ -53,8 +53,6 @@ spec:
         app: web
     spec:
       automountServiceAccountToken: false
-      securityContext:
-        fsGroup: 1001
       containers:
         - name: web
           image: {{ .Values.euler_copilot.web.image | default (printf "%s/neocopilot/euler-copilot-web:0.9.6-%s" (.Values.globals.imageRegistry | default "hub.oepkgs.net") (.Values.globals.arch | default "x86")) }}
@@ -81,6 +79,8 @@ spec:
             - mountPath: /home/eulercopilot/.env
               name: web-env-volume
               subPath: .env
+            - mountPath: /usr/share/nginx/html/static
+              name: web-static
           resources:
             requests:
               cpu: 0.05
@@ -89,15 +89,11 @@ spec:
               {{ toYaml .Values.euler_copilot.web.resourceLimits | nindent 14 }}
           securityContext:
             readOnlyRootFilesystem: {{ default false .Values.euler_copilot.web.readOnly }}
-            capabilities:
-              drop:
-                - ALL
-            runAsUser: 1001
-            runAsGroup: 1001
-            runAsNonRoot: true
-            allowPrivilegeEscalation: false
       restartPolicy: Always
       volumes:
+        - name: web-static
+          persistentVolumeClaim:
+            claimName: web-static
         - name: web-config-volume
           emptyDir:
             medium: Memory

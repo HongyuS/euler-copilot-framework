@@ -5,13 +5,12 @@ import asyncio
 import logging
 from contextlib import AsyncExitStack
 
-from anyio import Path
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.types import CallToolResult
 
-from apps.common.config import Config
+from apps.constants import MCP_PATH
 from apps.entities.mcp import (
     MCPServerSSEConfig,
     MCPServerStdioConfig,
@@ -19,7 +18,6 @@ from apps.entities.mcp import (
 )
 
 logger = logging.getLogger(__name__)
-MCP_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "mcp"
 
 
 class MCPClient:

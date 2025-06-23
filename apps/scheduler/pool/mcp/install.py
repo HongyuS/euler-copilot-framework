@@ -4,13 +4,10 @@
 import logging
 from asyncio import subprocess
 
-from anyio import Path
-
-from apps.common.config import Config
+from apps.constants import MCP_PATH
 from apps.entities.mcp import MCPServerStdioConfig
 
 logger = logging.getLogger(__name__)
-MCP_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "mcp"
 
 
 async def install_uvx(mcp_id: str, config: MCPServerStdioConfig) -> MCPServerStdioConfig:

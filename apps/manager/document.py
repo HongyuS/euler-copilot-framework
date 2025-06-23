@@ -8,12 +8,12 @@ import uuid
 import asyncer
 from fastapi import UploadFile
 
-from apps.manager.session import SessionManager
 from apps.entities.collection import (
     Conversation,
     Document,
 )
 from apps.entities.record import RecordDocument, RecordGroup, RecordGroupDocument
+from apps.manager.session import SessionManager
 from apps.models.minio import MinioClient
 from apps.models.mongo import MongoDB
 from apps.service import KnowledgeBaseService
@@ -214,9 +214,13 @@ class DocumentManager:
                 await asyncer.asyncify(cls._remove_doc_from_minio)(doc["_id"])
                 await doc_collection.delete_one({"_id": doc["_id"]}, session=session)
             await session.commit_transaction()
-            session_id = await SessionManager.get_session_by_user_sub(user_sub)
-            await KnowledgeBaseService.delete_doc_from_rag(session_id, doc_ids)
-            return doc_ids
+
+        session_id = await SessionManager.get_session_by_user_sub(user_sub)
+        if not session_id:
+            logger.error("[DocumentManager] Session不存在: %s", user_sub)
+            return []
+        await KnowledgeBaseService.delete_doc_from_rag(session_id, doc_ids)
+        return doc_ids
 
     @classmethod
     async def get_doc_count(cls, user_sub: str, conversation_id: str) -> int:
