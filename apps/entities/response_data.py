@@ -474,6 +474,19 @@ class UpdateMCPServiceRsp(ResponseData):
     result: UpdateMCPServiceMsg = Field(..., title="Result")
 
 
+class UploadMCPServiceIconMsg(BaseModel):
+    """POST /api/mcp_service/icon Result数据结构"""
+
+    service_id: str = Field(..., alias="serviceId", description="MCP服务ID")
+    url: str = Field(..., description="图标URL")
+
+
+class UploadMCPServiceIconRsp(ResponseData):
+    """POST /api/mcp_service/icon 返回数据结构"""
+
+    result: UploadMCPServiceIconMsg = Field(..., title="Result")
+
+
 class GetMCPServiceDetailMsg(BaseModel):
     """GET /api/mcp_service/{serviceId} Result数据结构"""
 

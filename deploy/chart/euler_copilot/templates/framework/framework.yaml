@@ -60,6 +60,8 @@ spec:
               name: framework-shared
             - mountPath: /tmp
               name: framework-tmp-volume
+            - mountPath: /app/static
+              name: web-static
             - mountPath: /app/data
               name: framework-semantics-vl
           securityContext:
@@ -106,6 +108,9 @@ spec:
         - name: system-secrets
           secret:
             secretName: euler-copilot-system
+        - name: web-static
+          persistentVolumeClaim:
+            claimName: web-static
         - name: framework-tmp-volume
           emptyDir:
             medium: Memory

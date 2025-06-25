@@ -3,10 +3,11 @@
 
 import logging
 import urllib.parse
+from typing import TYPE_CHECKING
 
-from pymongo import AsyncMongoClient
-from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
+if TYPE_CHECKING:
+    from pymongo.asynchronous.client_session import AsyncClientSession
+    from pymongo.asynchronous.collection import AsyncCollection
 
 from apps.common.config import Config
 
@@ -18,12 +19,14 @@ class MongoDB:
 
     def __init__(self) -> None:
         """初始化MongoDB连接器"""
+        from pymongo import AsyncMongoClient
+
         self._client = AsyncMongoClient(
             f"mongodb://{urllib.parse.quote_plus(Config().get_config().mongodb.user)}:{urllib.parse.quote_plus(Config().get_config().mongodb.password)}@{Config().get_config().mongodb.host}:{Config().get_config().mongodb.port}/?directConnection=true&replicaSet=rs0",
         )
 
 
-    def get_collection(self, collection_name: str) -> AsyncCollection:
+    def get_collection(self, collection_name: str) -> "AsyncCollection":
         """
         获取MongoDB集合
 
@@ -44,7 +47,7 @@ class MongoDB:
         await self._client[Config().get_config().mongodb.database][collection_name].delete_many({})
 
 
-    def get_session(self) -> AsyncClientSession:
+    def get_session(self) -> "AsyncClientSession":
         """
         获取MongoDB会话
 
