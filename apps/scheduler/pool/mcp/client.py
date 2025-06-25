@@ -4,11 +4,11 @@
 import asyncio
 import logging
 from contextlib import AsyncExitStack
+from typing import TYPE_CHECKING
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
-from mcp.types import CallToolResult
 
 from apps.constants import MCP_PATH
 from apps.entities.mcp import (
@@ -16,6 +16,9 @@ from apps.entities.mcp import (
     MCPServerStdioConfig,
     MCPStatus,
 )
+
+if TYPE_CHECKING:
+    from mcp.types import CallToolResult
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +128,7 @@ class MCPClient:
         self.tools = (await self.client.list_tools()).tools
 
 
-    async def call_tool(self, tool_name: str, params: dict) -> CallToolResult:
+    async def call_tool(self, tool_name: str, params: dict) -> "CallToolResult":
         """调用MCP Server的工具"""
         return await self.client.call_tool(tool_name, params)
 

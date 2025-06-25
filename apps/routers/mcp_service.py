@@ -44,15 +44,6 @@ async def _check_user_admin(user_sub: str) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="非管理员无法访问")
 
 
-async def _check_user_edit_access(user_sub: str, service_id: str) -> None:
-    try:
-        mcp = await MCPServiceManager.get_mcp_service(service_id)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"MCP服务未找到或无权限: {e!s}") from e
-    if mcp.author != user_sub:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="您无权限编辑此MCP服务")
-
-
 @router.get("", response_model=GetMCPServiceListRsp | ResponseData)
 async def get_mcpservice_list(
         user_sub: Annotated[str, Depends(get_user)],
@@ -117,7 +108,6 @@ async def create_or_update_mcpservice(
                 ).model_dump(exclude_none=True, by_alias=True),
             )
     else:
-        await _check_user_edit_access(user_sub, data.service_id)
         try:
             service_id = await MCPServiceManager.update_mcpservice(data, user_sub)
         except Exception as e:
@@ -151,7 +141,6 @@ async def get_service_detail(
     # 检查用户权限
     if edit:
         await _check_user_admin(user_sub)
-        await _check_user_edit_access(user_sub, service_id)
 
     # 获取MCP服务详情
     try:
@@ -212,7 +201,6 @@ async def delete_service(
 ) -> JSONResponse:
     """删除服务"""
     await _check_user_admin(user_sub)
-    await _check_user_edit_access(user_sub, service_id)
 
     try:
         await MCPServiceManager.delete_mcpservice(service_id)
@@ -242,19 +230,15 @@ async def update_mcp_icon(
         user_sub: Annotated[str, Depends(get_user)],
         service_id: Annotated[str, Path(..., alias="serviceId", description="服务ID")],
         icon: Annotated[UploadFile, File(..., description="图标文件")],
-        *,
-        edit: Annotated[bool, Query(..., description="是否为编辑模式")] = False,
 ) -> JSONResponse:
     """更新MCP服务图标"""
     await _check_user_admin(user_sub)
 
-    if edit:
-        await _check_user_edit_access(user_sub, service_id)
-        # 检查当前MCP是否存在
-        try:
-            await MCPServiceManager.get_mcp_service(service_id)
-        except Exception as e:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"MCP服务未找到: {e!s}") from e
+    # 检查当前MCP是否存在
+    try:
+        await MCPServiceManager.get_mcp_service(service_id)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"MCP服务未找到: {e!s}") from e
 
     # 判断文件的size
     if not icon.size or icon.size == 0 or icon.size > 1024 * 1024 * 1:
