@@ -62,7 +62,7 @@ login:
 domain:
   # 用于EulerCopilot的域名；默认为www.eulercopilot.local
   euler_copilot:
-  # 部署authhub时使用的域名；默认为suthhub.eulercopilot.local
+  # 部署authhub时使用的域名；默认为authhub.eulercopilot.local
   authhub: 
 
 # 存储设置
