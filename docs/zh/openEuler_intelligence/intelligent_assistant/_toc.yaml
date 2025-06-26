@@ -47,4 +47,10 @@ sections:
           - label: 部署指南
             href: ./advance/knowledge_base/deploy_guide/witChainD_deployment.md
           - label: 使用指导
-            href: ./advance/knowledge_base/user_guide/witChainD_guidance.md
+            href: ./advance/knowledge_base/user_guide/witChainD_guidance.md      
+      - label: 工作流编排
+        sections:
+          - label: 部署指南
+            href: ./advance/work_flow/deploy_guide/workflow_deployment.md
+          - label: 使用指导
+            href: ./advance/work_flow/user_guide/workflow_guidance.md
