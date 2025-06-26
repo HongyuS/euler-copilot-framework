@@ -4,10 +4,10 @@
 from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 
-from apps.entities.mcp import MCPPlan, MCPTool
 from apps.llm.function import JsonGenerator
 from apps.llm.reasoning import ReasoningLLM
 from apps.scheduler.mcp.prompt import CREATE_PLAN, FINAL_ANSWER
+from apps.schemas.mcp import MCPPlan, MCPTool
 
 
 class MCPPlanner:

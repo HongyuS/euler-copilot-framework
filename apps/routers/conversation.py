@@ -10,12 +10,12 @@ from fastapi import APIRouter, Body, Depends, Query, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import get_user, verify_user
-from apps.entities.collection import Audit, Conversation
-from apps.entities.request_data import (
+from apps.schemas.collection import Audit, Conversation
+from apps.schemas.request_data import (
     DeleteConversationData,
     ModifyConversationData,
 )
-from apps.entities.response_data import (
+from apps.schemas.response_data import (
     AddConversationMsg,
     AddConversationRsp,
     ConversationListItem,
@@ -28,10 +28,10 @@ from apps.entities.response_data import (
     ResponseData,
     UpdateConversationRsp,
 )
-from apps.manager.application import AppManager
-from apps.manager.audit_log import AuditLogManager
-from apps.manager.conversation import ConversationManager
-from apps.manager.document import DocumentManager
+from apps.services.application import AppManager
+from apps.services.audit_log import AuditLogManager
+from apps.services.conversation import ConversationManager
+from apps.services.document import DocumentManager
 
 router = APIRouter(
     prefix="/api/conversation",

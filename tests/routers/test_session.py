@@ -9,7 +9,7 @@ from fastapi import Request, FastAPI
 from starlette.requests import HTTPConnection
 
 from apps.routers.conversation import router
-from apps.models.mysql import User
+from apps.db.mysql import User
 from apps.dependency import verify_csrf_token, get_current_user
 
 

@@ -11,17 +11,17 @@ from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
-from apps.entities.enum_var import CallOutputType
-from apps.entities.scheduler import (
+from apps.llm.reasoning import ReasoningLLM
+from apps.scheduler.call.core import CoreCall
+from apps.scheduler.call.llm.prompt import LLM_CONTEXT_PROMPT, LLM_DEFAULT_PROMPT
+from apps.scheduler.call.llm.schema import LLMInput, LLMOutput
+from apps.schemas.enum_var import CallOutputType
+from apps.schemas.scheduler import (
     CallError,
     CallInfo,
     CallOutputChunk,
     CallVars,
 )
-from apps.llm.reasoning import ReasoningLLM
-from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.llm.prompt import LLM_CONTEXT_PROMPT, LLM_DEFAULT_PROMPT
-from apps.scheduler.call.llm.schema import LLMInput, LLMOutput
 
 logger = logging.getLogger(__name__)
 

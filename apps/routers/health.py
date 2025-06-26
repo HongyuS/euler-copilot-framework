@@ -4,7 +4,7 @@
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
-from apps.entities.response_data import HealthCheckRsp
+from apps.schemas.response_data import HealthCheckRsp
 
 router = APIRouter(
     prefix="/health_check",

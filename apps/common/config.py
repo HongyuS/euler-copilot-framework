@@ -8,7 +8,7 @@ from pathlib import Path
 import toml
 
 from apps.common.singleton import SingletonMeta
-from apps.entities.config import ConfigModel
+from apps.schemas.config import ConfigModel
 
 
 class Config(metaclass=SingletonMeta):

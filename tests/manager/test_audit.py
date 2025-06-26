@@ -6,8 +6,8 @@ from unittest.mock import patch, MagicMock
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from apps.manager.audit_log import AuditLogManager, AuditLogData
-from apps.models.mysql import Base, AuditLog
+from apps.services.audit_log import AuditLogManager, AuditLogData
+from apps.db.mysql import Base, AuditLog
 
 
 class TestAuditLogManager(unittest.TestCase):

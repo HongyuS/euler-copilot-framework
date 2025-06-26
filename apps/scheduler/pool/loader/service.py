@@ -9,12 +9,12 @@ from anyio import Path
 from fastapi.encoders import jsonable_encoder
 
 from apps.common.config import Config
-from apps.entities.flow import Permission, ServiceMetadata
-from apps.entities.pool import NodePool, ServicePool
-from apps.entities.vector import NodePoolVector, ServicePoolVector
+from apps.schemas.flow import Permission, ServiceMetadata
+from apps.schemas.pool import NodePool, ServicePool
+from apps.models.vector import NodePoolVector, ServicePoolVector
 from apps.llm.embedding import Embedding
-from apps.models.lance import LanceDB
-from apps.models.mongo import MongoDB
+from apps.common.lance import LanceDB
+from apps.common.mongo import MongoDB
 from apps.scheduler.pool.check import FileChecker
 from apps.scheduler.pool.loader.metadata import MetadataLoader, MetadataType
 from apps.scheduler.pool.loader.openapi import OpenAPILoader

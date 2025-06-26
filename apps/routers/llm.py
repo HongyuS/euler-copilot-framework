@@ -7,15 +7,15 @@ from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import get_user, verify_user
-from apps.entities.request_data import (
+from apps.schemas.request_data import (
     UpdateLLMReq,
 )
-from apps.entities.response_data import (
+from apps.schemas.response_data import (
     ListLLMProviderRsp,
     ListLLMRsp,
     ResponseData,
 )
-from apps.manager.llm import LLMManager
+from apps.services.llm import LLMManager
 
 router = APIRouter(
     prefix="/api/llm",

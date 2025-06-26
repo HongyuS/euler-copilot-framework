@@ -11,14 +11,14 @@ import yaml
 from anyio import Path
 
 from apps.common.config import Config
-from apps.entities.enum_var import EdgeType
-from apps.entities.flow import AppFlow, Flow
-from apps.entities.pool import AppPool
-from apps.entities.vector import FlowPoolVector
+from apps.schemas.enum_var import EdgeType
+from apps.schemas.flow import AppFlow, Flow
+from apps.schemas.pool import AppPool
+from apps.models.vector import FlowPoolVector
 from apps.llm.embedding import Embedding
-from apps.manager.node import NodeManager
-from apps.models.lance import LanceDB
-from apps.models.mongo import MongoDB
+from apps.services.node import NodeManager
+from apps.common.lance import LanceDB
+from apps.common.mongo import MongoDB
 from apps.scheduler.util import yaml_enum_presenter, yaml_str_presenter
 
 logger = logging.getLogger(__name__)

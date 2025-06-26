@@ -5,8 +5,8 @@ import logging
 
 from apps.common.singleton import SingletonMeta
 from apps.constants import MCP_PATH
-from apps.entities.mcp import MCPServerConfig, MCPType
-from apps.models.mongo import MongoDB
+from apps.schemas.mcp import MCPServerConfig, MCPType
+from apps.common.mongo import MongoDB
 from apps.scheduler.pool.mcp.client import MCPClient
 
 logger = logging.getLogger(__name__)

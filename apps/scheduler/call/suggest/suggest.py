@@ -11,18 +11,7 @@ from pydantic import Field
 from pydantic.json_schema import SkipJsonSchema
 
 from apps.common.security import Security
-from apps.entities.enum_var import CallOutputType
-from apps.entities.pool import NodePool
-from apps.entities.record import RecordContent
-from apps.entities.scheduler import (
-    CallError,
-    CallInfo,
-    CallOutputChunk,
-    CallVars,
-)
 from apps.llm.function import FunctionLLM
-from apps.manager.record import RecordManager
-from apps.manager.user_domain import UserDomainManager
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.call.suggest.prompt import SUGGEST_PROMPT
 from apps.scheduler.call.suggest.schema import (
@@ -31,6 +20,17 @@ from apps.scheduler.call.suggest.schema import (
     SuggestionInput,
     SuggestionOutput,
 )
+from apps.schemas.enum_var import CallOutputType
+from apps.schemas.pool import NodePool
+from apps.schemas.record import RecordContent
+from apps.schemas.scheduler import (
+    CallError,
+    CallInfo,
+    CallOutputChunk,
+    CallVars,
+)
+from apps.services.record import RecordManager
+from apps.services.user_domain import UserDomainManager
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor
@@ -80,7 +80,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
 
     async def _init(self, call_vars: CallVars) -> SuggestionInput:
         """初始化"""
-        from apps.manager.appcenter import AppCenterManager
+        from apps.services.appcenter import AppCenterManager
 
         self._history_questions = await self._get_history_questions(
             call_vars.ids.user_sub,

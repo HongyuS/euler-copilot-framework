@@ -10,8 +10,8 @@ from fastapi import APIRouter, Depends, File, Query, UploadFile, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import get_session, get_user, verify_user
-from apps.entities.enum_var import DocumentStatus
-from apps.entities.response_data import (
+from apps.schemas.enum_var import DocumentStatus
+from apps.schemas.response_data import (
     ConversationDocumentItem,
     ConversationDocumentMsg,
     ConversationDocumentRsp,
@@ -20,8 +20,8 @@ from apps.entities.response_data import (
     UploadDocumentMsgItem,
     UploadDocumentRsp,
 )
-from apps.manager.document import DocumentManager
-from apps.service.knowledge_base import KnowledgeBaseService
+from apps.services.document import DocumentManager
+from apps.services.knowledge_base import KnowledgeBaseService
 
 router = APIRouter(
     prefix="/api/document",

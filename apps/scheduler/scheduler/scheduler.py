@@ -1,23 +1,12 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Scheduler模块"""
 
-import asyncio
 import logging
 from datetime import UTC, datetime
 
 from apps.common.config import Config
+from apps.common.mongo import MongoDB
 from apps.common.queue import MessageQueue
-from apps.entities.collection import LLM
-from apps.entities.enum_var import AppType, EventType
-from apps.entities.pool import AppPool
-from apps.entities.rag_data import RAGQueryReq
-from apps.entities.request_data import RequestData
-from apps.entities.scheduler import ExecutorBackground
-from apps.entities.task import Task
-from apps.manager.appcenter import AppCenterManager
-from apps.manager.knowledge import KnowledgeBaseManager
-from apps.manager.llm import LLMManager
-from apps.models.mongo import MongoDB
 from apps.scheduler.executor.agent import MCPAgentExecutor
 from apps.scheduler.executor.flow import FlowExecutor
 from apps.scheduler.pool.pool import Pool
@@ -27,6 +16,16 @@ from apps.scheduler.scheduler.message import (
     push_init_message,
     push_rag_message,
 )
+from apps.schemas.collection import LLM
+from apps.schemas.enum_var import AppType, EventType
+from apps.schemas.pool import AppPool
+from apps.schemas.rag_data import RAGQueryReq
+from apps.schemas.request_data import RequestData
+from apps.schemas.scheduler import ExecutorBackground
+from apps.schemas.task import Task
+from apps.services.appcenter import AppCenterManager
+from apps.services.knowledge import KnowledgeBaseManager
+from apps.services.llm import LLMManager
 
 logger = logging.getLogger(__name__)
 

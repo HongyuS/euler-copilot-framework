@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from apps.constants import MCP_PATH
 
 if TYPE_CHECKING:
-    from apps.entities.mcp import MCPServerStdioConfig
+    from apps.schemas.mcp import MCPServerStdioConfig
 
 
 async def install_uvx(mcp_id: str, config: "MCPServerStdioConfig") -> "MCPServerStdioConfig | None":

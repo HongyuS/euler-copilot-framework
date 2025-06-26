@@ -8,10 +8,10 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 from apps.common.queue import MessageQueue
-from apps.entities.enum_var import EventType
-from apps.entities.message import FlowStartContent, TextAddContent
-from apps.entities.scheduler import ExecutorBackground
-from apps.entities.task import Task
+from apps.schemas.enum_var import EventType
+from apps.schemas.message import FlowStartContent, TextAddContent
+from apps.schemas.scheduler import ExecutorBackground
+from apps.schemas.task import Task
 
 logger = logging.getLogger(__name__)
 

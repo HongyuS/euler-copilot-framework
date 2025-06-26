@@ -5,21 +5,21 @@ import logging
 from datetime import UTC, datetime
 
 from apps.common.security import Security
-from apps.entities.collection import Document
-from apps.entities.enum_var import StepStatus
-from apps.entities.record import (
+from apps.llm.patterns.facts import Facts
+from apps.schemas.collection import Document
+from apps.schemas.enum_var import StepStatus
+from apps.schemas.record import (
     Record,
     RecordContent,
     RecordDocument,
     RecordMetadata,
 )
-from apps.entities.request_data import RequestData
-from apps.entities.task import Task
-from apps.llm.patterns.facts import Facts
-from apps.manager.appcenter import AppCenterManager
-from apps.manager.document import DocumentManager
-from apps.manager.record import RecordManager
-from apps.manager.task import TaskManager
+from apps.schemas.request_data import RequestData
+from apps.schemas.task import Task
+from apps.services.appcenter import AppCenterManager
+from apps.services.document import DocumentManager
+from apps.services.record import RecordManager
+from apps.services.task import TaskManager
 
 logger = logging.getLogger(__name__)
 

@@ -6,10 +6,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from apps.common.config import Config
+from apps.common.mongo import MongoDB
 from apps.common.oidc_provider.authhub import AuthhubOIDCProvider
 from apps.common.oidc_provider.openeuler import OpenEulerOIDCProvider
 from apps.constants import OIDC_ACCESS_TOKEN_EXPIRE_TIME, OIDC_REFRESH_TOKEN_EXPIRE_TIME
-from apps.models.mongo import MongoDB
 
 logger = logging.getLogger(__name__)
 

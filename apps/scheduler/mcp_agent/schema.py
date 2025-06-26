@@ -3,7 +3,7 @@ from typing import Any, Self
 
 from pydantic import BaseModel, Field
 
-from apps.entities.enum_var import Role
+from apps.schemas.enum_var import Role
 
 
 class Function(BaseModel):

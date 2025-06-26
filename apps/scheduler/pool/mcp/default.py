@@ -6,7 +6,7 @@ import random
 
 from sqids.sqids import Sqids
 
-from apps.entities.mcp import (
+from apps.schemas.mcp import (
     MCPServerConfig,
     MCPServerSSEConfig,
     MCPServerStdioConfig,

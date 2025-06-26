@@ -7,8 +7,8 @@ from hashlib import sha256
 from anyio import Path
 
 from apps.common.config import Config
-from apps.entities.enum_var import MetadataType
-from apps.models.mongo import MongoDB
+from apps.common.mongo import MongoDB
+from apps.schemas.enum_var import MetadataType
 
 logger = logging.getLogger(__name__)
 

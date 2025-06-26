@@ -6,18 +6,18 @@ import logging
 from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 
-from apps.entities.mcp import (
-    MCPCollection,
-    MCPSelectResult,
-    MCPTool,
-)
+from apps.common.lance import LanceDB
+from apps.common.mongo import MongoDB
 from apps.llm.embedding import Embedding
 from apps.llm.function import FunctionLLM
 from apps.llm.reasoning import ReasoningLLM
-from apps.models.lance import LanceDB
-from apps.models.mongo import MongoDB
 from apps.scheduler.mcp.prompt import (
     MCP_SELECT,
+)
+from apps.schemas.mcp import (
+    MCPCollection,
+    MCPSelectResult,
+    MCPTool,
 )
 
 logger = logging.getLogger(__name__)

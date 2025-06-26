@@ -6,12 +6,12 @@ from datetime import UTC, datetime, timedelta
 
 import asyncer
 
-from apps.entities.collection import Audit
-from apps.manager.audit_log import AuditLogManager
-from apps.manager.user import UserManager
-from apps.manager.session import SessionManager
-from apps.models.mongo import MongoDB
-from apps.service.knowledge_base import KnowledgeBaseService
+from apps.schemas.collection import Audit
+from apps.services.audit_log import AuditLogManager
+from apps.services.user import UserManager
+from apps.services.session import SessionManager
+from apps.common.mongo import MongoDB
+from apps.services.knowledge_base import KnowledgeBaseService
 
 logger = logging.getLogger(__name__)
 

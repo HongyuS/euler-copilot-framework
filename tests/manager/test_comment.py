@@ -3,7 +3,7 @@
 import unittest
 from unittest import mock
 from unittest.mock import patch, MagicMock
-from apps.manager.comment import CommentManager, CommentData, MysqlDB, Comment, get_logger
+from apps.services.comment import CommentManager, CommentData, MysqlDB, Comment, get_logger
 
 
 class TestCommentManager(unittest.TestCase):

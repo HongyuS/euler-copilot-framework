@@ -11,18 +11,18 @@ from fastapi.templating import Jinja2Templates
 
 from apps.common.oidc import oidc_provider
 from apps.dependency import get_session, get_user, verify_user
-from apps.entities.collection import Audit
-from apps.entities.response_data import (
+from apps.schemas.collection import Audit
+from apps.schemas.response_data import (
     AuthUserMsg,
     AuthUserRsp,
     OidcRedirectMsg,
     OidcRedirectRsp,
     ResponseData,
 )
-from apps.manager.audit_log import AuditLogManager
-from apps.manager.session import SessionManager
-from apps.manager.token import TokenManager
-from apps.manager.user import UserManager
+from apps.services.audit_log import AuditLogManager
+from apps.services.session import SessionManager
+from apps.services.token import TokenManager
+from apps.services.user import UserManager
 
 router = APIRouter(
     prefix="/api/auth",

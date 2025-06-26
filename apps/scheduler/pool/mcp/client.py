@@ -11,7 +11,7 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 
 from apps.constants import MCP_PATH
-from apps.entities.mcp import (
+from apps.schemas.mcp import (
     MCPServerSSEConfig,
     MCPServerStdioConfig,
     MCPStatus,

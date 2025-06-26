@@ -3,9 +3,9 @@
 import unittest
 from unittest.mock import MagicMock, patch
 from datetime import datetime
-from apps.models.mysql import MysqlDB, Conversation
+from apps.db.mysql import MysqlDB, Conversation
 from apps.logger import get_logger
-from apps.manager.conversation import ConversationManager
+from apps.services.conversation import ConversationManager
 
 
 class TestUserQaRecordManager(unittest.TestCase):

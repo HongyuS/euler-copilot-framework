@@ -16,9 +16,9 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from apps.common.config import Config
+from apps.common.lance import LanceDB
 from apps.common.wordscheck import WordsCheck
 from apps.llm.token import TokenCalculator
-from apps.models.lance import LanceDB
 from apps.routers import (
     api_key,
     appcenter,

@@ -1,6 +1,6 @@
 import unittest
 
-from apps.entities.blacklist import *
+from apps.schemas.blacklist import *
 
 
 class TestQuestionBlacklistRequest(unittest.TestCase):
