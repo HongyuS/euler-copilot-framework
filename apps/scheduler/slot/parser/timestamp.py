@@ -8,7 +8,7 @@ from typing import Any
 import pytz
 from jsonschema import TypeChecker
 
-from apps.entities.enum_var import SlotType
+from apps.schemas.enum_var import SlotType
 
 logger = logging.getLogger(__name__)
 

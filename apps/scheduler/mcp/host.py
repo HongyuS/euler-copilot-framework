@@ -9,15 +9,15 @@ from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 from mcp.types import TextContent
 
-from apps.entities.enum_var import StepStatus
-from apps.entities.mcp import MCPPlanItem, MCPTool
-from apps.entities.task import FlowStepHistory
+from apps.common.mongo import MongoDB
 from apps.llm.function import JsonGenerator
-from apps.manager.task import TaskManager
-from apps.models.mongo import MongoDB
 from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
 from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.pool import MCPPool
+from apps.schemas.enum_var import StepStatus
+from apps.schemas.mcp import MCPPlanItem, MCPTool
+from apps.schemas.task import FlowStepHistory
+from apps.services.task import TaskManager
 
 logger = logging.getLogger(__name__)
 

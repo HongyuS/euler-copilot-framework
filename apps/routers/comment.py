@@ -9,11 +9,11 @@ from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import get_user, verify_user
-from apps.entities.record import RecordComment
-from apps.entities.request_data import AddCommentData
-from apps.entities.response_data import ResponseData
-from apps.manager.comment import CommentManager
-from apps.manager.record import RecordManager
+from apps.schemas.record import RecordComment
+from apps.schemas.request_data import AddCommentData
+from apps.schemas.response_data import ResponseData
+from apps.services.comment import CommentManager
+from apps.services.record import RecordManager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(

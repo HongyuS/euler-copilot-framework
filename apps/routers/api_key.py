@@ -7,9 +7,9 @@ from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import get_user, verify_user
-from apps.entities.api_key import GetAuthKeyRsp, PostAuthKeyMsg, PostAuthKeyRsp
-from apps.entities.response_data import ResponseData
-from apps.manager.api_key import ApiKeyManager
+from apps.schemas.api_key import GetAuthKeyRsp, PostAuthKeyMsg, PostAuthKeyRsp
+from apps.schemas.response_data import ResponseData
+from apps.services.api_key import ApiKeyManager
 
 router = APIRouter(
     prefix="/api/auth/key",

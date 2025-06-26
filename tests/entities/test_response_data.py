@@ -2,7 +2,7 @@
 
 import unittest
 from datetime import datetime
-from apps.entities.response_data import *
+from apps.schemas.response_data import *
 
 
 class TestResponseData(unittest.TestCase):

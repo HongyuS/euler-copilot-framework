@@ -9,7 +9,7 @@ from fastapi import status, FastAPI, Request
 
 from apps.routers.blacklist import router
 from apps.dependency import verify_csrf_token, get_current_user
-from apps.entities.user import User
+from apps.schemas.user import User
 
 
 def mock_csrf_token(request: Request):

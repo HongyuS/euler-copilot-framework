@@ -7,15 +7,15 @@ from fastapi import APIRouter, Body, Depends, Query, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import get_user, verify_user
-from apps.entities.request_data import (
+from apps.schemas.request_data import (
     UpdateKbReq,
 )
-from apps.entities.response_data import (
+from apps.schemas.response_data import (
     ListTeamKnowledgeMsg,
     ListTeamKnowledgeRsp,
     ResponseData,
 )
-from apps.manager.knowledge import KnowledgeBaseManager
+from apps.services.knowledge import KnowledgeBaseManager
 
 router = APIRouter(
     prefix="/api/knowledge",

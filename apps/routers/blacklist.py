@@ -7,20 +7,20 @@ from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import get_user, verify_user
-from apps.entities.request_data import (
+from apps.schemas.request_data import (
     AbuseProcessRequest,
     AbuseRequest,
     QuestionBlacklistRequest,
     UserBlacklistRequest,
 )
-from apps.entities.response_data import (
+from apps.schemas.response_data import (
     GetBlacklistQuestionMsg,
     GetBlacklistQuestionRsp,
     GetBlacklistUserMsg,
     GetBlacklistUserRsp,
     ResponseData,
 )
-from apps.manager.blacklist import (
+from apps.services.blacklist import (
     AbuseManager,
     QuestionBlacklistManager,
     UserBlacklistManager,

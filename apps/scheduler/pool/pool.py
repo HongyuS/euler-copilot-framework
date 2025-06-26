@@ -8,10 +8,7 @@ from typing import Any
 from anyio import Path
 
 from apps.common.config import Config
-from apps.entities.enum_var import MetadataType
-from apps.entities.flow import Flow
-from apps.entities.pool import AppFlow, CallPool
-from apps.models.mongo import MongoDB
+from apps.common.mongo import MongoDB
 from apps.scheduler.pool.check import FileChecker
 from apps.scheduler.pool.loader import (
     AppLoader,
@@ -20,6 +17,9 @@ from apps.scheduler.pool.loader import (
     MCPLoader,
     ServiceLoader,
 )
+from apps.schemas.enum_var import MetadataType
+from apps.schemas.flow import Flow
+from apps.schemas.pool import AppFlow, CallPool
 
 logger = logging.getLogger(__name__)
 

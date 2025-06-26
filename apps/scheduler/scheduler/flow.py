@@ -3,10 +3,10 @@
 
 import logging
 
-from apps.entities.request_data import RequestDataApp
-from apps.entities.task import Task
 from apps.llm.patterns import Select
 from apps.scheduler.pool.pool import Pool
+from apps.schemas.request_data import RequestDataApp
+from apps.schemas.task import Task
 
 logger = logging.getLogger(__name__)
 

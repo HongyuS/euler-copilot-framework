@@ -8,7 +8,7 @@ from apps.llm.reasoning import ReasoningLLM
 from apps.llm.snippet import convert_context_to_prompt, facts_to_prompt
 
 if TYPE_CHECKING:
-    from apps.entities.scheduler import ExecutorBackground
+    from apps.schemas.scheduler import ExecutorBackground
 
 
 class ExecutorThought(CorePattern):

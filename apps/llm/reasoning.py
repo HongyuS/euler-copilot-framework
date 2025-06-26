@@ -10,8 +10,8 @@ from openai.types.chat import ChatCompletionChunk
 
 from apps.common.config import Config
 from apps.constants import REASONING_BEGIN_TOKEN, REASONING_END_TOKEN
-from apps.entities.config import LLMConfig
 from apps.llm.token import TokenCalculator
+from apps.schemas.config import LLMConfig
 
 logger = logging.getLogger(__name__)
 

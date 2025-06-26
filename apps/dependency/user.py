@@ -9,8 +9,8 @@ from starlette import status
 from starlette.exceptions import HTTPException
 from starlette.requests import HTTPConnection
 
-from apps.manager.api_key import ApiKeyManager
-from apps.manager.session import SessionManager
+from apps.services.api_key import ApiKeyManager
+from apps.services.session import SessionManager
 
 logger = logging.getLogger(__name__)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")

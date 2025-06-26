@@ -8,16 +8,16 @@ from typing import Any
 from anyio import Path
 from pydantic import Field
 
-from apps.entities.enum_var import CallOutputType
-from apps.entities.scheduler import (
+from apps.scheduler.call.core import CoreCall
+from apps.scheduler.call.graph.schema import RenderFormat, RenderInput, RenderOutput
+from apps.scheduler.call.graph.style import RenderStyle
+from apps.schemas.enum_var import CallOutputType
+from apps.schemas.scheduler import (
     CallError,
     CallInfo,
     CallOutputChunk,
     CallVars,
 )
-from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.graph.schema import RenderFormat, RenderInput, RenderOutput
-from apps.scheduler.call.graph.style import RenderStyle
 
 
 class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):

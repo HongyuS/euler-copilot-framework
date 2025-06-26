@@ -8,13 +8,6 @@ from typing import Any
 
 from pydantic import Field
 
-from apps.entities.enum_var import CallOutputType
-from apps.entities.mcp import MCPPlanItem
-from apps.entities.scheduler import (
-    CallInfo,
-    CallOutputChunk,
-    CallVars,
-)
 from apps.scheduler.call.core import CallError, CoreCall
 from apps.scheduler.call.mcp.schema import (
     MCPInput,
@@ -23,6 +16,13 @@ from apps.scheduler.call.mcp.schema import (
     MCPOutput,
 )
 from apps.scheduler.mcp import MCPHost, MCPPlanner, MCPSelector
+from apps.schemas.enum_var import CallOutputType
+from apps.schemas.mcp import MCPPlanItem
+from apps.schemas.scheduler import (
+    CallInfo,
+    CallOutputChunk,
+    CallVars,
+)
 
 logger = logging.getLogger(__name__)
 

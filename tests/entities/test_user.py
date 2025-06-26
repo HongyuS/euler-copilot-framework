@@ -1,7 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 
 import unittest
-from apps.entities.user import User
+from apps.schemas.user import User
 
 
 class TestUser(unittest.TestCase):

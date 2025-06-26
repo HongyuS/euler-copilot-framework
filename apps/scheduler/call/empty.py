@@ -4,9 +4,9 @@
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from apps.entities.enum_var import CallOutputType
-from apps.entities.scheduler import CallInfo, CallOutputChunk, CallVars
 from apps.scheduler.call.core import CoreCall, DataBase
+from apps.schemas.enum_var import CallOutputType
+from apps.schemas.scheduler import CallInfo, CallOutputChunk, CallVars
 
 
 class Empty(CoreCall, input_model=DataBase, output_model=DataBase):

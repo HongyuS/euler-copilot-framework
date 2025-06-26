@@ -2,7 +2,7 @@
 
 import unittest
 
-from apps.entities.request_data import *
+from apps.schemas.request_data import *
 
 
 class TestRequestData(unittest.TestCase):

@@ -1,7 +1,7 @@
 import unittest
 
-from apps.entities.flow import Step
-from apps.entities.scheduler import *
+from apps.schemas.flow import Step
+from apps.schemas.scheduler import *
 
 
 class TestToolData(unittest.TestCase):

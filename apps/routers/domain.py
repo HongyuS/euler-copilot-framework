@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import verify_user
-from apps.entities.request_data import PostDomainData
-from apps.entities.response_data import ResponseData
-from apps.manager.domain import DomainManager
+from apps.schemas.request_data import PostDomainData
+from apps.schemas.response_data import ResponseData
+from apps.services.domain import DomainManager
 
 router = APIRouter(
     prefix="/api/domain",

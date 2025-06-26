@@ -5,7 +5,7 @@ from typing import Any
 
 from jsonschema import Validator
 
-from apps.entities.enum_var import SlotType
+from apps.schemas.enum_var import SlotType
 
 
 class SlotDefaultParser:
