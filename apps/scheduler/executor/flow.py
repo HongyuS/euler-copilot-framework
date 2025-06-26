@@ -8,14 +8,14 @@ from datetime import UTC, datetime
 
 from pydantic import Field
 
-from apps.entities.enum_var import EventType, SpecialCallType, StepStatus
-from apps.entities.flow import Flow, Step
-from apps.entities.request_data import RequestDataApp
-from apps.entities.task import ExecutorState, StepQueueItem
-from apps.manager.task import TaskManager
 from apps.scheduler.call.llm.prompt import LLM_ERROR_PROMPT
 from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.executor.step import StepExecutor
+from apps.schemas.enum_var import EventType, SpecialCallType, StepStatus
+from apps.schemas.flow import Flow, Step
+from apps.schemas.request_data import RequestDataApp
+from apps.schemas.task import ExecutorState, StepQueueItem
+from apps.services.task import TaskManager
 
 logger = logging.getLogger(__name__)
 # 开始前的固定步骤

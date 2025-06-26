@@ -13,15 +13,15 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from apps.common.queue import MessageQueue
 from apps.common.wordscheck import WordsCheck
 from apps.dependency import get_session, get_user
-from apps.entities.request_data import RequestData
-from apps.entities.response_data import ResponseData
-from apps.entities.task import Task
-from apps.manager.blacklist import QuestionBlacklistManager, UserBlacklistManager
-from apps.manager.flow import FlowManager
-from apps.manager.task import TaskManager
 from apps.scheduler.scheduler import Scheduler
 from apps.scheduler.scheduler.context import save_data
-from apps.service.activity import Activity
+from apps.schemas.request_data import RequestData
+from apps.schemas.response_data import ResponseData
+from apps.schemas.task import Task
+from apps.services.activity import Activity
+from apps.services.blacklist import QuestionBlacklistManager, UserBlacklistManager
+from apps.services.flow import FlowManager
+from apps.services.task import TaskManager
 
 RECOMMEND_TRES = 5
 logger = logging.getLogger(__name__)

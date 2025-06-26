@@ -8,9 +8,9 @@ from typing import Any
 import yaml
 from anyio import Path
 
-from apps.entities.enum_var import ContentType, HTTPMethod
-from apps.entities.node import APINode, APINodeInput, APINodeOutput
-from apps.entities.pool import NodePool
+from apps.schemas.enum_var import ContentType, HTTPMethod
+from apps.schemas.node import APINode, APINodeInput, APINodeOutput
+from apps.schemas.pool import NodePool
 from apps.scheduler.openapi import (
     ReducedOpenAPIEndpoint,
     ReducedOpenAPISpec,

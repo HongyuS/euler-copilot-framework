@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 import pytz
 
-from apps.manager.blacklist import QuestionBlacklistManager
-from apps.models.mysql import (
+from apps.services.blacklist import QuestionBlacklistManager
+from apps.db.mysql import (
     Base,
     QuestionBlacklist
 )

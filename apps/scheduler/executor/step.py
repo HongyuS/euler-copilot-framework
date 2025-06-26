@@ -10,15 +10,6 @@ from typing import Any
 
 from pydantic import ConfigDict
 
-from apps.entities.enum_var import (
-    EventType,
-    SpecialCallType,
-    StepStatus,
-)
-from apps.entities.message import TextAddContent
-from apps.entities.scheduler import CallError, CallOutputChunk
-from apps.entities.task import FlowStepHistory, StepQueueItem
-from apps.manager.node import NodeManager
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.call.empty import Empty
 from apps.scheduler.call.facts.facts import FactsCall
@@ -27,6 +18,15 @@ from apps.scheduler.call.slot.slot import Slot
 from apps.scheduler.call.summary.summary import Summary
 from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.pool.pool import Pool
+from apps.schemas.enum_var import (
+    EventType,
+    SpecialCallType,
+    StepStatus,
+)
+from apps.schemas.message import TextAddContent
+from apps.schemas.scheduler import CallError, CallOutputChunk
+from apps.schemas.task import FlowStepHistory, StepQueueItem
+from apps.services.node import NodeManager
 
 logger = logging.getLogger(__name__)
 

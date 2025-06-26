@@ -1,1 +1,1 @@
-"""EulerCopilot Framework"""
+"""openEuler Intelligence Framework"""

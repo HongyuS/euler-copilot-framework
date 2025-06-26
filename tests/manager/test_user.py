@@ -3,8 +3,8 @@
 import unittest
 from unittest.mock import patch, MagicMock
 from datetime import datetime
-from apps.manager.user import UserManager, User
-from apps.models.mysql import User as UserModel, MysqlDB
+from apps.services.user import UserManager, User
+from apps.db.mysql import User as UserModel, MysqlDB
 
 
 class TestUserManager(unittest.TestCase):

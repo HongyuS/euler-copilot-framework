@@ -9,7 +9,7 @@ from fastapi import status
 
 from apps.common.config import Config
 from apps.common.oidc_provider.base import OIDCProviderBase
-from apps.entities.config import OIDCConfig
+from apps.schemas.config import OIDCConfig
 
 logger = logging.getLogger(__name__)
 

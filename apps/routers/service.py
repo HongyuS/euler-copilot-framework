@@ -8,9 +8,10 @@ from fastapi import APIRouter, Body, Depends, Path, Query, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import get_user, verify_user
-from apps.entities.enum_var import SearchType
-from apps.entities.request_data import ModFavServiceRequest, UpdateServiceRequest
-from apps.entities.response_data import (
+from apps.exceptions import InstancePermissionError, ServiceIDError
+from apps.schemas.enum_var import SearchType
+from apps.schemas.request_data import ModFavServiceRequest, UpdateServiceRequest
+from apps.schemas.response_data import (
     BaseServiceOperationMsg,
     DeleteServiceRsp,
     GetServiceDetailMsg,
@@ -23,8 +24,7 @@ from apps.entities.response_data import (
     UpdateServiceMsg,
     UpdateServiceRsp,
 )
-from apps.exceptions import InstancePermissionError, ServiceIDError
-from apps.manager.service import ServiceCenterManager
+from apps.services.service import ServiceCenterManager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(

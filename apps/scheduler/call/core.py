@@ -12,9 +12,11 @@ from typing import TYPE_CHECKING, Any, ClassVar, Self
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.json_schema import SkipJsonSchema
 
-from apps.entities.enum_var import CallOutputType
-from apps.entities.pool import NodePool
-from apps.entities.scheduler import (
+from apps.llm.function import FunctionLLM
+from apps.llm.reasoning import ReasoningLLM
+from apps.schemas.enum_var import CallOutputType
+from apps.schemas.pool import NodePool
+from apps.schemas.scheduler import (
     CallError,
     CallIds,
     CallInfo,
@@ -22,9 +24,7 @@ from apps.entities.scheduler import (
     CallTokens,
     CallVars,
 )
-from apps.entities.task import FlowStepHistory
-from apps.llm.function import FunctionLLM
-from apps.llm.reasoning import ReasoningLLM
+from apps.schemas.task import FlowStepHistory
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor

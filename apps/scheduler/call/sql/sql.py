@@ -10,15 +10,15 @@ from fastapi import status
 from pydantic import Field
 
 from apps.common.config import Config
-from apps.entities.enum_var import CallOutputType
-from apps.entities.scheduler import (
+from apps.scheduler.call.core import CoreCall
+from apps.scheduler.call.sql.schema import SQLInput, SQLOutput
+from apps.schemas.enum_var import CallOutputType
+from apps.schemas.scheduler import (
     CallError,
     CallInfo,
     CallOutputChunk,
     CallVars,
 )
-from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.sql.schema import SQLInput, SQLOutput
 
 logger = logging.getLogger(__name__)
 

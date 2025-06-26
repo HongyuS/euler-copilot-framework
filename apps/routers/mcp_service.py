@@ -9,9 +9,9 @@ from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, Upload
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import get_user, verify_user
-from apps.entities.enum_var import SearchType
-from apps.entities.request_data import ActiveMCPServiceRequest, UpdateMCPServiceRequest
-from apps.entities.response_data import (
+from apps.schemas.enum_var import SearchType
+from apps.schemas.request_data import ActiveMCPServiceRequest, UpdateMCPServiceRequest
+from apps.schemas.response_data import (
     ActiveMCPServiceRsp,
     BaseMCPServiceOperationMsg,
     DeleteMCPServiceRsp,
@@ -26,8 +26,8 @@ from apps.entities.response_data import (
     UploadMCPServiceIconMsg,
     UploadMCPServiceIconRsp,
 )
-from apps.manager.mcp_service import MCPServiceManager
-from apps.manager.user import UserManager
+from apps.services.mcp_service import MCPServiceManager
+from apps.services.user import UserManager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(

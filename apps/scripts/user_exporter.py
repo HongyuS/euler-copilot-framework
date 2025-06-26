@@ -15,11 +15,11 @@ from typing import ClassVar
 from openpyxl import Workbook
 
 from apps.common.security import Security
-from apps.entities.collection import Audit
-from apps.manager.audit_log import AuditLogManager
-from apps.manager.conversation import ConversationManager
-from apps.manager.record import RecordManager
-from apps.manager.user import UserManager
+from apps.schemas.collection import Audit
+from apps.services.audit_log import AuditLogManager
+from apps.services.conversation import ConversationManager
+from apps.services.record import RecordManager
+from apps.services.user import UserManager
 
 
 class UserExporter:

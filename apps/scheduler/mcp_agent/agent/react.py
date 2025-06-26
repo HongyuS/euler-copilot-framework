@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 from pydantic import Field
 
-from apps.entities.enum_var import AgentState
+from apps.schemas.enum_var import AgentState
 from apps.llm.reasoning import ReasoningLLM
 from apps.scheduler.mcp_agent.agent.base import BaseAgent
 from apps.scheduler.mcp_agent.schema import Memory

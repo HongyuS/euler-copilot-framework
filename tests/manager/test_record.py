@@ -3,8 +3,8 @@
 import logging
 import unittest
 from unittest.mock import patch, MagicMock
-from apps.entities.record import Record
-from apps.manager.record import RecordManager, MysqlDB
+from apps.schemas.record import Record
+from apps.services.record import RecordManager, MysqlDB
 
 
 class TestQaManager(unittest.TestCase):

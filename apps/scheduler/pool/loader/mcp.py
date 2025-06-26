@@ -15,7 +15,7 @@ from sqids.sqids import Sqids
 from apps.common.process_handler import ProcessHandler
 from apps.common.singleton import SingletonMeta
 from apps.constants import MCP_PATH
-from apps.entities.mcp import (
+from apps.schemas.mcp import (
     MCPCollection,
     MCPInstallStatus,
     MCPServerConfig,
@@ -27,8 +27,8 @@ from apps.entities.mcp import (
     MCPVector,
 )
 from apps.llm.embedding import Embedding
-from apps.models.lance import LanceDB
-from apps.models.mongo import MongoDB
+from apps.common.lance import LanceDB
+from apps.common.mongo import MongoDB
 from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.install import install_npx, install_uvx
 

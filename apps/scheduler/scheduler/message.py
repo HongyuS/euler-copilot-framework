@@ -7,19 +7,19 @@ from textwrap import dedent
 
 from apps.common.config import Config
 from apps.common.queue import MessageQueue
-from apps.entities.collection import LLM, Document
-from apps.entities.enum_var import EventType
-from apps.entities.message import (
+from apps.schemas.collection import LLM, Document
+from apps.schemas.enum_var import EventType
+from apps.schemas.message import (
     DocumentAddContent,
     InitContent,
     InitContentFeature,
     TextAddContent,
 )
-from apps.entities.rag_data import RAGEventData, RAGQueryReq
-from apps.entities.record import RecordDocument
-from apps.entities.task import Task
-from apps.manager.task import TaskManager
-from apps.service import RAG
+from apps.schemas.rag_data import RAGEventData, RAGQueryReq
+from apps.schemas.record import RecordDocument
+from apps.schemas.task import Task
+from apps.services.rag import RAG
+from apps.services.task import TaskManager
 
 logger = logging.getLogger(__name__)
 

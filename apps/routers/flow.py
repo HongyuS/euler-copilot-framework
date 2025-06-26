@@ -8,8 +8,8 @@ from fastapi.responses import JSONResponse
 
 from apps.dependency import get_user
 from apps.dependency.user import verify_user
-from apps.entities.request_data import PutFlowReq
-from apps.entities.response_data import (
+from apps.schemas.request_data import PutFlowReq
+from apps.schemas.response_data import (
     FlowStructureDeleteMsg,
     FlowStructureDeleteRsp,
     FlowStructureGetMsg,
@@ -20,10 +20,10 @@ from apps.entities.response_data import (
     NodeServiceListRsp,
     ResponseData,
 )
-from apps.manager.appcenter import AppCenterManager
-from apps.manager.application import AppManager
-from apps.manager.flow import FlowManager
-from apps.service.flow import FlowService
+from apps.services.appcenter import AppCenterManager
+from apps.services.application import AppManager
+from apps.services.flow import FlowManager
+from apps.services.flow_validate import FlowService
 
 router = APIRouter(
     prefix="/api/flow",

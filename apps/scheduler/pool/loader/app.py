@@ -8,11 +8,11 @@ from anyio import Path
 from fastapi.encoders import jsonable_encoder
 
 from apps.common.config import Config
-from apps.entities.agent import AgentAppMetadata
-from apps.entities.enum_var import AppType
-from apps.entities.flow import AppFlow, AppMetadata, MetadataType, Permission
-from apps.entities.pool import AppPool
-from apps.models.mongo import MongoDB
+from apps.schemas.agent import AgentAppMetadata
+from apps.schemas.enum_var import AppType
+from apps.schemas.flow import AppFlow, AppMetadata, MetadataType, Permission
+from apps.schemas.pool import AppPool
+from apps.common.mongo import MongoDB
 from apps.scheduler.pool.check import FileChecker
 from apps.scheduler.pool.loader.flow import FlowLoader
 from apps.scheduler.pool.loader.metadata import MetadataLoader

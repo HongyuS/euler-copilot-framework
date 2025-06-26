@@ -8,10 +8,11 @@ from fastapi import APIRouter, Body, Depends, Path, Query, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import get_user, verify_user
-from apps.entities.appcenter import AppFlowInfo, AppPermissionData
-from apps.entities.enum_var import AppFilterType, AppType
-from apps.entities.request_data import CreateAppRequest, ModFavAppRequest
-from apps.entities.response_data import (
+from apps.exceptions import InstancePermissionError
+from apps.schemas.appcenter import AppFlowInfo, AppPermissionData
+from apps.schemas.enum_var import AppFilterType, AppType
+from apps.schemas.request_data import CreateAppRequest, ModFavAppRequest
+from apps.schemas.response_data import (
     BaseAppOperationMsg,
     BaseAppOperationRsp,
     GetAppListMsg,
@@ -23,8 +24,7 @@ from apps.entities.response_data import (
     ModFavAppRsp,
     ResponseData,
 )
-from apps.exceptions import InstancePermissionError
-from apps.manager.appcenter import AppCenterManager
+from apps.services.appcenter import AppCenterManager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(

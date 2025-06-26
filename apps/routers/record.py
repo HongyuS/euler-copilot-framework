@@ -9,23 +9,23 @@ from fastapi.responses import JSONResponse
 
 from apps.common.security import Security
 from apps.dependency import get_user, verify_user
-from apps.entities.record import (
+from apps.schemas.record import (
     RecordContent,
     RecordData,
     RecordFlow,
     RecordFlowStep,
     RecordMetadata,
 )
-from apps.entities.response_data import (
+from apps.schemas.response_data import (
     RecordListMsg,
     RecordListRsp,
     ResponseData,
 )
-from apps.entities.task import FlowStepHistory
-from apps.manager.conversation import ConversationManager
-from apps.manager.document import DocumentManager
-from apps.manager.record import RecordManager
-from apps.manager.task import TaskManager
+from apps.schemas.task import FlowStepHistory
+from apps.services.conversation import ConversationManager
+from apps.services.document import DocumentManager
+from apps.services.record import RecordManager
+from apps.services.task import TaskManager
 
 router = APIRouter(
     prefix="/api/record",

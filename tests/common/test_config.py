@@ -11,7 +11,7 @@ from pytest_mock import MockerFixture
 
 from apps.common.config import Config
 from apps.common.singleton import SingletonMeta
-from apps.entities.config import ConfigModel
+from apps.schemas.config import ConfigModel
 
 MOCK_CONFIG_DATA: dict[str, Any] = {
     "deploy": {"mode": "local", "cookie": "domain", "data_dir": "/app/data"},

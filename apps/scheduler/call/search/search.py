@@ -3,14 +3,14 @@
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from apps.entities.scheduler import (
+from apps.scheduler.call.core import CoreCall
+from apps.scheduler.call.search.schema import SearchInput, SearchOutput
+from apps.schemas.scheduler import (
     CallError,
     CallInfo,
     CallOutputChunk,
     CallVars,
 )
-from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.search.schema import SearchInput, SearchOutput
 
 
 class Search(CoreCall, input_model=SearchInput, output_model=SearchOutput):

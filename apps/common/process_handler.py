@@ -70,8 +70,8 @@ class ProcessHandler:
                 logger.warning("[ProcessHandler] 任务ID %s 已存在，无法添加。", task_id)
                 return False
             logger.info("[ProcessHandler] 添加任务成功 %s", task_id)
-        except Exception as e:
-            logger.exception("[ProcessHandler] 添加任务 %s 时发生异常: %s", task_id, e)
+        except Exception:
+            logger.exception("[ProcessHandler] 添加任务 %s 时发生异常", task_id)
             return False
         else:
             return True

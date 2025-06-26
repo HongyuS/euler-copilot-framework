@@ -8,8 +8,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 import pytz
 
-from apps.manager.blacklist import QuestionBlacklistManager, AbuseManager
-from apps.models.mysql import (
+from apps.services.blacklist import QuestionBlacklistManager, AbuseManager
+from apps.db.mysql import (
     Base,
     User,
     Conversation,

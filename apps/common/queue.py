@@ -8,14 +8,14 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Any
 
-from apps.entities.enum_var import EventType
-from apps.entities.message import (
+from apps.schemas.enum_var import EventType
+from apps.schemas.message import (
     HeartbeatData,
     MessageBase,
     MessageFlow,
     MessageMetadata,
 )
-from apps.entities.task import Task
+from apps.schemas.task import Task
 
 logger = logging.getLogger(__name__)
 

@@ -1,16 +1,16 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 
-import unittest
-from unittest.mock import patch, MagicMock
 import secrets
+import unittest
+from unittest.mock import MagicMock, patch
 
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
-from fastapi import Request, FastAPI
 from starlette.requests import HTTPConnection
 
+from apps.db.mysql import User
+from apps.dependency import get_current_user, verify_csrf_token
 from apps.routers.comment import router
-from apps.models.mysql import User
-from apps.dependency import verify_csrf_token, get_current_user
 
 
 def mock_csrf_token(request: HTTPConnection):
