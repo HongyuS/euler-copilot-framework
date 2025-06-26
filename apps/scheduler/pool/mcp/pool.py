@@ -3,16 +3,14 @@
 
 import logging
 
-from anyio import Path
-
-from apps.common.config import Config
 from apps.common.singleton import SingletonMeta
+from apps.constants import MCP_PATH
 from apps.entities.mcp import MCPServerConfig, MCPType
 from apps.models.mongo import MongoDB
 from apps.scheduler.pool.mcp.client import MCPClient
 
 logger = logging.getLogger(__name__)
-MCP_USER_PATH = MCP_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "mcp" / "users"
+MCP_USER_PATH = MCP_PATH / "users"
 
 
 class MCPPool(metaclass=SingletonMeta):

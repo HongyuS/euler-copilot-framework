@@ -95,7 +95,6 @@ class UpdateMCPServiceRequest(BaseModel):
     """POST /api/mcpservice 请求数据结构"""
 
     service_id: str | None = Field(None, alias="serviceId", description="服务ID（更新时传递）")
-    icon: str = Field(description="图标", default="")
     name: str = Field(..., description="MCP服务名称")
     description: str = Field(..., description="MCP服务描述")
     overview: str = Field(..., description="MCP服务概述")

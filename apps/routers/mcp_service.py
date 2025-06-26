@@ -5,7 +5,7 @@ import json
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import get_user, verify_user
@@ -23,6 +23,8 @@ from apps.entities.response_data import (
     ResponseData,
     UpdateMCPServiceMsg,
     UpdateMCPServiceRsp,
+    UploadMCPServiceIconMsg,
+    UploadMCPServiceIconRsp,
 )
 from apps.manager.mcp_service import MCPServiceManager
 from apps.manager.user import UserManager
@@ -33,6 +35,13 @@ router = APIRouter(
     tags=["mcp-service"],
     dependencies=[Depends(verify_user)],
 )
+
+async def _check_user_admin(user_sub: str) -> None:
+    user = await UserManager.get_userinfo_by_user_sub(user_sub)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户未登录")
+    if not user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="非管理员无法访问")
 
 
 @router.get("", response_model=GetMCPServiceListRsp | ResponseData)
@@ -83,17 +92,8 @@ async def create_or_update_mcpservice(
         data: UpdateMCPServiceRequest,
 ) -> JSONResponse:
     """新建或更新MCP服务"""
-    user_data = await UserManager.get_userinfo_by_user_sub(user_sub)
-    if not user_data or not user_data.is_admin:
-        return JSONResponse(
-            status_code=status.HTTP_403_FORBIDDEN,
-            content=ResponseData(
-                code=status.HTTP_403_FORBIDDEN,
-                message="非管理员无法注册更新mcp",
-                result={},
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
-    # TODO：不要使用base64编码
+    await _check_user_admin(user_sub)
+
     if not data.service_id:
         try:
             service_id = await MCPServiceManager.create_mcpservice(data, user_sub)
@@ -140,16 +140,7 @@ async def get_service_detail(
     """获取MCP服务详情"""
     # 检查用户权限
     if edit:
-        user = await UserManager.get_userinfo_by_user_sub(user_sub)
-        if not user or not user.is_admin:
-            return JSONResponse(
-                status_code=status.HTTP_403_FORBIDDEN,
-                content=ResponseData(
-                    code=status.HTTP_403_FORBIDDEN,
-                    message="非管理员无法编辑MCP服务",
-                    result={},
-                ).model_dump(exclude_none=True, by_alias=True),
-            )
+        await _check_user_admin(user_sub)
 
     # 获取MCP服务详情
     try:
@@ -209,8 +200,10 @@ async def delete_service(
         service_id: Annotated[str, Path(..., alias="serviceId", description="服务ID")],
 ) -> JSONResponse:
     """删除服务"""
+    await _check_user_admin(user_sub)
+
     try:
-        await MCPServiceManager.delete_mcpservice(user_sub, service_id)
+        await MCPServiceManager.delete_mcpservice(service_id)
     except Exception as e:
         err = f"[MCPServiceManager] 删除MCP服务失败: {e}"
         logger.exception(err)
@@ -228,6 +221,54 @@ async def delete_service(
             code=status.HTTP_200_OK,
             message="OK",
             result=BaseMCPServiceOperationMsg(serviceId=service_id),
+        ).model_dump(exclude_none=True, by_alias=True),
+    )
+
+
+@router.post("/icon", response_model=UpdateMCPServiceRsp)
+async def update_mcp_icon(
+        user_sub: Annotated[str, Depends(get_user)],
+        service_id: Annotated[str, Path(..., alias="serviceId", description="服务ID")],
+        icon: Annotated[UploadFile, File(..., description="图标文件")],
+) -> JSONResponse:
+    """更新MCP服务图标"""
+    await _check_user_admin(user_sub)
+
+    # 检查当前MCP是否存在
+    try:
+        await MCPServiceManager.get_mcp_service(service_id)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"MCP服务未找到: {e!s}") from e
+
+    # 判断文件的size
+    if not icon.size or icon.size == 0 or icon.size > 1024 * 1024 * 1:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content=ResponseData(
+                code=status.HTTP_400_BAD_REQUEST,
+                message="图标文件为空或超过1MB",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+    try:
+        url = await MCPServiceManager.save_mcp_icon(service_id, icon)
+    except Exception as e:
+        err = f"[MCPServiceManager] 更新MCP服务图标失败: {e}"
+        logger.exception(err)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ResponseData(
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message=err,
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=UploadMCPServiceIconRsp(
+            code=status.HTTP_200_OK,
+            message="OK",
+            result=UploadMCPServiceIconMsg(serviceId=service_id, url=url),
         ).model_dump(exclude_none=True, by_alias=True),
     )
 

@@ -6,9 +6,15 @@ import random
 import re
 from typing import Any
 
+from fastapi import UploadFile
+from PIL import Image
 from sqids.sqids import Sqids
 
-from apps.constants import SERVICE_PAGE_SIZE
+from apps.constants import (
+    ALLOWED_ICON_MIME_TYPES,
+    ICON_PATH,
+    SERVICE_PAGE_SIZE,
+)
 from apps.entities.enum_var import SearchType
 from apps.entities.mcp import (
     MCPCollection,
@@ -27,6 +33,7 @@ from apps.scheduler.pool.mcp.pool import MCPPool
 
 logger = logging.getLogger(__name__)
 sqids = Sqids(min_length=6)
+MCP_ICON_PATH = ICON_PATH / "mcp"
 
 
 class MCPServiceManager:
@@ -108,7 +115,7 @@ class MCPServiceManager:
         mcpservice_collection = MongoDB().get_collection("mcp")
         db_service = await mcpservice_collection.find_one({"_id": mcpservice_id})
         if not db_service:
-            msg = "[MCPServiceManager] MCP服务未找到或用户无权限"
+            msg = "[MCPServiceManager] MCP服务未找到"
             raise RuntimeError(msg)
         return MCPCollection.model_validate(db_service)
 
@@ -226,7 +233,7 @@ class MCPServiceManager:
 
         # 保存并载入配置
         logger.info("[MCPServiceManager] 创建mcp：%s", mcp_server.name)
-        await MCPLoader.save_one(mcp_id, data.icon, mcp_server)
+        await MCPLoader.save_one(mcp_id, mcp_server)
         await MCPLoader.init_one_template(mcp_id=mcp_id, config=mcp_server)
         return mcp_id
 
@@ -268,10 +275,7 @@ class MCPServiceManager:
         return data.service_id
 
     @staticmethod
-    async def delete_mcpservice(
-            user_sub: str,
-            service_id: str,
-    ) -> None:
+    async def delete_mcpservice(service_id: str) -> None:
         """
         删除MCP服务
 
@@ -279,11 +283,6 @@ class MCPServiceManager:
         :param service_id: str: MCP服务ID
         :return: 是否删除成功
         """
-        service_collection = MongoDB().get_collection("mcp")
-        db_service = await service_collection.find_one({"_id": service_id, "author": user_sub})
-        if not db_service:
-            msg = "[MCPServiceManager] MCP服务未找到或无权限"
-            raise ValueError(msg)
         # 删除对应的mcp
         await MCPLoader.delete_mcp(service_id)
 
@@ -345,3 +344,30 @@ class MCPServiceManager:
         """
         invalid_chars = r'[\\\/:*?"<>|]'
         return re.sub(invalid_chars, "_", name)
+
+    @staticmethod
+    async def save_mcp_icon(
+            service_id: str,
+            icon: UploadFile,
+    ) -> str:
+        """保存MCP服务图标"""
+        # 检查MIME
+        import magic
+        mime = magic.from_buffer(icon.file.read(), mime=True)
+        icon.file.seek(0)
+
+        if mime not in ALLOWED_ICON_MIME_TYPES:
+            err = "[MCPServiceManager] 不支持的图标格式"
+            raise ValueError(err)
+
+        # 保存图标
+        image = Image.open(icon.file)
+        image = image.convert("RGB")
+        image = image.resize((64, 64), resample=Image.Resampling.LANCZOS)
+        # 检查文件夹
+        if not await MCP_ICON_PATH.exists():
+            await MCP_ICON_PATH.mkdir(parents=True, exist_ok=True)
+        # 保存
+        image.save(MCP_ICON_PATH / f"{service_id}.png", format="PNG", optimize=True, compress_level=9)
+
+        return f"/static/mcp/{service_id}.png"

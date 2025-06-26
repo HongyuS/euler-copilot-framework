@@ -73,6 +73,10 @@ storage:
     path:
     # 语义接口存储大小，默认为5GB
     size:
+  # 共享存储
+  webAsset:
+    # 前后端共享存储大小，默认为10GB
+    size:
 
 euler_copilot:
   # 配置文件工具
