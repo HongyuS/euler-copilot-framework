@@ -13,13 +13,6 @@ from pydantic.json_schema import SkipJsonSchema
 from apps.common.security import Security
 from apps.llm.function import FunctionLLM
 from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.suggest.prompt import SUGGEST_PROMPT
-from apps.scheduler.call.suggest.schema import (
-    SingleFlowSuggestionConfig,
-    SuggestGenResult,
-    SuggestionInput,
-    SuggestionOutput,
-)
 from apps.schemas.enum_var import CallOutputType
 from apps.schemas.pool import NodePool
 from apps.schemas.record import RecordContent
@@ -31,6 +24,14 @@ from apps.schemas.scheduler import (
 )
 from apps.services.record import RecordManager
 from apps.services.user_domain import UserDomainManager
+
+from .prompt import SUGGEST_PROMPT
+from .schema import (
+    SingleFlowSuggestionConfig,
+    SuggestGenResult,
+    SuggestionInput,
+    SuggestionOutput,
+)
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor

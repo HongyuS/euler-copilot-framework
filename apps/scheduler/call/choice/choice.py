@@ -3,8 +3,9 @@
 
 from enum import Enum
 
-from apps.scheduler.call.choice.schema import ChoiceInput, ChoiceOutput
 from apps.scheduler.call.core import CoreCall
+
+from .schema import ChoiceInput, ChoiceOutput
 
 
 class Operator(str, Enum):

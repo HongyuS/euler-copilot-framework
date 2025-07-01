@@ -5,12 +5,12 @@ from typing import Any, Optional
 
 from pydantic import Field
 
-from apps.schemas.enum_var import AgentState
 from apps.llm.function import JsonGenerator
 from apps.llm.patterns import Select
 from apps.scheduler.mcp_agent.agent.react import ReActAgent
 from apps.scheduler.mcp_agent.schema import Function, Message, ToolCall
 from apps.scheduler.mcp_agent.tool import Terminate, ToolCollection
+from apps.schemas.enum_var import AgentState
 
 logger = logging.getLogger(__name__)
 

@@ -15,11 +15,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from rich.console import Console
 from rich.logging import RichHandler
 
-from apps.common.config import Config
-from apps.common.lance import LanceDB
-from apps.common.wordscheck import WordsCheck
-from apps.llm.token import TokenCalculator
-from apps.routers import (
+from .common.config import config
+from .common.lance import LanceDB
+from .common.postgres import postgres
+from .common.wordscheck import WordsCheck
+from .llm.token import TokenCalculator
+from .routers import (
     api_key,
     appcenter,
     auth,
@@ -37,14 +38,14 @@ from apps.routers import (
     service,
     user,
 )
-from apps.scheduler.pool.pool import Pool
+from .scheduler.pool.pool import Pool
 
 # 定义FastAPI app
 app = FastAPI(redoc_url=None)
 # 定义FastAPI全局中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[Config().get_config().fastapi.domain],
+    allow_origins=[config.fastapi.domain],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -84,6 +85,7 @@ logging.basicConfig(
 async def init_resources() -> None:
     """初始化必要资源"""
     WordsCheck()
+    await postgres.init()
     await LanceDB().init()
     await Pool.init()
     TokenCalculator()

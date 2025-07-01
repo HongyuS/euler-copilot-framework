@@ -7,18 +7,19 @@ import shutil
 from anyio import Path
 from fastapi.encoders import jsonable_encoder
 
-from apps.common.config import Config
+from apps.common.config import config
+from apps.common.mongo import MongoDB
+from apps.scheduler.pool.check import FileChecker
 from apps.schemas.agent import AgentAppMetadata
 from apps.schemas.enum_var import AppType
 from apps.schemas.flow import AppFlow, AppMetadata, MetadataType, Permission
 from apps.schemas.pool import AppPool
-from apps.common.mongo import MongoDB
-from apps.scheduler.pool.check import FileChecker
-from apps.scheduler.pool.loader.flow import FlowLoader
-from apps.scheduler.pool.loader.metadata import MetadataLoader
+
+from .flow import FlowLoader
+from .metadata import MetadataLoader
 
 logger = logging.getLogger(__name__)
-BASE_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "app"
+BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "app"
 
 
 class AppLoader:

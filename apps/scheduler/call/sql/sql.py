@@ -9,9 +9,8 @@ import httpx
 from fastapi import status
 from pydantic import Field
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.sql.schema import SQLInput, SQLOutput
 from apps.schemas.enum_var import CallOutputType
 from apps.schemas.scheduler import (
     CallError,
@@ -19,6 +18,8 @@ from apps.schemas.scheduler import (
     CallOutputChunk,
     CallVars,
 )
+
+from .schema import SQLInput, SQLOutput
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
             try:
                 async with httpx.AsyncClient() as client:
                     response = await client.post(
-                        Config().get_config().extra.sql_url + "/database/sql",
+                        config.extra.sql_url + "/database/sql",
                         headers=headers,
                         json=post_data,
                         timeout=60.0,
@@ -94,7 +95,7 @@ class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
             try:
                 async with httpx.AsyncClient() as client:
                     response = await client.post(
-                        Config().get_config().extra.sql_url + "/sql/execute",
+                        config.extra.sql_url + "/sql/execute",
                         headers=headers,
                         json={
                             "database_id": sql_dict["database_id"],

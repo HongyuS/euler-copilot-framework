@@ -9,10 +9,9 @@ import httpx
 from fastapi import status
 from pydantic import Field
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.rag.schema import RAGInput, RAGOutput, SearchMethod
 from apps.schemas.enum_var import CallOutputType
 from apps.schemas.scheduler import (
     CallError,
@@ -20,6 +19,8 @@ from apps.schemas.scheduler import (
     CallOutputChunk,
     CallVars,
 )
+
+from .schema import RAGInput, RAGOutput, SearchMethod
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
         self.tokens.input_tokens += question_obj.input_tokens
         self.tokens.output_tokens += question_obj.output_tokens
 
-        url = Config().get_config().rag.rag_service.rstrip("/") + "/chunk/search"
+        url = config.rag.rag_service.rstrip("/") + "/chunk/search"
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {data.session_id}",

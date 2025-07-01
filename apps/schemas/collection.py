@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.constants import NEW_CHAT
 from apps.templates.generate_llm_operator_config import llm_provider_dict
 
@@ -73,10 +73,10 @@ class LLM(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
     user_sub: str = Field(default="", description="用户ID")
     icon: str = Field(default=llm_provider_dict["ollama"]["icon"], description="图标")
-    openai_base_url: str = Field(default=Config().get_config().llm.endpoint)
-    openai_api_key: str = Field(default=Config().get_config().llm.key)
-    model_name: str = Field(default=Config().get_config().llm.model)
-    max_tokens: int | None = Field(default=Config().get_config().llm.max_tokens)
+    openai_base_url: str = Field(default=config.llm.endpoint)
+    openai_api_key: str = Field(default=config.llm.key)
+    model_name: str = Field(default=config.llm.model)
+    max_tokens: int | None = Field(default=config.llm.max_tokens)
     created_at: float = Field(default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3))
 
 
@@ -84,7 +84,7 @@ class LLMItem(BaseModel):
     """大模型信息"""
 
     llm_id: str = Field(default="empty")
-    model_name: str = Field(default=Config().get_config().llm.model)
+    model_name: str = Field(default=config.llm.model)
     icon: str = Field(default=llm_provider_dict["ollama"]["icon"])
 
 

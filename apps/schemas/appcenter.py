@@ -3,7 +3,7 @@
 
 from pydantic import BaseModel, Field
 
-from apps.schemas.enum_var import AppType, PermissionType
+from .enum_var import AppType, PermissionType
 
 
 class AppCenterCardItem(BaseModel):

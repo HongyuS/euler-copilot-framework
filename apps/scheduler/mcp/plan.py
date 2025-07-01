@@ -6,8 +6,9 @@ from jinja2.sandbox import SandboxedEnvironment
 
 from apps.llm.function import JsonGenerator
 from apps.llm.reasoning import ReasoningLLM
-from apps.scheduler.mcp.prompt import CREATE_PLAN, FINAL_ANSWER
 from apps.schemas.mcp import MCPPlan, MCPTool
+
+from .prompt import CREATE_PLAN, FINAL_ANSWER
 
 
 class MCPPlanner:

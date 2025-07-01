@@ -5,19 +5,20 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.schemas.appcenter import AppCenterCardItem, AppData
-from apps.schemas.collection import Blacklist, Document
-from apps.schemas.enum_var import DocumentStatus
-from apps.schemas.flow_topology import (
+from apps.templates.generate_llm_operator_config import llm_provider_dict
+
+from .appcenter import AppCenterCardItem, AppData
+from .collection import Blacklist, Document
+from .enum_var import DocumentStatus
+from .flow_topology import (
     FlowItem,
     NodeMetaDataItem,
     NodeServiceItem,
     PositionItem,
 )
-from apps.schemas.mcp import MCPInstallStatus, MCPTool, MCPType
-from apps.schemas.record import RecordData
-from apps.schemas.user import UserInfo
-from apps.templates.generate_llm_operator_config import llm_provider_dict
+from .mcp import MCPInstallStatus, MCPTool, MCPType
+from .record import RecordData
+from .user import UserInfo
 
 
 class ResponseData(BaseModel):

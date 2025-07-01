@@ -6,9 +6,10 @@ import logging
 from pydantic import BaseModel, Field
 
 from apps.llm.function import JsonGenerator
-from apps.llm.patterns.core import CorePattern
 from apps.llm.reasoning import ReasoningLLM
 from apps.llm.snippet import convert_context_to_prompt
+
+from .core import CorePattern
 
 logger = logging.getLogger(__name__)
 

@@ -3,7 +3,7 @@
 
 from pydantic import BaseModel
 
-from apps.schemas.response_data import ResponseData
+from .response_data import ResponseData
 
 
 class _GetAuthKeyMsg(BaseModel):

@@ -5,7 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.schemas.enum_var import EdgeType
+from .enum_var import EdgeType
 
 
 class NodeMetaDataItem(BaseModel):

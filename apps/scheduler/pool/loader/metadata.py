@@ -8,17 +8,17 @@ import yaml
 from anyio import Path
 from fastapi.encoders import jsonable_encoder
 
-from apps.common.config import Config
+from apps.common.config import config
+from apps.scheduler.util import yaml_str_presenter
 from apps.schemas.agent import AgentAppMetadata
 from apps.schemas.enum_var import AppType, MetadataType
 from apps.schemas.flow import (
     AppMetadata,
     ServiceMetadata,
 )
-from apps.scheduler.util import yaml_str_presenter
 
 logger = logging.getLogger(__name__)
-BASE_PATH = Path(Config().get_config().deploy.data_dir) / "semantics"
+BASE_PATH = Path(config.deploy.data_dir) / "semantics"
 
 
 class MetadataLoader:

@@ -7,8 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.schemas.enum_var import StepStatus
-from apps.schemas.flow import Step
+from .enum_var import StepStatus
+from .flow import Step
 
 
 class FlowStepHistory(BaseModel):

@@ -6,9 +6,9 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.schemas.appcenter import AppLink
-from apps.schemas.enum_var import AppType, CallType, PermissionType
-from apps.schemas.flow import AppFlow, Permission
+from .appcenter import AppLink
+from .enum_var import AppType, CallType, PermissionType
+from .flow import AppFlow, Permission
 
 
 class BaseData(BaseModel):

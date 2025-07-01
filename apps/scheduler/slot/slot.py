@@ -12,13 +12,13 @@ from jsonschema.exceptions import ValidationError
 from jsonschema.protocols import Validator
 from jsonschema.validators import extend
 
-from apps.scheduler.slot.parser import (
+from .parser import (
     SlotConstParser,
     SlotDateParser,
     SlotDefaultParser,
     SlotTimestampParser,
 )
-from apps.scheduler.slot.util import escape_path, patch_json
+from .util import escape_path, patch_json
 
 logger = logging.getLogger(__name__)
 

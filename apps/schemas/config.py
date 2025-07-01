@@ -77,6 +77,16 @@ class MongoDBConfig(BaseModel):
     database: str = Field(description="MongoDB数据库名")
 
 
+class PostgresConfig(BaseModel):
+    """Postgres配置"""
+
+    host: str = Field(description="Postgres主机名")
+    port: int = Field(description="Postgres端口号", default=5432)
+    user: str = Field(description="Postgres用户名")
+    password: str = Field(description="Postgres密码")
+    database: str = Field(description="Postgres数据库名")
+
+
 class LLMConfig(BaseModel):
     """LLM配置"""
 
@@ -130,6 +140,7 @@ class ConfigModel(BaseModel):
     fastapi: FastAPIConfig
     minio: MinioConfig
     mongodb: MongoDBConfig
+    postgres: PostgresConfig
     llm: LLMConfig
     function_call: FunctionCallConfig
     security: SecurityConfig

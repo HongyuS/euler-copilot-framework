@@ -5,8 +5,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.schemas.enum_var import CallOutputType
-from apps.schemas.task import FlowStepHistory
+from .enum_var import CallOutputType
+from .task import FlowStepHistory
 
 
 class CallInfo(BaseModel):

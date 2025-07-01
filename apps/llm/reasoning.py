@@ -8,10 +8,11 @@ from dataclasses import dataclass
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionChunk
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.constants import REASONING_BEGIN_TOKEN, REASONING_END_TOKEN
-from apps.llm.token import TokenCalculator
 from apps.schemas.config import LLMConfig
+
+from .token import TokenCalculator
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ class ReasoningLLM:
     def __init__(self, llm_config: LLMConfig | None = None) -> None:
         """判断配置文件里用了哪种大模型；初始化大模型客户端"""
         if not llm_config:
-            self._config: LLMConfig = Config().get_config().llm
+            self._config: LLMConfig = config.llm
             self._init_client()
         else:
             self._config: LLMConfig = llm_config
