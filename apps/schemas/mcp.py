@@ -118,7 +118,7 @@ class MCPToolSelectResult(BaseModel):
 class MCPPlanItem(BaseModel):
     """MCP 计划"""
 
-    plan: str = Field(description="计划内容")
+    content: str = Field(description="计划内容")
     tool: str = Field(description="工具名称")
     instruction: str = Field(description="工具指令")
 

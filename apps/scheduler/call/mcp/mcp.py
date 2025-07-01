@@ -96,7 +96,7 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
         # 输出计划
         plan_str = "\n\n"
         for plan_item in self._plan.plans:
-            plan_str += f"[+] {plan_item.plan}； {plan_item.tool}[{plan_item.instruction}]\n\n"
+            plan_str += f"[+] {plan_item.content}； {plan_item.tool}[{plan_item.instruction}]\n\n"
 
         yield self._create_output(
             f"[MCP] 计划生成完成：\n\n{plan_str}\n\n\n\n",
