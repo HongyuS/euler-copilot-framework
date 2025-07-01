@@ -10,5 +10,23 @@ data:
   .env-sql: |-
 {{ tpl (.Files.Get "configs/rag/.env-sql") . | indent 4}}
   copy-config.yaml: |-
-{{ tpl (.Files.Get "configs/rag/copy-config.yaml") . | indent 4}}
+    copy:
+      - from: /config/.env
+        to: /config-rw/.env
+        mode:
+          uid: 1001
+          gid: 1001
+          mode: "0o650"
+        secrets:
+          - /db-secrets
+          - /system-secrets
+      - from: /config/.env-sql
+        to: /config-rw/.env-sql
+        mode:
+          uid: 1001
+          gid: 1001
+          mode: "0o650"
+        secrets:
+          - /db-secrets
+          - /system-secrets
 {{- end -}}
