@@ -197,7 +197,7 @@ EVALUATE_PLAN = dedent(r"""
     ```json
     {
         "evaluation": "评估结果",
-        "plan": [
+        "plans": [
             {
                 "content": "改进后的计划内容",
                 "tool": "工具ID",
