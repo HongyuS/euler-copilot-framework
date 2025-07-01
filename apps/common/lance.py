@@ -4,8 +4,6 @@
 import lancedb
 from lancedb.index import HnswSq
 
-from apps.common.config import Config
-from apps.common.singleton import SingletonMeta
 from apps.models.vector import (
     CallPoolVector,
     FlowPoolVector,
@@ -13,6 +11,9 @@ from apps.models.vector import (
     ServicePoolVector,
 )
 from apps.schemas.mcp import MCPToolVector, MCPVector
+
+from .config import config
+from .singleton import SingletonMeta
 
 
 class LanceDB(metaclass=SingletonMeta):
@@ -27,7 +28,7 @@ class LanceDB(metaclass=SingletonMeta):
         :return: 无
         """
         self._engine = await lancedb.connect_async(
-            Config().get_config().deploy.data_dir.rstrip("/") + "/vectors",
+            config.deploy.data_dir.rstrip("/") + "/vectors",
         )
 
         # 创建表
@@ -72,7 +73,7 @@ class LanceDB(metaclass=SingletonMeta):
         :rtype: lancedb.AsyncTable
         """
         self._engine = await lancedb.connect_async(
-            Config().get_config().deploy.data_dir.rstrip("/") + "/vectors",
+            config.deploy.data_dir.rstrip("/") + "/vectors",
         )
         return await self._engine.open_table(table_name)
 

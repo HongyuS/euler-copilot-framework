@@ -6,7 +6,7 @@ import logging
 import httpx
 from fastapi import status
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.schemas.collection import Document
 from apps.schemas.rag_data import (
     RAGFileParseReq,
@@ -15,7 +15,7 @@ from apps.schemas.rag_data import (
 )
 
 logger = logging.getLogger(__name__)
-rag_host = Config().get_config().rag.rag_service
+rag_host = config.rag.rag_service
 _RAG_DOC_PARSE_URI = rag_host.rstrip("/") + "/doc/temporary/parser"
 _RAG_DOC_STATUS_URI = rag_host.rstrip("/") + "/doc/temporary/status"
 _RAG_DOC_DELETE_URI = rag_host.rstrip("/") + "/doc/temporary/delete"

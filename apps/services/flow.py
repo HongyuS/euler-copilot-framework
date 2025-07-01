@@ -19,7 +19,8 @@ from apps.schemas.flow_topology import (
     NodeServiceItem,
     PositionItem,
 )
-from apps.services.node import NodeManager
+
+from .node import NodeManager
 
 logger = logging.getLogger(__name__)
 

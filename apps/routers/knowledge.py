@@ -33,7 +33,7 @@ router = APIRouter(
 async def list_kb(
     user_sub: Annotated[str, Depends(get_user)],
     conversation_id: Annotated[str, Query(alias="conversationId")],
-    kb_id: Annotated[str, Query(alias="kbId")] = None,
+    kb_id: Annotated[str, Query(alias="kbId")] = "",
     kb_name: Annotated[str, Query(alias="kbName")] = "",
 ) -> JSONResponse:
     """获取当前用户的知识库ID"""

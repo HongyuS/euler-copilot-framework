@@ -5,11 +5,12 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from apps.common.config import Config
-from apps.common.mongo import MongoDB
-from apps.common.oidc_provider.authhub import AuthhubOIDCProvider
-from apps.common.oidc_provider.openeuler import OpenEulerOIDCProvider
 from apps.constants import OIDC_ACCESS_TOKEN_EXPIRE_TIME, OIDC_REFRESH_TOKEN_EXPIRE_TIME
+
+from .config import config
+from .mongo import MongoDB
+from .oidc_provider.authhub import AuthhubOIDCProvider
+from .oidc_provider.openeuler import OpenEulerOIDCProvider
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +20,12 @@ class OIDCProvider:
 
     def __init__(self) -> None:
         """初始化OIDC Provider"""
-        if Config().get_config().login.provider == "openeuler":
+        if config.login.provider == "openeuler":
             self.provider = OpenEulerOIDCProvider()
-        elif Config().get_config().login.provider == "authhub":
+        elif config.login.provider == "authhub":
             self.provider = AuthhubOIDCProvider()
         else:
-            err = f"[OIDC] 未知OIDC提供商: {Config().get_config().login.provider}"
+            err = f"[OIDC] 未知OIDC提供商: {config.login.provider}"
             logger.error(err)
             raise NotImplementedError(err)
 

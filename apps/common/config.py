@@ -2,30 +2,31 @@
 """配置文件处理模块"""
 
 import os
-from copy import deepcopy
 from pathlib import Path
+from typing import Self
 
 import toml
+from pydantic import ConfigDict
 
-from apps.common.singleton import SingletonMeta
 from apps.schemas.config import ConfigModel
 
 
-class Config(metaclass=SingletonMeta):
+class Config(ConfigModel):
     """配置文件读取和使用Class"""
 
-    _config: ConfigModel
+    model_config = ConfigDict(frozen=True)
 
-    def __init__(self) -> None:
+    @classmethod
+    def init_config(cls) -> Self:
         """读取配置文件；当PROD环境变量设置时，配置文件将在读取后删除"""
         config_file = os.getenv("CONFIG")
         if config_file is None:
             config_file = Path(__file__).parents[2] / "config" / "config.toml"
-        self._config = ConfigModel.model_validate(toml.load(config_file))
+        config = cls.model_validate(toml.load(config_file))
 
         if os.getenv("PROD"):
             Path(config_file).unlink()
 
-    def get_config(self) -> ConfigModel:
-        """获取配置文件内容"""
-        return deepcopy(self._config)
+        return config
+
+config = Config.init_config()

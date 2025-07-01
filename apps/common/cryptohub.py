@@ -3,7 +3,7 @@
 
 import hashlib
 
-from apps.common.security import Security
+from .security import Security
 
 
 class CryptoHub:

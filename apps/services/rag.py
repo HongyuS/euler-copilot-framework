@@ -8,7 +8,7 @@ from collections.abc import AsyncGenerator
 import httpx
 from fastapi import status
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.llm.reasoning import ReasoningLLM
 from apps.llm.token import TokenCalculator
@@ -75,7 +75,7 @@ class RAG:
     ) -> AsyncGenerator[str, None]:
         """获取RAG服务的结果"""
         session_id = await SessionManager.get_session_by_user_sub(user_sub)
-        url = Config().get_config().rag.rag_service.rstrip("/") + "/chunk/search"
+        url = config.rag.rag_service.rstrip("/") + "/chunk/search"
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {session_id}",

@@ -8,7 +8,7 @@ from typing import Any
 import yaml
 from anyio import Path
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.common.mongo import MongoDB
 from apps.exceptions import InstancePermissionError, ServiceIDError
 from apps.scheduler.openapi import ReducedOpenAPISpec
@@ -237,7 +237,7 @@ class ServiceCenterManager:
             msg = "Permission denied"
             raise InstancePermissionError(msg)
         service_path = (
-            Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id / "openapi" / "api.yaml"
+            Path(config.deploy.data_dir) / "semantics" / "service" / service_id / "openapi" / "api.yaml"
         )
         async with await service_path.open() as f:
             service_data = yaml.safe_load(await f.read())
@@ -267,7 +267,7 @@ class ServiceCenterManager:
             raise ServiceIDError(msg)
 
         metadata_path = (
-            Path(Config().get_config().deploy.data_dir) / "semantics" / "service" / service_id / "metadata.yaml"
+            Path(config.deploy.data_dir) / "semantics" / "service" / service_id / "metadata.yaml"
         )
         async with await metadata_path.open() as f:
             metadata_data = yaml.safe_load(await f.read())

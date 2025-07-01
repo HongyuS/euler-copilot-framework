@@ -7,12 +7,13 @@ from typing import Any
 import httpx
 from fastapi import status
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.common.mongo import MongoDB
 from apps.schemas.collection import KnowledgeBaseItem
 from apps.schemas.response_data import KnowledgeBaseItem as KnowledgeBaseItemResponse
 from apps.schemas.response_data import TeamKnowledgeBaseItem
-from apps.services.session import SessionManager
+
+from .session import SessionManager
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ class KnowledgeBaseManager:
         :return: 知识库列表
         """
         session_id = await SessionManager.get_session_by_user_sub(user_sub)
-        url = Config().get_config().rag.rag_service.rstrip("/")+"/kb"
+        url = config.rag.rag_service.rstrip("/")+"/kb"
         headers = {
             "Authorization": f"Bearer {session_id}",
             "Content-Type": "application/json",

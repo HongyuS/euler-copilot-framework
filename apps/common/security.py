@@ -9,7 +9,7 @@ import secrets
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from apps.common.config import Config
+from .config import config
 
 
 class Security:
@@ -23,7 +23,7 @@ class Security:
         :param plaintext: 待加密的字符串
         :return: 加密后的字符串和存放工作密钥的dict
         """
-        half_key1 = Config().get_config().security.half_key1
+        half_key1 = config.security.half_key1
         if half_key1 is None:
             err = "配置文件中未设置HALF_KEY1"
             raise ValueError(err)
@@ -66,13 +66,13 @@ class Security:
 
     @staticmethod
     def _get_root_key(half_key1: str) -> bytes:
-        half_key2 = Config().get_config().security.half_key2
+        half_key2 = config.security.half_key2
         if half_key2 is None:
             err = "配置文件中未设置HALF_KEY2"
             raise ValueError(err)
 
         key = (half_key1 + half_key2).encode("utf-8")
-        half_key3 = Config().get_config().security.half_key3.encode("utf-8")
+        half_key3 = config.security.half_key3.encode("utf-8")
         hash_key = hashlib.pbkdf2_hmac("sha256", key, half_key3, 10000)
         return binascii.hexlify(hash_key)[13:45]
 
