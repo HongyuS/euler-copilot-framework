@@ -3,11 +3,12 @@
 
 import logging
 
+from apps.common.mongo import MongoDB
 from apps.common.singleton import SingletonMeta
 from apps.constants import MCP_PATH
 from apps.schemas.mcp import MCPServerConfig, MCPType
-from apps.common.mongo import MongoDB
-from apps.scheduler.pool.mcp.client import MCPClient
+
+from .client import MCPClient
 
 logger = logging.getLogger(__name__)
 MCP_USER_PATH = MCP_PATH / "users"

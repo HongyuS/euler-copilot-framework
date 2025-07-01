@@ -8,9 +8,6 @@ from typing import Any
 import yaml
 from anyio import Path
 
-from apps.schemas.enum_var import ContentType, HTTPMethod
-from apps.schemas.node import APINode, APINodeInput, APINodeOutput
-from apps.schemas.pool import NodePool
 from apps.scheduler.openapi import (
     ReducedOpenAPIEndpoint,
     ReducedOpenAPISpec,
@@ -18,6 +15,9 @@ from apps.scheduler.openapi import (
 )
 from apps.scheduler.slot.slot import Slot
 from apps.scheduler.util import yaml_str_presenter
+from apps.schemas.enum_var import ContentType, HTTPMethod
+from apps.schemas.node import APINode, APINodeInput, APINodeOutput
+from apps.schemas.pool import NodePool
 
 logger = logging.getLogger(__name__)
 
@@ -201,12 +201,7 @@ class OpenAPILoader:
                 )
                 if node.override_input
                 else {},
-                override_output=node.override_output.model_dump(
-                    exclude_none=True,
-                    by_alias=True,
-                )
-                if node.override_output
-                else {},
+                override_output={},
                 known_params=node.known_params,
             )
             for node in api_nodes

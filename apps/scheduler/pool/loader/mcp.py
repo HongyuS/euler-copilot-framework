@@ -12,9 +12,14 @@ import asyncer
 from anyio import Path
 from sqids.sqids import Sqids
 
+from apps.common.lance import LanceDB
+from apps.common.mongo import MongoDB
 from apps.common.process_handler import ProcessHandler
 from apps.common.singleton import SingletonMeta
 from apps.constants import MCP_PATH
+from apps.llm.embedding import Embedding
+from apps.scheduler.pool.mcp.client import MCPClient
+from apps.scheduler.pool.mcp.install import install_npx, install_uvx
 from apps.schemas.mcp import (
     MCPCollection,
     MCPInstallStatus,
@@ -26,11 +31,6 @@ from apps.schemas.mcp import (
     MCPType,
     MCPVector,
 )
-from apps.llm.embedding import Embedding
-from apps.common.lance import LanceDB
-from apps.common.mongo import MongoDB
-from apps.scheduler.pool.mcp.client import MCPClient
-from apps.scheduler.pool.mcp.install import install_npx, install_uvx
 
 logger = logging.getLogger(__name__)
 sqids = Sqids(min_length=12)
@@ -91,7 +91,10 @@ class MCPLoader(metaclass=SingletonMeta):
         :param MCPServerConfig config: MCP配置
         :return: 无
         """
-        if isinstance(config.config, MCPServerStdioConfig):
+        if not config.config.auto_install:
+            print(f"[Installer] MCP模板无需安装: {mcp_id}")  # noqa: T201
+
+        elif isinstance(config.config, MCPServerStdioConfig):
             print(f"[Installer] Stdio方式的MCP模板，开始自动安装: {mcp_id}")  # noqa: T201
             if "uv" in config.config.command:
                 new_config = await install_uvx(mcp_id, config.config)
@@ -113,7 +116,7 @@ class MCPLoader(metaclass=SingletonMeta):
             await f.aclose()
 
         else:
-            print(f"[Installer] SSE方式的MCP模板，无需安装: {mcp_id}")  # noqa: T201
+            print(f"[Installer] SSE/StreamableHTTP方式的MCP模板，无需安装: {mcp_id}")  # noqa: T201
             config.config.auto_install = False
 
         print(f"[Installer] MCP模板安装成功: {mcp_id}")  # noqa: T201
@@ -136,12 +139,6 @@ class MCPLoader(metaclass=SingletonMeta):
         # 检查目录
         template_path = MCP_PATH / "template" / mcp_id
         await Path.mkdir(template_path, parents=True, exist_ok=True)
-
-        # 跳过自动安装
-        if not config.config.auto_install:
-            logger.info("[MCPLoader] autoInstall为False，跳过自动安装: %s", mcp_id)
-            await MCPLoader.update_template_status(mcp_id, MCPInstallStatus.READY)
-            return
 
         # 安装MCP模板
         if not ProcessHandler.add_task(mcp_id, MCPLoader._install_template_task, mcp_id, config):
