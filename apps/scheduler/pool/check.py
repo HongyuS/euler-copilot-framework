@@ -6,7 +6,7 @@ from hashlib import sha256
 
 from anyio import Path
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.common.mongo import MongoDB
 from apps.schemas.enum_var import MetadataType
 
@@ -19,7 +19,7 @@ class FileChecker:
     def __init__(self) -> None:
         """初始化文件检查器"""
         self.hashes = {}
-        self._dir_path = Path(Config().get_config().deploy.data_dir) / "semantics"
+        self._dir_path = Path(config.deploy.data_dir) / "semantics"
 
     async def check_one(self, path: Path) -> dict[str, str]:
         """检查单个App/Service文件是否有变动"""
@@ -44,7 +44,7 @@ class FileChecker:
     async def diff_one(self, path: Path, previous_hashes: dict[str, str] | None = None) -> bool:
         """检查文件是否发生变化"""
         self._resource_path = path
-        semantics_path = Path(Config().get_config().deploy.data_dir) / "semantics"
+        semantics_path = Path(config.deploy.data_dir) / "semantics"
         path_diff = self._resource_path.relative_to(semantics_path)
         self.hashes[path_diff.as_posix()] = await self.check_one(path)
         return self.hashes[path_diff.as_posix()] != previous_hashes
@@ -54,10 +54,10 @@ class FileChecker:
         """生成更新列表和删除列表"""
         if check_type == MetadataType.APP:
             collection = MongoDB().get_collection("app")
-            self._dir_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "app"
+            self._dir_path = Path(config.deploy.data_dir) / "semantics" / "app"
         elif check_type == MetadataType.SERVICE:
             collection = MongoDB().get_collection("service")
-            self._dir_path = Path(Config().get_config().deploy.data_dir) / "semantics" / "service"
+            self._dir_path = Path(config.deploy.data_dir) / "semantics" / "service"
 
         changed_list = []
         deleted_list = []

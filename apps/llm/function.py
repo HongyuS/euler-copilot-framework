@@ -11,9 +11,10 @@ from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 from jsonschema import Draft7Validator
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.constants import JSON_GEN_MAX_TRIAL, REASONING_END_TOKEN
-from apps.llm.prompt import JSON_GEN_BASIC
+
+from .prompt import JSON_GEN_BASIC
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class FunctionLLM:
         - structured_output
         """
         # 暂存config；这里可以替代为从其他位置获取
-        self._config = Config().get_config().function_call
+        self._config = config.function_call
         if not self._config.model:
             err_msg = "[FunctionCall] 未设置FuntionCall所用模型！"
             logger.error(err_msg)
@@ -258,7 +259,7 @@ class JsonGenerator:
     async def _assemble_message(self) -> str:
         """组装消息"""
         # 检查类型
-        function_call = Config().get_config().function_call.backend == "function_call"
+        function_call = config.function_call.backend == "function_call"
 
         # 渲染模板
         template = self._env.from_string(JSON_GEN_BASIC)

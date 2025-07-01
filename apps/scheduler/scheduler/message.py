@@ -5,7 +5,7 @@ import logging
 from datetime import UTC, datetime
 from textwrap import dedent
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.common.queue import MessageQueue
 from apps.schemas.collection import LLM, Document
 from apps.schemas.enum_var import EventType
@@ -31,14 +31,14 @@ async def push_init_message(
     # 组装feature
     if is_flow:
         feature = InitContentFeature(
-            maxTokens=Config().get_config().llm.max_tokens or 0,
+            maxTokens=config.llm.max_tokens or 0,
             contextNum=context_num,
             enableFeedback=False,
             enableRegenerate=False,
         )
     else:
         feature = InitContentFeature(
-            maxTokens=Config().get_config().llm.max_tokens or 0,
+            maxTokens=config.llm.max_tokens or 0,
             contextNum=context_num,
             enableFeedback=True,
             enableRegenerate=True,

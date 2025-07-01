@@ -1,5 +1,5 @@
 """用于执行智能问答的Executor"""
-from apps.scheduler.executor.base import BaseExecutor
+from .base import BaseExecutor
 
 
 class QAExecutor(BaseExecutor):

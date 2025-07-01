@@ -13,8 +13,6 @@ from pydantic import Field
 
 from apps.llm.reasoning import ReasoningLLM
 from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.llm.prompt import LLM_CONTEXT_PROMPT, LLM_DEFAULT_PROMPT
-from apps.scheduler.call.llm.schema import LLMInput, LLMOutput
 from apps.schemas.enum_var import CallOutputType
 from apps.schemas.scheduler import (
     CallError,
@@ -22,6 +20,9 @@ from apps.schemas.scheduler import (
     CallOutputChunk,
     CallVars,
 )
+
+from .prompt import LLM_CONTEXT_PROMPT, LLM_DEFAULT_PROMPT
+from .schema import LLMInput, LLMOutput
 
 logger = logging.getLogger(__name__)
 

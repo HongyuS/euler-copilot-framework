@@ -1,8 +1,9 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """规划生成命令行"""
 
-from apps.llm.patterns.core import CorePattern
 from apps.llm.reasoning import ReasoningLLM
+
+from .core import CorePattern
 
 
 class InitPlan(CorePattern):

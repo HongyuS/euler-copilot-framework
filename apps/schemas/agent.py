@@ -3,11 +3,11 @@
 
 from pydantic import Field
 
-from apps.schemas.enum_var import (
+from .enum_var import (
     AppType,
     MetadataType,
 )
-from apps.schemas.flow import MetadataBase, Permission
+from .flow import MetadataBase, Permission
 
 
 class AgentAppMetadata(MetadataBase):

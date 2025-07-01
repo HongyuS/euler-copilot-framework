@@ -16,7 +16,6 @@ from apps.scheduler.call.facts.facts import FactsCall
 from apps.scheduler.call.slot.schema import SlotOutput
 from apps.scheduler.call.slot.slot import Slot
 from apps.scheduler.call.summary.summary import Summary
-from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.pool.pool import Pool
 from apps.schemas.enum_var import (
     EventType,
@@ -27,6 +26,8 @@ from apps.schemas.message import TextAddContent
 from apps.schemas.scheduler import CallError, CallOutputChunk
 from apps.schemas.task import FlowStepHistory, StepQueueItem
 from apps.services.node import NodeManager
+
+from .base import BaseExecutor
 
 logger = logging.getLogger(__name__)
 

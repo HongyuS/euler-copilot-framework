@@ -4,8 +4,9 @@ import logging
 from pydantic import Field
 
 from apps.scheduler.mcp.host import MCPHost
-from apps.scheduler.mcp_agent.agent.toolcall import ToolCallAgent
 from apps.scheduler.mcp_agent.tool import Terminate, ToolCollection
+
+from .toolcall import ToolCallAgent
 
 logger = logging.getLogger(__name__)
 

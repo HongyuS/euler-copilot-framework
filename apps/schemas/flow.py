@@ -5,14 +5,14 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.schemas.appcenter import AppLink
-from apps.schemas.enum_var import (
+from .appcenter import AppLink
+from .enum_var import (
     AppType,
     EdgeType,
     MetadataType,
     PermissionType,
 )
-from apps.schemas.flow_topology import PositionItem
+from .flow_topology import PositionItem
 
 
 class Edge(BaseModel):

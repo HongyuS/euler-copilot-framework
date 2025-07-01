@@ -3,9 +3,10 @@
 
 from typing import TYPE_CHECKING, Any
 
-from apps.llm.patterns.core import CorePattern
 from apps.llm.reasoning import ReasoningLLM
 from apps.llm.snippet import convert_context_to_prompt, facts_to_prompt
+
+from .core import CorePattern
 
 if TYPE_CHECKING:
     from apps.schemas.scheduler import ExecutorBackground

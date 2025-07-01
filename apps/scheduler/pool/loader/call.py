@@ -9,17 +9,17 @@ from hashlib import shake_128
 from pathlib import Path
 
 import apps.scheduler.call as system_call
-from apps.common.config import Config
-from apps.common.singleton import SingletonMeta
-from apps.schemas.enum_var import CallType
-from apps.schemas.pool import CallPool, NodePool
-from apps.models.vector import CallPoolVector
-from apps.llm.embedding import Embedding
+from apps.common.config import config
 from apps.common.lance import LanceDB
 from apps.common.mongo import MongoDB
+from apps.common.singleton import SingletonMeta
+from apps.llm.embedding import Embedding
+from apps.models.vector import CallPoolVector
+from apps.schemas.enum_var import CallType
+from apps.schemas.pool import CallPool, NodePool
 
 logger = logging.getLogger(__name__)
-BASE_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "call"
+BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "call"
 
 
 class CallLoader(metaclass=SingletonMeta):

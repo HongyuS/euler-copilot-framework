@@ -4,7 +4,7 @@
 import logging
 from datetime import UTC, datetime
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.common.mongo import MongoDB
 from apps.common.queue import MessageQueue
 from apps.scheduler.executor.agent import MCPAgentExecutor
@@ -60,10 +60,10 @@ class Scheduler:
                 llm = LLM(
                     _id="empty",
                     user_sub=self.task.ids.user_sub,
-                    openai_base_url=Config().get_config().llm.endpoint,
-                    openai_api_key=Config().get_config().llm.key,
-                    model_name=Config().get_config().llm.model,
-                    max_tokens=Config().get_config().llm.max_tokens,
+                    openai_base_url=config.llm.endpoint,
+                    openai_api_key=config.llm.key,
+                    model_name=config.llm.model,
+                    max_tokens=config.llm.max_tokens,
                 )
             else:
                 llm = await LLMManager.get_llm_by_id(self.task.ids.user_sub, llm_id)

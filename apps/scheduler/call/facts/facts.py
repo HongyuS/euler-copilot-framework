@@ -9,17 +9,18 @@ from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
 from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.facts.prompt import DOMAIN_PROMPT, FACTS_PROMPT
-from apps.scheduler.call.facts.schema import (
+from apps.schemas.enum_var import CallOutputType
+from apps.schemas.pool import NodePool
+from apps.schemas.scheduler import CallInfo, CallOutputChunk, CallVars
+from apps.services.user_domain import UserDomainManager
+
+from .prompt import DOMAIN_PROMPT, FACTS_PROMPT
+from .schema import (
     DomainGen,
     FactsGen,
     FactsInput,
     FactsOutput,
 )
-from apps.schemas.enum_var import CallOutputType
-from apps.schemas.pool import NodePool
-from apps.schemas.scheduler import CallInfo, CallOutputChunk, CallVars
-from apps.services.user_domain import UserDomainManager
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor

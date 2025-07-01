@@ -8,19 +8,20 @@ import shutil
 from anyio import Path
 from fastapi.encoders import jsonable_encoder
 
-from apps.common.config import Config
-from apps.schemas.flow import Permission, ServiceMetadata
-from apps.schemas.pool import NodePool, ServicePool
-from apps.models.vector import NodePoolVector, ServicePoolVector
-from apps.llm.embedding import Embedding
+from apps.common.config import config
 from apps.common.lance import LanceDB
 from apps.common.mongo import MongoDB
+from apps.llm.embedding import Embedding
+from apps.models.vector import NodePoolVector, ServicePoolVector
 from apps.scheduler.pool.check import FileChecker
-from apps.scheduler.pool.loader.metadata import MetadataLoader, MetadataType
-from apps.scheduler.pool.loader.openapi import OpenAPILoader
+from apps.schemas.flow import Permission, ServiceMetadata
+from apps.schemas.pool import NodePool, ServicePool
+
+from .metadata import MetadataLoader, MetadataType
+from .openapi import OpenAPILoader
 
 logger = logging.getLogger(__name__)
-BASE_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "service"
+BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "service"
 
 
 class ServiceLoader:

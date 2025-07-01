@@ -12,12 +12,13 @@ from pydantic import Field
 from apps.llm.function import FunctionLLM, JsonGenerator
 from apps.llm.reasoning import ReasoningLLM
 from apps.scheduler.call.core import CoreCall
-from apps.scheduler.call.slot.prompt import SLOT_GEN_PROMPT
-from apps.scheduler.call.slot.schema import SlotInput, SlotOutput
 from apps.scheduler.slot.slot import Slot as SlotProcessor
 from apps.schemas.enum_var import CallOutputType
 from apps.schemas.pool import NodePool
 from apps.schemas.scheduler import CallInfo, CallOutputChunk, CallVars
+
+from .prompt import SLOT_GEN_PROMPT
+from .schema import SlotInput, SlotOutput
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor

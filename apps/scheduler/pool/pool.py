@@ -7,19 +7,20 @@ from typing import Any
 
 from anyio import Path
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.common.mongo import MongoDB
-from apps.scheduler.pool.check import FileChecker
-from apps.scheduler.pool.loader import (
+from apps.schemas.enum_var import MetadataType
+from apps.schemas.flow import Flow
+from apps.schemas.pool import AppFlow, CallPool
+
+from .check import FileChecker
+from .loader import (
     AppLoader,
     CallLoader,
     FlowLoader,
     MCPLoader,
     ServiceLoader,
 )
-from apps.schemas.enum_var import MetadataType
-from apps.schemas.flow import Flow
-from apps.schemas.pool import AppFlow, CallPool
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ class Pool:
 
         :return: 无
         """
-        root_dir = Config().get_config().deploy.data_dir.rstrip("/") + "/semantics/"
+        root_dir = config.deploy.data_dir.rstrip("/") + "/semantics/"
         if not await Path(root_dir + "app").exists() or not await Path(root_dir + "app").is_dir():
             logger.warning("[Pool] App目录%s不存在，创建中", root_dir + "app")
             await Path(root_dir + "app").unlink(missing_ok=True)

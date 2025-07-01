@@ -2,10 +2,11 @@ from abc import ABC, abstractmethod
 
 from pydantic import Field
 
-from apps.schemas.enum_var import AgentState
 from apps.llm.reasoning import ReasoningLLM
-from apps.scheduler.mcp_agent.agent.base import BaseAgent
 from apps.scheduler.mcp_agent.schema import Memory
+from apps.schemas.enum_var import AgentState
+
+from .base import BaseAgent
 
 
 class ReActAgent(BaseAgent, ABC):

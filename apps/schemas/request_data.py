@@ -5,11 +5,12 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.common.config import Config
-from apps.schemas.appcenter import AppData
-from apps.schemas.enum_var import CommentType
-from apps.schemas.flow_topology import FlowItem
-from apps.schemas.mcp import MCPType
+from apps.common.config import config
+
+from .appcenter import AppData
+from .enum_var import CommentType
+from .flow_topology import FlowItem
+from .mcp import MCPType
 
 
 class RequestDataApp(BaseModel):
@@ -32,7 +33,7 @@ class MockRequestData(BaseModel):
 class RequestDataFeatures(BaseModel):
     """POST /api/chat的features字段数据"""
 
-    max_tokens: int | None = Field(default=Config().get_config().llm.max_tokens, description="最大生成token数")
+    max_tokens: int | None = Field(default=config.llm.max_tokens, description="最大生成token数")
     context_num: int = Field(default=5, description="上下文消息数量", le=10, ge=0)
 
 

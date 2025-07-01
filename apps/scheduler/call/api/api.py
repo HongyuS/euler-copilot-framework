@@ -13,7 +13,6 @@ from pydantic import Field
 from pydantic.json_schema import SkipJsonSchema
 
 from apps.common.oidc import oidc_provider
-from apps.scheduler.call.api.schema import APIInput, APIOutput
 from apps.scheduler.call.core import CoreCall
 from apps.schemas.enum_var import CallOutputType, ContentType, HTTPMethod
 from apps.schemas.scheduler import (
@@ -24,6 +23,8 @@ from apps.schemas.scheduler import (
 )
 from apps.services.service import ServiceCenterManager
 from apps.services.token import TokenManager
+
+from .schema import APIInput, APIOutput
 
 logger = logging.getLogger(__name__)
 SUCCESS_HTTP_CODES = [

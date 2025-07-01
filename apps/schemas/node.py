@@ -5,7 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.schemas.pool import NodePool
+from .pool import NodePool
 
 
 class APINodeInput(BaseModel):

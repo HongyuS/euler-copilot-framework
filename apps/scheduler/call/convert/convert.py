@@ -3,21 +3,21 @@
 
 from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import Any
 
 import pytz
 from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
-from apps.scheduler.call.convert.schema import ConvertInput, ConvertOutput
-from apps.scheduler.call.core import CallOutputChunk, CoreCall
+from apps.scheduler.call.core import CoreCall
 from apps.schemas.enum_var import CallOutputType
 from apps.schemas.scheduler import (
     CallInfo,
     CallOutputChunk,
     CallVars,
 )
+
+from .schema import ConvertInput, ConvertOutput
 
 
 class Convert(CoreCall, input_model=ConvertInput, output_model=ConvertOutput):

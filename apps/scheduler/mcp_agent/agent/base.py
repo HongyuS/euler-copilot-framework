@@ -6,10 +6,10 @@ from contextlib import asynccontextmanager
 from pydantic import BaseModel, Field, model_validator
 
 from apps.common.queue import MessageQueue
-from apps.schemas.enum_var import AgentState
-from apps.schemas.task import Task
 from apps.llm.reasoning import ReasoningLLM
 from apps.scheduler.mcp_agent.schema import Memory, Message, Role
+from apps.schemas.enum_var import AgentState
+from apps.schemas.task import Task
 from apps.services.activity import Activity
 
 logger = logging.getLogger(__name__)

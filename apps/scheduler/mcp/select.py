@@ -11,14 +11,13 @@ from apps.common.mongo import MongoDB
 from apps.llm.embedding import Embedding
 from apps.llm.function import FunctionLLM
 from apps.llm.reasoning import ReasoningLLM
-from apps.scheduler.mcp.prompt import (
-    MCP_SELECT,
-)
 from apps.schemas.mcp import (
     MCPCollection,
     MCPSelectResult,
     MCPTool,
 )
+
+from .prompt import MCP_SELECT
 
 logger = logging.getLogger(__name__)
 

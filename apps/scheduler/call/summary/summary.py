@@ -8,7 +8,6 @@ from pydantic import Field
 
 from apps.llm.patterns.executor import ExecutorSummary
 from apps.scheduler.call.core import CoreCall, DataBase
-from apps.scheduler.call.summary.schema import SummaryOutput
 from apps.schemas.enum_var import CallOutputType
 from apps.schemas.pool import NodePool
 from apps.schemas.scheduler import (
@@ -17,6 +16,8 @@ from apps.schemas.scheduler import (
     CallVars,
     ExecutorBackground,
 )
+
+from .schema import SummaryOutput
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor

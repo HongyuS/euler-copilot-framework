@@ -1,7 +1,6 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Flow加载器"""
 
-import asyncio
 import logging
 from hashlib import sha256
 from typing import Any
@@ -10,19 +9,20 @@ import aiofiles
 import yaml
 from anyio import Path
 
-from apps.common.config import Config
+from apps.common.config import config
+from apps.common.mongo import MongoDB
+from apps.llm.embedding import Embedding
+from apps.scheduler.util import yaml_enum_presenter, yaml_str_presenter
 from apps.schemas.enum_var import EdgeType
 from apps.schemas.flow import AppFlow, Flow
 from apps.schemas.pool import AppPool
 from apps.models.vector import FlowPoolVector
-from apps.llm.embedding import Embedding
 from apps.services.node import NodeManager
 from apps.common.lance import LanceDB
-from apps.common.mongo import MongoDB
-from apps.scheduler.util import yaml_enum_presenter, yaml_str_presenter
 
 logger = logging.getLogger(__name__)
-BASE_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "app"
+BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "app"
+
 
 class FlowLoader:
     """工作流加载器"""
@@ -190,7 +190,7 @@ class FlowLoader:
         logger.warning("[FlowLoader] 工作流文件不存在或不是文件：%s", flow_path)
         return True
 
-    async def _update_db(self, app_id: str, metadata: AppFlow) -> None:  # noqa: C901
+    async def _update_db(self, app_id: str, metadata: AppFlow) -> None:
         """更新数据库"""
         try:
             app_collection = MongoDB().get_collection("app")

@@ -5,8 +5,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.schemas.enum_var import EventType, StepStatus
-from apps.schemas.record import RecordMetadata
+from .enum_var import EventType, StepStatus
+from .record import RecordMetadata
 
 
 class HeartbeatData(BaseModel):
