@@ -108,7 +108,7 @@ class MCPHost:
             step_id=tool.name,
             step_name=tool.name,
             # description是规划的实际内容
-            step_description=plan_item.plan,
+            step_description=plan_item.content,
             status=StepStatus.SUCCESS,
             input_data=input_data,
             output_data=output_data,
