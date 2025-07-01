@@ -17,8 +17,9 @@ from apps.schemas.enum_var import AppFilterType, AppType, PermissionType
 from apps.schemas.flow import AppMetadata, MetadataType, Permission
 from apps.schemas.pool import AppPool
 from apps.schemas.response_data import RecentAppList, RecentAppListItem
-from apps.services.flow import FlowManager
-from apps.services.mcp_service import MCPServiceManager
+
+from .flow import FlowManager
+from .mcp_service import MCPServiceManager
 
 logger = logging.getLogger(__name__)
 

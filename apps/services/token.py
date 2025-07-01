@@ -7,12 +7,13 @@ from datetime import UTC, datetime, timedelta
 import httpx
 from fastapi import status
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.common.mongo import MongoDB
 from apps.common.oidc import oidc_provider
 from apps.constants import OIDC_ACCESS_TOKEN_EXPIRE_TIME
 from apps.schemas.config import OIDCConfig
-from apps.services.session import SessionManager
+
+from .session import SessionManager
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ class TokenManager:
     @staticmethod
     def _get_login_config() -> OIDCConfig:
         """获取并验证登录配置"""
-        login_config = Config().get_config().login.settings
+        login_config = config.login.settings
         if not isinstance(login_config, OIDCConfig):
             err = "Authhub OIDC配置错误"
             raise TypeError(err)

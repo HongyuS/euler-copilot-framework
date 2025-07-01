@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from pymongo.asynchronous.client_session import AsyncClientSession
     from pymongo.asynchronous.collection import AsyncCollection
 
-from apps.common.config import Config
+from .config import config
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class MongoDB:
         from pymongo import AsyncMongoClient
 
         self._client = AsyncMongoClient(
-            f"mongodb://{urllib.parse.quote_plus(Config().get_config().mongodb.user)}:{urllib.parse.quote_plus(Config().get_config().mongodb.password)}@{Config().get_config().mongodb.host}:{Config().get_config().mongodb.port}/?directConnection=true&replicaSet=rs0",
+            f"mongodb://{urllib.parse.quote_plus(config.mongodb.user)}:{urllib.parse.quote_plus(config.mongodb.password)}@{config.mongodb.host}:{config.mongodb.port}/?directConnection=true&replicaSet=rs0",
         )
 
 
@@ -34,7 +34,7 @@ class MongoDB:
         :return: 集合对象
         :rtype: AsyncCollection
         """
-        return self._client[Config().get_config().mongodb.database][collection_name]
+        return self._client[config.mongodb.database][collection_name]
 
 
     async def clear_collection(self, collection_name: str) -> None:
@@ -44,7 +44,7 @@ class MongoDB:
         :param str collection_name: 集合名称
         :return: 无
         """
-        await self._client[Config().get_config().mongodb.database][collection_name].delete_many({})
+        await self._client[config.mongodb.database][collection_name].delete_many({})
 
 
     def get_session(self) -> "AsyncClientSession":

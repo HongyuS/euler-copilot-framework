@@ -3,7 +3,7 @@
 
 import logging
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.common.mongo import MongoDB
 from apps.schemas.collection import LLM, LLMItem
 from apps.schemas.request_data import (
@@ -89,10 +89,10 @@ class LLMManager:
         llm_item = LLMProviderInfo(
             llmId="empty",
             icon=llm_provider_dict["ollama"]["icon"],
-            openaiBaseUrl=Config().get_config().llm.endpoint,
-            openaiApiKey=Config().get_config().llm.key,
-            modelName=Config().get_config().llm.model,
-            maxTokens=Config().get_config().llm.max_tokens,
+            openaiBaseUrl=config.llm.endpoint,
+            openaiApiKey=config.llm.key,
+            modelName=config.llm.model,
+            maxTokens=config.llm.max_tokens,
             isEditable=False,
         )
         llm_list = [llm_item]
@@ -173,7 +173,7 @@ class LLMManager:
                 {"$set": {"llm": {
                     "llm_id": "empty",
                     "icon": llm_provider_dict["ollama"]["icon"],
-                    "model_name": Config().get_config().llm.model,
+                    "model_name": config.llm.model,
                 }}},
             )
 
@@ -210,7 +210,7 @@ class LLMManager:
         else:
             llm_dict = {
                 "llm_id": "empty",
-                "model_name": Config().get_config().llm.model,
+                "model_name": config.llm.model,
                 "icon": llm_provider_dict["ollama"]["icon"],
             }
         conv_dict = await conv_collection.find_one({"_id": conversation_id, "user_sub": user_sub})

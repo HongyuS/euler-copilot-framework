@@ -15,8 +15,9 @@ from apps.schemas.collection import (
     Document,
 )
 from apps.schemas.record import RecordDocument, RecordGroup, RecordGroupDocument
-from apps.services.knowledge_base import KnowledgeBaseService
-from apps.services.session import SessionManager
+
+from .knowledge_base import KnowledgeBaseService
+from .session import SessionManager
 
 logger = logging.getLogger(__name__)
 

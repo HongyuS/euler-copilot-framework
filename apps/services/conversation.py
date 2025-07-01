@@ -6,13 +6,14 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.common.mongo import MongoDB
 from apps.schemas.collection import Conversation, KnowledgeBaseItem, LLMItem
-from apps.services.knowledge import KnowledgeBaseManager
-from apps.services.llm import LLMManager
-from apps.services.task import TaskManager
 from apps.templates.generate_llm_operator_config import llm_provider_dict
+
+from .knowledge import KnowledgeBaseManager
+from .llm import LLMManager
+from .task import TaskManager
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class ConversationManager:
         if llm_id == "empty":
             llm_item = LLMItem(
                 llm_id="empty",
-                model_name=Config().get_config().llm.model,
+                model_name=config.llm.model,
                 icon=llm_provider_dict["ollama"]["icon"],
             )
         else:

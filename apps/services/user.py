@@ -6,7 +6,8 @@ from datetime import UTC, datetime
 
 from apps.common.mongo import MongoDB
 from apps.schemas.collection import User
-from apps.services.conversation import ConversationManager
+
+from .conversation import ConversationManager
 
 logger = logging.getLogger(__name__)
 

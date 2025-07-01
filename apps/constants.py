@@ -6,7 +6,7 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 
 from anyio import Path
 
-from apps.common.config import Config
+from .common.config import config
 
 # 新对话默认标题
 NEW_CHAT = "新对话"
@@ -48,7 +48,7 @@ ALLOWED_ICON_MIME_TYPES = [
     "image/tiff",
 ]
 # MCP路径
-MCP_PATH = Path(Config().get_config().deploy.data_dir) / "semantics" / "mcp"
+MCP_PATH = Path(config.deploy.data_dir) / "semantics" / "mcp"
 # 项目路径
 PROJ_PATH = Path(__file__).parent.parent
 # 图标存储

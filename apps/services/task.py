@@ -14,7 +14,8 @@ from apps.schemas.task import (
     TaskRuntime,
     TaskTokens,
 )
-from apps.services.record import RecordManager
+
+from .record import RecordManager
 
 logger = logging.getLogger(__name__)
 

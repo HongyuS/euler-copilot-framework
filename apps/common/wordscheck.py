@@ -4,8 +4,8 @@
 import logging
 from pathlib import Path
 
-from apps.common.config import Config
-from apps.common.singleton import SingletonMeta
+from .config import config
+from .singleton import SingletonMeta
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,8 @@ class WordsCheck(metaclass=SingletonMeta):
 
     def _init_words_list(self) -> None:
         """同步初始化敏感词列表"""
-        if not self._initialized and Config().get_config().check.enable:
-            with Path(Config().get_config().check.words_list).open(encoding="utf-8") as f:
+        if not self._initialized and config.check.enable:
+            with Path(config.check.words_list).open(encoding="utf-8") as f:
                 self._words_list = f.read().splitlines()
             self._initialized = True
 
@@ -40,7 +40,7 @@ class WordsCheck(metaclass=SingletonMeta):
 
         异常-1，拦截0，正常1
         """
-        if Config().get_config().check.enable:
+        if config.check.enable:
             return await self._check_wordlist(message)
         # 不设置检查类型，默认不拦截
         return 1

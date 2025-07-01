@@ -5,13 +5,14 @@ import logging
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from apps.common.config import Config
+from apps.common.config import config
 from apps.common.mongo import MongoDB
 from apps.constants import SESSION_TTL
 from apps.exceptions import LoginSettingsError
 from apps.schemas.config import FixedUserConfig
 from apps.schemas.session import Session
-from apps.services.blacklist import UserBlacklistManager
+
+from .blacklist import UserBlacklistManager
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +33,8 @@ class SessionManager:
             ip=ip,
             expired_at=datetime.now(UTC) + timedelta(minutes=SESSION_TTL),
         )
-        if Config().get_config().login.provider == "disable":
-            login_settings = Config().get_config().login.settings
+        if config.login.provider == "disable":
+            login_settings = config.login.settings
             if not isinstance(login_settings, FixedUserConfig):
                 err = "固定用户配置错误！"
                 raise LoginSettingsError(err)
