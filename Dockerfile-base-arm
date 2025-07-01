@@ -1,6 +1,6 @@
-FROM hub.oepkgs.net/openeuler/openeuler:24.03-lts-sp1
+FROM hub.oepkgs.net/openeuler/openeuler:24.03-lts-sp2
 
-COPY --from=ghcr.io/astral-sh/uv:0.6.10 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.7.17 /uv /uvx /bin/
 
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
@@ -8,7 +8,7 @@ ENV UV_LINK_MODE=copy
 # 使用ARM专用的华为云镜像源
 RUN sed -i 's|repo.openeuler.org|repo.huaweicloud.com/openeuler|g' /etc/yum.repos.d/openEuler.repo && \
     sed -i 's|$basearch/aarch64|aarch64|g' /etc/yum.repos.d/openEuler.repo && \
-    sed -i 's|$releasever|24.03-LTS-SP1|g' /etc/yum.repos.d/openEuler.repo && \
+    sed -i 's|$releasever|24.03-LTS-SP2|g' /etc/yum.repos.d/openEuler.repo && \
     sed -i '/metalink/d' /etc/yum.repos.d/openEuler.repo && \
     sed -i '/metadata_expire/d' /etc/yum.repos.d/openEuler.repo && \
     yum clean all && \

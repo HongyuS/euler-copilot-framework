@@ -8,5 +8,5 @@ Dockerfile
 .gitignore
 .git/
 docs/
-docs_for_openEuler/
+documents/
 .DS_Store
