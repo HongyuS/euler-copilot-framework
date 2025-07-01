@@ -84,7 +84,7 @@ detect_architecture() {
 delete_image() {
     local image=$1
     echo -e "${YELLOW}正在删除镜像: $image${NC}"
-    if sudo ctr -n=k8s.io images rm "$image"; then
+    if sudo k3s ctr -n=k8s.io images rm "$image"; then
         echo -e "${GREEN} 删除成功${NC}"
     else
         echo -e "${RED} 删除失败${NC}"
@@ -109,7 +109,7 @@ import_single_image() {
         exit 1
     fi
 
-    if sudo ctr -n=k8s.io images import "$file"; then
+    if sudo k3s ctr -n=k8s.io images import "$file"; then
         echo -e "${GREEN} 导入成功${NC}"
     else
         echo -e "${RED} 导入失败${NC}"
@@ -139,7 +139,7 @@ batch_import_images() {
 
         echo -e "\n${BLUE}正在导入 $tar_file...${NC}"
 
-        if sudo ctr -n=k8s.io images import "$tar_file"; then
+        if sudo k3s ctr -n=k8s.io images import "$tar_file"; then
             ((success_count++))
             echo -e "${GREEN} 导入成功${NC}"
         else
@@ -189,7 +189,7 @@ check_images() {
 
     echo -e "\n${MAGENTA}开始镜像完整性检查：${NC}"
     for image in "${expected_images[@]}"; do
-        if sudo ctr -n=k8s.io images ls | grep -q "$image"; then
+        if sudo k3s ctr -n=k8s.io images ls | grep -q "$image"; then
             echo -e "${GREEN}[存在] $image${NC}"
         else
             echo -e "${RED}[缺失] $image${NC}"
