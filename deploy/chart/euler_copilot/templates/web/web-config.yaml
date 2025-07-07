@@ -6,5 +6,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   .env: |-
-{{ tpl (.Files.Get "configs/web/.env") . | indent 4 }}
+    RAG_WEB_URL=http://rag-web-service.{{ .Release.Namespace }}.svc.cluster.local:9888
+    FRAMEWORK_URL=http://framework-service.{{ .Release.Namespace }}.svc.cluster.local:8002
 {{- end -}}

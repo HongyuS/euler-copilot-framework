@@ -8,5 +8,14 @@ data:
   config.toml: |-
 {{ tpl (.Files.Get "configs/framework/config.toml") . | indent 4 }}
   copy-config.yaml: |-
-{{ tpl (.Files.Get "configs/framework/copy-config.yaml") . | indent 4 }}
+    copy:
+      - from: /config/config.toml
+        to: /config-rw/config.toml
+        mode:
+          uid: 0
+          gid: 0
+          mode: "0o650"
+        secrets:
+          - /db-secrets
+          - /system-secrets
 {{- end -}}
