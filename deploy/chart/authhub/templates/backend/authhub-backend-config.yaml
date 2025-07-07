@@ -10,5 +10,23 @@ data:
   authhub.yml: |-
 {{ tpl (.Files.Get "configs/backend/authhub.yml") . | indent 4 }}
   copy-config.yml: |-
-{{ tpl (.Files.Get "configs/backend/copy-config.yml") . | indent 4 }}
+    copy:
+      - from: /config/aops-config.yml
+        to: /config-rw/aops-config.yml
+        mode:
+          uid: 0
+          gid: 0
+          mode: "0o650"
+        secrets:
+          - /db-secrets
+          - /authhub-secrets
+      - from: /config/conf.d/authhub.yml
+        to: /config-rw/conf.d/authhub.yml
+        mode:
+          uid: 0
+          gid: 0
+          mode: "0o650"
+        secrets:
+          - /db-secrets
+          - /authhub-secrets
 {{- end -}}

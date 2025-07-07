@@ -13,7 +13,7 @@ infrastructure:
     password: ${redis-password}
 
 include: "/etc/aops/conf.d"
-domain: {{ .Values.domain.authhub }}
+domain: "127.0.0.1"
 
 services:
   log:

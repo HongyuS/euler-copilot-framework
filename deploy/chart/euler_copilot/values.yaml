@@ -52,18 +52,12 @@ models:
 # 登录设置
 login:
   # 客户端ID设置，仅在type为authhub时有效
+  host: 127.0.0.1:30081
   client:
     # [必填] 客户端ID
     id:
     # [必填] 客户端密钥
     secret:
-
-# 域名设置
-domain:
-  # 用于EulerCopilot的域名；默认为www.eulercopilot.local
-  euler_copilot:
-  # 部署authhub时使用的域名；默认为authhub.eulercopilot.local
-  authhub: 
 
 # 存储设置
 storage:
@@ -115,13 +109,9 @@ euler_copilot:
     # Service设置
     service:
       # Service类型，例如NodePort
-      type:
+      type: NodePort
       # 当类型为NodePort时，填写主机的端口号
-      nodePort:
-    # Ingress设置
-    ingress:
-      # URI前缀，默认为/
-      prefix:
+      nodePort: 30080
   
   rag_web:
     # [必填] 是否部署RAG Web前端用户界面
@@ -139,10 +129,6 @@ euler_copilot:
       type:
       # 当类型为NodePort时，填写主机的端口号
       nodePort:
-    # Ingress设置
-    ingress:
-      # URI前缀；默认为/
-      prefix:
 
   rag:
     # [必填] 是否部署RAG后端服务

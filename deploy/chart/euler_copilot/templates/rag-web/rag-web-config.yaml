@@ -6,5 +6,5 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   .env: |-
-{{ tpl (.Files.Get "configs/rag-web/.env") . | indent 4 }}
+    DATA_CHAIN_BACEND_URL=http://rag-service.{{ .Release.Namespace }}.svc.cluster.local:9988
 {{- end -}}
