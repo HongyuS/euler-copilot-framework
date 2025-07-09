@@ -91,22 +91,6 @@ uninstall_authhub() {
     echo -e "${GREEN}资源清理完成${NC}"
 }
 
-get_user_input() {
-    echo -e "${BLUE}请输入 Authhub 的域名配置（直接回车使用默认值 authhub.eulercopilot.local）：${NC}"
-    read -p "Authhub 的前端域名: " authhub_domain
-
-    if [[ -z "$authhub_domain" ]]; then
-        authhub_domain="authhub.eulercopilot.local"
-        echo -e "${GREEN}使用默认域名：${authhub_domain}${NC}"
-    else
-        if ! [[ "${authhub_domain}" =~ ^([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$ ]]; then
-            echo -e "${RED}错误：输入的AuthHub域名格式不正确${NC}"
-            exit 1
-        fi
-        echo -e "${GREEN}输入域名：${authhub_domain}${NC}"
-    fi
-}
-
 helm_install() {
     local arch="$1"
     echo -e "${BLUE}==> 进入部署目录...${NC}"
@@ -118,8 +102,7 @@ helm_install() {
 
     echo -e "${BLUE}正在安装 authhub...${NC}"
     helm upgrade --install authhub -n euler-copilot ./authhub \
-        --set globals.arch="$arch" \
-        --set domain.authhub="${authhub_domain}" || {
+        --set globals.arch="$arch" || {
         echo -e "${RED}Helm 安装 authhub 失败！${NC}"
         return 1
     }
@@ -169,7 +152,6 @@ main() {
     arch=$(get_architecture) || exit 1
     create_namespace || exit 1
     uninstall_authhub || exit 1
-    get_user_input || exit 1
     helm_install "$arch" || exit 1
     check_pods_status || {
         echo -e "${RED}部署失败：Pod状态检查未通过！${NC}"

@@ -51,8 +51,11 @@ models:
 
 # 登录设置
 login:
+  # [必填] 服务器的IP，不填则默认为127.0.0.1
+  host:
+  # [必填] authhub的web端nodePort，不填则默认为30081
+  authhub_web_nodePort:
   # 客户端ID设置，仅在type为authhub时有效
-  host: 127.0.0.1:30081
   client:
     # [必填] 客户端ID
     id:
