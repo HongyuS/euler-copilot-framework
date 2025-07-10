@@ -381,7 +381,7 @@ main() {
         echo -e "  ${BLUE}Y) 保留现有配置${NC}"
         echo -e "  ${BLUE}n) 使用默认配置${NC}"
         while true; do
-            read -p "请选择(Y/n): " input_preserve
+            read -p "请选择(Y/N): " input_preserve
             case "${input_preserve:-Y}" in
                 [YyNn]) preserve_models=${input_preserve:-Y}; break ;;
                 *) echo -e "${RED}无效输入，请选择Y或n${NC}" ;;
