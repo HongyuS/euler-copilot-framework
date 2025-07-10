@@ -172,7 +172,7 @@ main() {
     arch=$(get_architecture) || exit 1
     create_namespace || exit 1
     uninstall_authhub || exit 1
-    get_user_input || exit 1
+    get_authhub_address|| exit 1
     helm_install "$arch" || exit 1
     check_pods_status || {
         echo -e "${RED}部署失败：Pod状态检查未通过！${NC}"
