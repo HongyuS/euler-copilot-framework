@@ -91,36 +91,23 @@ uninstall_authhub() {
     echo -e "${GREEN}资源清理完成${NC}"
 }
 
-get_user_input() {
-    local default_ip="127.0.0.1"
+get_authhub_address() {
+    local default_address="127.0.0.1"
     
-    echo -e "${BLUE}请输入 Authhub 的访问IP地址（直接回车使用默认值 ${default_ip}）：${NC}"
-    read -p "Authhub 的IP: " authhub_ip
+    echo -e "${BLUE}请输入 Authhub 的访问地址（IP或域名，直接回车使用默认值 ${default_address}）：${NC}"
+    read -p "Authhub 地址: " authhub_address
 
     # 处理空输入情况
-    if [[ -z "$authhub_ip" ]]; then
-        authhub_ip="$default_ip"
-        echo -e "${GREEN}使用默认IP：${authhub_ip}${NC}"
-        return 0
+    if [[ -z "$authhub_address" ]]; then
+        authhub_address="$default_address"
+        echo -e "${GREEN}使用默认地址：${authhub_address}${NC}"
+    else
+        echo -e "${GREEN}输入地址：${authhub_address}${NC}"
     fi
 
-    # 验证IP地址格式
-    if [[ "$authhub_ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-        # 验证IP地址各部分是否在0-255范围内
-        local IFS='.'
-        read -ra ip_parts <<< "$authhub_ip"
-        for part in "${ip_parts[@]}"; do
-            if (( part > 255 )); then
-                echo -e "${RED}错误：IP地址 ${authhub_ip} 无效，每个部分应在0-255之间${NC}"
-                return 1
-            fi
-        done
-        echo -e "${GREEN}输入IP：${authhub_ip}${NC}"
-        return 0
-    else
-        echo -e "${RED}错误：请输入有效的IPv4地址（格式如 127.0.0.1）${NC}"
-        return 1
-    fi
+    # 返回用户输入的地址
+    echo "$authhub_address"
+    return 0
 }
 
 helm_install() {
@@ -134,8 +121,8 @@ helm_install() {
 
     echo -e "${BLUE}正在安装 authhub...${NC}"
     helm upgrade --install authhub -n euler-copilot ./authhub \
-        --set globals.arch="$arch"
-	--set domain.authhub="${authhub_ip}" || {
+        --set globals.arch="$arch" \
+	--set domain.authhub="${authhub_address}" || {
         echo -e "${RED}Helm 安装 authhub 失败！${NC}"
         return 1
     }
@@ -195,7 +182,7 @@ main() {
     echo -e "\n${GREEN}========================="
     echo -e "Authhub 部署完成！"
     echo -e "查看pod状态：kubectl get pod -n euler-copilot"
-    echo -e "Authhub登录地址为: https://${authhub_ip}"
+    echo -e "Authhub登录地址为: https://${authhub_address}:30081"
     echo -e "默认账号密码: administrator/changeme"
     echo -e "=========================${NC}"
 }
