@@ -13,8 +13,7 @@ infrastructure:
     password: ${redis-password}
 
 include: "/etc/aops/conf.d"
-domain: {{ default "127.0.0.1" .Values.domain.authhub }}
-
+domain: '{{ regexFind "^[^:]+" (.Values.domain.authhub| default "http://127.0.0.1:30080" | replace "http://" "" | replace "https://" "") }}'
 services:
   log:
     log_level: "INFO"

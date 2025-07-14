@@ -92,7 +92,7 @@ uninstall_authhub() {
 }
 
 get_authhub_address() {
-    local default_address="127.0.0.1"
+    local default_address="http://127.0.0.1:30081"
     
     echo -e "${BLUE}请输入 Authhub 的访问地址（IP或域名，直接回车使用默认值 ${default_address}）：${NC}"
     read -p "Authhub 地址: " authhub_address
@@ -105,8 +105,6 @@ get_authhub_address() {
         echo -e "${GREEN}输入地址：${authhub_address}${NC}"
     fi
 
-    # 返回用户输入的地址
-    echo "$authhub_address"
     return 0
 }
 
@@ -182,7 +180,7 @@ main() {
     echo -e "\n${GREEN}========================="
     echo -e "Authhub 部署完成！"
     echo -e "查看pod状态：kubectl get pod -n euler-copilot"
-    echo -e "Authhub登录地址为: https://${authhub_address}:30081"
+    echo -e "Authhub登录地址为: $authhub_address"
     echo -e "默认账号密码: administrator/changeme"
     echo -e "=========================${NC}"
 }
