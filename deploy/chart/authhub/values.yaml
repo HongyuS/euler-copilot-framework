@@ -1,7 +1,7 @@
 # 全局设置
 globals:
   # 节点架构：默认是x86
-  # 节点设置：["x86", "arm"]
+  # [必填] 节点设置：["x86", "arm"]
   arch:
   # 镜像拉取策略；默认为IfNotPresent
   imagePullPolicy:
@@ -15,8 +15,8 @@ storage:
   mysql:
 
 domain:
-  # AuthHub域名，默认为127.0.0.1
-  authhub: 127.0.0.1
+  # [必填] AuthHub web端URL, 默认是http://127.0.0.1:30081
+  authhub:
 
 # 部署AuthHub本地鉴权服务
 authhub:
