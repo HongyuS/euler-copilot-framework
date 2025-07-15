@@ -45,6 +45,8 @@ url = "https://mirrors.aliyun.com/pypi/simple/"
 dev = [
     "autodoc-pydantic==2.2.0",
     "coverage==7.7.1",
+    "fastapi-cprofile>=0.0.2",
+    "fastapi-profiler-lite>=0.3.2",
     "pytest==8.3.5",
     "pytest-mock==3.14.0",
     "ruff==0.11.2",

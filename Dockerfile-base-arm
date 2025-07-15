@@ -21,7 +21,7 @@ WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     # 使用正确的参数替代 --no-extra-index-url
-    uv sync --no-dev --no-install-project --no-cache-dir \
+    uv sync --no-install-project --no-cache-dir \
     --index-url https://mirrors.aliyun.com/pypi/simple/ \
     --config-setting installer.pip.index-urls=https://mirrors.aliyun.com/pypi/simple/ \
     --config-setting installer.pip.trusted-hosts=mirrors.aliyun.com
