@@ -14,8 +14,6 @@ globals:
 storage:
   # MinIO存储大小，默认为10GB
   minio:
-  # MongoDB存储大小，默认为10GB
-  mongo:
   # 向量数据库存储大小，默认为10GB
   opengauss:
   # PostgreSQL存储大小，默认为10GB
@@ -49,20 +47,6 @@ databases:
       enabled: true
       # Ingress URL前缀
       prefix: /
-  mongo:
-    # [必填] 是否部署MySQL数据库实例
-    enabled: true
-    # 镜像设置；默认为hub.oepkgs.net/neocopilot/mongo:7.0.16-x86
-    # 镜像版本： ["7.0.16-x86", "7.0.16-arm"]
-    image:
-    # 性能限制设置
-    resourceLimits: {}
-    # Service设置
-    service:
-      # [必填] Service类型，例如NodePort
-      type:
-      # 当类型为nodePort时，填写主机的端口号
-      nodePort: 
   redis:
     # [必填] 是否部署Redis实例
     enabled: true

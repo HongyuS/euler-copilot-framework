@@ -6,6 +6,5 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
   .env: |-
-    PROD=enabled
     DATA_CHAIN_BACEND_URL=http://rag-service.{{ .Release.Namespace }}.svc.cluster.local:9988
 {{- end -}}
