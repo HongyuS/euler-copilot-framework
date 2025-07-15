@@ -5,8 +5,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .pool import NodePool
-
 
 class APINodeInput(BaseModel):
     """API节点覆盖输入"""
@@ -21,7 +19,7 @@ class APINodeOutput(BaseModel):
     result: dict[str, Any] | None = Field(description="API节点输出Schema", default=None)
 
 
-class APINode(NodePool):
+class APINode(BaseModel):
     """API节点"""
 
     call_id: str = "API"
