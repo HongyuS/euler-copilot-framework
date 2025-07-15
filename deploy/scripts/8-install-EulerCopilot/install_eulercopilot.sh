@@ -79,52 +79,38 @@ get_network_ip() {
     echo "$host"
 }
 
-# 处理域名/主机输入
-get_host_input() {
+get_address_input() {
     # 从环境变量读取或使用默认值
-    eulercopilot_host=${EULERCOPILOT_HOST:-"127.0.0.1"}
-    
-    # 交互模式允许用户输入
+    eulercopilot_address=${EULERCOPILOT_ADDRESS:-"http://127.0.0.1:30080"}
+    authhub_address=${AUTHHUB_ADDRESS:-"http://127.0.0.1:30081"}
+
+    # 非交互模式直接使用默认值
     if [ -t 0 ]; then  # 仅在交互式终端显示提示
-        echo -e "${BLUE}请输入 EulerCopilot 的访问IP或域名（默认：$eulercopilot_host）：${NC}"
+        echo -e "${BLUE}请输入 EulerCopilot 前端访问URL（默认：$eulercopilot_address）：${NC}"
         read -p "> " input_euler
-        [ -n "$input_euler" ] && eulercopilot_host=$input_euler
-    fi
+        [ -n "$input_euler" ] && eulercopilot_address=$input_euler
 
-    # 验证输入格式（支持IP和域名）
-    local ip_regex='^([0-9]{1,3}\.){3}[0-9]{1,3}$'
-    local host_regex='^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9-]*[A-Za-z0-9])$'
-
-    if ! [[ $eulercopilot_host =~ $ip_regex ]] && ! [[ $eulercopilot_host =~ $host_regex ]]; then
-        echo -e "${RED}错误：无效的IP地址或域名格式${NC}" >&2
-        exit 1
-    fi
-
-    # 如果是IP地址，检查每部分是否在0-255范围内
-    if [[ $eulercopilot_host =~ $ip_regex ]]; then
-        local IFS='.'
-        read -ra ip_parts <<< "$eulercopilot_host"
-        for part in "${ip_parts[@]}"; do
-            if (( part < 0 || part > 255 )); then
-                echo -e "${RED}错误：IP地址各部分必须在0-255之间${NC}" >&2
-                exit 1
-            fi
-        done
+        echo -e "${BLUE}请输入 Authhub 前端访问URL（默认：$authhub_address）：${NC}"
+        read -p "> " input_auth
+        [ -n "$input_auth" ] && authhub_address=$input_auth
     fi
 
     echo -e "${GREEN}使用配置："
-    echo "EulerCopilot的访问地址: $eulercopilot_host"
-    echo -e "${NC}"
+    echo "EulerCopilot地址: $eulercopilot_address"
+    echo "Authhub地址:     $authhub_address"
 }
 
+
+
 get_client_info_auto() {
-    get_host_input
+    # 获取用户输入地址
+    get_address_input
     # 创建临时文件
     local temp_file
     temp_file=$(mktemp)
     
     # 直接调用Python脚本并传递域名参数
-    python3 "${DEPLOY_DIR}/scripts/9-other-script/get_client_id_and_secret.py" "${eulercopilot_host}" > "$temp_file" 2>&1
+    python3 "${DEPLOY_DIR}/scripts/9-other-script/get_client_id_and_secret.py" "${eulercopilot_address}" > "$temp_file" 2>&1
 
     # 检查Python脚本执行结果
     if [ $? -ne 0 ]; then
@@ -256,8 +242,8 @@ modify_yaml() {
     set_args+=(
         "--set" "login.client.id=${client_id}"
         "--set" "login.client.secret=${client_secret}"
-        "--set" "login.host=${eulercopilot_host}"
-        "--set" "login.authhub_web_nodePort=30081"
+        "--set" "domain.euler_copilot=${eulercopilot_address}"
+        "--set" "domain.authhub=${authhub_address}"
     )
 
     # 如果不需要保留模型配置，则添加模型相关的参数
@@ -392,7 +378,7 @@ main() {
     fi
     
     echo -e "${BLUE}开始修改YAML配置...${NC}"
-    modify_yaml "$eulercopilot_host" "$preserve_models"
+    modify_yaml "$host" "$preserve_models"
     
     echo -e "${BLUE}开始Helm安装...${NC}"
     execute_helm_install "$arch"
@@ -416,8 +402,8 @@ show_success_message() {
     echo -e "${GREEN}==================================================${NC}"
 
     echo -e "${YELLOW}访问信息：${NC}"
-    echo -e "EulerCopilot UI:    http://${eulercopilot_host}:30080"
-    echo -e "AuthHub 管理界面:   http://${eulercopilot_host}:30081"
+    echo -e "EulerCopilot UI:    ${eulercopilot_address}"
+    echo -e "AuthHub 管理界面:   ${authhub_address}"
 
     echo -e "\n${YELLOW}系统信息：${NC}"
     echo -e "内网IP:     ${host}"

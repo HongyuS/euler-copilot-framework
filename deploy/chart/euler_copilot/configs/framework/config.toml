@@ -6,14 +6,14 @@ data_dir = '/app/data'
 [login]
 provider = 'authhub'
 [login.settings]
-host = 'http://{{ default "127.0.0.1" .Values.login.host }}:{{ default "30081" .Values.login.authhub_web_nodePort }}'
+host = '{{ .Values.domain.authhub | default "http://127.0.0.1:30081" }}'
 host_inner = 'http://authhub-backend-service.{{ .Release.Namespace }}.svc.cluster.local:11120'
-login_api = 'http://{{ default "127.0.0.1" .Values.login.host }}:{{ default 30080 .Values.euler_copilot.web.service.nodePort }}/api/auth/login'
+login_api = '{{ .Values.domain.euler_copilot | default "http://127.0.0.1:30080" }}/api/auth/login'
 app_id = '${clientId}'
 app_secret = '${clientSecret}'
 
 [fastapi]
-domain = '{{ default "127.0.0.1" .Values.login.host }}'
+domain = '{{ regexFind "^[^:]+" (.Values.domain.euler_copilot | default "http://127.0.0.1:30080" | replace "http://" "" | replace "https://" "") }}'
 
 [security]
 half_key1 = '${halfKey1}'
