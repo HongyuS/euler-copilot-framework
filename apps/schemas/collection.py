@@ -129,7 +129,7 @@ class Document(BaseModel):
     type: str
     size: float
     created_at: float = Field(default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3))
-    conversation_id: str | None = Field(default=None, alias="conversationId")
+    conversation_id: str | None = Field(default=None)
 
 
 class Audit(BaseModel):
