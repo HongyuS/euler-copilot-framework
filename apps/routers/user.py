@@ -18,11 +18,11 @@ router = APIRouter(
 
 
 @router.get("")
-async def chat(
+async def list_user(
     user_sub: Annotated[str, Depends(get_user)],
 ) -> JSONResponse:
     """查询所有用户接口"""
-    user_list = await UserManager.get_all_user_sub()
+    user_list = await UserManager.list_user()
     user_info_list = []
     for user in user_list:
         # user_info = await UserManager.get_userinfo_by_user_sub(user) 暂时不需要查询user_name

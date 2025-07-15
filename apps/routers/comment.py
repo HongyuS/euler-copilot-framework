@@ -28,7 +28,7 @@ router = APIRouter(
 @router.post("", response_model=ResponseData)
 async def add_comment(post_body: AddCommentData, user_sub: Annotated[str, Depends(get_user)]) -> JSONResponse:
     """给Record添加评论"""
-    if not await RecordManager.verify_record_in_group(post_body.group_id, post_body.record_id, user_sub):
+    if not await RecordManager.verify_record_in_group(post_body.record_id, user_sub):
         logger.error("[Comment] record_id 不存在")
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content=ResponseData(
             code=status.HTTP_400_BAD_REQUEST,
@@ -43,7 +43,7 @@ async def add_comment(post_body: AddCommentData, user_sub: Annotated[str, Depend
         reason_description=post_body.reason_description,
         feedback_time=round(datetime.now(tz=UTC).timestamp(), 3),
     )
-    await CommentManager.update_comment(post_body.group_id, post_body.record_id, comment_data)
+    await CommentManager.update_comment(post_body.record_id, comment_data)
     return JSONResponse(status_code=status.HTTP_200_OK, content=ResponseData(
         code=status.HTTP_200_OK,
         message="success",

@@ -11,7 +11,6 @@ from fastapi.templating import Jinja2Templates
 
 from apps.common.oidc import oidc_provider
 from apps.dependency import get_session, get_user, verify_user
-from apps.schemas.collection import Audit
 from apps.schemas.response_data import (
     AuthUserMsg,
     AuthUserRsp,
@@ -19,7 +18,6 @@ from apps.schemas.response_data import (
     OidcRedirectRsp,
     ResponseData,
 )
-from apps.services.audit_log import AuditLogManager
 from apps.services.session import SessionManager
 from apps.services.token import TokenManager
 from apps.services.user import UserManager
@@ -62,32 +60,15 @@ async def oidc_login(request: Request, code: str) -> HTMLResponse:
 
     if not user_sub:
         logger.error("OIDC no user_sub associated.")
-        data = Audit(
-            http_method="get",
-            module="auth",
-            client_ip=user_host,
-            message="/api/auth/login: OIDC no user_sub associated.",
-        )
-        await AuditLogManager.add_audit_log(data)
         return templates.TemplateResponse(
             "login_failed.html.j2",
             {"request": request, "reason": "未能获取用户信息，请关闭本窗口并重试。"},
             status_code=status.HTTP_403_FORBIDDEN,
         )
 
-    await UserManager.update_userinfo_by_user_sub(user_sub)
+    await UserManager.update_user(user_sub)
 
     current_session = await SessionManager.create_session(user_host, user_sub)
-
-    data = Audit(
-        user_sub=user_sub,
-        http_method="get",
-        module="auth",
-        client_ip=user_host,
-        message="/api/auth/login: User login.",
-    )
-    await AuditLogManager.add_audit_log(data)
-
     return templates.TemplateResponse(
         "login_success.html.j2",
         {"request": request, "current_session": current_session},
@@ -113,15 +94,6 @@ async def logout(
         )
     await TokenManager.delete_plugin_token(user_sub)
     await SessionManager.delete_session(session_id)
-
-    data = Audit(
-        http_method="get",
-        module="auth",
-        client_ip=request.client.host,
-        user_sub=user_sub,
-        message="/api/auth/logout: User logout succeeded.",
-    )
-    await AuditLogManager.add_audit_log(data)
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -151,6 +123,14 @@ async def oidc_redirect() -> JSONResponse:
 @router.post("/logout", dependencies=[Depends(verify_user)], response_model=ResponseData)
 async def oidc_logout(token: str) -> JSONResponse:
     """OIDC主动触发登出"""
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=ResponseData(
+            code=status.HTTP_200_OK,
+            message="success",
+            result={},
+        ).model_dump(exclude_none=True, by_alias=True),
+    )
 
 
 @router.get("/user", response_model=AuthUserRsp)
@@ -159,7 +139,7 @@ async def userinfo(
     _: Annotated[None, Depends(verify_user)],
 ) -> JSONResponse:
     """获取用户信息"""
-    user = await UserManager.get_userinfo_by_user_sub(user_sub=user_sub)
+    user = await UserManager.get_user(user_sub=user_sub)
     if not user:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -169,52 +149,6 @@ async def userinfo(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content=AuthUserRsp(
-            code=status.HTTP_200_OK,
-            message="success",
-            result=AuthUserMsg(
-                user_sub=user_sub,
-                revision=user.is_active,
-                is_admin=user.is_admin,
-            ),
-        ).model_dump(exclude_none=True, by_alias=True),
-    )
-
-
-@router.post(
-    "/update_revision_number",
-    dependencies=[Depends(verify_user)],
-    response_model=AuthUserRsp,
-    responses={
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": ResponseData},
-    },
-)
-async def update_revision_number(request: Request, user_sub: Annotated[str, Depends(get_user)]) -> JSONResponse:  # noqa: ARG001
-    """更新用户协议信息"""
-    ret: bool = await UserManager.update_userinfo_by_user_sub(user_sub, refresh_revision=True)
-    if not ret:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=ResponseData(
-                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                message="update revision failed",
-                result={},
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
-
-    user = await UserManager.get_userinfo_by_user_sub(user_sub)
-    if not user:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=ResponseData(
-                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                message="Get UserInfo failed.",
-                result={},
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
-
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=AuthUserRsp(

@@ -10,7 +10,7 @@ from fastapi import APIRouter, Body, Depends, Query, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import get_user, verify_user
-from apps.schemas.collection import Audit, Conversation
+from apps.models.conversation import Conversation
 from apps.schemas.request_data import (
     DeleteConversationData,
     ModifyConversationData,
@@ -29,7 +29,6 @@ from apps.schemas.response_data import (
     UpdateConversationRsp,
 )
 from apps.services.application import AppManager
-from apps.services.audit_log import AuditLogManager
 from apps.services.conversation import ConversationManager
 from apps.services.document import DocumentManager
 
@@ -224,7 +223,6 @@ async def update_conversation(
 
 @router.delete("", response_model=ResponseData)
 async def delete_conversation(
-    request: Request,
     post_body: DeleteConversationData,
     user_sub: Annotated[str, Depends(get_user)],
 ) -> JSONResponse:
@@ -234,21 +232,7 @@ async def delete_conversation(
         # 删除对话
         await ConversationManager.delete_conversation_by_conversation_id(user_sub, conversation_id)
         # 删除对话对应的文件
-        await DocumentManager.delete_document_by_conversation_id(user_sub, conversation_id)
-
-        # 添加审计日志
-        request_host = None
-        if request.client is not None:
-            request_host = request.client.host
-        data = Audit(
-            user_sub=user_sub,
-            http_method="delete",
-            module="/conversation",
-            client_ip=request_host,
-            message=f"deleted conversation with id: {conversation_id}",
-        )
-        await AuditLogManager.add_audit_log(data)
-
+        await DocumentManager.delete_document_by_conversation_id(conversation_id)
         deleted_conversation.append(conversation_id)
 
     return JSONResponse(
