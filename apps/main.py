@@ -12,6 +12,7 @@ import logging
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_profiler import Profiler
 from rich.console import Console
 from rich.logging import RichHandler
 
@@ -21,7 +22,6 @@ from .common.postgres import postgres
 from .common.wordscheck import WordsCheck
 from .llm.token import TokenCalculator
 from .routers import (
-    api_key,
     appcenter,
     auth,
     blacklist,
@@ -34,14 +34,17 @@ from .routers import (
     knowledge,
     llm,
     mcp_service,
+    personal_token,
     record,
     service,
+    tag,
     user,
 )
 from .scheduler.pool.pool import Pool
 
 # 定义FastAPI app
 app = FastAPI(redoc_url=None)
+Profiler(app)
 # 定义FastAPI全局中间件
 app.add_middleware(
     CORSMiddleware,
@@ -53,7 +56,7 @@ app.add_middleware(
 # 关联API路由
 app.include_router(conversation.router)
 app.include_router(auth.router)
-app.include_router(api_key.router)
+app.include_router(personal_token.router)
 app.include_router(appcenter.router)
 app.include_router(service.router)
 app.include_router(comment.router)
@@ -67,6 +70,7 @@ app.include_router(llm.router)
 app.include_router(mcp_service.router)
 app.include_router(flow.router)
 app.include_router(user.router)
+app.include_router(tag.router)
 
 # logger配置
 LOGGER_FORMAT = "%(funcName)s() - %(message)s"

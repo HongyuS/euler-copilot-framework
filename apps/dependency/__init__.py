@@ -4,15 +4,15 @@
 from apps.dependency.user import (
     get_session,
     get_user,
-    get_user_by_api_key,
-    verify_api_key,
+    get_personal_token_user,
+    verify_personal_token,
     verify_user,
 )
 
 __all__ = [
     "get_session",
     "get_user",
-    "get_user_by_api_key",
-    "verify_api_key",
+    "get_personal_token_user",
+    "verify_personal_token",
     "verify_user",
 ]

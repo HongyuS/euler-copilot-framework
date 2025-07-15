@@ -1,5 +1,8 @@
 """SQLAlchemy模型基类"""
 
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass
 
-Base = declarative_base()
+
+class Base(MappedAsDataclass, DeclarativeBase):
+    """SQLAlchemy模型基类"""
+
