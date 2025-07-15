@@ -51,19 +51,16 @@ models:
 
 # 登录设置
 login:
+  # [必填] 服务器的IP，不填则默认为127.0.0.1
+  host:
+  # [必填] authhub的web端nodePort，不填则默认为30081
+  authhub_web_nodePort:
   # 客户端ID设置，仅在type为authhub时有效
   client:
     # [必填] 客户端ID
     id:
     # [必填] 客户端密钥
     secret:
-
-# 域名设置
-domain:
-  # 用于EulerCopilot的域名；默认为www.eulercopilot.local
-  euler_copilot:
-  # 部署authhub时使用的域名；默认为authhub.eulercopilot.local
-  authhub: 
 
 # 存储设置
 storage:

@@ -15,8 +15,8 @@ storage:
   mysql:
 
 domain:
-  # AuthHub域名，默认为authhub.eulercopilot.local。单机部署时，服务基于Host进行区分，无法使用IP地址
-  authhub:
+  # AuthHub域名，默认为127.0.0.1
+  authhub: 127.0.0.1
 
 # 部署AuthHub本地鉴权服务
 authhub:
@@ -37,13 +37,9 @@ authhub:
     # Service设置
     service:
       # Service类型，例如NodePort
-      type:
+      type: NodePort
       # 当类型为NodePort时，填写主机的端口号
-      nodePort:
-    # Ingress设置
-    ingress:
-      # Ingress前缀，默认为/
-      prefix:
+      nodePort: 30081
 
   backend:
     # [必填] 是否部署AuthHub后端服务

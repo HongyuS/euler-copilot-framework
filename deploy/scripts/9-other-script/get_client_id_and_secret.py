@@ -29,8 +29,8 @@ def get_service_cluster_ip(namespace, service_name):
     service_info = json.loads(result.stdout.decode())
     return service_info['spec'].get('clusterIP', 'No Cluster IP found')
 
-def get_user_token(auth_hub_url, username="administrator", password="changeme"):
-    url = auth_hub_url + "/oauth2/manager-login"
+def get_user_token(authhub_web_url, username="administrator", password="changeme"):
+    url = authhub_web_url + "/oauth2/manager-login"
     response = requests.post(
         url,
         json={"password": password, "username": username},
@@ -41,29 +41,9 @@ def get_user_token(auth_hub_url, username="administrator", password="changeme"):
     response.raise_for_status()
     return response.json()["data"]["user_token"]
 
-def register_app(auth_hub_url, user_token, client_name, client_url, redirect_urls):
-    response = requests.post(
-        auth_hub_url + "/oauth2/applications/register",
-        json={
-            "client_name": client_name,
-            "client_uri": client_url,
-            "redirect_uris": redirect_urls,
-            "register_callback_uris": [],  # 修复参数名中的空格
-            "logout_callback_uris": [],    # 修复参数名中的空格
-            "skip_authorization": True,
-            "scope": ["email", "phone", "username", "openid", "offline_access"],
-            "grant_types": ["authorization_code"],
-            "response_types": ["code"],
-            "token_endpoint_auth_method": "none"
-        },
-        headers={"Authorization": user_token, "Content-Type": "application/json"},
-        verify=False
-    )
-    response.raise_for_status()
-
-def get_client_secret(auth_hub_url, user_token, target_client_name):
+def find_existing_app(authhub_web_url, user_token, client_name):
     response = requests.get(
-        auth_hub_url + "/oauth2/applications",
+        authhub_web_url + "/oauth2/applications",
         headers={"Authorization": user_token, "Content-Type": "application/json"},
         timeout=10
     )
@@ -84,18 +64,75 @@ def get_client_secret(auth_hub_url, user_token, target_client_name):
             app.get("client_info", {}).get("client_name")
         ]
 
-        if any(str(name).lower() == target_client_name.lower() for name in candidate_names if name):
-            return {
-                "client_id": app["client_info"]["client_id"],
-                "client_secret": app["client_info"]["client_secret"]
-            }
+        if any(str(name).lower() == client_name.lower() for name in candidate_names if name):
+            return app["client_info"]["client_id"]
+    return None
 
-    raise ValueError(f"未找到匹配应用，请检查 client_name 是否准确（尝试使用全小写名称）")
+def register_or_update_app(authhub_web_url, user_token, client_name, client_url, redirect_urls):
+    client_id = find_existing_app(authhub_web_url, user_token, client_name)
+    
+    if client_id:
+        # 更新现有应用
+        print(f"发现已存在应用 [名称: {client_name}], 正在更新...")
+        url = f"{authhub_web_url}/oauth2/applications/{client_id}"
+        response = requests.put(
+            url,
+            json={
+                "client_uri": client_url,
+                "redirect_uris": redirect_urls,
+                "register_callback_uris": [],
+                "logout_callback_uris": [],
+                "skip_authorization": True,
+                "scope": ["email", "phone", "username", "openid", "offline_access"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none"
+            },
+            headers={"Authorization": user_token, "Content-Type": "application/json"},
+            verify=False
+        )
+        response.raise_for_status()
+        return response.json()["data"]
+    else:
+        # 注册新应用
+        print(f"未找到已存在应用 [名称: {client_name}], 正在注册新应用...")
+        response = requests.post(
+            authhub_web_url + "/oauth2/applications/register",
+            json={
+                "client_name": client_name,
+                "client_uri": client_url,
+                "redirect_uris": redirect_urls,
+                "register_callback_uris": [],
+                "logout_callback_uris": [],
+                "skip_authorization": True,
+                "scope": ["email", "phone", "username", "openid", "offline_access"],
+                "grant_types": ["authorization_code"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none"
+            },
+            headers={"Authorization": user_token, "Content-Type": "application/json"},
+            verify=False
+        )
+        response.raise_for_status()
+        return response.json()["data"]
+
+def get_client_secret(authhub_web_url, user_token, client_id):
+    response = requests.get(
+        f"{authhub_web_url}/oauth2/applications/{client_id}",
+        headers={"Authorization": user_token, "Content-Type": "application/json"},
+        timeout=10
+    )
+    response.raise_for_status()
+    app_data = response.json()
+    return {
+        "client_id": app_data["data"]["client_info"]["client_id"],
+        "client_secret": app_data["data"]["client_info"]["client_secret"]
+    }
 
 if __name__ == "__main__":
     # 解析命令行参数
     parser = argparse.ArgumentParser()
-    parser.add_argument("eulercopilot_domain", help="EulerCopilot域名（例如：example.com）")
+    parser.add_argument("host_ip", help="主机IP地址（例如：192.168.1.100）")
     args = parser.parse_args()
 
     # 获取服务信息
@@ -103,25 +140,25 @@ if __name__ == "__main__":
     service_name = "authhub-web-service"
     print(f"正在查询服务信息: [命名空间: {namespace}] [服务名: {service_name}]")
     cluster_ip = get_service_cluster_ip(namespace, service_name)
-    auth_hub_url = f"http://{cluster_ip}:8000"
+    authhub_web_url = f"http://{cluster_ip}:8000"
 
     # 生成固定URL
-    client_url = f"https://{args.eulercopilot_domain}"
-    redirect_urls = [f"https://{args.eulercopilot_domain}/api/auth/login"]
+    client_url = f"http://{args.host_ip}:30080"
+    redirect_urls = [f"http://{args.host_ip}:30080/api/auth/login"]
     client_name = "EulerCopilot"  # 设置固定默认值
 
     # 认证流程
     try:
         print("\n正在获取用户令牌...")
-        user_token = get_user_token(auth_hub_url)
+        user_token = get_user_token(authhub_web_url)
         print("✓ 用户令牌获取成功")
 
-        print(f"\n正在注册应用 [名称: {client_name}]...")
-        register_app(auth_hub_url, user_token, client_name, client_url, redirect_urls)
-        print("✓ 应用注册成功")
+        print(f"\n正在处理应用 [名称: {client_name}]...")
+        app_info = register_or_update_app(authhub_web_url, user_token, client_name, client_url, redirect_urls)
+        print("✓ 应用处理成功")
 
-        print(f"\n正在查询客户端凭证 [名称: {client_name}]...")
-        client_info = get_client_secret(auth_hub_url, user_token, client_name)
+        print(f"\n正在查询客户端凭证 [ID: {app_info['client_info']['client_id']}]...")
+        client_info = get_client_secret(authhub_web_url, user_token, app_info["client_info"]["client_id"])
 
         print("\n✓ 认证信息获取成功：")
         print(f"client_id: {client_info['client_id']}")

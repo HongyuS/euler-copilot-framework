@@ -91,20 +91,23 @@ uninstall_authhub() {
     echo -e "${GREEN}资源清理完成${NC}"
 }
 
-get_user_input() {
-    echo -e "${BLUE}请输入 Authhub 的域名配置（直接回车使用默认值 authhub.eulercopilot.local）：${NC}"
-    read -p "Authhub 的前端域名: " authhub_domain
+get_authhub_address() {
+    local default_address="127.0.0.1"
+    
+    echo -e "${BLUE}请输入 Authhub 的访问地址（IP或域名，直接回车使用默认值 ${default_address}）：${NC}"
+    read -p "Authhub 地址: " authhub_address
 
-    if [[ -z "$authhub_domain" ]]; then
-        authhub_domain="authhub.eulercopilot.local"
-        echo -e "${GREEN}使用默认域名：${authhub_domain}${NC}"
+    # 处理空输入情况
+    if [[ -z "$authhub_address" ]]; then
+        authhub_address="$default_address"
+        echo -e "${GREEN}使用默认地址：${authhub_address}${NC}"
     else
-        if ! [[ "${authhub_domain}" =~ ^([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$ ]]; then
-            echo -e "${RED}错误：输入的AuthHub域名格式不正确${NC}"
-            exit 1
-        fi
-        echo -e "${GREEN}输入域名：${authhub_domain}${NC}"
+        echo -e "${GREEN}输入地址：${authhub_address}${NC}"
     fi
+
+    # 返回用户输入的地址
+    echo "$authhub_address"
+    return 0
 }
 
 helm_install() {
@@ -119,7 +122,7 @@ helm_install() {
     echo -e "${BLUE}正在安装 authhub...${NC}"
     helm upgrade --install authhub -n euler-copilot ./authhub \
         --set globals.arch="$arch" \
-        --set domain.authhub="${authhub_domain}" || {
+	--set domain.authhub="${authhub_address}" || {
         echo -e "${RED}Helm 安装 authhub 失败！${NC}"
         return 1
     }
@@ -169,7 +172,7 @@ main() {
     arch=$(get_architecture) || exit 1
     create_namespace || exit 1
     uninstall_authhub || exit 1
-    get_user_input || exit 1
+    get_authhub_address|| exit 1
     helm_install "$arch" || exit 1
     check_pods_status || {
         echo -e "${RED}部署失败：Pod状态检查未通过！${NC}"
@@ -179,7 +182,7 @@ main() {
     echo -e "\n${GREEN}========================="
     echo -e "Authhub 部署完成！"
     echo -e "查看pod状态：kubectl get pod -n euler-copilot"
-    echo -e "Authhub登录地址为: https://${authhub_domain}"
+    echo -e "Authhub登录地址为: https://${authhub_address}:30081"
     echo -e "默认账号密码: administrator/changeme"
     echo -e "=========================${NC}"
 }
