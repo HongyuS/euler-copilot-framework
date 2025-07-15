@@ -24,7 +24,7 @@ class FlowPoolVector(Base):
             "hnsw_index",
             "embedding",
             postgresql_using="hnsw",
-            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_with={"m": 16, "ef_construction": 200},
             postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
     )
@@ -43,7 +43,7 @@ class ServicePoolVector(Base):
             "hnsw_index",
             "embedding",
             postgresql_using="hnsw",
-            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_with={"m": 16, "ef_construction": 200},
             postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
     )
@@ -64,7 +64,7 @@ class NodePoolVector(Base):
             "hnsw_index",
             "embedding",
             postgresql_using="hnsw",
-            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_with={"m": 16, "ef_construction": 200},
             postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
     )
