@@ -29,12 +29,44 @@ class RAG:
     """系统提示词"""
     user_prompt = """'
     <instructions>
-            你是openEuler社区的智能助手。请结合给出的背景信息, 回答用户的提问。
+            你是openEuler社区的智能助手。请结合给出的背景信息, 回答用户的提问，并且基于给出的背景信息在相关句子后进行脚注。
+            一个例子将在<example>中给出。
             上下文背景信息将在<bac_info>中给出。
             用户的提问将在<user_question>中给出。
-            注意：输出不要包含任何XML标签，不要编造任何信息。若你认为用户提问与背景信息无关，请忽略背景信息直接作答。
+            注意：
+            1.输出不要包含任何XML标签，不要编造任何信息。若你认为用户提问与背景信息无关，请忽略背景信息直接作答。
+            2.脚注的格式为[[1]]，[[2]]，[[3]]等，脚注的内容为提供的文档的id。
+            3.脚注只出现在回答的句子的末尾，例如句号、问号等标点符号后面。
+            4.不要对脚注本身进行解释或说明。
     </instructions>
-
+    <example>
+        <bac_info>
+                <document id = 1 name = example_doc>
+                    <chunk>
+                        openEuler社区是一个开源操作系统社区，致力于推动Linux操作系统的发展。
+                    </chunk>
+                    <chunk>
+                        openEuler社区的目标是为用户提供一个稳定、安全、高效的操作系统平台，并且支持多种硬件架构。
+                    </chunk>
+                </document>
+                <document id = 2 name = another_example_doc>
+                    <chunk>
+                        openEuler社区的成员来自世界各地，包括开发者、用户和企业。
+                    </chunk>
+                    <chunk>
+                        openEuler社区的成员共同努力，推动开源操作系统的发展，并且为用户提供支持和帮助。
+                    </chunk>
+                </document>
+        </bac_info>
+        <user_question>
+                openEuler社区的目标是什么？
+        </user_question>
+        <answer>
+                openEuler社区是一个开源操作系统社区，致力于推动Linux操作系统的发展。[[1]]
+                openEuler社区的目标是为用户提供一个稳定、安全、高效的操作系统平台，并且支持多种硬件架构。[[1]]
+        </answer>
+    </example>
+    
     <bac_info>
             {bac_info}
     </bac_info>
@@ -48,11 +80,12 @@ class RAG:
         """获取k个token的词"""
         if k is None:
             return content
-
+        if k <= 0:
+            return ""
         try:
             if TokenCalculator().calculate_token_length(messages=[
                 {"role": "user", "content": content},
-            ]) <= k:
+            ], pure_text=True) <= k:
                 return content
             l = 0
             r = len(content)
@@ -60,7 +93,7 @@ class RAG:
                 mid = (l + r) // 2
                 if TokenCalculator().calculate_token_length(messages=[
                     {"role": "user", "content": content[:mid]},
-                ]) <= k:
+                ], pure_text=True) <= k:
                     l = mid
                 else:
                     r = mid
@@ -95,11 +128,11 @@ class RAG:
                 logger.exception("[RAG] 问题重写失败")
 
         reasion_llm = ReasoningLLM(llm_config)
-        corpus = []
-        doc_id_name_list = []
+        doc_chunk_list = []
         if doc_ids:
+            default_kb_id = "00000000-0000-0000-0000-000000000000"
             tmp_data = RAGQueryReq(
-                kbIds=["00000000-0000-0000-0000-000000000000"],
+                kbIds=[default_kb_id],
                 query=data.query,
                 topK=data.top_k,
                 docIds=doc_ids,
@@ -109,44 +142,84 @@ class RAG:
                 isRerank=data.is_rerank,
                 tokensLimit=data.tokens_limit
             )
-            async with httpx.AsyncClient(timeout=30) as client:
-                data_json = tmp_data.model_dump(exclude_none=True, by_alias=True)
-                response = await client.post(url, headers=headers, json=data_json)
-                if response.status_code == status.HTTP_200_OK:
-                    result = response.json()
-                    doc_chunk_list = result["result"]["docChunks"]
-                    for doc_chunk in doc_chunk_list:
-                        doc_id_name_list.append(
-                            {
-                                "id": doc_chunk["docId"],
-                                "name": doc_chunk["docName"],
-                            }
-                        )
-                        for chunk in doc_chunk["chunks"]:
-                            corpus.append(chunk["text"].replace("\n", ""))
+            try:
+                async with httpx.AsyncClient(timeout=30) as client:
+                    data_json = tmp_data.model_dump(exclude_none=True, by_alias=True)
+                    response = await client.post(url, headers=headers, json=data_json)
+                    if response.status_code == status.HTTP_200_OK:
+                        result = response.json()
+                        doc_chunk_list += result["result"]["docChunks"]
+            except Exception as e:
+                logger.error(f"[RAG] 获取文档分片失败: {e}")
         if data.kb_ids:
-            async with httpx.AsyncClient(timeout=30) as client:
-                data_json = data.model_dump(exclude_none=True, by_alias=True)
-                response = await client.post(url, headers=headers, json=data_json)
-                # 检查响应状态码
-                if response.status_code == status.HTTP_200_OK:
-                    result = response.json()
-                    doc_chunk_list = result["result"]["docChunks"]
-                    for doc_chunk in doc_chunk_list:
-                        doc_id_name_list.append(
-                            {
-                                "id": doc_chunk["docId"],
-                                "name": doc_chunk["docName"],
-                            }
-                        )
-                        for chunk in doc_chunk["chunks"]:
-                            corpus.append(chunk["text"].replace("\n", ""))
+            try:
+                async with httpx.AsyncClient(timeout=30) as client:
+                    data_json = data.model_dump(exclude_none=True, by_alias=True)
+                    response = await client.post(url, headers=headers, json=data_json)
+                    # 检查响应状态码
+                    if response.status_code == status.HTTP_200_OK:
+                        result = response.json()
+                        doc_chunk_list += result["result"]["docChunks"]
+            except Exception as e:
+                logger.error(f"[RAG] 获取文档分片失败: {e}")
 
-        text = ""
-        for i in range(len(corpus)):
-            text += corpus[i] + "\n"
-        text = RAG.get_k_tokens_words_from_content(text, llm.max_tokens)
-
+        bac_info = ""
+        doc_info_list = []
+        doc_cnt = 1
+        doc_id_map = {}
+        leave_tokens = llm.max_tokens
+        token_calculator = TokenCalculator()
+        for doc_chunk in doc_chunk_list:
+            if doc_chunk["docId"] not in doc_id_map:
+                doc_id_map[doc_chunk["docId"]] = doc_cnt
+                doc_cnt += 1
+            doc_index = doc_id_map[doc_chunk["docId"]]
+            leave_tokens -= token_calculator.calculate_token_length(messages=[
+                {"role": "user", "content": f'''<document id="{doc_index}"  name="{doc_chunk["docName"]}">'''},
+                {"role": "user", "content": "</document>"}
+            ],
+                pure_text=True)
+        tokens_of_chunk_element = token_calculator.calculate_token_length(messages=[
+            {"role": "user", "content": "<chunk>"},
+            {"role": "user", "content": "</chunk>"},
+        ], pure_text=True)
+        doc_cnt = 1
+        doc_id_map = {}
+        for doc_chunk in doc_chunk_list:
+            if doc_chunk["docId"] not in doc_id_map:
+                doc_info_list.append({
+                    "id": doc_chunk["docId"],
+                    "order": doc_cnt,
+                    "name": doc_chunk.get("docName", ""),
+                    "extension": doc_chunk.get("docExtension", ""),
+                    "abstract": doc_chunk.get("docAbstract", ""),
+                    "size": doc_chunk.get("docSize", 0),
+                })
+                doc_id_map[doc_chunk["docId"]] = doc_cnt
+                doc_cnt += 1
+            doc_index = doc_id_map[doc_chunk["docId"]]
+            if bac_info:
+                bac_info += "\n\n"
+            bac_info += f'''
+            <document id="{doc_index}"  name="{doc_chunk["docName"]}">
+            '''
+            for chunk in doc_chunk["chunks"]:
+                if leave_tokens <= tokens_of_chunk_element:
+                    break
+                chunk_text = chunk["text"]
+                chunk_text = RAG.get_k_tokens_words_from_content(
+                    content=chunk_text, k=leave_tokens)
+                leave_tokens -= token_calculator.calculate_token_length(messages=[
+                    {"role": "user", "content": "<chunk>"},
+                    {"role": "user", "content": chunk_text},
+                    {"role": "user", "content": "</chunk>"},
+                ], pure_text=True)
+                bac_info += f'''
+                <chunk>
+                    {chunk_text}
+                </chunk>
+                '''
+            bac_info += "</document>"
         messages = [
             *history,
             {
@@ -156,30 +229,32 @@ class RAG:
             {
                 "role": "user",
                 "content": RAG.user_prompt.format(
-                    bac_info=text,
+                    bac_info=bac_info,
                     user_question=data.query,
                 ),
             },
         ]
         input_tokens = TokenCalculator().calculate_token_length(messages=messages)
         output_tokens = 0
-        doc_id_name_set = set()
-        for doc_id_name in doc_id_name_list:
-            if json.dumps(doc_id_name) not in doc_id_name_set:
-                doc_id_name_set.add(json.dumps(doc_id_name))
-                yield (
-                    "data: "
-                    + json.dumps(
-                        {
-                            "event_type": EventType.DOCUMENT_ADD.value,
-                            "input_tokens": input_tokens,
-                            "output_tokens": output_tokens,
-                            "content": doc_id_name,
-                        },
-                        ensure_ascii=False,
-                    )
-                    + "\n\n"
+        for doc_info in doc_info_list:
+            yield (
+                "data: "
+                + json.dumps(
+                    {
+                        "event_type": EventType.DOCUMENT_ADD.value,
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                        "content": doc_info,
+                    },
+                    ensure_ascii=False,
                 )
+                + "\n\n"
+            )
+        max_footnote_length = 4
+        while doc_cnt > 0:
+            doc_cnt //= 10
+            max_footnote_length += 1
+        buffer = ""
         async for chunk in reasion_llm.call(
             messages,
             max_tokens=llm.max_tokens,
@@ -190,10 +265,22 @@ class RAG:
         ):
             if not await Activity.is_active(user_sub):
                 return
+            chunk = buffer + chunk
+            # 防止脚注被截断
+            if len(chunk) >= 2 and chunk[-2:] != "]]":
+                index = len(chunk) - 1
+                while index >= max(0, len(chunk) - max_footnote_length) and chunk[index] != "]":
+                    index -= 1
+                if index >= 0:
+                    buffer = chunk[index + 1:]
+                    chunk = chunk[:index + 1]
+            else:
+                buffer = ""
             output_tokens += TokenCalculator().calculate_token_length(
                 messages=[
                     {"role": "assistant", "content": chunk},
                 ],
+                pure_text=True,
             )
             yield (
                 "data: "
@@ -201,6 +288,26 @@ class RAG:
                     {
                         "event_type": EventType.TEXT_ADD.value,
                         "content": chunk,
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n\n"
+            )
+        if buffer:
+            output_tokens += TokenCalculator().calculate_token_length(
+                messages=[
+                    {"role": "assistant", "content": buffer},
+                ],
+                pure_text=True,
+            )
+            yield (
+                "data: "
+                + json.dumps(
+                    {
+                        "event_type": EventType.TEXT_ADD.value,
+                        "content": buffer,
                         "input_tokens": input_tokens,
                         "output_tokens": output_tokens,
                     },

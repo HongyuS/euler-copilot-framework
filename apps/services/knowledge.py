@@ -39,7 +39,6 @@ class KnowledgeBaseManager:
         kb_config_list = result.get("kb_list", [])
         return [kb_config["kb_id"] for kb_config in kb_config_list]
 
-
     @staticmethod
     async def get_team_kb_list_from_rag(
         user_sub: str,
@@ -72,7 +71,6 @@ class KnowledgeBaseManager:
                 return []
         return resp_data["result"]["teamKnowledgebases"]
 
-
     @staticmethod
     async def list_team_kb(
             user_sub: str, conversation_id: str, kb_id: str, kb_name: str) -> list[KnowledgeBaseItemResponse]:
@@ -94,7 +92,11 @@ class KnowledgeBaseManager:
         kb_ids_used = set(kb_ids_used)
 
         team_kb_item_list = []
-        team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, kb_id, kb_name)
+        try:
+            team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, kb_id, kb_name)
+        except Exception as e:
+            logger.error(f"[KnowledgeBaseManager] 获取团队知识库列表失败: {e}")
+            return []
         for team_kb in team_kb_list:
             team_kb_item = TeamKnowledgeBaseItem(
                 teamId=team_kb["teamId"],
@@ -110,7 +112,6 @@ class KnowledgeBaseManager:
                 team_kb_item.kb_list.append(kb_item)
             team_kb_item_list.append(team_kb_item)
         return team_kb_item_list
-
 
     @staticmethod
     async def update_conv_kb(
