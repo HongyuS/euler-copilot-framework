@@ -70,22 +70,27 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
         self._session_id = call_vars.ids.session_id
         self._auth = None
 
-        if self.node:
-            # 获取对应API的Service Metadata
+        if not self.node:
+            raise CallError(
+                message="API工具调用时，必须指定Node",
+                data={},
+            )
+
+        # 获取对应API的Service Metadata
+        if self.node.service_id:
             try:
                 service_metadata = await ServiceCenterManager.get_service_metadata(
                     call_vars.ids.user_sub,
-                    self.node.service_id or "",
+                    self.node.service_id,
                 )
+                # 获取Service对应的Auth
+                self._auth = service_metadata.api.auth
+                self._service_id = self.node.service_id
             except Exception as e:
                 raise CallError(
                     message="API接口的Service Metadata获取失败",
                     data={},
                 ) from e
-
-            # 获取Service对应的Auth
-            self._auth = service_metadata.api.auth
-            self._service_id = self.node.service_id or ""
 
         return APIInput(
             url=self.url,
@@ -165,23 +170,28 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
         req_cookie = {}
         req_params = {}
 
-        if self._auth.header:  # type: ignore[attr-defined] # 如果header列表非空
-            for item in self._auth.header:  # type: ignore[attr-defined]
-                req_header[item.name] = item.value
-        elif self._auth.cookie:  # type: ignore[attr-defined] # 如果cookie列表非空
-            for item in self._auth.cookie:  # type: ignore[attr-defined]
-                req_cookie[item.name] = item.value
-        elif self._auth.query:  # type: ignore[attr-defined] # 如果query列表非空
-            for item in self._auth.query:  # type: ignore[attr-defined]
-                req_params[item.name] = item.value
-        elif self._auth.oidc:  # type: ignore[attr-defined] # 如果oidc配置存在
-            token = await TokenManager.get_plugin_token(
-                self._service_id,
-                self._session_id,
-                await oidc_provider.get_access_token_url(),
-                30,
-            )
-            req_header.update({"access-token": token})
+        if self._auth:
+            # 如果header列表非空
+            if self._auth.header:
+                for item in self._auth.header:
+                    req_header[item.name] = item.value
+            # 如果cookie列表非空
+            if self._auth.cookie:
+                for item in self._auth.cookie:
+                    req_cookie[item.name] = item.value
+            # 如果query列表非空
+            if self._auth.query:
+                for item in self._auth.query:
+                    req_params[item.name] = item.value
+            # 如果oidc配置存在
+            if self._auth.oidc:
+                token = await TokenManager.get_plugin_token(
+                    self._service_id,
+                    self._session_id,
+                    await oidc_provider.get_access_token_url(),
+                    30,
+                )
+                req_header.update({"access-token": token})
 
         return req_header, req_cookie, req_params
 
