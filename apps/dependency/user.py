@@ -9,14 +9,14 @@ from starlette import status
 from starlette.exceptions import HTTPException
 from starlette.requests import HTTPConnection
 
-from apps.services.api_key import ApiKeyManager
+from apps.services.personal_token import PersonalTokenManager
 from apps.services.session import SessionManager
 
 logger = logging.getLogger(__name__)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
-async def _get_session_id_from_request(request: HTTPConnection) -> str | None:
+async def _extract_session_id(request: HTTPConnection) -> str | None:
     """
     从请求中获取 session_id
 
@@ -48,7 +48,7 @@ async def get_session(request: HTTPConnection) -> str:
     :param request: HTTP请求
     :return: Session ID
     """
-    session_id = await _get_session_id_from_request(request)
+    session_id = await _extract_session_id(request)
     if not session_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -69,7 +69,7 @@ async def get_user(request: HTTPConnection) -> str:
     :param request: HTTP请求体
     :return: 用户sub
     """
-    session_id = await _get_session_id_from_request(request)
+    session_id = await _extract_session_id(request)
     if not session_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -88,25 +88,25 @@ async def get_user(request: HTTPConnection) -> str:
     return user_sub
 
 
-async def verify_api_key(api_key: str = Depends(oauth2_scheme)) -> None:
+async def verify_personal_token(personal_token: str = Depends(oauth2_scheme)) -> None:
     """
-    验证API Key是否有效；无效则抛出HTTP 401；接口级dependence
+    验证Personal Token是否有效；无效则抛出HTTP 401；接口级dependence
 
-    :param api_key: API Key
+    :param personal_token: Personal Token
     :return:
     """
-    if not await ApiKeyManager.verify_api_key(api_key):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key!")
+    if not await PersonalTokenManager.verify_personal_token(personal_token):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Personal Token!")
 
 
-async def get_user_by_api_key(api_key: str = Depends(oauth2_scheme)) -> str:
+async def get_personal_token_user(personal_token: str = Depends(oauth2_scheme)) -> str:
     """
-    验证API Key是否有效；若有效，返回对应的user_sub；若无效，抛出HTTP 401；参数级dependence
+    验证Personal Token是否有效；若有效，返回对应的user_sub；若无效，抛出HTTP 401；参数级dependence
 
-    :param api_key: API Key
+    :param personal_token: Personal Token
     :return: 用户sub
     """
-    user_sub = await ApiKeyManager.get_user_by_api_key(api_key)
+    user_sub = await PersonalTokenManager.get_user_by_personal_token(personal_token)
     if user_sub is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key!")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Personal Token!")
     return user_sub
