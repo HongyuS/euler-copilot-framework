@@ -43,7 +43,8 @@ class DocumentManager:
             length=-1,
             part_size=10 * 1024 * 1024,
             metadata={
-                "file_name": base64.b64encode(document.filename.encode("utf-8")).decode("ascii") , # type: ignore[arg-type]
+                # type: ignore[arg-type]
+                "file_name": base64.b64encode(document.filename.encode("utf-8")).decode("ascii"),
             },
         )
         return mime
@@ -105,39 +106,49 @@ class DocumentManager:
         return [Document(**doc) async for doc in doc_collection.find({"_id": {"$in": docs_ids}})]
 
     @classmethod
-    async def get_used_docs_by_record_group(cls, user_sub: str, record_group_id: str) -> list[RecordDocument]:
+    async def get_used_docs_by_record_group(
+            cls, user_sub: str, record_group_id: str, type: str | None = None) -> list[RecordDocument]:
         """获取RecordGroup关联的文件"""
         mongo = MongoDB()
         record_group_collection = mongo.get_collection("record_group")
-        docs_collection = mongo.get_collection("document")
-
+        document_collection = mongo.get_collection("document")
+        if type not in ["question", "answer", None]:
+            raise ValueError("type must be 'question', 'answer' or None")
         record_group = await record_group_collection.find_one({"_id": record_group_id, "user_sub": user_sub})
         if not record_group:
             logger.info("[DocumentManager] 记录组不存在: %s", record_group_id)
             return []
 
         docs = RecordGroup.model_validate(record_group).docs
-        doc_ids = [doc.id for doc in docs]
-        doc_infos = [Document.model_validate(doc) async for doc in docs_collection.find({"_id": {"$in": doc_ids}})]
+        for doc in docs:
+            if doc.associated == "question":
+                doc_info = await document_collection.find_one({"_id": doc.id, "user_sub": user_sub})
+                if doc_info:
+                    doc.name = doc_info.name
+                    doc.extension = doc_info.type
+                    doc.size = doc_info.size
         return [
             RecordDocument(
-                _id=item[0].id,
-                name=item[1].name,
-                type=item[1].type,
-                size=item[1].size,
-                conversation_id=item[1].conversation_id,
-                associated=item[0].associated,
+                _id=doc.id,
+                abstract=doc.abstract,
+                name=doc.name,
+                type=doc.extension,
+                size=doc.size,
+                conversation_id=record_group.get("conversation_id", ""),
+                associated=doc.associated,
             )
-            for item in zip(docs, doc_infos, strict=True)
+            for doc in docs if type is None or doc.associated == type
         ]
 
     @classmethod
-    async def get_used_docs(cls, user_sub: str, conversation_id: str, record_num: int | None = 10) -> list[Document]:
+    async def get_used_docs(
+            cls, user_sub: str, conversation_id: str, record_num: int | None = 10, type: str | None = None) -> list[Document]:
         """获取最后n次问答所用到的文件"""
         mongo = MongoDB()
         docs_collection = mongo.get_collection("document")
         record_group_collection = mongo.get_collection("record_group")
-
+        if type not in ["question", "answer", None]:
+            raise ValueError("type must be 'question', 'answer' or None")
         if record_num:
             record_groups = (
                 record_group_collection.find({"conversation_id": conversation_id, "user_sub": user_sub})
@@ -152,7 +163,8 @@ class DocumentManager:
         docs = []
         async for current_record_group in record_groups:
             for doc in RecordGroup.model_validate(current_record_group).docs:
-                docs += [doc.id]
+                if type is None or doc.associated == type:
+                    docs.append(doc.id)
         # 文件ID去重
         docs = list(set(docs))
         # 返回文件详细信息
@@ -255,13 +267,11 @@ class DocumentManager:
         await conversation_collection.update_one({"_id": conversation_id}, {"$set": {"unused_docs": []}})
 
     @classmethod
-    async def save_answer_doc(cls, user_sub: str, record_group_id: str, doc_ids: list[str]) -> None:
+    async def save_answer_doc(cls, user_sub: str, record_group_id: str, doc_infos: list[RecordDocument]) -> None:
         """保存与答案关联的文件"""
         mongo = MongoDB()
         record_group_collection = mongo.get_collection("record_group")
-
-        for doc_id in doc_ids:
-            doc_info = RecordGroupDocument(_id=doc_id, associated="answer")
+        for doc_info in doc_infos:
             await record_group_collection.update_one(
                 {"_id": record_group_id, "user_sub": user_sub},
                 {"$push": {"docs": doc_info.model_dump(by_alias=True)}},

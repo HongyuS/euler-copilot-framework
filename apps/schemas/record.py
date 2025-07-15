@@ -17,6 +17,7 @@ class RecordDocument(Document):
     """GET /api/record/{conversation_id} Result中的document数据结构"""
 
     id: str = Field(alias="_id", default="")
+    abstract: str = Field(default="", description="文档摘要")
     user_sub: None = None
     associated: Literal["question", "answer"]
 
@@ -54,6 +55,14 @@ class RecordContent(BaseModel):
     facts: list[str] = Field(description="[运行后修改]与Record关联的事实信息", default=[])
 
 
+class FootNoteMetaData(BaseModel):
+    """Record表子项：Record的脚注元信息"""
+    releated_id: str = Field(default="", description="相关ID", alias="releatedId")
+    insert_position: int = Field(default=0, description="插入位置", alias="insertPosition")
+    foot_source: str = Field(default="", description="脚注来源", alias="footSource")
+    foot_type: str = Field(default="", description="脚注类型", alias="footType")
+
+
 class RecordMetadata(BaseModel):
     """Record表子项：Record的元信息"""
 
@@ -61,6 +70,9 @@ class RecordMetadata(BaseModel):
     output_tokens: int = Field(default=0, alias="outputTokens")
     time_cost: float = Field(default=0, alias="timeCost")
     feature: dict[str, Any] = {}
+    foot_note_metadata_list: list[FootNoteMetaData] = Field(
+        default=[], alias="footNoteMetadataList", description="脚注元信息列表")
+
 
 class RecordComment(BaseModel):
     """Record表子项：Record的评论信息"""
@@ -91,6 +103,10 @@ class RecordGroupDocument(BaseModel):
     """RecordGroup关联的文件"""
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
+    name: str = Field(description="文档名称")
+    abstract: str = Field(description="文档摘要", default="")
+    extension: str = Field(description="文档扩展名", default="")
+    size: int = Field(description="文档大小，单位是KB", default=0)
     associated: Literal["question", "answer"]
 
 

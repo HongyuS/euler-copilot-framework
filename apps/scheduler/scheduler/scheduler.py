@@ -92,7 +92,6 @@ class Scheduler:
             return
         history, _ = await get_context(self.task.ids.user_sub, self.post_body, 3)
         # 已使用文档
-        self.used_docs = []
 
         # 如果是智能问答，直接执行
         logger.info("[Scheduler] 开始执行")

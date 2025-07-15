@@ -13,7 +13,7 @@ class RAGQueryReq(BaseModel):
     query: str = Field(default="", description="查询内容")
     top_k: int = Field(default=5, description="返回的结果数量", alias="topK")
     doc_ids: list[str] | None = Field(default=None, description="文档id", alias="docIds")
-    search_method: str = Field(default="keyword_and_vector",
+    search_method: str = Field(default="dynamic_weighted_keyword_and_vector",
                                description="检索方法", alias="searchMethod")
     is_related_surrounding: bool = Field(default=True, description="是否关联上下文", alias="isRelatedSurrounding")
     is_classify_by_doc: bool = Field(default=True, description="是否按文档分类", alias="isClassifyByDoc")

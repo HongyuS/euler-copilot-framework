@@ -74,6 +74,7 @@ class TaskRuntime(BaseModel):
     facts: list[str] = Field(description="记忆", default=[])
     summary: str = Field(description="摘要", default="")
     filled: dict[str, Any] = Field(description="填充的槽位", default={})
+    documents: list[dict[str, Any]] = Field(description="文档列表", default=[])
 
 
 class Task(BaseModel):

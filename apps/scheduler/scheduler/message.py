@@ -66,18 +66,26 @@ async def push_rag_message(
     full_answer = ""
 
     async for chunk in RAG.get_rag_result(user_sub, llm, history, doc_ids, rag_data):
-        task, chunk_content = await _push_rag_chunk(task, queue, chunk)
-        if not isinstance(chunk_content, str):
-            chunk_content = ""
-        full_answer += chunk_content
-
+        task, content_obj = await _push_rag_chunk(task, queue, chunk)
+        if content_obj.event_type == EventType.TEXT_ADD.value:
+            # 如果是文本消息，直接拼接到答案中
+            full_answer += content_obj.content
+        elif content_obj.event_type == EventType.DOCUMENT_ADD.value:
+            task.runtime.documents.append({
+                "id": content_obj.content.get("id", ""),
+                "order": content_obj.content.get("order", 0),
+                "name": content_obj.content.get("name", ""),
+                "abstract": content_obj.content.get("abstract", ""),
+                "extension": content_obj.content.get("extension", ""),
+                "size": content_obj.content.get("size", 0),
+            })
     # 保存答案
     task.runtime.answer = full_answer
     await TaskManager.save_task(task.id, task)
     return task
 
 
-async def _push_rag_chunk(task: Task, queue: MessageQueue, content: str) -> tuple[Task, str]:
+async def _push_rag_chunk(task: Task, queue: MessageQueue, content: str) -> tuple[Task, RAGEventData]:
     """推送RAG单个消息块"""
     # 如果是换行
     if not content or not content.rstrip().rstrip("\n"):
@@ -106,27 +114,15 @@ async def _push_rag_chunk(task: Task, queue: MessageQueue, content: str) -> tupl
                 event_type=content_obj.event_type,
                 data=DocumentAddContent(
                     documentId=content_obj.content.get("id", ""),
+                    documentOrder=content_obj.content.get("order", 0),
                     documentName=content_obj.content.get("name", ""),
+                    documentAbstract=content_obj.content.get("abstract", ""),
+                    documentType=content_obj.content.get("extension", ""),
+                    documentSize=content_obj.content.get("size", 0),
                 ).model_dump(exclude_none=True, by_alias=True),
             )
     except Exception:
         logger.exception("[Scheduler] RAG服务返回错误数据")
         return task, ""
     else:
-        return task, content_obj.content
-
-
-async def push_document_message(task: Task, queue: MessageQueue, doc: RecordDocument | Document) -> Task:
-    """推送文档消息"""
-    content = DocumentAddContent(
-        documentId=doc.id,
-        documentName=doc.name,
-        documentType=doc.type,
-        documentSize=round(doc.size, 2),
-    )
-    await queue.push_output(
-        task=task,
-        event_type=EventType.DOCUMENT_ADD.value,
-        data=content.model_dump(exclude_none=True, by_alias=True),
-    )
-    return task
+        return task, content_obj

@@ -3,6 +3,7 @@
 
 import logging
 from datetime import UTC, datetime
+import re
 
 from apps.common.security import Security
 from apps.llm.patterns.facts import Facts
@@ -12,6 +13,8 @@ from apps.schemas.record import (
     Record,
     RecordContent,
     RecordDocument,
+    RecordGroupDocument,
+    FootNoteMetaData,
     RecordMetadata,
 )
 from apps.schemas.request_data import RequestData
@@ -33,18 +36,18 @@ async def get_docs(user_sub: str, post_body: RequestData) -> tuple[list[RecordDo
 
     doc_ids = []
 
-    docs = await DocumentManager.get_used_docs_by_record_group(user_sub, post_body.group_id)
+    docs = await DocumentManager.get_used_docs_by_record_group(user_sub, post_body.group_id, type="question")
     if not docs:
         # 是新提问
         # 从Conversation中获取刚上传的文档
         docs = await DocumentManager.get_unused_docs(user_sub, post_body.conversation_id)
         # 从最近10条Record中获取文档
-        docs += await DocumentManager.get_used_docs(user_sub, post_body.conversation_id, 10)
+        docs += await DocumentManager.get_used_docs(user_sub, post_body.conversation_id, 10, type="question")
         doc_ids += [doc.id for doc in docs]
     else:
         # 是重新生成
         doc_ids += [doc.id for doc in docs]
-
+    # 由于文档可能来自于外部
     return docs, doc_ids
 
 
@@ -102,9 +105,49 @@ async def generate_facts(task: Task, question: str) -> tuple[Task, list[str]]:
     return task, facts
 
 
-async def save_data(task: Task, user_sub: str, post_body: RequestData, used_docs: list[str]) -> None:
+async def save_data(task: Task, user_sub: str, post_body: RequestData) -> None:
     """保存当前Executor、Task、Record等的数据"""
     # 构造RecordContent
+    used_docs = []
+    order_to_id = {}
+    for docs in task.runtime.documents:
+        used_docs.append(
+            RecordGroupDocument(
+                _id=docs["id"],
+                name=docs["name"],
+                abstract=docs.get("abstract", ""),
+                extension=docs.get("extension", ""),
+                size=docs.get("size", 0),
+                associated="answer",
+            )
+        )
+        if docs.get("order") is not None:
+            order_to_id[docs["order"]] = docs["id"]
+
+    foot_note_pattern = re.compile(r"\[\[(\d+)\]\]")
+    foot_note_metadata_list = []
+    offset = 0
+    for match in foot_note_pattern.finditer(task.runtime.answer):
+        order = int(match.group(1))
+        if order in order_to_id:
+            # 计算移除脚注后的插入位置
+            original_start = match.start()
+            new_position = original_start - offset
+
+            foot_note_metadata_list.append(
+                FootNoteMetaData(
+                    releatedId=order_to_id[order],
+                    insertPosition=new_position,
+                    footSource="rag_search",
+                    footType="document",
+                )
+            )
+
+            # 更新偏移量，因为脚注被移除会导致后续内容前移
+            offset += len(match.group(0))
+
+    # 最后统一移除所有脚注
+    task.runtime.answer = foot_note_pattern.sub("", task.runtime.answer).strip()
     record_content = RecordContent(
         question=task.runtime.question,
         answer=task.runtime.answer,
@@ -138,6 +181,7 @@ async def save_data(task: Task, user_sub: str, post_body: RequestData, used_docs
             timeCost=task.tokens.full_time,
             inputTokens=task.tokens.input_tokens,
             outputTokens=task.tokens.output_tokens,
+            footNoteMetadataList=foot_note_metadata_list,
             feature={},
         ),
         createdAt=current_time,

@@ -77,7 +77,7 @@ async def get_document_list(  # noqa: ANN201
     result = []
     if used:
         # 拿到所有已使用的文档
-        docs = await DocumentManager.get_used_docs(user_sub, conversation_id)
+        docs = await DocumentManager.get_used_docs(user_sub, conversation_id, type="question")
         result += [
             ConversationDocumentItem(
                 _id=item.id,
