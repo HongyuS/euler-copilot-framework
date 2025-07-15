@@ -45,13 +45,6 @@ class EventType(str, Enum):
     DONE = "done"
 
 
-class CallType(str, Enum):
-    """Call类型"""
-
-    SYSTEM = "system"
-    PYTHON = "python"
-
-
 class MetadataType(str, Enum):
     """元数据类型"""
 

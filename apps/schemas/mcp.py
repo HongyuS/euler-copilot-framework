@@ -76,7 +76,7 @@ class MCPTool(BaseModel):
 
 
 class MCPCollection(BaseModel):
-    """MCP相关信息，存储在MongoDB的 ``mcp`` 集合中"""
+    """MCP相关信息"""
 
     id: str = Field(description="MCP ID", alias="_id", default="")
     name: str = Field(description="MCP 自然语言名称", default="")

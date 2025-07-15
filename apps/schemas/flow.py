@@ -149,10 +149,3 @@ class ServiceApiSpec(BaseModel):
     size: int = Field(description="OpenAPI文件大小（单位：KB）")
     path: str = Field(description="OpenAPI文件路径")
     hash: str = Field(description="OpenAPI文件的hash值")
-
-
-class FlowConfig(BaseModel):
-    """Flow的配置信息 用于前期调试使用"""
-
-    flow_id: str
-    flow_config: Flow

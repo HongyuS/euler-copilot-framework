@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """FastAPI 请求体"""
 
+import uuid
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -137,25 +138,24 @@ class ModifyConversationData(BaseModel):
 class DeleteConversationData(BaseModel):
     """删除会话"""
 
-    conversation_list: list[str] = Field(alias="conversationList")
+    conversation_list: list[uuid.UUID] = Field(alias="conversationList")
 
 
 class AddCommentData(BaseModel):
     """添加评论"""
 
     record_id: str
-    group_id: str
     comment: CommentType
     dislike_reason: str = Field(default="", max_length=200)
     reason_link: str = Field(default="", max_length=200)
     reason_description: str = Field(default="", max_length=500)
 
 
-class PostDomainData(BaseModel):
+class PostTagData(BaseModel):
     """添加领域"""
 
-    domain_name: str = Field(..., min_length=1, max_length=100)
-    domain_description: str = Field(..., max_length=2000)
+    tag: str = Field(..., min_length=1, max_length=100)
+    description: str = Field(..., max_length=2000)
 
 
 class PutFlowReq(BaseModel):

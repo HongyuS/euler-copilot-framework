@@ -62,6 +62,7 @@ class RecordMetadata(BaseModel):
     time_cost: float = Field(default=0, alias="timeCost")
     feature: dict[str, Any] = {}
 
+
 class RecordComment(BaseModel):
     """Record表子项：Record的评论信息"""
 
@@ -102,21 +103,3 @@ class Record(RecordData):
     content: str
     comment: RecordComment = Field(default=RecordComment())
     flow: list[str] = Field(default=[])
-
-
-class RecordGroup(BaseModel):
-    """
-    问答组
-
-    多次重新生成的问答都是一个问答组
-    Collection: record_group
-    外键：record_group - document
-    """
-
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
-    user_sub: str
-    records: list[Record] = []
-    docs: list[RecordGroupDocument] = []    # 问题不变，所用到的文档不变
-    conversation_id: str
-    task_id: str
-    created_at: float = Field(default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3))
