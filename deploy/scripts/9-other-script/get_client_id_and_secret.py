@@ -132,7 +132,7 @@ def get_client_secret(authhub_web_url, user_token, client_id):
 if __name__ == "__main__":
     # 解析命令行参数
     parser = argparse.ArgumentParser()
-    parser.add_argument("host_ip", help="主机IP地址（例如：192.168.1.100）")
+    parser.add_argument("eulercopilot_address", help="EulerCopilot前端地址（默认:http://172.0.0.1:30080）")
     args = parser.parse_args()
 
     # 获取服务信息
@@ -143,8 +143,8 @@ if __name__ == "__main__":
     authhub_web_url = f"http://{cluster_ip}:8000"
 
     # 生成固定URL
-    client_url = f"http://{args.host_ip}:30080"
-    redirect_urls = [f"http://{args.host_ip}:30080/api/auth/login"]
+    client_url = f"{args.eulercopilot_address}"
+    redirect_urls = [f"{args.eulercopilot_address}/api/auth/login"]
     client_name = "EulerCopilot"  # 设置固定默认值
 
     # 认证流程
