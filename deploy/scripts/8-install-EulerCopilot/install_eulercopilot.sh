@@ -253,6 +253,7 @@ modify_yaml() {
             "--set" "models.answer.key=sk-123456"
             "--set" "models.answer.name=deepseek-llm-7b-chat:latest"
             "--set" "models.functionCall.backend=ollama"
+	    "--set" "models.functionCall.endpoint=http://$host:11434"
             "--set" "models.embedding.type=openai"
             "--set" "models.embedding.endpoint=http://$host:11434/v1"
             "--set" "models.embedding.key=sk-123456"
