@@ -14,8 +14,8 @@ from pydantic.json_schema import SkipJsonSchema
 
 from apps.llm.function import FunctionLLM
 from apps.llm.reasoning import ReasoningLLM
+from apps.models.node import Node
 from apps.schemas.enum_var import CallOutputType
-from apps.schemas.pool import NodePool
 from apps.schemas.scheduler import (
     CallError,
     CallIds,
@@ -51,7 +51,7 @@ class CoreCall(BaseModel):
 
     name: SkipJsonSchema[str] = Field(description="Step的名称", exclude=True)
     description: SkipJsonSchema[str] = Field(description="Step的描述", exclude=True)
-    node: SkipJsonSchema[NodePool | None] = Field(description="节点信息", exclude=True)
+    node: SkipJsonSchema[Node | None] = Field(description="节点信息", exclude=True)
     enable_filling: SkipJsonSchema[bool] = Field(description="是否需要进行自动参数填充", default=False, exclude=True)
     tokens: SkipJsonSchema[CallTokens] = Field(
         description="Call的输入输出Tokens信息",
@@ -158,7 +158,7 @@ class CoreCall(BaseModel):
 
 
     @classmethod
-    async def instance(cls, executor: "StepExecutor", node: NodePool | None, **kwargs: Any) -> Self:
+    async def instance(cls, executor: "StepExecutor", node: Node | None, **kwargs: Any) -> Self:
         """实例化Call类"""
         obj = cls(
             name=executor.step.step.name,

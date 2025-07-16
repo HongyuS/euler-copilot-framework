@@ -21,7 +21,6 @@ from apps.schemas.response_data import (
     ResponseData,
 )
 from apps.services.appcenter import AppCenterManager
-from apps.services.application import AppManager
 from apps.services.flow import FlowManager
 from apps.services.flow_validate import FlowService
 
@@ -74,7 +73,7 @@ async def get_flow(
     flow_id: Annotated[str, Query(alias="flowId")],
 ) -> JSONResponse:
     """获取流拓扑结构"""
-    if not await AppManager.validate_user_app_access(user_sub, app_id):
+    if not await AppCenterManager.validate_user_app_access(user_sub, app_id):
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
             content=FlowStructureGetRsp(
@@ -120,7 +119,7 @@ async def put_flow(
     put_body: Annotated[PutFlowReq, Body(...)],
 ) -> JSONResponse:
     """修改流拓扑结构"""
-    if not await AppManager.validate_app_belong_to_user(user_sub, app_id):
+    if not await AppCenterManager.validate_app_belong_to_user(user_sub, app_id):
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
             content=FlowStructurePutRsp(
@@ -176,7 +175,7 @@ async def delete_flow(
     flow_id: Annotated[str, Query(alias="flowId")],
 ) -> JSONResponse:
     """删除流拓扑结构"""
-    if not await AppManager.validate_app_belong_to_user(user_sub, app_id):
+    if not await AppCenterManager.validate_app_belong_to_user(user_sub, app_id):
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
             content=FlowStructureDeleteRsp(

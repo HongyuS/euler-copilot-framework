@@ -12,9 +12,9 @@ from pydantic.json_schema import SkipJsonSchema
 
 from apps.common.security import Security
 from apps.llm.function import FunctionLLM
+from apps.models.node import Node
 from apps.scheduler.call.core import CoreCall
 from apps.schemas.enum_var import CallOutputType
-from apps.schemas.pool import NodePool
 from apps.schemas.record import RecordContent
 from apps.schemas.scheduler import (
     CallError,
@@ -23,7 +23,7 @@ from apps.schemas.scheduler import (
     CallVars,
 )
 from apps.services.record import RecordManager
-from apps.services.user_domain import UserDomainManager
+from apps.services.user_tag import UserTagManager
 
 from .prompt import SUGGEST_PROMPT
 from .schema import (
@@ -48,6 +48,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
     context: SkipJsonSchema[list[dict[str, str]]] = Field(description="Executor的上下文", exclude=True)
     conversation_id: SkipJsonSchema[str] = Field(description="对话ID", exclude=True)
 
+
     @classmethod
     def info(cls) -> CallInfo:
         """返回Call的名称和描述"""
@@ -55,7 +56,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
 
 
     @classmethod
-    async def instance(cls, executor: "StepExecutor", node: NodePool | None, **kwargs: Any) -> Self:
+    async def instance(cls, executor: "StepExecutor", node: Node | None, **kwargs: Any) -> Self:
         """初始化"""
         context = [
             {
@@ -138,7 +139,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
             )
 
         # 获取当前用户的画像
-        user_domain = await UserDomainManager.get_user_domain_by_user_sub_and_topk(data.user_sub, 5)
+        user_domain = await UserTagManager.get_user_domain_by_user_sub_and_topk(data.user_sub, 5)
         # 已推送问题数量
         pushed_questions = 0
         # 初始化Prompt

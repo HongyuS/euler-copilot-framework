@@ -28,7 +28,7 @@ from apps.schemas.response_data import (
     ResponseData,
     UpdateConversationRsp,
 )
-from apps.services.application import AppManager
+from apps.services.appcenter import AppCenterManager
 from apps.services.conversation import ConversationManager
 from apps.services.document import DocumentManager
 
@@ -52,7 +52,7 @@ async def create_new_conversation(
 ) -> Conversation:
     """判断并创建新对话"""
     # 新建对话
-    if app_id and not await AppManager.validate_user_app_access(user_sub, app_id):
+    if app_id and not await AppCenterManager.validate_user_app_access(user_sub, app_id):
         err = "Invalid app_id."
         raise RuntimeError(err)
     new_conv = await ConversationManager.add_conversation_by_user_sub(
