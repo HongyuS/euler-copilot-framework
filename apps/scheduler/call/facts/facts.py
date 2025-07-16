@@ -8,11 +8,11 @@ from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
+from apps.models.node import Node
 from apps.scheduler.call.core import CoreCall
 from apps.schemas.enum_var import CallOutputType
-from apps.schemas.pool import NodePool
 from apps.schemas.scheduler import CallInfo, CallOutputChunk, CallVars
-from apps.services.user_domain import UserDomainManager
+from apps.services.user_tag import UserTagManager
 
 from .prompt import DOMAIN_PROMPT, FACTS_PROMPT
 from .schema import (
@@ -39,7 +39,7 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
 
 
     @classmethod
-    async def instance(cls, executor: "StepExecutor", node: NodePool | None, **kwargs: Any) -> Self:
+    async def instance(cls, executor: "StepExecutor", node: Node | None, **kwargs: Any) -> Self:
         """初始化工具"""
         obj = cls(
             answer=executor.task.runtime.answer,
@@ -95,7 +95,7 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
         ], DomainGen) # type: ignore[arg-type]
 
         for domain in domain_list.keywords:
-            await UserDomainManager.update_user_domain_by_user_sub_and_domain_name(data.user_sub, domain)
+            await UserTagManager.update_user_domain_by_user_sub_and_domain_name(data.user_sub, domain)
 
         yield CallOutputChunk(
             type=CallOutputType.DATA,

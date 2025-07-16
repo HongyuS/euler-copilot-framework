@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING, Any, Self
 from pydantic import Field
 
 from apps.llm.patterns.executor import ExecutorSummary
+from apps.models.node import Node
 from apps.scheduler.call.core import CoreCall, DataBase
 from apps.schemas.enum_var import CallOutputType
-from apps.schemas.pool import NodePool
 from apps.schemas.scheduler import (
     CallInfo,
     CallOutputChunk,
@@ -35,7 +35,7 @@ class Summary(CoreCall, input_model=DataBase, output_model=SummaryOutput):
         return CallInfo(name="理解上下文", description="使用大模型，理解对话上下文")
 
     @classmethod
-    async def instance(cls, executor: "StepExecutor", node: NodePool | None, **kwargs: Any) -> Self:
+    async def instance(cls, executor: "StepExecutor", node: Node | None, **kwargs: Any) -> Self:
         """实例化工具"""
         obj = cls(
             context=executor.background,
