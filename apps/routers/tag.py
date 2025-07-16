@@ -1,17 +1,17 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""FastAPI 用户画像相关API"""
+"""FastAPI 用户标签相关API"""
 
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import verify_user
-from apps.schemas.request_data import PostDomainData
+from apps.schemas.request_data import PostTagData
 from apps.schemas.response_data import ResponseData
-from apps.services.domain import DomainManager
+from apps.services.tag import TagManager
 
 router = APIRouter(
-    prefix="/api/domain",
-    tags=["domain"],
+    prefix="/api/tag",
+    tags=["tag"],
     dependencies=[
         Depends(verify_user),
     ],
@@ -19,71 +19,71 @@ router = APIRouter(
 
 
 @router.post("", response_model=ResponseData)
-async def add_domain(post_body: PostDomainData) -> JSONResponse:
-    """添加用户领域画像"""
-    if await DomainManager.get_domain_by_domain_name(post_body.domain_name):
+async def add_tags(post_body: PostTagData) -> JSONResponse:
+    """添加用户标签"""
+    if await TagManager.get_tag_by_name(post_body.tag):
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ResponseData(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="add domain name is exist.",
+            message="[Tag] Add tag name is exist.",
             result={},
         ).model_dump(exclude_none=True, by_alias=True))
 
     try:
-        await DomainManager.add_domain(post_body)
+        await TagManager.add_tag(post_body)
     except Exception as e:  # noqa: BLE001
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ResponseData(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message=f"add domain failed: {e!s}",
+            message=f"[Tag] Add tag failed: {e!s}",
             result={},
         ).model_dump(exclude_none=True, by_alias=True))
     return JSONResponse(status_code=status.HTTP_200_OK, content=ResponseData(
         code=status.HTTP_200_OK,
-        message="add domain success.",
+        message="[Tag] Add tag success.",
         result={},
     ).model_dump(exclude_none=True, by_alias=True))
 
 
 @router.put("", response_model=ResponseData)
-async def update_domain(post_body: PostDomainData) -> JSONResponse:
+async def update_tag(post_body: PostTagData) -> JSONResponse:
     """更新用户领域画像"""
-    if not await DomainManager.get_domain_by_domain_name(post_body.domain_name):
+    if not await TagManager.get_tag_by_name(post_body.tag):
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ResponseData(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="update domain name is not exist.",
+            message="[Tag] Update tag name is not exist.",
             result={},
         ).model_dump(exclude_none=True, by_alias=True))
-    if not await DomainManager.update_domain_by_domain_name(post_body):
+    if not await TagManager.update_tag_by_name(post_body):
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ResponseData(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="update domain failed",
+            message="[Tag] Update tag failed",
             result={},
         ).model_dump(exclude_none=True, by_alias=True))
     return JSONResponse(status_code=status.HTTP_200_OK, content=ResponseData(
         code=status.HTTP_200_OK,
-        message="update domain success.",
+        message="[Tag] Update tag success.",
         result={},
     ).model_dump(exclude_none=True, by_alias=True))
 
 
 @router.delete("", response_model=ResponseData)
-async def delete_domain(post_body: PostDomainData) -> JSONResponse:
+async def delete_tag(post_body: PostTagData) -> JSONResponse:
     """删除用户领域画像"""
-    if not await DomainManager.get_domain_by_domain_name(post_body.domain_name):
+    if not await TagManager.get_tag_by_name(post_body.tag):
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ResponseData(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="delete domain name is not exist.",
+            message="[Tag] Delete tag name is not exist.",
             result={},
         ).model_dump(exclude_none=True, by_alias=True))
     try:
-        await DomainManager.delete_domain_by_domain_name(post_body)
+        await TagManager.delete_tag(post_body)
     except Exception as e:  # noqa: BLE001
         return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ResponseData(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message=f"delete domain failed: {e!s}",
+            message=f"[Tag] Delete tag failed: {e!s}",
             result={},
         ).model_dump(exclude_none=True, by_alias=True))
     return JSONResponse(status_code=status.HTTP_200_OK, content=ResponseData(
         code=status.HTTP_200_OK,
-        message="delete domain success.",
+        message="[Tag] Delete tag success.",
         result={},
     ).model_dump(exclude_none=True, by_alias=True))
