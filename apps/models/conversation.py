@@ -17,9 +17,9 @@ class Conversation(Base):
     """对话"""
 
     __tablename__ = "framework_conversation"
-    user_sub: Mapped[str] = mapped_column(ForeignKey("framework_user.user_sub"))
+    userSub: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"))  # noqa: N815
     """用户名"""
-    app_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("framework_app.id"), nullable=True)
+    appId: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("framework_app.id"), nullable=True)  # noqa: N815
     """对话使用的App的ID"""
     title: Mapped[str] = mapped_column(String(255), default=NEW_CHAT)
     """对话标题"""
@@ -27,11 +27,11 @@ class Conversation(Base):
         UUID(as_uuid=True), primary_key=True, default_factory=lambda: uuid.uuid4(),
     )
     """对话ID"""
-    created_at: Mapped[datetime] = mapped_column(
+    createdAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True), default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
     )
     """对话创建时间"""
-    is_temporary: Mapped[bool] = mapped_column(Boolean, default=False)
+    isTemporary: Mapped[bool] = mapped_column(Boolean, default=False)  # noqa: N815
     """是否为临时对话"""
 
 
@@ -41,9 +41,9 @@ class ConversationDocument(Base):
     __tablename__ = "framework_conversation_document"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """主键ID"""
-    conversation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_conversation.id"))
+    conversationId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_conversation.id"))  # noqa: N815
     """对话ID"""
-    document_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_document.id"))
+    documentId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_document.id"))  # noqa: N815
     """文件ID"""
-    is_unused: Mapped[bool] = mapped_column(Boolean, default=True)
+    isUnused: Mapped[bool] = mapped_column(Boolean, default=True)  # noqa: N815
     """是否未使用"""

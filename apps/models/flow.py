@@ -15,7 +15,7 @@ class Flow(Base):
     """Flow"""
 
     __tablename__ = "framework_flow"
-    app_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_app.id"))
+    appId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_app.id"))  # noqa: N815
     """所属App的ID"""
     name: Mapped[str] = mapped_column(String(255))
     """Flow的名称"""
@@ -31,15 +31,15 @@ class Flow(Base):
         UUID(as_uuid=True), primary_key=True, default_factory=uuid.uuid4,
     )
     """Flow的ID"""
-    updated_at: Mapped[datetime] = mapped_column(
+    updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
         default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
         onupdate=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
     )
     """Flow的更新时间"""
     __table_args__ = (
-        Index("idx_app_id_id", "app_id", "id"),
-        Index("idx_app_id_name", "app_id", "name"),
+        Index("idx_app_id_id", "appId", "id"),
+        Index("idx_app_id_name", "appId", "name"),
     )
 
 
@@ -47,7 +47,7 @@ class FlowContext(Base):
     """Flow上下文"""
 
     __tablename__ = "framework_flow_context"
-    flow_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_flow.id"))
+    flowId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_flow.id"), index=True)  # noqa: N815
     """所属Flow的ID"""
     context: Mapped[str] = mapped_column(String(2000))
     """上下文"""

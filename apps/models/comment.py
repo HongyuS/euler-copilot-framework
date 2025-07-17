@@ -18,19 +18,19 @@ class Comment(Base):
     __tablename__ = "framework_comment"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """主键ID"""
-    record_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_record.id"))
+    recordId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_record.id"))  # noqa: N815
     """问答对ID"""
-    user_sub: Mapped[str] = mapped_column(ForeignKey("framework_user.user_sub"))
+    userSub: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"))  # noqa: N815
     """用户名"""
-    comment_type: Mapped[CommentType] = mapped_column(Enum(CommentType))
+    commentType: Mapped[CommentType] = mapped_column(Enum(CommentType))  # noqa: N815
     """点赞点踩"""
-    feedback_type: Mapped[list[str]] = mapped_column(ARRAY(String(100)))
+    feedbackType: Mapped[list[str]] = mapped_column(ARRAY(String(100)))  # noqa: N815
     """投诉类别"""
-    feedback_link: Mapped[str] = mapped_column(String(1000))
+    feedbackLink: Mapped[str] = mapped_column(String(1000))  # noqa: N815
     """投诉链接"""
-    feedback_content: Mapped[str] = mapped_column(String(1000))
+    feedbackContent: Mapped[str] = mapped_column(String(1000))  # noqa: N815
     """投诉内容"""
-    created_at: Mapped[datetime] = mapped_column(
+    createdAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True), default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
     )
     """评论创建时间"""

@@ -77,14 +77,6 @@ class NodeType(str, Enum):
     CHOICE = "choice"
 
 
-class SaveType(str, Enum):
-    """检查类型"""
-
-    APP = "app"
-    SERVICE = "service"
-    FLOW = "flow"
-
-
 class PermissionType(str, Enum):
     """权限类型"""
 

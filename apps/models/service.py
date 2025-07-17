@@ -21,9 +21,9 @@ class Service(Base):
     """插件名称"""
     description: Mapped[str] = mapped_column(String(2000))
     """插件描述"""
-    author: Mapped[str] = mapped_column(ForeignKey("framework_user.user_sub"))
+    author: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"))
     """插件作者"""
-    updated_at: Mapped[datetime] = mapped_column(
+    updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
         default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
         onupdate=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
@@ -31,7 +31,7 @@ class Service(Base):
     """插件更新时间"""
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default_factory=uuid.uuid4)
     """插件ID"""
-    icon_path: Mapped[str] = mapped_column(String(255), default="")
+    iconPath: Mapped[str] = mapped_column(String(255), default="")  # noqa: N815
     """插件图标路径"""
     permission: Mapped[PermissionType] = mapped_column(Enum(PermissionType), default=PermissionType.PUBLIC)
     """权限类型"""
@@ -41,9 +41,9 @@ class ServiceACL(Base):
     """插件权限"""
 
     __tablename__ = "framework_service_acl"
-    service_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_service.id"))
+    serviceId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_service.id"))  # noqa: N815
     """关联的插件ID"""
-    user_sub: Mapped[str] = mapped_column(ForeignKey("framework_user.user_sub"))
+    userSub: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"))  # noqa: N815
     """用户名"""
     action: Mapped[str] = mapped_column(String(255), default="")
     """操作类型（读/写）"""
@@ -55,9 +55,9 @@ class ServiceHashes(Base):
     __tablename__ = "framework_service_hashes"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """主键ID"""
-    service_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_service.id"))
+    serviceId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_service.id"))  # noqa: N815
     """关联的插件ID"""
-    file_path: Mapped[str] = mapped_column(String(255))
+    filePath: Mapped[str] = mapped_column(String(255))  # noqa: N815
     """文件路径"""
     hash: Mapped[str] = mapped_column(String(255))
     """哈希值"""

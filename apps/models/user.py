@@ -19,23 +19,23 @@ class User(Base):
     __tablename__ = "framework_user"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """用户ID"""
-    user_sub: Mapped[str] = mapped_column(String(50), index=True, unique=True)
+    userSub: Mapped[str] = mapped_column(String(50), index=True, unique=True)  # noqa: N815
     """用户名"""
-    last_login: Mapped[datetime] = mapped_column(
+    lastLogin: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True), default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
     )
     """用户最后一次登录时间"""
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    isActive: Mapped[bool] = mapped_column(Boolean, default=True)  # noqa: N815
     """用户是否活跃"""
-    is_whitelisted: Mapped[bool] = mapped_column(Boolean, default=False)
+    isWhitelisted: Mapped[bool] = mapped_column(Boolean, default=False)  # noqa: N815
     """用户是否白名单"""
     credit: Mapped[int] = mapped_column(Integer, default=100)
     """用户风控分"""
-    personal_token: Mapped[str] = mapped_column(
+    personalToken: Mapped[str] = mapped_column(  # noqa: N815
         String(100), default_factory=lambda: sha256(str(uuid.uuid4()).encode()).hexdigest()[:16],
     )
     """用户个人令牌"""
-    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    isAdmin: Mapped[bool] = mapped_column(Boolean, default=False)  # noqa: N815
     """用户是否管理员"""
 
 
@@ -52,11 +52,11 @@ class UserFavorite(Base):
     __tablename__ = "framework_user_favorite"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """用户收藏ID"""
-    user_sub: Mapped[str] = mapped_column(String(50), index=True, foreign_key="framework_user.user_sub")
+    userSub: Mapped[str] = mapped_column(String(50), index=True, foreign_key="framework_user.userSub")  # noqa: N815
     """用户名"""
     type: Mapped[UserFavoriteType] = mapped_column(Enum(UserFavoriteType))
     """收藏类型"""
-    item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    itemId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)  # noqa: N815
     """收藏项目ID（App/Service ID）"""
 
 
@@ -66,13 +66,13 @@ class UserAppUsage(Base):
     __tablename__ = "framework_user_app_usage"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """用户应用使用情况ID"""
-    user_sub: Mapped[str] = mapped_column(String(50), index=True, foreign_key="framework_user.user_sub")
+    userSub: Mapped[str] = mapped_column(String(50), index=True, foreign_key="framework_user.userSub")  # noqa: N815
     """用户名"""
-    app_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    appId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)  # noqa: N815
     """应用ID"""
-    usage_count: Mapped[int] = mapped_column(Integer, default=0)
+    usageCount: Mapped[int] = mapped_column(Integer, default=0)  # noqa: N815
     """应用使用次数"""
-    last_used: Mapped[datetime] = mapped_column(
+    lastUsed: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True), default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
     )
     """用户最后一次使用时间"""
@@ -84,7 +84,7 @@ class UserTag(Base):
     __tablename__ = "framework_user_tag"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """用户标签ID"""
-    user_sub: Mapped[str] = mapped_column(String(50), index=True, foreign_key="framework_user.user_sub")
+    userSub: Mapped[str] = mapped_column(String(50), index=True, foreign_key="framework_user.userSub")  # noqa: N815
     """用户名"""
     tag: Mapped[int] = mapped_column(BigInteger, index=True, foreign_key="framework_tag.id")
     """标签ID"""

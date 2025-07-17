@@ -13,7 +13,7 @@ class FlowPoolVector(Base):
     """Flow向量数据"""
 
     __tablename__ = "framework_flow_vector"
-    app_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_app.id"))
+    appId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_app.id"))  # noqa: N815
     """所属App的ID"""
     embedding: Mapped[Vector] = mapped_column(Vector(1024))
     """向量数据"""
@@ -55,7 +55,7 @@ class NodePoolVector(Base):
     __tablename__ = "framework_node_vector"
     embedding: Mapped[Vector] = mapped_column(Vector(1024))
     """向量数据"""
-    service_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_service.id"))
+    serviceId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_service.id"))  # noqa: N815
     """Service的ID"""
     id: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_node.id"), primary_key=True)
     """Node的ID"""

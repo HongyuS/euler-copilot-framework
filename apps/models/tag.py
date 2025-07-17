@@ -19,7 +19,7 @@ class Tag(Base):
     """标签名称"""
     definition: Mapped[str] = mapped_column(String(2000))
     """标签定义"""
-    updated_at: Mapped[datetime] = mapped_column(
+    updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
         default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
         onupdate=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
