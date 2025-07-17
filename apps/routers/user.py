@@ -29,8 +29,8 @@ async def list_user(
         if user == user_sub:
             continue
         info = UserInfo(
-            userName=user,
-            userSub=user,
+            userName=user.userSub,
+            userSub=user.userSub,
         )
         user_info_list.append(info)
 

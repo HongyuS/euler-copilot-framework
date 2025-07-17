@@ -105,7 +105,6 @@ class OpenEulerOIDCProvider(OIDCProviderBase):
     @classmethod
     async def oidc_logout(cls, _cookie: dict[str, str]) -> None:
         """触发OIDC的登出"""
-        ...
 
 
     @classmethod

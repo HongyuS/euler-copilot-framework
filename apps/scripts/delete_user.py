@@ -6,7 +6,6 @@ from datetime import UTC, datetime, timedelta
 
 import asyncer
 
-from apps.common.mongo import MongoDB
 from apps.services.knowledge_base import KnowledgeBaseService
 from apps.services.session import SessionManager
 from apps.services.user import UserManager
