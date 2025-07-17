@@ -7,14 +7,16 @@ from typing import Any
 
 import yaml
 from anyio import Path
+from sqlalchemy import select
 
 from apps.common.config import config
-from apps.common.mongo import MongoDB
+from apps.common.postgres import postgres
 from apps.exceptions import InstancePermissionError, ServiceIDError
+from apps.models.node import Node
+from apps.models.service import Service
 from apps.scheduler.openapi import ReducedOpenAPISpec
 from apps.scheduler.pool.loader.openapi import OpenAPILoader
 from apps.scheduler.pool.loader.service import ServiceLoader
-from apps.schemas.collection import User
 from apps.schemas.enum_var import SearchType
 from apps.schemas.flow import (
     Permission,
@@ -22,7 +24,6 @@ from apps.schemas.flow import (
     ServiceApiConfig,
     ServiceMetadata,
 )
-from apps.schemas.pool import NodePool, ServicePool
 from apps.schemas.response_data import ServiceApiData, ServiceCardItem
 
 logger = logging.getLogger(__name__)
@@ -40,7 +41,6 @@ class ServiceCenterManager:
         page_size: int,
     ) -> tuple[list[ServiceCardItem], int]:
         """获取所有服务列表"""
-        filters = ServiceCenterManager._build_filters({}, search_type, keyword) if keyword else {}
         service_pools, total_count = await ServiceCenterManager._search_service(filters, page, page_size)
         fav_service_ids = await ServiceCenterManager._get_favorite_service_ids_by_user(user_sub)
         services = [
@@ -112,6 +112,7 @@ class ServiceCenterManager:
         ]
         return services, total_count
 
+
     @staticmethod
     async def create_service(
         user_sub: str,
@@ -121,17 +122,20 @@ class ServiceCenterManager:
         service_id = str(uuid.uuid4())
         # 校验 OpenAPI 规范的 JSON Schema
         validated_data = await ServiceCenterManager._validate_service_data(data)
+
         # 检查是否存在相同服务
-        service_collection = MongoDB().get_collection("service")
-        db_service = await service_collection.find_one(
-            {
-                "name": validated_data.id,
-                "description": validated_data.description,
-            },
-        )
-        if db_service:
-            msg = "[ServiceCenterManager] 已存在相同名称和描述的服务"
-            raise ServiceIDError(msg)
+        async with postgres.session() as session:
+            db_service = (await session.scalars(
+                select(Service).where(
+                    Service.name == validated_data.id,
+                    Service.description == validated_data.description,
+                ),
+            )).one_or_none()
+
+            if db_service:
+                msg = "[ServiceCenterManager] 已存在相同名称和描述的服务"
+                raise ServiceIDError(msg)
+
         # 存入数据库
         service_metadata = ServiceMetadata(
             id=service_id,
@@ -147,6 +151,7 @@ class ServiceCenterManager:
         # 返回服务ID
         return service_id
 
+
     @staticmethod
     async def update_service(
         user_sub: str,
@@ -155,15 +160,18 @@ class ServiceCenterManager:
     ) -> str:
         """更新服务"""
         # 验证用户权限
-        service_collection = MongoDB().get_collection("service")
-        db_service = await service_collection.find_one({"_id": service_id})
-        if not db_service:
-            msg = "Service not found"
-            raise ServiceIDError(msg)
-        service_pool_store = ServicePool.model_validate(db_service)
-        if service_pool_store.author != user_sub:
-            msg = "Permission denied"
-            raise InstancePermissionError(msg)
+        async with postgres.session() as session:
+            db_service = (await session.scalars(
+                select(Service).where(
+                    Service.id == service_id,
+                ),
+            )).one_or_none()
+            if not db_service:
+                msg = "Service not found"
+                raise ServiceIDError(msg)
+            if db_service.author != user_sub:
+                msg = "Permission denied"
+                raise InstancePermissionError(msg)
         # 校验 OpenAPI 规范的 JSON Schema
         validated_data = await ServiceCenterManager._validate_service_data(data)
         # 存入数据库
@@ -186,12 +194,15 @@ class ServiceCenterManager:
     ) -> tuple[str, list[ServiceApiData]]:
         """获取服务API列表"""
         # 获取服务名称
-        service_collection = MongoDB().get_collection("service")
-        db_service = await service_collection.find_one({"_id": service_id})
-        if not db_service:
-            msg = "Service not found"
-            raise ServiceIDError(msg)
-        service_pool_store = ServicePool.model_validate(db_service)
+        async with postgres.session() as session:
+            db_service = (await session.scalars(
+                select(Service).where(
+                    Service.id == service_id,
+                ),
+            )).one_or_none()
+            if not db_service:
+                msg = "Service not found"
+                raise ServiceIDError(msg)
         # 根据 service_id 获取 API 列表
         node_collection = MongoDB().get_collection("node")
         db_nodes = await node_collection.find({"service_id": service_id}).to_list()
@@ -246,7 +257,7 @@ class ServiceCenterManager:
     @staticmethod
     async def get_service_metadata(
         user_sub: str,
-        service_id: str,
+        service_id: uuid.UUID,
     ) -> ServiceMetadata:
         """获取服务元数据"""
         service_collection = MongoDB().get_collection("service")
@@ -267,7 +278,7 @@ class ServiceCenterManager:
             raise ServiceIDError(msg)
 
         metadata_path = (
-            Path(config.deploy.data_dir) / "semantics" / "service" / service_id / "metadata.yaml"
+            Path(config.deploy.data_dir) / "semantics" / "service" / str(service_id) / "metadata.yaml"
         )
         async with await metadata_path.open() as f:
             metadata_data = yaml.safe_load(await f.read())
@@ -371,24 +382,3 @@ class ServiceCenterManager:
             raise ValueError(msg)
         # 校验 OpenAPI 规范的 JSON Schema
         return await OpenAPILoader().load_dict(data)
-
-    @staticmethod
-    def _build_filters(
-        base_filters: dict[str, Any],
-        search_type: SearchType,
-        keyword: str,
-    ) -> dict[str, Any]:
-        search_filters = [
-            {"name": {"$regex": keyword, "$options": "i"}},
-            {"description": {"$regex": keyword, "$options": "i"}},
-            {"author": {"$regex": keyword, "$options": "i"}},
-        ]
-        if search_type == SearchType.ALL:
-            base_filters["$or"] = search_filters
-        elif search_type == SearchType.NAME:
-            base_filters["name"] = {"$regex": keyword, "$options": "i"}
-        elif search_type == SearchType.DESCRIPTION:
-            base_filters["description"] = {"$regex": keyword, "$options": "i"}
-        elif search_type == SearchType.AUTHOR:
-            base_filters["author"] = {"$regex": keyword, "$options": "i"}
-        return base_filters

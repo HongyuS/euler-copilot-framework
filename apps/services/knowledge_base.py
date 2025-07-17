@@ -7,7 +7,7 @@ import httpx
 from fastapi import status
 
 from apps.common.config import config
-from apps.schemas.collection import Document
+from apps.models.document import Document
 from apps.schemas.rag_data import (
     RAGFileParseReq,
     RAGFileParseReqItem,
@@ -32,10 +32,10 @@ class KnowledgeBaseService:
             "Authorization": f"Bearer {session_id}",
         }
         rag_docs = [RAGFileParseReqItem(
-            id=doc.id,
+            id=str(doc.id),
             name=doc.name,
             bucket_name="document",
-            type=doc.type,
+            type=doc.extension,
         )
             for doc in docs
         ]

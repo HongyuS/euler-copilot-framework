@@ -14,6 +14,9 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+BRANCH_ILLEGAL_CHARS = [
+    ".",
+]
 
 
 class FlowService:
@@ -21,7 +24,7 @@ class FlowService:
 
     @staticmethod
     def _validate_branch_id(
-        node_name: str, branch_id: str, node_branches: set, branch_illegal_chars: str = ".",
+        node_name: str, branch_id: str, node_branches: set,
     ) -> None:
         """验证分支ID的合法性；当分支ID重复或包含非法字符时抛出异常"""
         if branch_id in node_branches:
@@ -29,17 +32,16 @@ class FlowService:
             logger.error(err)
             raise FlowBranchValidationError(err)
 
-        for illegal_char in branch_illegal_chars:
+        for illegal_char in BRANCH_ILLEGAL_CHARS:
             if illegal_char in branch_id:
                 err = f"[FlowService] 节点{node_name}的分支{branch_id}名称中含有非法字符"
                 logger.error(err)
                 raise FlowBranchValidationError(err)
 
     @staticmethod
-    async def remove_excess_structure_from_flow(flow_item: FlowItem) -> FlowItem:
+    async def remove_excess_structure_from_flow(flow_item: FlowItem) -> FlowItem:  # noqa: C901, PLR0912
         """移除流程图中的多余结构"""
         node_branch_map = {}
-        branch_illegal_chars = "."
         for node in flow_item.nodes:
             if node.node_id not in {"start", "end", "Empty"}:
                 try:
@@ -60,12 +62,12 @@ class FlowService:
                     if choice["branchId"] in node_branch_map[node.step_id]:
                         err = f"[FlowService] 节点{node.name}的分支{choice['branchId']}重复"
                         logger.error(err)
-                        raise Exception(err)
-                    for illegal_char in branch_illegal_chars:
+                        raise ValueError(err)
+                    for illegal_char in BRANCH_ILLEGAL_CHARS:
                         if illegal_char in choice["branchId"]:
                             err = f"[FlowService] 节点{node.name}的分支{choice['branchId']}名称中含有非法字符"
                             logger.error(err)
-                            raise Exception(err)
+                            raise ValueError(err)
                     node_branch_map[node.step_id].add(choice["branchId"])
             else:
                 node_branch_map[node.step_id].add("")
@@ -214,7 +216,7 @@ class FlowService:
         return visited
 
     @staticmethod
-    async def validate_flow_connectivity(flow_item: FlowItem) -> bool:
+    async def validate_flow_connectivity(flow_item: FlowItem) -> bool:  # noqa: C901
         """
         验证流程图的连通性
 

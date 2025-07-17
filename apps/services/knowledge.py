@@ -9,7 +9,6 @@ from fastapi import status
 
 from apps.common.config import config
 from apps.common.mongo import MongoDB
-from apps.schemas.collection import KnowledgeBaseItem
 from apps.schemas.response_data import KnowledgeBaseItem as KnowledgeBaseItemResponse
 from apps.schemas.response_data import TeamKnowledgeBaseItem
 
@@ -20,26 +19,6 @@ logger = logging.getLogger(__name__)
 
 class KnowledgeBaseManager:
     """用户资产库管理"""
-
-    @staticmethod
-    async def get_kb_ids_by_conversation_id(user_sub: str, conversation_id: str) -> list[str]:
-        """
-        通过对话ID获取知识库ID
-
-        :param user_sub: 用户ID
-        :param conversation_id: 对话ID
-        :return: 知识库ID列表
-        """
-        mongo = MongoDB()
-        conv_collection = mongo.get_collection("conversation")
-        result = await conv_collection.find_one({"_id": conversation_id, "user_sub": user_sub})
-        if not result:
-            err_msg = "[KnowledgeBaseManager] 获取知识库ID失败，未找到对话"
-            logger.error(err_msg)
-            return []
-        kb_config_list = result.get("kb_list", [])
-        return [kb_config["kb_id"] for kb_config in kb_config_list]
-
 
     @staticmethod
     async def get_team_kb_list_from_rag(
@@ -120,7 +99,7 @@ class KnowledgeBaseManager:
         kb_ids: list[str],
     ) -> list[str]:
         """
-        更新对话的知识库列表
+        更新用户当前选择的知识库
 
         :param user_sub: 用户sub
         :param conversation_id: 对话ID

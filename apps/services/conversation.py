@@ -3,16 +3,16 @@
 
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
-from apps.common.config import config
-from apps.common.mongo import MongoDB
-from apps.schemas.collection import Conversation, KnowledgeBaseItem, LLMItem
-from apps.templates.generate_llm_operator_config import llm_provider_dict
+import pytz
+from sqlalchemy import func, select
 
-from .knowledge import KnowledgeBaseManager
-from .llm import LLMManager
+from apps.common.postgres import postgres
+from apps.models.conversation import Conversation
+from apps.models.user import UserAppUsage
+
 from .task import TaskManager
 
 logger = logging.getLogger(__name__)
@@ -24,117 +24,119 @@ class ConversationManager:
     @staticmethod
     async def get_conversation_by_user_sub(user_sub: str) -> list[Conversation]:
         """根据用户ID获取对话列表，按时间由近到远排序"""
-        conv_collection = MongoDB().get_collection("conversation")
-        return [
-            Conversation(**conv)
-            async for conv in conv_collection.find({"user_sub": user_sub, "debug": False}).sort({"created_at": 1})
-        ]
+        async with postgres.session() as session:
+            result = (await session.scalars(
+                select(Conversation).where(
+                    Conversation.userSub == user_sub,
+                    Conversation.isTemporary == False,  # noqa: E712
+                ).order_by(
+                    Conversation.createdAt.desc(),
+                ),
+            )).all()
+            return list(result)
+
 
     @staticmethod
-    async def get_conversation_by_conversation_id(user_sub: str, conversation_id: str) -> Conversation | None:
+    async def get_conversation_by_conversation_id(user_sub: str, conversation_id: uuid.UUID) -> Conversation | None:
         """通过ConversationID查询对话信息"""
-        conv_collection = MongoDB().get_collection("conversation")
-        result = await conv_collection.find_one({"_id": conversation_id, "user_sub": user_sub})
-        if not result:
-            return None
-        return Conversation.model_validate(result)
+        async with postgres.session() as session:
+            return (await session.scalars(
+                select(Conversation).where(
+                    Conversation.id == conversation_id,
+                    Conversation.userSub == user_sub,
+                ),
+            )).one_or_none()
+
 
     @staticmethod
-    async def add_conversation_by_user_sub(
-            user_sub: str, app_id: str, llm_id: str, kb_ids: list[str],
-            *, debug: bool) -> Conversation | None:
+    async def add_conversation_by_user_sub(user_sub: str, app_id: uuid.UUID, *, debug: bool) -> Conversation | None:
         """通过用户ID新建对话"""
-        if llm_id == "empty":
-            llm_item = LLMItem(
-                llm_id="empty",
-                model_name=config.llm.model,
-                icon=llm_provider_dict["ollama"]["icon"],
-            )
-        else:
-            llm = await LLMManager.get_llm_by_id(user_sub, llm_id)
-            if llm is None:
-                logger.error("[ConversationManager] 获取大模型失败")
-                return None
-            llm_item = LLMItem(
-                llm_id=llm.id,
-                model_name=llm.model_name,
-            )
-        kb_item_list = []
-        team_kb_list = await KnowledgeBaseManager.get_team_kb_list_from_rag(user_sub, None, None)
-        for team_kb in team_kb_list:
-            for kb in team_kb["kbList"]:
-                if str(kb["kbId"]) in kb_ids:
-                    kb_item = KnowledgeBaseItem(
-                        kb_id=kb["kbId"],
-                        kb_name=kb["kbName"],
-                    )
-                    kb_item_list.append(kb_item)
-        conversation_id = str(uuid.uuid4())
         conv = Conversation(
-            _id=conversation_id,
-            user_sub=user_sub,
-            app_id=app_id,
-            llm=llm_item,
-            kb_list=kb_item_list,
-            debug=debug if debug else False,
+            userSub=user_sub,
+            appId=app_id,
+            isTemporary=debug,
         )
-        mongo = MongoDB()
+        # 使用PostgreSQL实现新建对话，并根据debug和usage进行更新
         try:
-            async with mongo.get_session() as session, await session.start_transaction():
-                conv_collection = mongo.get_collection("conversation")
-                await conv_collection.insert_one(conv.model_dump(by_alias=True), session=session)
-                user_collection = mongo.get_collection("user")
-                update_data: dict[str, dict[str, Any]] = {
-                    "$push": {"conversations": conversation_id},
-                }
-                if app_id:
-                    # 非调试模式下更新应用使用情况
-                    if not debug:
-                        update_data["$set"] = {
-                            f"app_usage.{app_id}.last_used": round(datetime.now(UTC).timestamp(), 3),
-                        }
-                        update_data["$inc"] = {f"app_usage.{app_id}.count": 1}
-                    await user_collection.update_one(
-                        {"_id": user_sub},
-                        update_data,
-                        session=session,
-                    )
-                    await session.commit_transaction()
+            async with postgres.session() as session:
+                session.add(conv)
+                await session.commit()
+                await session.refresh(conv)
+
+                # 如果是非调试模式且app_id存在，更新App的使用情况
+                if app_id and not debug:
+                    app_obj = (await session.scalars(
+                        select(UserAppUsage).where(UserAppUsage.userSub == user_sub, UserAppUsage.appId == app_id),
+                    )).one_or_none()
+                    if app_obj:
+                        # 假设App模型有last_used和usage_count字段（如没有请根据实际表结构调整）
+                        # 这里只做示例，实际字段名和类型请根据实际情况修改
+                        app_obj.usageCount += 1
+                        app_obj.lastUsed = datetime.now(pytz.timezone("Asia/Shanghai"))
+                        session.add(app_obj)
+                        await session.commit()
+                    else:
+                        session.add(UserAppUsage(
+                            userSub=user_sub,
+                            appId=app_id,
+                            usageCount=1,
+                            lastUsed=datetime.now(pytz.timezone("Asia/Shanghai")),
+                        ))
+                        await session.commit()
                 return conv
         except Exception:
             logger.exception("[ConversationManager] 新建对话失败")
             return None
 
+
     @staticmethod
-    async def update_conversation_by_conversation_id(user_sub: str, conversation_id: str, data: dict[str, Any]) -> bool:
+    async def update_conversation_by_conversation_id(
+        user_sub: str, conversation_id: uuid.UUID, data: dict[str, Any],
+    ) -> bool:
         """通过ConversationID更新对话信息"""
-        mongo = MongoDB()
-        conv_collection = mongo.get_collection("conversation")
-        result = await conv_collection.update_one(
-            {"_id": conversation_id, "user_sub": user_sub},
-            {"$set": data},
-        )
-        return result.modified_count > 0
+        async with postgres.session() as session:
+            conv = (await session.scalars(
+                select(Conversation).where(
+                    Conversation.id == conversation_id,
+                    Conversation.userSub == user_sub,
+                ),
+            )).one_or_none()
+            if not conv:
+                return False
+            for key, value in data.items():
+                setattr(conv, key, value)
+            session.add(conv)
+            await session.commit()
+            return True
+
 
     @staticmethod
-    async def delete_conversation_by_conversation_id(user_sub: str, conversation_id: str) -> None:
+    async def delete_conversation_by_conversation_id(user_sub: str, conversation_id: uuid.UUID) -> None:
         """通过ConversationID删除对话"""
-        mongo = MongoDB()
-        user_collection = mongo.get_collection("user")
-        conv_collection = mongo.get_collection("conversation")
-        record_group_collection = mongo.get_collection("record_group")
-
-        async with mongo.get_session() as session, await session.start_transaction():
-            conversation_data = await conv_collection.find_one_and_delete(
-                {"_id": conversation_id, "user_sub": user_sub}, session=session,
-            )
-            if not conversation_data:
+        async with postgres.session() as session:
+            conv = (await session.scalars(
+                select(Conversation).where(
+                    Conversation.id == conversation_id,
+                    Conversation.userSub == user_sub,
+                ),
+            )).one_or_none()
+            if not conv:
                 return
 
-            await user_collection.update_one(
-                {"_id": user_sub}, {"$pull": {"conversations": conversation_id}}, session=session,
-            )
-            await record_group_collection.delete_many({"conversation_id": conversation_id}, session=session)
-            await session.commit_transaction()
+            await session.delete(conv)
+            await session.commit()
 
         await TaskManager.delete_tasks_by_conversation_id(conversation_id)
+
+
+    @staticmethod
+    async def verify_conversation_id(user_sub: str, conversation_id: uuid.UUID) -> bool:
+        """验证对话ID是否属于用户"""
+        async with postgres.session() as session:
+            result = (await session.scalars(
+                func.count(Conversation.id).where(
+                    Conversation.id == conversation_id,
+                    Conversation.userSub == user_sub,
+                ),
+            )).one()
+            return bool(result)

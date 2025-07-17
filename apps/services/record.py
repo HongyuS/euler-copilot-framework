@@ -4,11 +4,7 @@
 import logging
 from typing import Literal
 
-from apps.common.mongo import MongoDB
-from apps.schemas.record import (
-    Record,
-    RecordGroup,
-)
+from apps.schemas.record import Record
 
 logger = logging.getLogger(__name__)
 
@@ -132,33 +128,3 @@ class RecordManager:
         except Exception:
             logger.exception("[RecordManager] 查询问答组失败")
             return []
-
-    @staticmethod
-    async def verify_record_in_group(group_id: str, record_id: str, user_sub: str) -> bool:
-        """
-        验证记录是否在组中
-
-        :param record_id: 记录ID，设置了则会去查询指定记录ID的记录
-        :return: 记录是否存在
-        """
-        try:
-            record_group_collection = MongoDB().get_collection("record_group")
-            record_data = await record_group_collection.find_one(
-                {"_id": group_id, "user_sub": user_sub, "records.id": record_id},
-            )
-            return bool(record_data)
-        except Exception:
-            logger.exception("[RecordManager] 验证记录是否在组中失败")
-            return False
-
-
-    @staticmethod
-    async def check_group_id(group_id: str, user_sub: str) -> bool:
-        """检查group_id是否存在"""
-        record_group_collection = MongoDB().get_collection("record_group")
-        try:
-            result = await record_group_collection.find_one({"_id": group_id, "user_sub": user_sub})
-            return bool(result)
-        except Exception:
-            logger.exception("[RecordManager] 检查group_id失败")
-            return False

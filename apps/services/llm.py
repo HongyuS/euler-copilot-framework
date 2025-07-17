@@ -4,8 +4,7 @@
 import logging
 
 from apps.common.config import config
-from apps.common.mongo import MongoDB
-from apps.schemas.collection import LLM, LLMItem
+from apps.schemas.collection import LLM
 from apps.schemas.request_data import (
     UpdateLLMReq,
 )
