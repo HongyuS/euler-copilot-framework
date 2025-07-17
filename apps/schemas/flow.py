@@ -139,13 +139,3 @@ class AppMetadata(MetadataBase):
     history_len: int = Field(description="对话轮次", default=3, le=10)
     permission: Permission | None = Field(description="应用权限配置", default=None)
     flows: list[AppFlow] = Field(description="Flow列表", default=[])
-
-
-class ServiceApiSpec(BaseModel):
-    """外部服务API信息"""
-
-    name: str = Field(description="OpenAPI文件名")
-    description: str = Field(description="OpenAPI中关于API的Summary")
-    size: int = Field(description="OpenAPI文件大小（单位：KB）")
-    path: str = Field(description="OpenAPI文件路径")
-    hash: str = Field(description="OpenAPI文件的hash值")
