@@ -27,7 +27,8 @@ models:
     # 推理框架类型，默认为ollama
     # 可用的框架类型：["vllm", "sglang", "ollama", "openai"]
     backend:
-    # 模型地址；不填则与问答模型一致
+    # [必填] 模型地址；请根据 API 提供商文档确定是否需要带上“v1”后缀
+    # 选择不填则与问答模型一致
     endpoint:
     # API Key；不填则与问答模型一致
     key:

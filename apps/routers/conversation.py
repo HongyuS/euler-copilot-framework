@@ -84,10 +84,10 @@ async def get_conversation_list(user_sub: Annotated[str, Depends(get_user)]) -> 
             conversationId=conv.id,
             title=conv.title,
             docCount=await DocumentManager.get_doc_count(user_sub, conv.id),
-            createdTime=datetime.fromtimestamp(conv.created_at, tz=pytz.timezone("Asia/Shanghai")).strftime(
+            createdTime=datetime.fromtimestamp(conv.createdAt, tz=pytz.timezone("Asia/Shanghai")).strftime(
                 "%Y-%m-%d %H:%M:%S",
             ),
-            appId=conv.app_id if conv.app_id else "",
+            appId=conv.appId if conv.appId else "",
             debug=conv.debug if conv.debug else False,
         )
         if conv.llm:
@@ -172,7 +172,7 @@ async def update_conversation(
     """更新特定Conversation的数据"""
     # 判断Conversation是否合法
     conv = await ConversationManager.get_conversation_by_conversation_id(user_sub, conversation_id)
-    if not conv or conv.user_sub != user_sub:
+    if not conv or conv.userSub != user_sub:
         logger.error("[Conversation] conversation_id 不存在")
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -211,10 +211,10 @@ async def update_conversation(
                 conversationId=conv.id,
                 title=conv.title,
                 docCount=await DocumentManager.get_doc_count(user_sub, conv.id),
-                createdTime=datetime.fromtimestamp(conv.created_at, tz=pytz.timezone("Asia/Shanghai")).strftime(
+                createdTime=datetime.fromtimestamp(conv.createdAt, tz=pytz.timezone("Asia/Shanghai")).strftime(
                     "%Y-%m-%d %H:%M:%S",
                 ),
-                appId=conv.app_id if conv.app_id else "",
+                appId=conv.appId if conv.appId else "",
                 debug=conv.debug if conv.debug else False,
             ),
         ).model_dump(exclude_none=True, by_alias=True),
