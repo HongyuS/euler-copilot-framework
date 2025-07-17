@@ -78,15 +78,15 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
             )
 
         # 获取对应API的Service Metadata
-        if self.node.service_id:
+        if self.node.serviceId:
             try:
                 service_metadata = await ServiceCenterManager.get_service_metadata(
                     call_vars.ids.user_sub,
-                    self.node.service_id,
+                    self.node.serviceId,
                 )
                 # 获取Service对应的Auth
                 self._auth = service_metadata.api.auth
-                self._service_id = self.node.service_id
+                self._service_id = self.node.serviceId
             except Exception as e:
                 raise CallError(
                     message="API接口的Service Metadata获取失败",

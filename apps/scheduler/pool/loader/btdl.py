@@ -45,7 +45,11 @@ class BTDLLoader:
             for value in argument["properties"].values():
                 BTDLLoader._check_single_argument(value, strict=False)
 
-    def _load_single_subcmd(self, binary_name: str, subcmd_spec: dict[str, Any]) -> dict[str, tuple[str, str, dict[str, Any], dict[str, Any], str]]:
+    def _load_single_subcmd(
+        self,
+        binary_name: str,
+        subcmd_spec: dict[str, Any],
+    ) -> dict[str, tuple[str, str, dict[str, Any], dict[str, Any], str]]:
         """加载单个子命令"""
         if "name" not in subcmd_spec:
             err = "subcommand must have a name"

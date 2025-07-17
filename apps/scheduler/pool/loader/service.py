@@ -1,21 +1,22 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """加载配置文件夹的Service部分"""
 
-import asyncio
 import logging
 import shutil
 
 from anyio import Path
 from fastapi.encoders import jsonable_encoder
+from sqlalchemy import delete, insert
 
 from apps.common.config import config
-from apps.common.lance import LanceDB
 from apps.common.mongo import MongoDB
+from apps.common.postgres import postgres
 from apps.llm.embedding import Embedding
-from apps.models.vector import NodePoolVector, ServicePoolVector
+from apps.models.node import Node
+from apps.models.service import Service
+from apps.models.vectors import NodePoolVector, ServicePoolVector
 from apps.scheduler.pool.check import FileChecker
 from apps.schemas.flow import Permission, ServiceMetadata
-from apps.schemas.pool import NodePool, ServicePool
 
 from .metadata import MetadataLoader, MetadataType
 from .openapi import OpenAPILoader
@@ -27,7 +28,8 @@ BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "service"
 class ServiceLoader:
     """Service 加载器"""
 
-    async def load(self, service_id: str, hashes: dict[str, str]) -> None:
+    @staticmethod
+    async def load(service_id: str, hashes: dict[str, str]) -> None:
         """加载单个Service"""
         service_path = BASE_PATH / service_id
         # 载入元数据
@@ -47,10 +49,11 @@ class ServiceLoader:
             logger.exception("[ServiceLoader] 服务 %s 文件损坏", service_id)
             return
         # 更新数据库
-        await self._update_db(nodes, metadata)
+        await ServiceLoader._update_db(nodes, metadata)
 
 
-    async def save(self, service_id: str, metadata: ServiceMetadata, data: dict) -> None:
+    @staticmethod
+    async def save(service_id: str, metadata: ServiceMetadata, data: dict) -> None:
         """在文件系统上保存Service，并更新数据库"""
         service_path = BASE_PATH / service_id
         # 创建文件夹
@@ -66,10 +69,11 @@ class ServiceLoader:
         # 重新载入
         file_checker = FileChecker()
         await file_checker.diff_one(service_path)
-        await self.load(service_id, file_checker.hashes[f"service/{service_id}"])
+        await ServiceLoader.load(service_id, file_checker.hashes[f"service/{service_id}"])
 
 
-    async def delete(self, service_id: str, *, is_reload: bool = False) -> None:
+    @staticmethod
+    async def delete(service_id: str, *, is_reload: bool = False) -> None:
         """删除Service，并更新数据库"""
         mongo = MongoDB()
         service_collection = mongo.get_collection("service")
@@ -81,13 +85,11 @@ class ServiceLoader:
             logger.exception("[ServiceLoader] 删除Service失败")
 
         try:
-            # 获取 LanceDB 表
-            service_table = await LanceDB().get_table("service")
-            node_table = await LanceDB().get_table("node")
-
-            # 删除数据
-            await service_table.delete(f"id = '{service_id}'")
-            await node_table.delete(f"id = '{service_id}'")
+            # 删除postgres中的向量数据
+            async with postgres.session() as session:
+                await session.execute(delete(ServicePoolVector).where(ServicePoolVector.service_id == service_id))
+                await session.execute(delete(NodePoolVector).where(NodePoolVector.serviceId == service_id))
+                await session.commit()
         except Exception:
             logger.exception("[ServiceLoader] 删除数据库失败")
 
@@ -97,7 +99,8 @@ class ServiceLoader:
                 shutil.rmtree(path)
 
 
-    async def _update_db(self, nodes: list[NodePool], metadata: ServiceMetadata) -> None:  # noqa: C901, PLR0912, PLR0915
+    @staticmethod
+    async def _update_db(nodes: list[NodePool], metadata: ServiceMetadata) -> None:
         """更新数据库"""
         if not metadata.hashes:
             err = f"[ServiceLoader] 服务 {metadata.id} 的哈希值为空"
@@ -134,68 +137,40 @@ class ServiceLoader:
             logger.exception(err)
             raise RuntimeError(err) from e
 
-        # 向量化所有数据并保存
-        while True:
-            try:
-                service_table = await LanceDB().get_table("service")
-                node_table = await LanceDB().get_table("node")
-                await service_table.delete(f"id = '{metadata.id}'")
-                await node_table.delete(f"service_id = '{metadata.id}'")
-                break
-            except Exception as e:
-                if "Commit conflict" in str(e):
-                    logger.error("[ServiceLoader] LanceDB删除service冲突，重试中...")  # noqa: TRY400
-                    await asyncio.sleep(0.01)
-                else:
-                    raise
+        # 删除旧的向量数据
+        async with postgres.session() as session:
+            await session.execute(delete(ServicePoolVector).where(ServicePoolVector.service_id == metadata.id))
+            await session.execute(delete(NodePoolVector).where(NodePoolVector.serviceId == metadata.id))
+            await session.commit()
 
-        # 进行向量化，更新LanceDB
+        # 进行向量化，更新postgres
         service_vecs = await Embedding.get_embedding([metadata.description])
-        service_vector_data = [
-            ServicePoolVector(
-                id=metadata.id,
-                embedding=service_vecs[0],
-            ),
-        ]
-        while True:
-            try:
-                service_table = await LanceDB().get_table("service")
-                await service_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
-                    service_vector_data,
-                )
-                break
-            except Exception as e:
-                if "Commit conflict" in str(e):
-                    logger.error("[ServiceLoader] LanceDB插入service冲突，重试中...")  # noqa: TRY400
-                    await asyncio.sleep(0.01)
-                else:
-                    raise
+        async with postgres.session() as session:
+            await session.execute(
+                insert(ServicePoolVector),
+                [
+                    {
+                        "service_id": metadata.id,
+                        "embedding": service_vecs[0],
+                    },
+                ],
+            )
+            await session.commit()
 
         node_descriptions = []
         for node in nodes:
             node_descriptions += [node.description]
 
         node_vecs = await Embedding.get_embedding(node_descriptions)
-        node_vector_data = []
-        for i, vec in enumerate(node_vecs):
-            node_vector_data.append(
-                NodePoolVector(
-                    id=nodes[i].id,
-                    service_id=metadata.id,
-                    embedding=vec,
-                ),
+        async with postgres.session() as session:
+            await session.execute(
+                insert(NodePoolVector),
+                [
+                    {
+                        "service_id": metadata.id,
+                        "embedding": vec,
+                    }
+                    for vec in node_vecs
+                ],
             )
-        while True:
-            try:
-                node_table = await LanceDB().get_table("node")
-                await node_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
-                    node_vector_data,
-                )
-                break
-            except Exception as e:
-                if "Commit conflict" in str(e):
-                    logger.error("[ServiceLoader] LanceDB插入node冲突，重试中...")  # noqa: TRY400
-                    await asyncio.sleep(0.01)
-                else:
-                    raise
-
+            await session.commit()

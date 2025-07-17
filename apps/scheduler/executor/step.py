@@ -100,8 +100,8 @@ class StepExecutor(BaseExecutor):
             self.node = None
 
         if self.node:
-            call_cls = await StepExecutor.get_call_cls(self.node.call_id)
-            self._call_id = self.node.call_id
+            call_cls = await StepExecutor.get_call_cls(self.node.callId)
+            self._call_id = self.node.callId
         else:
             # 可能是特殊的内置Node
             call_cls = await StepExecutor.get_call_cls(node_id)
@@ -109,7 +109,7 @@ class StepExecutor(BaseExecutor):
 
         # 初始化Call Class，用户参数会覆盖node的参数
         params: dict[str, Any] = (
-            self.node.known_params if self.node and self.node.known_params else {}
+            self.node.knownParams if self.node and self.node.knownParams else {}
         )
         if self.step.step.params:
             params.update(self.step.step.params)
@@ -143,7 +143,7 @@ class StepExecutor(BaseExecutor):
             self.node,
             data=self.obj.input,
             current_schema=self.obj.input_model.model_json_schema(
-                override=self.node.override_input if self.node and self.node.override_input else {},
+                override=self.node.overrideInput if self.node and self.node.overrideInput else {},
             ),
         )
         # 推送填参消息
