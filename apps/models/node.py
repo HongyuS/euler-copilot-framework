@@ -20,19 +20,19 @@ class Node(Base):
     """节点名称"""
     description: Mapped[str] = mapped_column(String(2000))
     """节点描述"""
-    service_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_service.id"))
+    serviceId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_service.id"))  # noqa: N815
     """所属服务ID"""
-    call_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_call.id"))
+    callId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_call.id"))  # noqa: N815
     """所属CallID"""
-    known_params: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    knownParams: Mapped[dict[str, Any]] = mapped_column(JSONB)  # noqa: N815
     """已知的用于Call部分的参数，独立于输入和输出之外"""
-    override_input: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    overrideInput: Mapped[dict[str, Any]] = mapped_column(JSONB)  # noqa: N815
     """Node的输入Schema；用于描述Call的参数中特定的字段"""
-    override_output: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    overrideOutput: Mapped[dict[str, Any]] = mapped_column(JSONB)  # noqa: N815
     """Node的输出Schema；用于描述Call的输出中特定的字段"""
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default_factory=uuid.uuid4)
     """节点ID"""
-    updated_at: Mapped[datetime] = mapped_column(
+    updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
         default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
         onupdate=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),

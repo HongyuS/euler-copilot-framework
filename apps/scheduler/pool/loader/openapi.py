@@ -8,16 +8,15 @@ from typing import Any
 import yaml
 from anyio import Path
 
+from apps.models.node import Node
 from apps.scheduler.openapi import (
     ReducedOpenAPIEndpoint,
     ReducedOpenAPISpec,
     reduce_openapi_spec,
 )
-from apps.scheduler.slot.slot import Slot
 from apps.scheduler.util import yaml_str_presenter
 from apps.schemas.enum_var import ContentType, HTTPMethod
 from apps.schemas.node import APINode, APINodeInput, APINodeOutput
-from apps.schemas.pool import NodePool
 
 logger = logging.getLogger(__name__)
 
@@ -100,10 +99,6 @@ class OpenAPILoader:
             logger.warning(err)
             raise ValueError(err) from e
 
-        # 将数据转为已知JSON
-        known_body = Slot(inp.body).create_empty_slot() if inp.body else {}
-        known_query = Slot(inp.query).create_empty_slot() if inp.query else {}
-
         try:
             out = APINodeOutput(
                 result=spec.spec["responses"]["content"]["application/json"]["schema"],
@@ -117,11 +112,12 @@ class OpenAPILoader:
             "url": url,
             "method": method,
             "content_type": content_type,
-            "body": known_body,
-            "query": known_query,
+            "body": {},
+            "query": {},
         }
 
         return inp, out, known_params
+
 
     async def _process_spec(
         self,
@@ -170,7 +166,7 @@ class OpenAPILoader:
         return spec
 
 
-    async def load_one(self, service_id: str, yaml_path: Path, server: str) -> list[NodePool]:
+    async def load_one(self, service_id: str, yaml_path: Path, server: str) -> list[Node]:
         """加载单个OpenAPI文档，可以直接指定路径"""
         try:
             spec = await self._read_yaml(yaml_path)
@@ -189,20 +185,19 @@ class OpenAPILoader:
             raise RuntimeError(err) from e
 
         return [
-            NodePool(
-                _id=node.id,
+            Node(
                 name=node.name,
                 description=node.description,
-                call_id=node.call_id,
-                service_id=service_id,
-                override_input=node.override_input.model_dump(
+                callId=node.call_id,
+                serviceId=service_id,
+                overrideInput=node.override_input.model_dump(
                     exclude_none=True,
                     by_alias=True,
                 )
                 if node.override_input
                 else {},
-                override_output={},
-                known_params=node.known_params,
+                overrideOutput={},
+                knownParams=node.known_params,
             )
             for node in api_nodes
         ]

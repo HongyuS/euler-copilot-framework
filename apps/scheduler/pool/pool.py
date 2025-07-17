@@ -8,10 +8,10 @@ from typing import Any
 from anyio import Path
 
 from apps.common.config import config
-from apps.common.mongo import MongoDB
+from apps.common.postgres import postgres
+from apps.models.app import App
 from apps.schemas.enum_var import MetadataType
 from apps.schemas.flow import Flow
-from apps.schemas.pool import AppFlow, CallPool
 
 from .check import FileChecker
 from .loader import (
@@ -29,7 +29,7 @@ class Pool:
     """
     资源池
 
-    在Framework启动时，执行全局的载入流程；同时在内存中维持部分变量，满足MCP、Call等含Python类的模块能够驻留在内存中。
+    在Framework启动时，执行全局的载入流程
     """
 
     @staticmethod
@@ -38,7 +38,7 @@ class Pool:
         检查必要的文件夹是否存在
 
         检查 ``data_dir`` 目录下是否存在 ``semantics/`` 目录，
-        并检查是否存在 ``app/``、``service/``、``call/``、``mcp/`` 目录。
+        并检查是否存在 ``app/``、``service/``、``mcp/`` 目录。
         如果目录不存在，则自动创建目录。
 
         :return: 无
@@ -52,10 +52,6 @@ class Pool:
             logger.warning("[Pool] Service目录%s不存在，创建中", root_dir + "service")
             await Path(root_dir + "service").unlink(missing_ok=True)
             await Path(root_dir + "service").mkdir(parents=True, exist_ok=True)
-        if not await Path(root_dir + "call").exists() or not await Path(root_dir + "call").is_dir():
-            logger.warning("[Pool] Call目录%s不存在，创建中", root_dir + "call")
-            await Path(root_dir + "call").unlink(missing_ok=True)
-            await Path(root_dir + "call").mkdir(parents=True, exist_ok=True)
         if not await Path(root_dir + "mcp").exists() or not await Path(root_dir + "mcp").is_dir():
             logger.warning("[Pool] MCP目录%s不存在，创建中", root_dir + "mcp")
             await Path(root_dir + "mcp").unlink(missing_ok=True)

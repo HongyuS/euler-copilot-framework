@@ -40,7 +40,7 @@ async def get_docs(post_body: RequestData) -> tuple[list[RecordDocument] | list[
     if not docs:
         # 是新提问
         # 从Conversation中获取刚上传的文档
-        docs = await DocumentManager.get_unused_docs(post_body.conversation_id, "question")
+        docs = await DocumentManager.get_unused_docs(post_body.conversation_id)
         # 从最近10条Record中获取文档
         docs += await DocumentManager.get_used_docs(post_body.conversation_id, 10, "question")
         doc_ids += [doc.id for doc in docs]

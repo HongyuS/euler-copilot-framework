@@ -8,17 +8,18 @@ from typing import Any
 import aiofiles
 import yaml
 from anyio import Path
+from sqlalchemy import delete, insert
 
 from apps.common.config import config
 from apps.common.mongo import MongoDB
+from apps.common.postgres import postgres
 from apps.llm.embedding import Embedding
+from apps.models.app import App
+from apps.models.vectors import FlowPoolVector
 from apps.scheduler.util import yaml_enum_presenter, yaml_str_presenter
 from apps.schemas.enum_var import EdgeType
 from apps.schemas.flow import AppFlow, Flow
-from apps.schemas.pool import AppPool
-from apps.models.vector import FlowPoolVector
 from apps.services.node import NodeManager
-from apps.common.lance import LanceDB
 
 logger = logging.getLogger(__name__)
 BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "app"
@@ -181,11 +182,8 @@ class FlowLoader:
                 logger.exception("[FlowLoader] 删除工作流文件失败：%s", flow_path)
                 return False
 
-            table = await LanceDB().get_table("flow")
-            try:
-                await table.delete(f"id = '{flow_id}'")
-            except Exception:
-                logger.exception("[FlowLoader] LanceDB删除flow失败")
+            async with postgres.session() as session:
+                await session.execute(delete(FlowPoolVector).where(FlowPoolVector.flow_id == flow_id))
             return True
         logger.warning("[FlowLoader] 工作流文件不存在或不是文件：%s", flow_path)
         return True
@@ -236,36 +234,17 @@ class FlowLoader:
             logger.exception("[FlowLoader] 更新 MongoDB 失败")
 
         # 删除重复的ID
-        while True:
-            try:
-                table = await LanceDB().get_table("flow")
-                await table.delete(f"id = '{metadata.id}'")
-                break
-            except RuntimeError as e:
-                if "Commit conflict" in str(e):
-                    logger.error("[FlowLoader] LanceDB删除flow冲突，重试中...")  # noqa: TRY400
-                    await asyncio.sleep(0.01)
-                else:
-                    raise
+        async with postgres.session() as session:
+            await session.execute(delete(FlowPoolVector).where(FlowPoolVector.flow_id == metadata.id))
+
         # 进行向量化
         service_embedding = await Embedding.get_embedding([metadata.description])
         vector_data = [
             FlowPoolVector(
-                id=metadata.id,
-                app_id=app_id,
+                flow_id=metadata.id,
+                appId=app_id,
                 embedding=service_embedding[0],
             ),
         ]
-        while True:
-            try:
-                table = await LanceDB().get_table("flow")
-                await table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
-                    vector_data,
-                )
-                break
-            except RuntimeError as e:
-                if "Commit conflict" in str(e):
-                    logger.error("[FlowLoader] LanceDB插入flow冲突，重试中...")  # noqa: TRY400
-                    await asyncio.sleep(0.01)
-                else:
-                    raise
+        async with postgres.session() as session:
+            await session.execute(insert(FlowPoolVector).values(vector_data))
