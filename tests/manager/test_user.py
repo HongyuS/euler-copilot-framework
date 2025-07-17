@@ -18,7 +18,7 @@ class TestUserManager(unittest.TestCase):
         # 将模拟的 logger 对象分配给 UserManager.logger
         UserManager.logger = mock_logger
 
-        userinfo = User(user_sub="test_user_sub", organization="test_org", revision_number="123")
+        userinfo = User(userSub="test_user_sub", organization="test_org", revision_number="123")
 
         # 创建模拟的数据库会话对象
         mock_session = MagicMock()
@@ -59,7 +59,7 @@ class TestUserManager(unittest.TestCase):
     @patch('apps.manager.user_manager.UserManager.get_userinfo_by_user_sub')
     def test_update_userinfo_by_user_sub_success(self, mock_get_userinfo, mock_mysql_db):
         # 创建测试数据
-        userinfo = User(user_sub="test_user_sub", organization="test_org", revision_number="123")
+        userinfo = User(userSub="test_user_sub", organization="test_org", revision_number="123")
 
         # 模拟 get_userinfo_by_user_sub 方法返回一个已存在的用户信息对象
         mock_get_userinfo.return_value = userinfo

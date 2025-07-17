@@ -4,53 +4,31 @@
 import logging
 from typing import TYPE_CHECKING, Any
 
-from apps.common.mongo import MongoDB
-from apps.schemas.node import APINode
-from apps.schemas.pool import NodePool
+from sqlalchemy import select
+
+from apps.common.postgres import postgres
+from apps.models.node import Node
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
-NODE_TYPE_MAP = {
-    "API": APINode,
-}
+
 
 class NodeManager:
     """Node管理器"""
 
     @staticmethod
-    async def get_node_call_id(node_id: str) -> str:
-        """获取Node的call_id"""
-        node_collection = MongoDB().get_collection("node")
-        node = await node_collection.find_one({"_id": node_id}, {"call_id": 1})
-        if not node:
-            err = f"[NodeManager] Node call_id {node_id} not found."
-            raise ValueError(err)
-        return node["call_id"]
-
-
-    @staticmethod
-    async def get_node(node_id: str) -> NodePool:
-        """获取Node的类型"""
-        node_collection = MongoDB().get_collection("node")
-        node = await node_collection.find_one({"_id": node_id})
-        if not node:
-            err = f"[NodeManager] Node {node_id} not found."
-            raise ValueError(err)
-        return NodePool.model_validate(node)
-
-
-    @staticmethod
-    async def get_node_name(node_id: str) -> str:
-        """获取node的名称"""
-        node_collection = MongoDB().get_collection("node")
-        # 查询 Node 集合获取对应的 name
-        node_doc = await node_collection.find_one({"_id": node_id}, {"name": 1})
-        if not node_doc:
-            logger.error("[NodeManager] Node %s not found", node_id)
-            return ""
-        return node_doc["name"]
+    async def get_node(node_id: str) -> Node:
+        """获取Node信息"""
+        async with postgres.session() as session:
+            node = (await session.scalars(
+                select(Node).where(Node.id == node_id),
+            )).one_or_none()
+            if not node:
+                err = f"[NodeManager] Node {node_id} not found."
+                raise ValueError(err)
+            return node
 
 
     @staticmethod
@@ -83,19 +61,12 @@ class NodeManager:
 
         # 查找Node信息
         logger.info("[NodeManager] 获取节点 %s", node_id)
-        node_collection = MongoDB().get_collection("node")
-        node = await node_collection.find_one({"_id": node_id})
-        if not node:
-            err = f"[NodeManager] Node {node_id} not found."
-            logger.error(err)
-            raise ValueError(err)
-
-        node_data = NodePool.model_validate(node)
-        call_id = node_data.call_id
+        node_data = await NodeManager.get_node(node_id)
+        call_id = node_data.callId
 
         # 查找Call信息
         logger.info("[NodeManager] 获取Call %s", call_id)
-        call_class: type[BaseModel] = await Pool().get_call(call_id)
+        call_class: type[BaseModel] = await Pool().get_call(str(call_id))
         if not call_class:
             err = f"[NodeManager] Call {call_id} 不存在"
             logger.error(err)
@@ -103,8 +74,8 @@ class NodeManager:
 
         # 返回参数Schema
         return (
-            NodeManager.merge_params_schema(call_class.model_json_schema(), node_data.known_params or {}),
+            NodeManager.merge_params_schema(call_class.model_json_schema(), node_data.knownParams or {}),
             call_class.output_model.model_json_schema(  # type: ignore[attr-defined]
-                override=node_data.override_output if node_data.override_output else {},
+                override=node_data.overrideOutput if node_data.overrideOutput else {},
             ),
         )

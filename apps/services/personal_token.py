@@ -28,7 +28,7 @@ class PersonalTokenManager:
             try:
                 result = (
                     await session.scalars(
-                        select(User.user_sub).where(User.personal_token == personal_token),
+                        select(User.userSub).where(User.personalToken == personal_token),
                     )
                 ).one_or_none()
             except Exception:
@@ -50,7 +50,7 @@ class PersonalTokenManager:
             try:
                 result = (
                     await session.scalars(
-                        select(func.count(User.id)).where(User.personal_token == personal_token),
+                        select(func.count(User.id)).where(User.personalToken == personal_token),
                     )
                 ).one()
             except Exception:
