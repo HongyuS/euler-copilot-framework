@@ -6,10 +6,8 @@ import re
 
 from apps.common.mongo import MongoDB
 from apps.common.security import Security
-from apps.schemas.collection import (
-    Blacklist,
-    User,
-)
+from apps.models.user import User
+from apps.schemas.collection import Blacklist
 from apps.schemas.record import Record, RecordContent
 
 logger = logging.getLogger(__name__)

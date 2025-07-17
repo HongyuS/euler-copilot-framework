@@ -9,10 +9,10 @@ from typing import Any
 from apps.common.mongo import MongoDB
 from apps.constants import SERVICE_PAGE_SIZE
 from apps.exceptions import InstancePermissionError
+from apps.models.user import User
 from apps.scheduler.pool.loader.app import AppLoader
 from apps.schemas.agent import AgentAppMetadata
 from apps.schemas.appcenter import AppCenterCardItem, AppData, AppPermissionData
-from apps.schemas.collection import User
 from apps.schemas.enum_var import AppFilterType, AppType, PermissionType
 from apps.schemas.flow import AppMetadata, MetadataType, Permission
 from apps.schemas.pool import AppPool
@@ -20,12 +20,60 @@ from apps.schemas.response_data import RecentAppList, RecentAppListItem
 
 from .flow import FlowManager
 from .mcp_service import MCPServiceManager
+from .user import UserManager
 
 logger = logging.getLogger(__name__)
 
 
 class AppCenterManager:
     """应用中心管理器"""
+
+    @staticmethod
+    async def validate_user_app_access(user_sub: str, app_id: str) -> bool:
+        """
+        验证用户对应用的访问权限
+
+        :param user_sub: 用户唯一标识符
+        :param app_id: 应用id
+        :return: 如果用户具有所需权限则返回True，否则返回False
+        """
+        mongo = MongoDB()
+        app_collection = mongo.get_collection("app")
+        query = {
+            "_id": app_id,
+            "$or": [
+                {"author": user_sub},
+                {"permission.type": PermissionType.PUBLIC.value},
+                {
+                    "$and": [
+                        {"permission.type": PermissionType.PROTECTED.value},
+                        {"permission.users": user_sub},
+                    ],
+                },
+            ],
+        }
+
+        result = await app_collection.find_one(query)
+        return result is not None
+
+    @staticmethod
+    async def validate_app_belong_to_user(user_sub: str, app_id: str) -> bool:
+        """
+        验证用户对应用的属权
+
+        :param user_sub: 用户唯一标识符
+        :param app_id: 应用id
+        :return: 如果应用属于用户则返回True，否则返回False
+        """
+        mongo = MongoDB()
+        app_collection = mongo.get_collection("app")  # 获取应用集合'
+        query = {
+            "_id": app_id,
+            "author": user_sub,
+        }
+
+        result = await app_collection.find_one(query)
+        return result is not None
 
     @staticmethod
     async def fetch_apps(
@@ -218,11 +266,10 @@ class AppCenterManager:
         if not db_data:
             msg = "应用不存在"
             raise ValueError(msg)
-        db_user = await user_collection.find_one({"_id": user_sub})
-        if not db_user:
+        user_data = await UserManager.get_user(user_sub)
+        if not user_data:
             msg = "用户不存在"
             raise ValueError(msg)
-        user_data = User.model_validate(db_user)
 
         already_favorited = app_id in user_data.fav_apps
         if favorited == already_favorited:

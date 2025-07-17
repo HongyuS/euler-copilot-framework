@@ -2,11 +2,15 @@
 """用户限流"""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timedelta
 
-from apps.common.mongo import MongoDB
+import pytz
+from sqlalchemy import delete
+
+from apps.common.postgres import postgres
 from apps.constants import SLIDE_WINDOW_QUESTION_COUNT, SLIDE_WINDOW_TIME
 from apps.exceptions import ActivityError
+from apps.models.session import SessionActivity
 
 
 class Activity:
@@ -20,7 +24,7 @@ class Activity:
         :param user_sub: 用户实体ID
         :return: 判断结果，正在提问则返回True
         """
-        time = round(datetime.now(UTC).timestamp(), 3)
+        time = datetime.now(pytz.timezone("Asia/Shanghai"))
 
         # 检查窗口内总请求数
         count = await MongoDB().get_collection("activity").count_documents(
@@ -60,13 +64,9 @@ class Activity:
 
         :param user_sub: 用户实体ID
         """
-        time = round(datetime.now(UTC).timestamp(), 3)
         # 清除用户当前活动标识
-        await MongoDB().get_collection("activity").delete_one(
-            {"user_sub": user_sub},
-        )
-
-        # 清除超出窗口范围的请求记录
-        await MongoDB().get_collection("activity").delete_many(
-            {"timestamp": {"$lte": time - SLIDE_WINDOW_TIME}},
-        )
+        async with postgres.session() as session:
+            await session.execute(
+                delete(SessionActivity).where(SessionActivity.userSub == user_sub),
+            )
+            await session.commit()

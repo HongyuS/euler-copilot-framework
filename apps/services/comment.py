@@ -2,8 +2,12 @@
 """评论 Manager"""
 
 import logging
+import uuid
 
-from apps.common.mongo import MongoDB
+from sqlalchemy import select
+
+from apps.common.postgres import postgres
+from apps.models.comment import Comment
 from apps.schemas.record import RecordComment
 
 logger = logging.getLogger(__name__)
@@ -13,38 +17,56 @@ class CommentManager:
     """评论相关操作"""
 
     @staticmethod
-    async def query_comment(group_id: str, record_id: str) -> RecordComment | None:
+    async def query_comment(record_id: str) -> RecordComment | None:
         """
         根据问答ID查询评论
 
         :param record_id: 问答ID
         :return: 评论内容
         """
-        record_group_collection = MongoDB().get_collection("record_group")
-        result = await record_group_collection.aggregate(
-            [
-                {"$match": {"_id": group_id, "records.id": record_id}},
-                {"$unwind": "$records"},
-                {"$match": {"records.id": record_id}},
-                {"$limit": 1},
-            ],
-        )
-        result = await result.to_list(length=1)
-        if result:
-            return RecordComment.model_validate(result[0]["records"]["comment"])
-        return None
+        async with postgres.session() as session:
+            result = (
+                await session.scalars(
+                    select(Comment).where(Comment.recordId == uuid.UUID(record_id)),
+                )
+            ).one_or_none()
+            if result:
+                return RecordComment(
+                    comment=result.commentType,
+                    dislike_reason=result.feedbackType,
+                    reason_link=result.feedbackLink,
+                    reason_description=result.feedbackContent,
+                    feedback_time=round(result.createdAt.timestamp(), 3),
+                )
+            return None
 
     @staticmethod
-    async def update_comment(group_id: str, record_id: str, data: RecordComment) -> None:
+    async def update_comment(record_id: str, data: RecordComment, user_sub: str) -> None:
         """
         更新评论
 
         :param record_id: 问答ID
         :param data: 评论内容
         """
-        mongo = MongoDB()
-        record_group_collection = mongo.get_collection("record_group")
-        await record_group_collection.update_one(
-            {"_id": group_id, "records.id": record_id},
-            {"$set": {"records.$.comment": data.model_dump(by_alias=True)}},
-        )
+        async with postgres.session() as session:
+            result = (
+                await session.scalars(
+                    select(Comment).where(Comment.recordId == uuid.UUID(record_id)),
+                )
+            ).one_or_none()
+            if result:
+                result.commentType = data.comment
+                result.feedbackType = data.feedback_type
+                result.feedbackLink = data.feedback_link
+                result.feedbackContent = data.feedback_content
+            else:
+                comment_info = Comment(
+                    recordId=uuid.UUID(record_id),
+                    userSub=user_sub,
+                    commentType=data.comment,
+                    feedbackType=data.feedback_type,
+                    feedbackLink=data.feedback_link,
+                    feedbackContent=data.feedback_content,
+                )
+                session.add(comment_info)
+            await session.commit()
