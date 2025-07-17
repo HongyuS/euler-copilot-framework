@@ -37,7 +37,7 @@ async def list_kb(
     kb_name: Annotated[str, Query(alias="kbName")] = "",
 ) -> JSONResponse:
     """获取当前用户的知识库ID"""
-    team_kb_list = await KnowledgeBaseManager.list_team_kb(user_sub, conversation_id, kb_id, kb_name)
+    team_kb_list = await KnowledgeBaseManager.get_selected_kb(user_sub, conversation_id, kb_id, kb_name)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ListTeamKnowledgeRsp(
@@ -55,7 +55,7 @@ async def update_conversation_kb(
     put_body: Annotated[UpdateKbReq, Body(...)],
 ) -> JSONResponse:
     """更新当前用户的知识库ID"""
-    kb_ids_update_success = await KnowledgeBaseManager.update_conv_kb(user_sub, conversation_id, put_body.kb_ids)
+    kb_ids_update_success = await KnowledgeBaseManager.save_selected_kb(user_sub, conversation_id, put_body.kb_ids)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ResponseData(

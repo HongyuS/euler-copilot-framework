@@ -232,15 +232,6 @@ class OidcRedirectRsp(ResponseData):
     result: OidcRedirectMsg
 
 
-class KnowledgeBaseItem(BaseModel):
-    """知识库列表项数据结构"""
-
-    kb_id: str = Field(..., alias="kbId", description="知识库ID")
-    kb_name: str = Field(..., description="知识库名称", alias="kbName")
-    description: str = Field(..., description="知识库描述")
-    is_used: bool = Field(..., description="是否使用", alias="isUsed")
-
-
 class TeamKnowledgeBaseItem(BaseModel):
     """团队知识库列表项数据结构"""
 
