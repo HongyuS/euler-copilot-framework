@@ -48,7 +48,7 @@ async def document_upload(  # noqa: ANN201
         UploadDocumentMsgItem(
             _id=doc.id,
             name=doc.name,
-            type=doc.type,
+            type=doc.extension,
             size=doc.size,
         )
         for doc in result
@@ -82,10 +82,10 @@ async def get_document_list(  # noqa: ANN201
             ConversationDocumentItem(
                 _id=item.id,
                 name=item.name,
-                type=item.type,
+                type=item.extension,
                 size=round(item.size, 2),
                 status=DocumentStatus.USED,
-                created_at=item.created_at,
+                created_at=item.createdAt,
             )
             for item in docs
         ]

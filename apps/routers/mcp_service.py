@@ -40,7 +40,7 @@ async def _check_user_admin(user_sub: str) -> None:
     user = await UserManager.get_user(user_sub)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户未登录")
-    if not user.is_admin:
+    if not user.isAdmin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="非管理员无法访问")
 
 
