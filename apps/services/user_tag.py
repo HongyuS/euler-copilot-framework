@@ -22,7 +22,7 @@ class UserTagManager:
             user_domains = (
                 await session.scalars(
                     select(UserTag).where(
-                        UserTag.user_sub == user_sub,
+                        UserTag.userSub == user_sub,
                     ).order_by(UserTag.count.desc()).limit(topk),
                 )
             ).all()
@@ -56,13 +56,13 @@ class UserTagManager:
             user_domain = (
                 await session.scalars(
                     select(UserTag).where(
-                        UserTag.user_sub == user_sub,
+                        UserTag.userSub == user_sub,
                         UserTag.tag == tag.id,
                     ),
                 )
             ).one_or_none()
             if not user_domain:
-                user_domain = UserTag(user_sub=user_sub, tag=tag.id, count=1)
+                user_domain = UserTag(userSub=user_sub, tag=tag.id, count=1)
                 session.add(user_domain)
             else:
                 user_domain.count += 1

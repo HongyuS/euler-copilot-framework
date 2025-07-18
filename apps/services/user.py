@@ -2,10 +2,13 @@
 """用户 Manager"""
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
 
-from apps.common.mongo import MongoDB
-from apps.schemas.collection import User
+import pytz
+from sqlalchemy import select
+
+from apps.common.postgres import postgres
+from apps.models.user import User
 
 from .conversation import ConversationManager
 
@@ -16,92 +19,75 @@ class UserManager:
     """用户相关操作"""
 
     @staticmethod
-    async def add_userinfo(user_sub: str) -> None:
+    async def list_user(n: int = 10, page: int = 1) -> list[User]:
         """
-        向数据库中添加用户信息
+        获取所有用户
 
-        :param user_sub: 用户sub
+        :param n: 每页数量
+        :param page: 页码
+        :return: 所有用户列表
         """
-        mongo = MongoDB()
-        user_collection = mongo.get_collection("user")
-        await user_collection.insert_one(User(
-            _id=user_sub,
-        ).model_dump(by_alias=True))
+        async with postgres.session() as session:
+            users = (await session.scalars(select(User).offset((page - 1) * n).limit(n))).all()
+            return list(users)
 
-    @staticmethod
-    async def get_all_user_sub() -> list[str]:
-        """
-        获取所有用户的sub
-
-        :return: 所有用户的sub列表
-        """
-        mongo = MongoDB()
-        user_collection = mongo.get_collection("user")
-        return [user["_id"] async for user in user_collection.find({}, {"_id": 1})]
 
     @staticmethod
-    async def get_userinfo_by_user_sub(user_sub: str) -> User | None:
+    async def get_user(user_sub: str) -> User | None:
         """
         根据用户sub获取用户信息
 
         :param user_sub: 用户sub
         :return: 用户信息
         """
-        mongo = MongoDB()
-        user_collection = mongo.get_collection("user")
-        user_data = await user_collection.find_one({"_id": user_sub})
-        return User(**user_data) if user_data else None
+        async with postgres.session() as session:
+            return (
+                await session.scalars(select(User).where(User.userSub == user_sub))
+            ).one_or_none()
+
 
     @staticmethod
-    async def update_userinfo_by_user_sub(user_sub: str, *, refresh_revision: bool = False) -> bool:
+    async def update_user(user_sub: str) -> None:
         """
         根据用户sub更新用户信息
 
         :param user_sub: 用户sub
-        :param refresh_revision: 是否刷新revision
-        :return: 更新后的用户信息
         """
-        mongo = MongoDB()
-        user_data = await UserManager.get_userinfo_by_user_sub(user_sub)
-        if not user_data:
-            await UserManager.add_userinfo(user_sub)
-            return True
+        async with postgres.session() as session:
+            user = (
+                await session.scalars(select(User).where(User.userSub == user_sub))
+            ).one_or_none()
+            if not user:
+                user = User(
+                    userSub=user_sub,
+                    isActive=True,
+                    isWhitelisted=False,
+                    credit=0,
+                )
+                session.add(user)
+                await session.commit()
+                return
 
-        update_dict = {
-            "$set": {"login_time": round(datetime.now(UTC).timestamp(), 3)},
-        }
+            user.lastLogin = datetime.now(tz=pytz.timezone("Asia/Shanghai"))
+            await session.commit()
 
-        if refresh_revision:
-            update_dict["$set"]["status"] = "init"  # type: ignore[assignment]
-        user_collection = mongo.get_collection("user")
-        result = await user_collection.update_one({"_id": user_sub}, update_dict)
-        return result.modified_count > 0
 
     @staticmethod
-    async def query_userinfo_by_login_time(login_time: float) -> list[str]:
-        """
-        根据登录时间获取用户sub
-
-        :param login_time: 登录时间
-        :return: 用户sub列表
-        """
-        mongo = MongoDB()
-        user_collection = mongo.get_collection("user")
-        return [user["_id"] async for user in user_collection.find({"login_time": {"$lt": login_time}}, {"_id": 1})]
-
-    @staticmethod
-    async def delete_userinfo_by_user_sub(user_sub: str) -> None:
+    async def delete_user(user_sub: str) -> None:
         """
         根据用户sub删除用户信息
 
         :param user_sub: 用户sub
         """
-        mongo = MongoDB()
-        user_collection = mongo.get_collection("user")
-        result = await user_collection.find_one_and_delete({"_id": user_sub})
-        if not result:
-            return
-        result = User.model_validate(result)
+        async with postgres.session() as session:
+            user = (
+                await session.scalars(select(User).where(User.userSub == user_sub))
+            ).one_or_none()
+            if not user:
+                return
 
-        for conv_id in result.conversations:
-            await ConversationManager.delete_conversation_by_conversation_id(user_sub, conv_id)
+            await session.delete(user)
+            await session.commit()
+
+            for conv_id in result.conversations:
+                await ConversationManager.delete_conversation_by_conversation_id(user_sub, conv_id)
