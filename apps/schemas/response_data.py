@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """FastAPI 返回数据结构"""
 
+import uuid
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -8,7 +9,7 @@ from pydantic import BaseModel, Field
 from apps.templates.generate_llm_operator_config import llm_provider_dict
 
 from .appcenter import AppCenterCardItem, AppData
-from .collection import Blacklist, Document
+from .collection import Blacklist
 from .enum_var import DocumentStatus
 from .flow_topology import (
     FlowItem,
@@ -232,18 +233,10 @@ class OidcRedirectRsp(ResponseData):
     result: OidcRedirectMsg
 
 
-class TeamKnowledgeBaseItem(BaseModel):
-    """团队知识库列表项数据结构"""
-
-    team_id: str = Field(..., alias="teamId", description="团队ID")
-    team_name: str = Field(..., alias="teamName", description="团队名称")
-    kb_list: list[KnowledgeBaseItem] = Field(default=[], description="知识库列表")
-
-
 class ListTeamKnowledgeMsg(BaseModel):
     """GET /api/knowledge Result数据结构"""
 
-    team_kb_list: list[TeamKnowledgeBaseItem] = Field(default=[], alias="teamKbList", description="团队知识库列表")
+    team_kb_list: list[uuid.UUID] = Field(default=[], alias="teamKbList", description="团队知识库列表")
 
 
 class ListTeamKnowledgeRsp(ResponseData):

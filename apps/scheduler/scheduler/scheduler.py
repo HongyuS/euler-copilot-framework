@@ -49,7 +49,7 @@ class Scheduler:
         """运行调度器"""
         try:
             # 获取当前会话使用的大模型
-            llm_id = await LLMManager.get_llm_id_by_conversation_id(
+            llm_id = await LLMManager.get_llm_id_by_user_id(
                 self.task.ids.user_sub, self.task.ids.conversation_id,
             )
             if not llm_id:

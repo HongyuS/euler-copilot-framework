@@ -185,4 +185,4 @@ class DeleteLLMReq(BaseModel):
 class UpdateKbReq(BaseModel):
     """更新知识库请求体"""
 
-    kb_ids: list[str] = Field(description="知识库ID列表", alias="kbIds", default=[])
+    kb_ids: list[uuid.UUID] = Field(description="知识库ID列表", alias="kbIds", default=[])
