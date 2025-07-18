@@ -2,6 +2,7 @@
 """Token Manager"""
 
 import logging
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -22,7 +23,12 @@ class TokenManager:
     """管理用户Token和插件Token"""
 
     @staticmethod
-    async def get_plugin_token(plugin_name: str, session_id: str, access_token_url: str, expire_time: int) -> str:
+    async def get_plugin_token(
+        plugin_id: uuid.UUID | None,
+        session_id: str,
+        access_token_url: str,
+        expire_time: int,
+    ) -> str:
         """获取插件Token"""
         user_sub = await SessionManager.get_user(session_id=session_id)
         if not user_sub:
@@ -32,14 +38,14 @@ class TokenManager:
         mongo = MongoDB()
         collection = mongo.get_collection("session")
         token_data = await collection.find_one({
-            "_id": f"{plugin_name}_token_{user_sub}",
+            "_id": f"{plugin_id}_token_{user_sub}",
         })
 
         if token_data:
             return token_data["token"]
 
         token = await TokenManager.generate_plugin_token(
-            plugin_name,
+            plugin_id,
             session_id,
             user_sub,
             access_token_url,
@@ -61,7 +67,7 @@ class TokenManager:
 
     @staticmethod
     async def generate_plugin_token(
-        plugin_name: str,
+        plugin_name: uuid.UUID,
         session_id: str,
         user_sub: str,
         access_token_url: str,

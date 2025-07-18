@@ -5,10 +5,11 @@ import logging
 
 from pymongo import ASCENDING
 
-from apps.common.mongo import MongoDB
+from apps.common.postgres import postgres
+from apps.models.node import Node
+from apps.models.user import User
 from apps.scheduler.pool.loader.flow import FlowLoader
 from apps.scheduler.slot.slot import Slot
-from apps.schemas.collection import User
 from apps.schemas.enum_var import EdgeType, PermissionType
 from apps.schemas.flow import Edge, Flow, Step
 from apps.schemas.flow_topology import (
@@ -173,18 +174,18 @@ class FlowManager:
             return service_items
 
     @staticmethod
-    async def get_node_meta_data_by_node_meta_data_id(node_meta_data_id: str) -> NodeMetaDataItem | None:
+    async def get_node_by_node_id(node_id: str) -> NodeMetaDataItem | None:
         """
-        通过node_meta_data_id获取对应的节点源数据信息
+        通过node_id获取对应的节点源数据信息
 
-        :param node_meta_data_id: node_meta_data的id
-        :return: node meta data id对应的节点源数据信息
+        :param node_id: node_meta_data的id
+        :return: node_id对应的节点源数据信息
         """
         node_pool_collection = MongoDB().get_collection("node")  # 获取节点集合
         try:
-            node_pool_record = await node_pool_collection.find_one({"_id": node_meta_data_id})
+            node_pool_record = await node_pool_collection.find_one({"_id": node_id})
             if node_pool_record is None:
-                logger.error("[FlowManager] 节点元数据 %s 不存在", node_meta_data_id)
+                logger.error("[FlowManager] 节点元数据 %s 不存在", node_id)
                 return None
             parameters = {
                 "input_parameters": node_pool_record["params_schema"],

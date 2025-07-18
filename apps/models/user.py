@@ -6,7 +6,7 @@ from datetime import datetime
 from hashlib import sha256
 
 import pytz
-from sqlalchemy import BigInteger, Boolean, DateTime, Enum, Integer, String
+from sqlalchemy import ARRAY, BigInteger, Boolean, DateTime, Enum, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -37,6 +37,8 @@ class User(Base):
     """用户个人令牌"""
     isAdmin: Mapped[bool] = mapped_column(Boolean, default=False)  # noqa: N815
     """用户是否管理员"""
+    selectedKB: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID), default=[])  # noqa: N815
+    """用户选择的知识库的ID"""
 
 
 class UserFavoriteType(str, enum.Enum):
