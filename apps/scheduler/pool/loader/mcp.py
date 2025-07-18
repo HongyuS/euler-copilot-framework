@@ -132,6 +132,21 @@ class MCPLoader(metaclass=SingletonMeta):
         :param MCPServerConfig config: MCP配置
         :return: 无
         """
+        # 删除完成或者失败的MCP安装任务
+        mcp_collection = MongoDB().get_collection("mcp")
+        mcp_ids = ProcessHandler.get_all_task_ids()
+        # 检索_id在mcp_ids且状态为ready或者failed的MCP的内容
+        db_service_list = await mcp_collection.find(
+            {"_id": {"$in": mcp_ids}, "status": {"$in": [MCPInstallStatus.READY, MCPInstallStatus.FAILED]}},
+        ).to_list(None)
+        for db_service in db_service_list:
+            try:
+                item = MCPCollection.model_validate(db_service)
+            except Exception as e:
+                logger.error("[MCPLoader] MCP模板数据验证失败: %s, 错误: %s", db_service["_id"], e)
+                continue
+            ProcessHandler.remove_task(item.id)
+            logger.info("[MCPLoader] 删除已完成或失败的MCP安装进程: %s", item.id)
         # 插入数据库；这里用旧的config就可以
         await MCPLoader._insert_template_db(mcp_id, config)
 
