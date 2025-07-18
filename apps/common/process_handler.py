@@ -40,33 +40,9 @@ class ProcessHandler:
         if not acquired:
             logger.warning("[ProcessHandler] 获取任务ID时锁超时。")
             return []
-        taks_ids = list(ProcessHandler.tasks.keys())
+        task_ids = list(ProcessHandler.tasks.keys())
         ProcessHandler.lock.release()
-        return taks_ids
-
-    @staticmethod
-    def clear_finished_tasks() -> None:
-        """清除已完成的任务"""
-        acquired = False
-        acquired = ProcessHandler.lock.acquire(timeout=ProcessHandler.timeout)
-        if not acquired:
-            logger.warning("[ProcessHandler] 获取任务ID时锁超时。")
-            return
-        finished_tasks = []
-        for task_id, process in ProcessHandler.tasks.items():
-            flag = False
-            try:
-                if not process.is_alive():
-                    flag = True
-            except Exception as e:
-                logger.warning("[ProcessHandler] 检查任务 %s 时发生异常: %s", task_id, e)
-                flag = True
-            if flag:
-                finished_tasks.append(task_id)
-        for task_id in finished_tasks:
-            logger.info("[ProcessHandler] 任务 %s 已完成，正在清除。", task_id)
-            del ProcessHandler.tasks[task_id]
-        ProcessHandler.lock.release()
+        return task_ids
 
     @staticmethod
     def add_task(task_id: str, target: Callable, *args, **kwargs) -> bool:  # noqa: ANN002, ANN003
