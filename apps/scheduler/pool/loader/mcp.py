@@ -469,6 +469,7 @@ class MCPLoader(metaclass=SingletonMeta):
         ).to_list(None)
         for mcp_service in mcp_service_list:
             item = MCPCollection.model_validate(mcp_service)
+            ProcessHandler.remove_task(item.id)
             for user_sub in item.activated:
                 await MCPLoader.user_deactive_template(user_sub=user_sub, mcp_id=item.id)
         await mcp_collection.delete_many({"_id": {"$in": deleted_mcp_list}})
