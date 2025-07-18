@@ -123,7 +123,6 @@ class MCPLoader(metaclass=SingletonMeta):
         await MCPLoader.update_template_status(mcp_id, MCPInstallStatus.READY)
         await MCPLoader._insert_template_tool(mcp_id, config)
 
-
     @staticmethod
     async def init_one_template(mcp_id: str, config: MCPServerConfig) -> None:
         """
@@ -139,13 +138,12 @@ class MCPLoader(metaclass=SingletonMeta):
         # 检查目录
         template_path = MCP_PATH / "template" / mcp_id
         await Path.mkdir(template_path, parents=True, exist_ok=True)
-
+        ProcessHandler.clear_finished_tasks()
         # 安装MCP模板
         if not ProcessHandler.add_task(mcp_id, MCPLoader._install_template_task, mcp_id, config):
             err = f"安装任务无法执行，请稍后重试: {mcp_id}"
             logger.error(err)
             raise RuntimeError(err)
-
 
     @staticmethod
     async def _init_all_template() -> None:
@@ -236,7 +234,6 @@ class MCPLoader(metaclass=SingletonMeta):
             },
             upsert=True,
         )
-
 
     @staticmethod
     async def _insert_template_tool(mcp_id: str, config: MCPServerConfig) -> None:
@@ -472,6 +469,7 @@ class MCPLoader(metaclass=SingletonMeta):
         ).to_list(None)
         for mcp_service in mcp_service_list:
             item = MCPCollection.model_validate(mcp_service)
+            ProcessHandler.remove_task(item.id)
             for user_sub in item.activated:
                 await MCPLoader.user_deactive_template(user_sub=user_sub, mcp_id=item.id)
         await mcp_collection.delete_many({"_id": {"$in": deleted_mcp_list}})
@@ -546,7 +544,6 @@ class MCPLoader(metaclass=SingletonMeta):
                 {"_id": mcp_id},
                 {"$set": {"activated": user_list}},
             )
-
 
     @staticmethod
     async def init() -> None:
