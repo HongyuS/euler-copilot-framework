@@ -18,6 +18,18 @@ CHART_DIR="$(
   dirname "$(dirname "$(dirname "$canonical_path")")"
 )/chart"
 
+# 打印帮助信息
+print_help() {
+    echo -e "${GREEN}用法: $0 [选项]"
+    echo -e "选项:"
+    echo -e "  --help                      显示帮助信息"
+    echo -e "  --authhub_address <地址>    指定Authhub的访问地址（例如：http://myhost:30081）"
+    echo -e ""
+    echo -e "示例:"
+    echo -e "  $0 --authhub_address http://myhost:30081${NC}"
+    exit 0
+}
+
 # 获取系统架构
 get_architecture() {
     local arch=$(uname -m)
@@ -120,7 +132,7 @@ helm_install() {
     echo -e "${BLUE}正在安装 authhub...${NC}"
     helm upgrade --install authhub -n euler-copilot ./authhub \
         --set globals.arch="$arch" \
-	--set domain.authhub="${authhub_address}" || {
+        --set domain.authhub="${authhub_address}" || {
         echo -e "${RED}Helm 安装 authhub 失败！${NC}"
         return 1
     }
@@ -165,12 +177,20 @@ check_pods_status() {
     done
 }
 
-main() {
+deploy() {
     local arch
     arch=$(get_architecture) || exit 1
     create_namespace || exit 1
     uninstall_authhub || exit 1
-    get_authhub_address|| exit 1
+    
+    # 如果未通过参数提供地址，则提示用户输入
+    if [ -z "$authhub_address" ]; then
+        echo -e "${YELLOW}未提供 --authhub_address 参数，需要手动输入地址${NC}"
+        get_authhub_address || exit 1
+    else
+        echo -e "${GREEN}使用参数指定的Authhub地址：$authhub_address${NC}"
+    fi
+    
     helm_install "$arch" || exit 1
     check_pods_status || {
         echo -e "${RED}部署失败：Pod状态检查未通过！${NC}"
@@ -183,6 +203,37 @@ main() {
     echo -e "Authhub登录地址为: $authhub_address"
     echo -e "默认账号密码: administrator/changeme"
     echo -e "=========================${NC}"
+}
+
+# 解析命令行参数
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --help)
+                print_help
+                exit 0
+                ;;
+            --authhub_address)
+                if [ -n "$2" ]; then
+                    authhub_address="$2"
+                    shift 2
+                else
+                    echo -e "${RED}错误：--authhub_address 需要提供一个参数${NC}" >&2
+                    exit 1
+                fi
+                ;;
+            *)
+                echo -e "${RED}未知参数: $1${NC}" >&2
+                print_help
+                exit 1
+                ;;
+        esac
+    done
+}
+
+main() {
+    parse_args "$@"
+    deploy
 }
 
 trap 'echo -e "${RED}操作被中断！${NC}"; exit 1' INT
