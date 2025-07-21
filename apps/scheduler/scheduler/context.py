@@ -7,15 +7,13 @@ from datetime import UTC, datetime
 
 from apps.common.security import Security
 from apps.llm.patterns.facts import Facts
-from apps.schemas.collection import Document
+from apps.models.document import Document
+from apps.models.record import Record, RecordFootNote, RecordMetadata
 from apps.schemas.enum_var import StepStatus
 from apps.schemas.record import (
-    FootNoteMetaData,
-    Record,
     RecordContent,
     RecordDocument,
     RecordGroupDocument,
-    RecordMetadata,
 )
 from apps.schemas.request_data import RequestData
 from apps.schemas.task import Task
@@ -125,7 +123,7 @@ async def save_data(task: Task, user_sub: str, post_body: RequestData) -> None:
             order_to_id[docs["order"]] = docs["id"]
 
     foot_note_pattern = re.compile(r"\[\[(\d+)\]\]")
-    foot_note_metadata_list = []
+    footnote_list = []
     offset = 0
     for match in foot_note_pattern.finditer(task.runtime.answer):
         order = int(match.group(1))
@@ -134,7 +132,7 @@ async def save_data(task: Task, user_sub: str, post_body: RequestData) -> None:
             original_start = match.start()
             new_position = original_start - offset
 
-            foot_note_metadata_list.append(
+            footnote_list.append(
                 FootNoteMetaData(
                     releatedId=order_to_id[order],
                     insertPosition=new_position,
@@ -171,7 +169,6 @@ async def save_data(task: Task, user_sub: str, post_body: RequestData) -> None:
     current_time = round(datetime.now(UTC).timestamp(), 2)
     record = Record(
         id=task.ids.record_id,
-        groupId=task.ids.group_id,
         conversationId=task.ids.conversation_id,
         taskId=task.id,
         user_sub=user_sub,
@@ -182,27 +179,16 @@ async def save_data(task: Task, user_sub: str, post_body: RequestData) -> None:
             inputTokens=task.tokens.input_tokens,
             outputTokens=task.tokens.output_tokens,
             feature={},
-            footNoteMetadataList=foot_note_metadata_list,
+            footNoteMetadataList=footnote_list,
         ),
         createdAt=current_time,
         flow=[i["_id"] for i in task.context],
     )
 
-    # 检查是否存在group_id
-    if not await RecordManager.check_group_id(task.ids.group_id, user_sub):
-        record_group = await RecordManager.create_record_group(
-            task.ids.group_id, user_sub, post_body.conversation_id, task.id,
-        )
-        if not record_group:
-            logger.error("[Scheduler] 创建问答组失败")
-            return
-    else:
-        record_group = task.ids.group_id
-
     # 修改文件状态
     await DocumentManager.change_doc_status(user_sub, post_body.conversation_id, record_group)
     # 保存Record
-    await RecordManager.insert_record_data_into_record_group(user_sub, record_group, record)
+    await RecordManager.insert_record_data(user_sub, record)
     # 保存与答案关联的文件
     await DocumentManager.save_answer_doc(user_sub, record_group, used_docs)
 

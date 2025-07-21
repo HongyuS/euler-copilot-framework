@@ -2,6 +2,7 @@
 """文件上传至RAG，作为临时语料"""
 
 import logging
+import uuid
 
 import httpx
 from fastapi import status
@@ -65,7 +66,7 @@ class KnowledgeBaseService:
             return resp_data["result"]
 
     @staticmethod
-    async def get_doc_status_from_rag(session_id: str, doc_ids: list[str]) -> list[RAGFileStatusRspItem]:
+    async def get_doc_status_from_rag(session_id: str, doc_ids: list[uuid.UUID]) -> list[RAGFileStatusRspItem]:
         """获取文件状态"""
         headers = {
             "Content-Type": "application/json",

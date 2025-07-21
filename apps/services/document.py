@@ -11,10 +11,9 @@ from sqlalchemy import func, select
 
 from apps.common.minio import MinioClient
 from apps.common.postgres import postgres
-from apps.models.conversation import Conversation, ConversationDocument
+from apps.models.conversation import ConvDocAssociated, Conversation, ConversationDocument
 from apps.models.document import Document
-from apps.models.record import Record, RecordDocument
-from apps.schemas.record import RecordGroupDocument
+from apps.models.record import Record
 
 from .knowledge_base import KnowledgeBaseService
 from .session import SessionManager
@@ -45,7 +44,7 @@ class DocumentManager:
             part_size=10 * 1024 * 1024,
             metadata={
                 "file_name": base64.b64encode(
-                    document.filename.encode("utf-8")
+                    document.filename.encode("utf-8"),
                 ).decode("ascii") if document.filename else "",
             },
         )
@@ -114,7 +113,7 @@ class DocumentManager:
 
         async with postgres.session() as session:
             record_docs = (await session.scalars(
-                select(RecordDocument).where(RecordDocument.recordId == record_id),
+                select(ConversationDocument).where(ConversationDocument.recordId == record_id),
             )).all()
             if not list(record_docs):
                 logger.info("[DocumentManager] 记录组不存在: %s", record_id)
@@ -148,7 +147,7 @@ class DocumentManager:
             for current_record in records:
                 record_docs = (
                     await session.scalars(
-                        select(RecordDocument).where(RecordDocument.recordId == current_record.id),
+                        select(ConversationDocument).where(ConversationDocument.recordId == current_record.id),
                     )
                 ).all()
                 if list(record_docs):
@@ -171,57 +170,49 @@ class DocumentManager:
 
 
     @staticmethod
-    async def delete_document(user_sub: str, document_list: list[str]) -> bool:
+    async def delete_document(user_sub: str, document_list: list[str]) -> None:
         """从未使用文件列表中删除一个文件"""
-        mongo = MongoDB()
-        doc_collection = mongo.get_collection("document")
-        conv_collection = mongo.get_collection("conversation")
-        try:
-            async with mongo.get_session() as session, await session.start_transaction():
-                for doc in document_list:
-                    doc_info = await doc_collection.find_one_and_delete(
-                        {"_id": doc, "user_sub": user_sub}, session=session,
-                    )
-                    # 删除Document表内文件
-                    if not doc_info:
-                        logger.error("[DocumentManager] 文件不存在: %s", doc)
-                        continue
+        async with postgres.session() as session:
+            for doc in document_list:
+                doc_info = await session.scalars(
+                    select(Document).where(Document.id == doc, Document.userSub == user_sub),
+                )
+                if not doc_info:
+                    logger.error("[DocumentManager] 文件不存在: %s", doc)
+                    continue
 
-                    # 删除MinIO内文件
-                    await asyncer.asyncify(cls._remove_doc_from_minio)(doc)
+                conv_doc = await session.scalars(
+                    select(ConversationDocument).where(
+                        ConversationDocument.documentId == doc,
+                        ConversationDocument.isUnused.is_(True),
+                    ),
+                )
+                if not conv_doc:
+                    logger.error("[DocumentManager] 文件不存在或已使用: %s", doc)
+                    continue
 
-                    # 删除Conversation内文件
-                    conv = await conv_collection.find_one({"_id": doc_info["conversation_id"]}, session=session)
-                    if conv:
-                        await conv_collection.update_one(
-                            {"_id": conv["_id"]},
-                            {
-                                "$pull": {"unused_docs": doc},
-                            },
-                            session=session,
-                        )
-                await session.commit_transaction()
-                return True
-        except Exception:
-            logger.exception("[DocumentManager] 删除文件失败")
-            return False
+                await session.delete(conv_doc)
+                await session.delete(doc_info)
+                await session.commit()
+
+                # 删除MinIO内文件
+                await asyncer.asyncify(DocumentManager._remove_doc_from_minio)(doc)
 
 
     @staticmethod
-    async def delete_document_by_conversation_id(conversation_id: uuid.UUID) -> list[str]:
+    async def delete_document_by_conversation_id(user_sub: str, conversation_id: uuid.UUID) -> list[str]:
         """通过ConversationID删除文件"""
-        mongo = MongoDB()
-        doc_collection = mongo.get_collection("document")
         doc_ids = []
 
-        async with mongo.get_session() as session, await session.start_transaction():
-            async for doc in doc_collection.find(
-                {"user_sub": user_sub, "conversation_id": conversation_id}, session=session,
-            ):
-                doc_ids.append(doc["_id"])
-                await asyncer.asyncify(cls._remove_doc_from_minio)(doc["_id"])
-                await doc_collection.delete_one({"_id": doc["_id"]}, session=session)
-            await session.commit_transaction()
+        async with postgres.session() as session:
+            docs = (await session.scalars(
+                select(Document).where(Document.conversationId == conversation_id),
+            )).all()
+
+            for doc in docs:
+                await asyncer.asyncify(DocumentManager._remove_doc_from_minio)(str(doc.id))
+                await session.delete(doc)
+            await session.commit()
 
         session_id = await SessionManager.get_session_by_user_sub(user_sub)
         if not session_id:
@@ -232,7 +223,7 @@ class DocumentManager:
 
 
     @staticmethod
-    async def get_doc_count(conversation_id: str) -> int:
+    async def get_doc_count(conversation_id: uuid.UUID) -> int:
         """获取对话文件数量"""
         async with postgres.session() as session:
             return (await session.scalars(
@@ -243,38 +234,51 @@ class DocumentManager:
 
 
     @staticmethod
-    async def change_doc_status(user_sub: str, conversation_id: str, record_group_id: str) -> None:
+    async def change_doc_status(user_sub: str, conversation_id: uuid.UUID) -> None:
         """文件状态由unused改为used"""
-        mongo = MongoDB()
-        record_group_collection = mongo.get_collection("record_group")
-        conversation_collection = mongo.get_collection("conversation")
+        async with postgres.session() as session:
+            conversation = (await session.scalars(
+                select(Conversation).where(Conversation.id == conversation_id, Conversation.userSub == user_sub),
+            )).one_or_none()
+            if not conversation:
+                logger.error("[DocumentManager] 对话不存在: %s", conversation_id)
+                return
 
-        # 查找Conversation中的unused_docs
-        conversation = await conversation_collection.find_one({"user_sub": user_sub, "_id": conversation_id})
-        if not conversation:
-            logger.error("[DocumentManager] 对话不存在: %s", conversation_id)
-            return
+            # 把unused_docs加入RecordGroup中，并与问题关联
+            docs = (await session.scalars(
+                select(ConversationDocument).where(
+                    ConversationDocument.conversationId == conversation_id,
+                    ConversationDocument.isUnused.is_(True),
+                ),
+            )).all()
+            if not docs:
+                return
 
-        # 把unused_docs加入RecordGroup中，并与问题关联
-        docs_id = Conversation.model_validate(conversation).unused_docs
-        for doc in docs_id:
-            doc_info = RecordGroupDocument(_id=doc, associated="question")
-            await record_group_collection.update_one(
-                {"_id": record_group_id, "user_sub": user_sub},
-                {"$push": {"docs": doc_info.model_dump(by_alias=True)}},
-            )
+            for doc in docs:
+                doc.isUnused = False
+            await session.commit()
 
-        # 把unused_docs从Conversation中删除
-        await conversation_collection.update_one({"_id": conversation_id}, {"$set": {"unused_docs": []}})
 
     @staticmethod
-    async def save_answer_doc(user_sub: str, record_group_id: str, doc_infos: list[RecordDocument]) -> None:
-        """保存与答案关联的文件"""
-        mongo = MongoDB()
-        record_group_collection = mongo.get_collection("record_group")
+    async def save_answer_doc(user_sub: str, record_id: uuid.UUID, doc_infos: list[ConversationDocument]) -> None:
+        """保存与答案关联的文件（使用PostgreSQL）"""
+        async with postgres.session() as session:
+            # 查询对应的Record
+            record = (await session.scalars(
+                select(Record).where(Record.id == record_id, Record.userSub == user_sub),
+            )).one_or_none()
+            if not record:
+                logger.error("[DocumentManager] 记录不存在或非当前用户: %s", record_id)
+                return
 
-        for doc_info in doc_infos:
-            await record_group_collection.update_one(
-                {"_id": record_group_id, "user_sub": user_sub},
-                {"$push": {"docs": doc_info.model_dump(by_alias=True)}},
-            )
+            # 更新ConversationDocument表，将对应的doc与recordId关联，并设置为已使用
+            for doc_info in doc_infos:
+                doc = (await session.scalars(
+                    select(ConversationDocument).where(ConversationDocument.id == doc_info.id),
+                )).one_or_none()
+
+                if doc:
+                    doc.isUnused = False
+                    doc.associated = ConvDocAssociated.answer
+                    doc.recordId = record_id
+            await session.commit()

@@ -49,6 +49,19 @@ class ConversationManager:
 
 
     @staticmethod
+    async def verify_conversation_access(user_sub: str, conversation_id: uuid.UUID) -> bool:
+        """验证对话是否属于用户"""
+        async with postgres.session() as session:
+            result = (await session.scalars(
+                func.count(Conversation.id).where(
+                    Conversation.id == conversation_id,
+                    Conversation.userSub == user_sub,
+                ),
+            )).one()
+            return bool(result)
+
+
+    @staticmethod
     async def add_conversation_by_user_sub(user_sub: str, app_id: uuid.UUID, *, debug: bool) -> Conversation | None:
         """通过用户ID新建对话"""
         conv = Conversation(
