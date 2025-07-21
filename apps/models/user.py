@@ -35,10 +35,10 @@ class User(Base):
         String(100), default_factory=lambda: sha256(str(uuid.uuid4()).encode()).hexdigest()[:16],
     )
     """用户个人令牌"""
-    isAdmin: Mapped[bool] = mapped_column(Boolean, default=False)  # noqa: N815
-    """用户是否管理员"""
     selectedKB: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID), default=[])  # noqa: N815
     """用户选择的知识库的ID"""
+    selectedLLM: Mapped[int | None] = mapped_column(BigInteger, default=None, nullable=True)  # noqa: N815
+    """用户选择的大模型ID"""
 
 
 class UserFavoriteType(str, enum.Enum):

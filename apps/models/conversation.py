@@ -2,9 +2,10 @@
 
 import uuid
 from datetime import datetime
+from enum import Enum as PyEnum
 
 import pytz
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String
+from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -35,6 +36,13 @@ class Conversation(Base):
     """是否为临时对话"""
 
 
+class ConvDocAssociated(str, PyEnum):
+    """问答对文件的关联类型"""
+
+    question = "question"
+    answer = "answer"
+
+
 class ConversationDocument(Base):
     """对话所用的临时文件"""
 
@@ -47,3 +55,9 @@ class ConversationDocument(Base):
     """文件ID"""
     isUnused: Mapped[bool] = mapped_column(Boolean, default=True)  # noqa: N815
     """是否未使用"""
+    associated: Mapped[ConvDocAssociated | None] = mapped_column(
+        Enum(ConvDocAssociated), nullable=True, default=None,
+    )
+    """关联类型"""
+    recordId: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("framework_record.id"), nullable=True, default=None)  # noqa: N815
+    """问答对ID"""
