@@ -3,7 +3,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Query, status
+from fastapi import APIRouter, Body, Depends, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import get_user, verify_user
@@ -30,14 +30,9 @@ router = APIRouter(
     status.HTTP_404_NOT_FOUND: {"model": ResponseData},
 },
 )
-async def list_kb(
-    user_sub: Annotated[str, Depends(get_user)],
-    conversation_id: Annotated[str, Query(alias="conversationId")],
-    kb_id: Annotated[str, Query(alias="kbId")] = "",
-    kb_name: Annotated[str, Query(alias="kbName")] = "",
-) -> JSONResponse:
+async def list_kb(user_sub: Annotated[str, Depends(get_user)]) -> JSONResponse:
     """获取当前用户的知识库ID"""
-    team_kb_list = await KnowledgeBaseManager.get_selected_kb(user_sub, conversation_id, kb_id, kb_name)
+    team_kb_list = await KnowledgeBaseManager.get_selected_kb(user_sub)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ListTeamKnowledgeRsp(
@@ -49,13 +44,12 @@ async def list_kb(
 
 
 @router.put("", response_model=ResponseData)
-async def update_conversation_kb(
+async def update_kb(
     user_sub: Annotated[str, Depends(get_user)],
-    conversation_id: Annotated[str, Query(alias="conversationId")],
     put_body: Annotated[UpdateKbReq, Body(...)],
 ) -> JSONResponse:
     """更新当前用户的知识库ID"""
-    kb_ids_update_success = await KnowledgeBaseManager.save_selected_kb(user_sub, conversation_id, put_body.kb_ids)
+    kb_ids_update_success = await KnowledgeBaseManager.save_selected_kb(user_sub, put_body.kb_ids)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ResponseData(

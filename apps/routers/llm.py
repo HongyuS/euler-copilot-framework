@@ -116,13 +116,13 @@ async def delete_llm(
         status.HTTP_404_NOT_FOUND: {"model": ResponseData},
     },
 )
-async def update_conv_llm(
+async def update_user_llm(
     user_sub: Annotated[str, Depends(get_user)],
     conversation_id: Annotated[str, Query(description="对话ID", alias="conversationId")],
     llm_id: Annotated[str, Query(description="llm ID", alias="llmId")] = "empty",
 ) -> JSONResponse:
     """更新对话的知识库"""
-    llm_id = await LLMManager.update_conversation_llm(user_sub, conversation_id, llm_id)
+    llm_id = await LLMManager.update_user_llm(user_sub, conversation_id, llm_id)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ResponseData(
