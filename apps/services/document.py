@@ -123,6 +123,7 @@ class DocumentManager:
         for doc in docs:
             if doc.associated == "question":
                 doc_info = await document_collection.find_one({"_id": doc.id, "user_sub": user_sub})
+                doc_info = Document.model_validate(doc_info) if doc_info else None
                 if doc_info:
                     doc.name = doc_info.name
                     doc.extension = doc_info.type
