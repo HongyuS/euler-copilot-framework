@@ -21,10 +21,7 @@ class QuestionRewriteResult(BaseModel):
 class QuestionRewrite(CorePattern):
     """问题补全与重写"""
 
-    system_prompt: str = "You are a helpful assistant."
-    """系统提示词"""
-
-    user_prompt: str = r"""
+    system_prompt: str = r"""
         <instructions>
           <instruction>
             根据历史对话，推断用户的实际意图并补全用户的提问内容,历史对话被包含在<history>标签中，用户意图被包含在<question>标签中。
@@ -77,6 +74,11 @@ class QuestionRewrite(CorePattern):
         </question>
     """
     """用户提示词"""
+    user_prompt: str = """
+      <instructions>
+        请输出补全后的问题
+      </instructions>
+    """
 
     async def generate(self, **kwargs) -> str:  # noqa: ANN003
         """问题补全与重写"""
@@ -88,8 +90,8 @@ class QuestionRewrite(CorePattern):
         leave_tokens = llm._config.max_tokens
         leave_tokens -= TokenCalculator().calculate_token_length(
             messages=[
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": self.user_prompt.format(history="", question=question)}
+                {"role": "system", "content": self.system_prompt.format(history="", question=question)},
+                {"role": "user", "content": self.user_prompt}
             ]
         )
         if leave_tokens <= 0:
@@ -111,8 +113,8 @@ class QuestionRewrite(CorePattern):
                 qa = sub_qa + qa
             index -= 2
         messages = [
-            {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": self.user_prompt.format(history=qa, question=question)},
+            {"role": "system", "content": self.system_prompt.format(history=qa, question=question)},
+            {"role": "user", "content": self.user_prompt}
         ]
         result = ""
         async for chunk in llm.call(messages, streaming=False):
