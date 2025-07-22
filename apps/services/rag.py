@@ -6,6 +6,7 @@ import logging
 from collections.abc import AsyncGenerator
 
 import httpx
+from typing import Any
 from fastapi import status
 
 from apps.common.config import Config
@@ -76,58 +77,22 @@ class RAG:
     """
 
     @staticmethod
-    def get_k_tokens_words_from_content(content: str, k: int | None = None) -> str:
-        """获取k个token的词"""
-        if k is None:
-            return content
-        if k <= 0:
-            return ""
-        try:
-            if TokenCalculator().calculate_token_length(messages=[
-                {"role": "user", "content": content},
-            ], pure_text=True) <= k:
-                return content
-            l = 0
-            r = len(content)
-            while l + 1 < r:
-                mid = (l + r) // 2
-                if TokenCalculator().calculate_token_length(messages=[
-                    {"role": "user", "content": content[:mid]},
-                ], pure_text=True) <= k:
-                    l = mid
-                else:
-                    r = mid
-            return content[:l]
-        except Exception:
-            logger.exception("[RAG] 获取k个token的词失败")
-        return ""
-
-    @staticmethod
-    async def get_rag_result(
-        user_sub: str, llm: LLM, history: list[dict[str, str]], doc_ids: list[str], data: RAGQueryReq,
-    ) -> AsyncGenerator[str, None]:
-        """获取RAG服务的结果"""
+    async def get_doc_info_from_rag(user_sub: str, llm: LLM, history: list[dict[str, str]],
+                                    doc_ids: list[str],
+                                    data: RAGQueryReq) -> list[dict[str, Any]]:
+        """获取RAG服务的文档信息"""
         session_id = await SessionManager.get_session_by_user_sub(user_sub)
         url = Config().get_config().rag.rag_service.rstrip("/") + "/chunk/search"
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {session_id}",
         }
-        data.tokens_limit = llm.max_tokens
-        llm_config = LLMConfig(
-            endpoint=llm.openai_base_url,
-            key=llm.openai_api_key,
-            model=llm.model_name,
-            max_tokens=llm.max_tokens,
-        )
         if history:
             try:
                 question_obj = QuestionRewrite()
-                data.query = await question_obj.generate(history=history, question=data.query)
+                data.query = await question_obj.generate(history=history, question=data.query, llm=llm)
             except Exception:
                 logger.exception("[RAG] 问题重写失败")
-
-        reasion_llm = ReasoningLLM(llm_config)
         doc_chunk_list = []
         if doc_ids:
             default_kb_id = "00000000-0000-0000-0000-000000000000"
@@ -140,7 +105,7 @@ class RAG:
                 isRelatedSurrounding=data.is_related_surrounding,
                 isClassifyByDoc=data.is_classify_by_doc,
                 isRerank=data.is_rerank,
-                tokensLimit=data.tokens_limit
+                tokensLimit=llm.max_tokens,
             )
             try:
                 async with httpx.AsyncClient(timeout=30) as client:
@@ -162,12 +127,16 @@ class RAG:
                         doc_chunk_list += result["result"]["docChunks"]
             except Exception as e:
                 logger.error(f"[RAG] 获取文档分片失败: {e}")
+        return doc_chunk_list
 
+    @staticmethod
+    async def asseamble_doc_info(doc_chunk_list: list[dict[str, Any]], max_tokens: int) -> str:
+        """组装文档信息"""
         bac_info = ""
         doc_info_list = []
         doc_cnt = 1
         doc_id_map = {}
-        leave_tokens = llm.max_tokens
+        leave_tokens = max_tokens
         token_calculator = TokenCalculator()
         for doc_chunk in doc_chunk_list:
             if doc_chunk["docId"] not in doc_id_map:
@@ -207,7 +176,7 @@ class RAG:
                 if leave_tokens <= tokens_of_chunk_element:
                     break
                 chunk_text = chunk["text"]
-                chunk_text = RAG.get_k_tokens_words_from_content(
+                chunk_text = TokenCalculator.get_k_tokens_words_from_content(
                     content=chunk_text, k=leave_tokens)
                 leave_tokens -= token_calculator.calculate_token_length(messages=[
                     {"role": "user", "content": "<chunk>"},
@@ -220,6 +189,17 @@ class RAG:
                 </chunk>
                 '''
             bac_info += "</document>"
+        return bac_info
+
+    @staticmethod
+    async def chat_with_llm_base_on_rag(
+        user_sub: str, llm: LLM, history: list[dict[str, str]], doc_ids: list[str], data: RAGQueryReq
+    ) -> AsyncGenerator[str, None]:
+        """获取RAG服务的结果"""
+        doc_info_list = await RAG.get_doc_info_from_rag(
+            user_sub=user_sub, llm=llm, history=history, doc_ids=doc_ids, data=data)
+        bac_info = await RAG.asseamble_doc_info(
+            doc_chunk_list=doc_info_list, max_tokens=llm.max_tokens)
         messages = [
             *history,
             {
@@ -255,6 +235,14 @@ class RAG:
             doc_cnt //= 10
             max_footnote_length += 1
         buffer = ""
+        reasion_llm = ReasoningLLM(
+            LLMConfig(
+                endpoint=llm.openai_base_url,
+                key=llm.openai_api_key,
+                model=llm.model_name,
+                max_tokens=llm.max_tokens,
+            )
+        )
         async for chunk in reasion_llm.call(
             messages,
             max_tokens=llm.max_tokens,
