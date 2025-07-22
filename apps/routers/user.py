@@ -21,11 +21,10 @@ router = APIRouter(
 async def list_user(
     user_sub: Annotated[str, Depends(get_user)],
 ) -> JSONResponse:
-    """查询所有用户接口"""
+    """查询不包含当前用户的所有用户信息，返回给前端，用以进行应用权限设置"""
     user_list = await UserManager.list_user()
     user_info_list = []
     for user in user_list:
-        # user_info = await UserManager.get_userinfo_by_user_sub(user) 暂时不需要查询user_name
         if user == user_sub:
             continue
         info = UserInfo(
