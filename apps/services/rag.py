@@ -39,6 +39,7 @@ class RAG:
             2.脚注的格式为[[1]]，[[2]]，[[3]]等，脚注的内容为提供的文档的id。
             3.脚注只出现在回答的句子的末尾，例如句号、问号等标点符号后面。
             4.不要对脚注本身进行解释或说明。
+            5.请不要使用<example></example>中的文档的id作为脚注。
     </instructions>
     <example>
         <bac_info>
@@ -77,7 +78,7 @@ class RAG:
     """
 
     @staticmethod
-    async def get_doc_info_from_rag(user_sub: str, llm: LLM, history: list[dict[str, str]],
+    async def get_doc_info_from_rag(user_sub: str, max_tokens: int,
                                     doc_ids: list[str],
                                     data: RAGQueryReq) -> list[dict[str, Any]]:
         """获取RAG服务的文档信息"""
@@ -87,12 +88,6 @@ class RAG:
             "Content-Type": "application/json",
             "Authorization": f"Bearer {session_id}",
         }
-        if history:
-            try:
-                question_obj = QuestionRewrite()
-                data.query = await question_obj.generate(history=history, question=data.query, llm=llm)
-            except Exception:
-                logger.exception("[RAG] 问题重写失败")
         doc_chunk_list = []
         if doc_ids:
             default_kb_id = "00000000-0000-0000-0000-000000000000"
@@ -105,7 +100,7 @@ class RAG:
                 isRelatedSurrounding=data.is_related_surrounding,
                 isClassifyByDoc=data.is_classify_by_doc,
                 isRerank=data.is_rerank,
-                tokensLimit=llm.max_tokens,
+                tokensLimit=max_tokens,
             )
             try:
                 async with httpx.AsyncClient(timeout=30) as client:
@@ -134,14 +129,14 @@ class RAG:
         """组装文档信息"""
         bac_info = ""
         doc_info_list = []
-        doc_cnt = 1
+        doc_cnt = 0
         doc_id_map = {}
         leave_tokens = max_tokens
         token_calculator = TokenCalculator()
         for doc_chunk in doc_chunk_list:
             if doc_chunk["docId"] not in doc_id_map:
-                doc_id_map[doc_chunk["docId"]] = doc_cnt
                 doc_cnt += 1
+                doc_id_map[doc_chunk["docId"]] = doc_cnt
             doc_index = doc_id_map[doc_chunk["docId"]]
             leave_tokens -= token_calculator.calculate_token_length(messages=[
                 {"role": "user", "content": f'''<document id="{doc_index}"  name="{doc_chunk["docName"]}">'''},
@@ -152,10 +147,11 @@ class RAG:
             {"role": "user", "content": "<chunk>"},
             {"role": "user", "content": "</chunk>"},
         ], pure_text=True)
-        doc_cnt = 1
+        doc_cnt = 0
         doc_id_map = {}
         for doc_chunk in doc_chunk_list:
             if doc_chunk["docId"] not in doc_id_map:
+                doc_cnt += 1
                 doc_info_list.append({
                     "id": doc_chunk["docId"],
                     "order": doc_cnt,
@@ -165,7 +161,6 @@ class RAG:
                     "size": doc_chunk.get("docSize", 0),
                 })
                 doc_id_map[doc_chunk["docId"]] = doc_cnt
-                doc_cnt += 1
             doc_index = doc_id_map[doc_chunk["docId"]]
             if bac_info:
                 bac_info += "\n\n"
@@ -189,17 +184,31 @@ class RAG:
                 </chunk>
                 '''
             bac_info += "</document>"
-        return bac_info
+        return bac_info, doc_info_list
 
     @staticmethod
     async def chat_with_llm_base_on_rag(
         user_sub: str, llm: LLM, history: list[dict[str, str]], doc_ids: list[str], data: RAGQueryReq
     ) -> AsyncGenerator[str, None]:
         """获取RAG服务的结果"""
-        doc_info_list = await RAG.get_doc_info_from_rag(
-            user_sub=user_sub, llm=llm, history=history, doc_ids=doc_ids, data=data)
-        bac_info = await RAG.assemble_doc_info(
-            doc_chunk_list=doc_info_list, max_tokens=llm.max_tokens)
+        reasion_llm = ReasoningLLM(
+            LLMConfig(
+                endpoint=llm.openai_base_url,
+                key=llm.openai_api_key,
+                model=llm.model_name,
+                max_tokens=llm.max_tokens,
+            )
+        )
+        if history:
+            try:
+                question_obj = QuestionRewrite()
+                data.query = await question_obj.generate(history=history, question=data.query, llm=reasion_llm)
+            except Exception:
+                logger.exception("[RAG] 问题重写失败")
+        doc_chunk_list = await RAG.get_doc_info_from_rag(
+            user_sub=user_sub, max_tokens=llm.max_tokens, doc_ids=doc_ids, data=data)
+        bac_info, doc_info_list = await RAG.assemble_doc_info(
+            doc_chunk_list=doc_chunk_list, max_tokens=llm.max_tokens)
         messages = [
             *history,
             {
@@ -216,7 +225,9 @@ class RAG:
         ]
         input_tokens = TokenCalculator().calculate_token_length(messages=messages)
         output_tokens = 0
+        doc_cnt = 0
         for doc_info in doc_info_list:
+            doc_cnt = max(doc_cnt, doc_info["order"])
             yield (
                 "data: "
                 + json.dumps(
@@ -235,14 +246,6 @@ class RAG:
             doc_cnt //= 10
             max_footnote_length += 1
         buffer = ""
-        reasion_llm = ReasoningLLM(
-            LLMConfig(
-                endpoint=llm.openai_base_url,
-                key=llm.openai_api_key,
-                model=llm.model_name,
-                max_tokens=llm.max_tokens,
-            )
-        )
         async for chunk in reasion_llm.call(
             messages,
             max_tokens=llm.max_tokens,

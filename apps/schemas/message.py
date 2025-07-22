@@ -58,7 +58,7 @@ class TextAddContent(BaseModel):
 class DocumentAddContent(BaseModel):
     """document.add消息的content"""
 
-    document_id: str = Field(min_length=36, max_length=36, description="文档UUID", alias="documentId")
+    document_id: str = Field(description="文档UUID", alias="documentId")
     document_order: int = Field(description="文档在对话中的顺序，从1开始", alias="documentOrder")
     document_name: str = Field(description="文档名称", alias="documentName")
     document_abstract: str = Field(description="文档摘要", alias="documentAbstract", default="")
