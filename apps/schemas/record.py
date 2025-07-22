@@ -103,10 +103,10 @@ class RecordGroupDocument(BaseModel):
     """RecordGroup关联的文件"""
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
-    name: str = Field(description="文档名称")
-    abstract: str = Field(description="文档摘要", default="")
-    extension: str = Field(description="文档扩展名", default="")
-    size: int = Field(description="文档大小，单位是KB", default=0)
+    name: str = Field(default="", description="文档名称")
+    abstract: str = Field(default="", description="文档摘要")
+    extension: str = Field(default="", description="文档扩展名")
+    size: int = Field(default=0, description="文档大小，单位是KB")
     associated: Literal["question", "answer"]
 
 
