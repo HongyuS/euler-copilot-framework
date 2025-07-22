@@ -188,7 +188,7 @@ async def save_data(task: Task, user_sub: str, post_body: RequestData) -> None:
     # 修改文件状态
     await DocumentManager.change_doc_status(user_sub, post_body.conversation_id, record_group)
     # 保存Record
-    await RecordManager.insert_record_data(user_sub, record)
+    await RecordManager.insert_record_data(user_sub, post_body.conversation_id, record)
     # 保存与答案关联的文件
     await DocumentManager.save_answer_doc(user_sub, record_group, used_docs)
 

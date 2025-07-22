@@ -68,7 +68,7 @@ async def oidc_login(request: Request, code: str) -> HTMLResponse:
 
     await UserManager.update_user(user_sub)
 
-    current_session = await SessionManager.create_session(user_host, user_sub)
+    current_session = await SessionManager.create_session(user_sub, user_host)
     return templates.TemplateResponse(
         "login_success.html.j2",
         {"request": request, "current_session": current_session},

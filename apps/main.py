@@ -17,7 +17,6 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 from .common.config import config
-from .common.lance import LanceDB
 from .common.postgres import postgres
 from .common.wordscheck import WordsCheck
 from .llm.token import TokenCalculator
@@ -90,7 +89,6 @@ async def init_resources() -> None:
     """初始化必要资源"""
     WordsCheck()
     await postgres.init()
-    await LanceDB().init()
     await Pool.init()
     TokenCalculator()
 

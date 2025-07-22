@@ -7,13 +7,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from .collection import (
-    Document,
-)
 from .enum_var import CommentType, StepStatus
 
 
-class RecordDocument(Document):
+class RecordDocument(BaseModel):
     """GET /api/record/{conversation_id} Result中的document数据结构"""
 
     id: str = Field(alias="_id", default="")
@@ -79,10 +76,9 @@ class RecordComment(BaseModel):
 class RecordData(BaseModel):
     """GET /api/record/{conversation_id} Result内元素数据结构"""
 
-    id: str
-    group_id: str = Field(alias="groupId")
-    conversation_id: str = Field(alias="conversationId")
-    task_id: str = Field(alias="taskId")
+    id: uuid.UUID
+    conversation_id: uuid.UUID = Field(alias="conversationId")
+    task_id: uuid.UUID = Field(alias="taskId")
     document: list[RecordDocument] = []
     flow: RecordFlow | None = None
     content: RecordContent
