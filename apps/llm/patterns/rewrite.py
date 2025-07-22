@@ -97,12 +97,12 @@ class QuestionRewrite(CorePattern):
         if leave_tokens <= 0:
             logger.error("[QuestionRewrite] 大模型上下文窗口不足，无法进行问题补全与重写")
             return question
-        index = len(history)-1
+        index = 0
         qa = ""
-        while index >= 1 and leave_tokens > 0:
+        while index < len(history)-1 and leave_tokens > 0:
             q = history[index-1].get("content", "")
             a = history[index].get("content", "")
-            sub_qa = f"<qa id>\n<question>\n{q}\n</question>\n<answer>\n{a}\n</answer>\n</qa>"
+            sub_qa = f"<qa>\n<question>\n{q}\n</question>\n<answer>\n{a}\n</answer>\n</qa>"
             leave_tokens -= TokenCalculator().calculate_token_length(
                 messages=[
                     {"role": "user", "content": sub_qa}
@@ -111,7 +111,7 @@ class QuestionRewrite(CorePattern):
             )
             if leave_tokens >= 0:
                 qa = sub_qa + qa
-            index -= 2
+            index += 2
         messages = [
             {"role": "system", "content": self.system_prompt.format(history=qa, question=question)},
             {"role": "user", "content": self.user_prompt}
