@@ -130,7 +130,7 @@ class RAG:
         return doc_chunk_list
 
     @staticmethod
-    async def asseamble_doc_info(doc_chunk_list: list[dict[str, Any]], max_tokens: int) -> str:
+    async def assemble_doc_info(doc_chunk_list: list[dict[str, Any]], max_tokens: int) -> str:
         """组装文档信息"""
         bac_info = ""
         doc_info_list = []
@@ -198,7 +198,7 @@ class RAG:
         """获取RAG服务的结果"""
         doc_info_list = await RAG.get_doc_info_from_rag(
             user_sub=user_sub, llm=llm, history=history, doc_ids=doc_ids, data=data)
-        bac_info = await RAG.asseamble_doc_info(
+        bac_info = await RAG.assemble_doc_info(
             doc_chunk_list=doc_info_list, max_tokens=llm.max_tokens)
         messages = [
             *history,
