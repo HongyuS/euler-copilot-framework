@@ -2,6 +2,7 @@
 """用于问题推荐的工具"""
 
 import random
+import uuid
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any, Self
 
@@ -46,7 +47,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
     num: int = Field(default=3, ge=1, le=6, description="推荐问题的总数量（必须大于等于configs中涉及的Flow的数量）")
 
     context: SkipJsonSchema[list[dict[str, str]]] = Field(description="Executor的上下文", exclude=True)
-    conversation_id: SkipJsonSchema[str] = Field(description="对话ID", exclude=True)
+    conversation_id: SkipJsonSchema[uuid.UUID] = Field(description="对话ID", exclude=True)
 
 
     @classmethod
@@ -112,7 +113,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
         )
 
 
-    async def _get_history_questions(self, user_sub: str, conversation_id: str) -> list[str]:
+    async def _get_history_questions(self, user_sub: str, conversation_id: uuid.UUID) -> list[str]:
         """获取当前对话的历史问题"""
         records = await RecordManager.query_record_by_conversation_id(
             user_sub,

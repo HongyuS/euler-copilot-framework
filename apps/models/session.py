@@ -1,13 +1,23 @@
 """会话相关 数据库表"""
 
-import uuid
+import secrets
 from datetime import datetime, timedelta
+from enum import Enum as PyEnum
 
 import pytz
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String
+from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
+
+
+class SessionType(PyEnum):
+    """会话类型"""
+
+    ACCESS_TOKEN = "access_token"  # noqa: S105
+    REFRESH_TOKEN = "refresh_token"  # noqa: S105
+    PLUGIN_TOKEN = "plugin_token"  # noqa: S105
+    CODE = "code"
 
 
 class Session(Base):
@@ -21,8 +31,18 @@ class Session(Base):
         default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")) + timedelta(days=30),
     )
     """有效期"""
-    id: Mapped[str] = mapped_column(String(64), primary_key=True, default_factory=lambda: str(uuid.uuid4().hex))
+    id: Mapped[str] = mapped_column(String(255), primary_key=True, default_factory=lambda: secrets.token_hex(16))
     """会话ID"""
+    sessionType: Mapped[SessionType] = mapped_column(Enum(SessionType), default=SessionType.ACCESS_TOKEN)  # noqa: N815
+    """会话类型"""
+    ip: Mapped[str] = mapped_column(String(255), default="")
+    """IP地址"""
+    nonce: Mapped[str] = mapped_column(String(255), default="")
+    """随机值"""
+    pluginId: Mapped[str] = mapped_column(String(255), default="")  # noqa: N815
+    """(AccessToken) 插件ID"""
+    token: Mapped[str] = mapped_column(String(2000), default="")
+    """(AccessToken) Token信息"""
 
 
 class SessionActivity(Base):

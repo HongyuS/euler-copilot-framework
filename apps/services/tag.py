@@ -18,7 +18,7 @@ class TagManager:
     """用户标签相关操作"""
 
     @staticmethod
-    async def get_tag() -> list[Tag]:
+    async def get_all_tag() -> list[Tag]:
         """
         获取所有标签信息
 

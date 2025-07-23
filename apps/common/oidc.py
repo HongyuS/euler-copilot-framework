@@ -5,7 +5,9 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from apps.common.postgres import postgres
 from apps.constants import OIDC_ACCESS_TOKEN_EXPIRE_TIME, OIDC_REFRESH_TOKEN_EXPIRE_TIME
+from apps.models.session import Session, SessionType
 
 from .config import config
 from .oidc_provider.authhub import AuthhubOIDCProvider
@@ -31,34 +33,20 @@ class OIDCProvider:
     @staticmethod
     async def set_token(user_sub: str, access_token: str, refresh_token: str) -> None:
         """设置MongoDB中的OIDC Token到sessions集合"""
-        mongo = MongoDB()
-        sessions_collection = mongo.get_collection("session")
-
-        await sessions_collection.update_one(
-            {"_id": f"access_token_{user_sub}"},
-            {
-                "$set": {
-                    "token": access_token,
-                    "expired_at": datetime.now(UTC) + timedelta(minutes=OIDC_ACCESS_TOKEN_EXPIRE_TIME),
-                },
-            },
-            upsert=True,
-        )
-        await sessions_collection.update_one(
-            {"_id": f"refresh_token_{user_sub}"},
-            {
-                "$set": {
-                    "token": refresh_token,
-                    "expired_at": datetime.now(UTC) + timedelta(minutes=OIDC_REFRESH_TOKEN_EXPIRE_TIME),
-                },
-            },
-            upsert=True,
-        )
-
-        await sessions_collection.create_index(
-            "expired_at",
-            expireAfterSeconds=0,
-        )
+        async with postgres.session() as session:
+            session.add(Session(
+                userSub=user_sub,
+                sessionType=SessionType.ACCESS_TOKEN,
+                token=access_token,
+                validUntil=datetime.now(UTC) + timedelta(minutes=OIDC_ACCESS_TOKEN_EXPIRE_TIME),
+            ))
+            session.add(Session(
+                userSub=user_sub,
+                sessionType=SessionType.REFRESH_TOKEN,
+                token=refresh_token,
+                validUntil=datetime.now(UTC) + timedelta(minutes=OIDC_REFRESH_TOKEN_EXPIRE_TIME),
+            ))
+            await session.commit()
 
     async def get_login_status(self, cookie: dict[str, str]) -> dict[str, Any]:
         """检查登录状态"""

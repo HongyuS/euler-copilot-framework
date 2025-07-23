@@ -70,6 +70,7 @@ app.include_router(mcp_service.router)
 app.include_router(flow.router)
 app.include_router(user.router)
 app.include_router(tag.admin_router)
+app.include_router(tag.router)
 
 # logger配置
 LOGGER_FORMAT = "%(funcName)s() - %(message)s"

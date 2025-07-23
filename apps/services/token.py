@@ -7,11 +7,13 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 from fastapi import status
+from sqlalchemy import select
 
 from apps.common.config import config
-from apps.common.mongo import MongoDB
 from apps.common.oidc import oidc_provider
+from apps.common.postgres import postgres
 from apps.constants import OIDC_ACCESS_TOKEN_EXPIRE_TIME
+from apps.models.session import Session, SessionType
 from apps.schemas.config import OIDCConfig
 
 from .session import SessionManager
@@ -24,7 +26,7 @@ class TokenManager:
 
     @staticmethod
     async def get_plugin_token(
-        plugin_id: uuid.UUID | None,
+        plugin_id: uuid.UUID,
         session_id: str,
         access_token_url: str,
         expire_time: int,
@@ -35,26 +37,41 @@ class TokenManager:
             err = "用户不存在！"
             raise ValueError(err)
 
-        mongo = MongoDB()
-        collection = mongo.get_collection("session")
-        token_data = await collection.find_one({
-            "_id": f"{plugin_id}_token_{user_sub}",
-        })
+        async with postgres.session() as session:
+            token_data = (
+                await session.scalars(
+                    select(Session)
+                    .where(
+                        Session.userSub == user_sub,
+                        Session.sessionType == SessionType.ACCESS_TOKEN,
+                        Session.pluginId == str(plugin_id),
+                    ),
+                )
+            ).one_or_none()
 
-        if token_data:
-            return token_data["token"]
+            if token_data:
+                return token_data.token
 
-        token = await TokenManager.generate_plugin_token(
-            plugin_id,
-            session_id,
-            user_sub,
-            access_token_url,
-            expire_time,
-        )
-        if token is None:
-            err = "Generate plugin token failed"
-            raise RuntimeError(err)
+            token = await TokenManager.generate_plugin_token(
+                plugin_id,
+                session_id,
+                user_sub,
+                access_token_url,
+                expire_time,
+            )
+            if token is None:
+                err = "Generate plugin token failed"
+                raise RuntimeError(err)
+
+            session.add(Session(
+                userSub=user_sub,
+                sessionType=SessionType.PLUGIN_TOKEN,
+                pluginId=str(plugin_id),
+                token=token,
+            ))
+            await session.commit()
         return token
+
 
     @staticmethod
     def _get_login_config() -> OIDCConfig:
@@ -65,6 +82,7 @@ class TokenManager:
             raise TypeError(err)
         return login_config
 
+
     @staticmethod
     async def generate_plugin_token(
         plugin_name: uuid.UUID,
@@ -74,46 +92,49 @@ class TokenManager:
         expire_time: int,
     ) -> str | None:
         """生成插件Token"""
-        mongo = MongoDB()
-        collection = mongo.get_collection("session")
+        async with postgres.session() as session:
+            token_data = (
+                await session.scalars(
+                    select(Session)
+                    .where(Session.userSub == user_sub, Session.sessionType == SessionType.ACCESS_TOKEN),
+                )
+            ).one_or_none()
 
-        # 获取OIDC token
-        oidc_token = await collection.find_one({
-            "_id": f"access_token_{user_sub}",
-        })
-
-        if oidc_token:
-            oidc_access_token = oidc_token["token"]
+        if token_data:
+            oidc_access_token = token_data.token
         else:
             # 检查是否有refresh token
-            refresh_token = await collection.find_one({
-                "_id": f"refresh_token_{user_sub}",
-            })
-
-            if refresh_token:
-                # access token 过期的时候，重新获取
-                oidc_config = TokenManager._get_login_config()
-                try:
-                    token_info = await oidc_provider.get_oidc_token(refresh_token["token_value"])
-                    oidc_access_token = token_info["access_token"]
-
-                    # 更新OIDC token
-                    await collection.update_one(
-                        {"_id": f"access_token_{user_sub}"},
-                        {"$set": {
-                            "token": oidc_access_token,
-                            "expired_at": datetime.now(UTC) + timedelta(minutes=OIDC_ACCESS_TOKEN_EXPIRE_TIME),
-                        }},
-                        upsert=True,
+            async with postgres.session() as session:
+                refresh_token = (
+                    await session.scalars(
+                        select(Session)
+                        .where(Session.userSub == user_sub, Session.sessionType == SessionType.REFRESH_TOKEN),
                     )
-                    await collection.create_index("expired_at", expireAfterSeconds=0)
-                except Exception:
-                    logger.exception("[TokenManager] 获取OIDC Access token 失败")
-                    return None
-            else:
+                ).one_or_none()
+
+            if not refresh_token:
                 await SessionManager.delete_session(session_id)
                 err = "Refresh token均过期，需要重新登录"
                 raise RuntimeError(err)
+
+            # access token 过期的时候，重新获取
+            oidc_config = TokenManager._get_login_config()
+            try:
+                token_info = await oidc_provider.get_oidc_token(refresh_token.token)
+                oidc_access_token = token_info["access_token"]
+
+                # 更新OIDC token
+                async with postgres.session() as session:
+                    session.add(Session(
+                        userSub=user_sub,
+                        sessionType=SessionType.ACCESS_TOKEN,
+                        token=oidc_access_token,
+                        validUntil=datetime.now(UTC) + timedelta(minutes=OIDC_ACCESS_TOKEN_EXPIRE_TIME),
+                    ))
+                    await session.commit()
+            except Exception:
+                logger.exception("[TokenManager] 获取OIDC Access token 失败")
+                return None
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -130,31 +151,34 @@ class TokenManager:
                 return None
 
             # 保存插件token
-            await collection.update_one(
-                {
-                    "_id": f"{plugin_name}_token_{user_sub}",
-                },
-                {"$set": {
-                    "token": ret["access_token"],
-                    "expired_at": datetime.now(UTC) + timedelta(minutes=expire_time),
-                }},
-                upsert=True,
-            )
+            async with postgres.session() as session:
+                session.add(Session(
+                    userSub=user_sub,
+                    sessionType=SessionType.ACCESS_TOKEN,
+                    pluginId=str(plugin_name),
+                    token=ret["access_token"],
+                    validUntil=datetime.now(UTC) + timedelta(minutes=expire_time),
+                ))
+                await session.commit()
 
-            # 创建TTL索引
-            await collection.create_index("expired_at", expireAfterSeconds=0)
             return ret["access_token"]
+
 
     @staticmethod
     async def delete_plugin_token(user_sub: str) -> None:
-        """删除插件token"""
-        mongo = MongoDB()
-        collection = mongo.get_collection("token")
-        await collection.delete_many({
-            "user_sub": user_sub,
-            "$or": [
-                {"token_type": "oidc"},
-                {"token_type": "oidc_refresh"},
-                {"token_type": "plugin"},
-            ],
-        })
+        """删除插件token（使用PostgreSQL）"""
+        async with postgres.session() as session:
+            token_data = (await session.scalars(
+                select(Session)
+                .where(
+                    Session.userSub == user_sub,
+                    Session.sessionType.in_([
+                        SessionType.ACCESS_TOKEN,
+                        SessionType.REFRESH_TOKEN,
+                        SessionType.PLUGIN_TOKEN,
+                    ]),
+                ),
+            )).all()
+            for token in token_data:
+                await session.delete(token)
+            await session.commit()

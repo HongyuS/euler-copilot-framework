@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field
 from apps.templates.generate_llm_operator_config import llm_provider_dict
 
 from .appcenter import AppCenterCardItem, AppData
-from .collection import Blacklist
 from .enum_var import DocumentStatus
 from .flow_topology import (
     FlowItem,
@@ -28,19 +27,6 @@ class ResponseData(BaseModel):
     code: int
     message: str
     result: Any
-
-
-class PostClientSessionMsg(BaseModel):
-    """POST /api/client/session Result数据结构"""
-
-    session_id: str
-    user_sub: str | None = None
-
-
-class PostClientSessionRsp(ResponseData):
-    """POST /api/client/session 返回数据结构"""
-
-    result: PostClientSessionMsg
 
 
 class AuthUserMsg(BaseModel):

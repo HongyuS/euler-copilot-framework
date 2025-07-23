@@ -39,8 +39,8 @@ class Conversation(Base):
 class ConvDocAssociated(str, PyEnum):
     """问答对文件的关联类型"""
 
-    question = "question"
-    answer = "answer"
+    QUESTION = "question"
+    ANSWER = "answer"
 
 
 class ConversationDocument(Base):

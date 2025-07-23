@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any
 
 import pytz
-from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import VARCHAR, BigInteger, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -22,7 +22,7 @@ class Record(Base):
     """对话ID"""
     taskId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_task.id"))  # noqa: N815
     """任务ID"""
-    content: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    content: Mapped[str] = mapped_column(VARCHAR)
     """问答对数据"""
     key: Mapped[dict[str, Any]] = mapped_column(JSONB)
     """问答对密钥"""

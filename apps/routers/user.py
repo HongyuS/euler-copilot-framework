@@ -1,12 +1,10 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """用户相关接口"""
 
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency import get_user
+from apps.dependency import verify_personal_token, verify_session
 from apps.schemas.response_data import UserGetMsp, UserGetRsp
 from apps.schemas.user import UserInfo
 from apps.services.user import UserManager
@@ -14,18 +12,19 @@ from apps.services.user import UserManager
 router = APIRouter(
     prefix="/api/user",
     tags=["user"],
+    dependencies=[Depends(verify_session), Depends(verify_personal_token)],
 )
 
 
 @router.get("")
 async def list_user(
-    user_sub: Annotated[str, Depends(get_user)],
+    request: Request,
 ) -> JSONResponse:
     """查询不包含当前用户的所有用户信息，返回给前端，用以进行应用权限设置"""
     user_list = await UserManager.list_user()
     user_info_list = []
     for user in user_list:
-        if user == user_sub:
+        if user.userSub == request.state.user_sub:
             continue
         info = UserInfo(
             userName=user.userSub,
