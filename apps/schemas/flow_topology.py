@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """前端展示flow用到的数据结构"""
 
+import uuid
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -49,7 +50,7 @@ class NodeItem(BaseModel):
 
     step_id: str = Field(alias="stepId", default="")
     service_id: str = Field(alias="serviceId", default="")
-    node_id: str = Field(alias="nodeId", default="")
+    node_id: uuid.UUID = Field(alias="nodeId", default=uuid.UUID("00000000-0000-0000-0000-000000000000"))
     name: str = Field(default="")
     call_id: str = Field(alias="callId", default="Empty")
     description: str = Field(default="")

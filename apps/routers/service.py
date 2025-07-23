@@ -4,10 +4,10 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Path, Query, status
+from fastapi import APIRouter, Body, Depends, Path, Request, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency.user import get_user, verify_user
+from apps.dependency.user import verify_personal_token, verify_session
 from apps.exceptions import InstancePermissionError, ServiceIDError
 from apps.schemas.enum_var import SearchType
 from apps.schemas.request_data import ModFavServiceRequest, UpdateServiceRequest
@@ -30,23 +30,23 @@ logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/api/service",
     tags=["service-center"],
-    dependencies=[Depends(verify_user)],
+    dependencies=[
+        Depends(verify_session),
+        Depends(verify_personal_token),
+    ],
 )
 
 
 @router.get("", response_model=GetServiceListRsp | ResponseData)
 async def get_service_list(  # noqa: PLR0913
-    user_sub: Annotated[str, Depends(get_user)],
+    request: Request,
     *,
-    my_service: Annotated[bool, Query(..., alias="createdByMe", description="筛选我创建的")] = False,
-    my_fav: Annotated[bool, Query(..., alias="favorited", description="筛选我收藏的")] = False,
-    search_type: Annotated[SearchType, Query(..., alias="searchType", description="搜索类型")] = SearchType.ALL,
-    keyword: Annotated[str | None, Query(..., alias="keyword", description="搜索关键字")] = None,
-    page: Annotated[int, Query(..., alias="page", ge=1, description="页码")] = 1,
-    page_size: Annotated[int, Query(..., alias="pageSize", ge=1, le=100, description="每页数量")] = 16,
+    createdByMe: bool = False, favorited: bool = False,  # noqa: N803
+    searchType: SearchType = SearchType.ALL, keyword: str | None = None,  # noqa: N803
+    page: int = 1, pageSize: int = 16,  # noqa: N803
 ) -> JSONResponse:
     """获取服务列表"""
-    if my_service and my_fav:  # 只能同时选择一个筛选条件
+    if createdByMe and favorited:  # 只能同时选择一个筛选条件
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content=ResponseData(
@@ -58,29 +58,29 @@ async def get_service_list(  # noqa: PLR0913
 
     service_cards, total_count = [], -1
     try:
-        if my_service:  # 筛选我创建的
+        if createdByMe:  # 筛选我创建的
             service_cards, total_count = await ServiceCenterManager.fetch_user_services(
-                user_sub,
-                search_type,
+                request.state.user_sub,
+                searchType,
                 keyword,
                 page,
-                page_size,
+                pageSize,
             )
-        elif my_fav:  # 筛选我收藏的
+        elif favorited:  # 筛选我收藏的
             service_cards, total_count = await ServiceCenterManager.fetch_favorite_services(
-                user_sub,
-                search_type,
+                request.state.user_sub,
+                searchType,
                 keyword,
                 page,
-                page_size,
+                pageSize,
             )
         else:  # 获取所有服务
             service_cards, total_count = await ServiceCenterManager.fetch_all_services(
-                user_sub,
-                search_type,
+                request.state.user_sub,
+                searchType,
                 keyword,
                 page,
-                page_size,
+                pageSize,
             )
     except Exception:
         logger.exception("[ServiceCenter] 获取服务列表失败")
@@ -116,14 +116,11 @@ async def get_service_list(  # noqa: PLR0913
 
 
 @router.post("", response_model=UpdateServiceRsp)
-async def update_service(
-    user_sub: Annotated[str, Depends(get_user)],
-    data: Annotated[UpdateServiceRequest, Body(..., description="上传 YAML 文本对应数据对象")],
-) -> JSONResponse:
+async def update_service(request: Request, data: UpdateServiceRequest) -> JSONResponse:
     """上传并解析服务"""
     if not data.service_id:
         try:
-            service_id = await ServiceCenterManager.create_service(user_sub, data.data)
+            service_id = await ServiceCenterManager.create_service(request.state.user_sub, data.data)
         except Exception as e:
             logger.exception("[ServiceCenter] 创建服务失败")
             return JSONResponse(
@@ -136,7 +133,7 @@ async def update_service(
             )
     else:
         try:
-            service_id = await ServiceCenterManager.update_service(user_sub, data.service_id, data.data)
+            service_id = await ServiceCenterManager.update_service(request.state.user_sub, data.service_id, data.data)
         except ServiceIDError:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -184,16 +181,14 @@ async def update_service(
 
 @router.get("/{serviceId}", response_model=GetServiceDetailRsp)
 async def get_service_detail(
-    user_sub: Annotated[str, Depends(get_user)],
-    service_id: Annotated[str, Path(..., alias="serviceId", description="服务ID")],
-    *,
-    edit: Annotated[bool, Query(..., description="是否为编辑模式")] = False,
+    request: Request, serviceId: str,  # noqa: N803
+    *, edit: bool = False,
 ) -> JSONResponse:
     """获取服务详情"""
     # 示例：返回指定服务的详情
     if edit:
         try:
-            name, data = await ServiceCenterManager.get_service_data(user_sub, service_id)
+            name, data = await ServiceCenterManager.get_service_data(request.state.user_sub, serviceId)
         except ServiceIDError:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -222,10 +217,10 @@ async def get_service_detail(
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
-        detail = GetServiceDetailMsg(serviceId=service_id, name=name, data=data)
+        detail = GetServiceDetailMsg(serviceId=serviceId, name=name, data=data)
     else:
         try:
-            name, apis = await ServiceCenterManager.get_service_apis(service_id)
+            name, apis = await ServiceCenterManager.get_service_apis(serviceId)
         except ServiceIDError:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -245,19 +240,16 @@ async def get_service_detail(
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
-        detail = GetServiceDetailMsg(serviceId=service_id, name=name, apis=apis)
+        detail = GetServiceDetailMsg(serviceId=serviceId, name=name, apis=apis)
     rsp = GetServiceDetailRsp(code=status.HTTP_200_OK, message="OK", result=detail)
     return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))
 
 
 @router.delete("/{serviceId}", response_model=DeleteServiceRsp)
-async def delete_service(
-    user_sub: Annotated[str, Depends(get_user)],
-    service_id: Annotated[str, Path(..., alias="serviceId", description="服务ID")],
-) -> JSONResponse:
+async def delete_service(request: Request, serviceId: str) -> JSONResponse:  # noqa: N803
     """删除服务"""
     try:
-        await ServiceCenterManager.delete_service(user_sub, service_id)
+        await ServiceCenterManager.delete_service(request.state.user_sub, serviceId)
     except ServiceIDError:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -286,7 +278,7 @@ async def delete_service(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    msg = BaseServiceOperationMsg(serviceId=service_id)
+    msg = BaseServiceOperationMsg(serviceId=serviceId)
     rsp = DeleteServiceRsp(code=status.HTTP_200_OK, message="OK", result=msg)
     return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))
 

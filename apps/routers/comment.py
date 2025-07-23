@@ -3,12 +3,11 @@
 
 import logging
 from datetime import UTC, datetime
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency import get_user, verify_user
+from apps.dependency import verify_personal_token, verify_session
 from apps.schemas.record import RecordComment
 from apps.schemas.request_data import AddCommentData
 from apps.schemas.response_data import ResponseData
@@ -19,13 +18,14 @@ router = APIRouter(
     prefix="/api/comment",
     tags=["comment"],
     dependencies=[
-        Depends(verify_user),
+        Depends(verify_session),
+        Depends(verify_personal_token),
     ],
 )
 
 
 @router.post("", response_model=ResponseData)
-async def add_comment(post_body: AddCommentData, user_sub: Annotated[str, Depends(get_user)]) -> JSONResponse:
+async def add_comment(request: Request, post_body: AddCommentData) -> JSONResponse:
     """给Record添加评论"""
     comment_data = RecordComment(
         comment=post_body.comment,
@@ -34,7 +34,7 @@ async def add_comment(post_body: AddCommentData, user_sub: Annotated[str, Depend
         reason_description=post_body.reason_description,
         feedback_time=round(datetime.now(tz=UTC).timestamp(), 3),
     )
-    result = await CommentManager.update_comment(post_body.record_id, comment_data, user_sub)
+    result = await CommentManager.update_comment(post_body.record_id, comment_data, request.state.user_sub)
     if not result:
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content=ResponseData(
             code=status.HTTP_400_BAD_REQUEST,
