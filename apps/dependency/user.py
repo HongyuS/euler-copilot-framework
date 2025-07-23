@@ -7,8 +7,10 @@ from starlette import status
 from starlette.exceptions import HTTPException
 from starlette.requests import HTTPConnection
 
+from apps.common.config import config
 from apps.services.personal_token import PersonalTokenManager
 from apps.services.session import SessionManager
+from apps.services.user import UserManager
 
 logger = logging.getLogger(__name__)
 
@@ -37,12 +39,9 @@ async def verify_session(request: HTTPConnection) -> None:
     """
     session_id = await _extract_data(request)
     if not session_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Session ID 不存在",
-        )
-    request.state.session_id = session_id
+        return
 
+    request.state.session_id = session_id
     user = await SessionManager.get_user(session_id)
     if not user:
         raise HTTPException(
@@ -61,9 +60,22 @@ async def verify_personal_token(request: HTTPConnection) -> None:
     """
     personal_token = request.headers.get("Authorization")
     if not personal_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Personal Token 不存在")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="鉴权失败")
 
     user_sub = await PersonalTokenManager.get_user_by_personal_token(personal_token)
     if user_sub is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Personal Token 无效")
     request.state.user_sub = user_sub
+
+
+async def verify_admin(request: HTTPConnection) -> None:
+    """验证用户是否为管理员"""
+    if not hasattr(request.state, "user_sub"):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户未登录")
+    user_sub = request.state.user_sub
+    user = await UserManager.get_user(user_sub)
+    request.state.user = user
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
+    if user.userSub not in config.login.admin_user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户无权限")

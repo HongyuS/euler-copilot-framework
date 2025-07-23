@@ -52,7 +52,7 @@ class TaskIds(BaseModel):
 
     session_id: str = Field(description="会话ID")
     group_id: str = Field(description="组ID")
-    conversation_id: str = Field(description="对话ID")
+    conversation_id: uuid.UUID = Field(description="对话ID")
     record_id: str = Field(description="记录ID", default_factory=lambda: str(uuid.uuid4()))
     user_sub: str = Field(description="用户ID")
 

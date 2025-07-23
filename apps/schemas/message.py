@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """队列中的消息结构"""
 
+import uuid
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -78,7 +79,7 @@ class MessageBase(HeartbeatData):
 
     id: str = Field(min_length=36, max_length=36)
     group_id: str = Field(min_length=36, max_length=36, alias="groupId")
-    conversation_id: str = Field(min_length=36, max_length=36, alias="conversationId")
+    conversation_id: uuid.UUID = Field(min_length=36, max_length=36, alias="conversationId")
     task_id: str = Field(min_length=36, max_length=36, alias="taskId")
     flow: MessageFlow | None = None
     content: dict[str, Any] = {}

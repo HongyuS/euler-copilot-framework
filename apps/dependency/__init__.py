@@ -2,11 +2,13 @@
 """FastAPI 依赖注入模块"""
 
 from apps.dependency.user import (
+    verify_admin,
     verify_personal_token,
     verify_session,
 )
 
 __all__ = [
+    "verify_admin",
     "verify_personal_token",
     "verify_session",
 ]
