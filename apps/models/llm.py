@@ -7,6 +7,7 @@ from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from apps.common.config import config
+from apps.templates.generate_llm_operator_config import llm_provider_dict
 
 from .base import Base
 
@@ -19,13 +20,13 @@ class LLMData(Base):
     """主键ID"""
     userSub: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"), index=True)  # noqa: N815
     """添加LLM所属的用户"""
-    icon: Mapped[str] = mapped_column(String(1000), default="")
+    icon: Mapped[str] = mapped_column(String(1000), default=llm_provider_dict["ollama"]["icon"])
     """LLM图标路径"""
     openaiBaseUrl: Mapped[str] = mapped_column(String(300), default=config.llm.endpoint)  # noqa: N815
     """LLM URL地址"""
     openaiAPIKey: Mapped[str] = mapped_column(String(300), default=config.llm.key)  # noqa: N815
     """LLM API Key"""
-    modelName: Mapped[str] = mapped_column(String(), default=config.llm.model)  # noqa: N815
+    modelName: Mapped[str] = mapped_column(String(300), default=config.llm.model)  # noqa: N815
     """LLM模型名"""
     maxToken: Mapped[int] = mapped_column(Integer, default=config.llm.max_tokens)  # noqa: N815
     """LLM最大Token数量"""

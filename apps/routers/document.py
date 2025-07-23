@@ -4,6 +4,7 @@ FastAPI文件上传路由
 Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile, status
@@ -20,6 +21,7 @@ from apps.schemas.response_data import (
     UploadDocumentMsgItem,
     UploadDocumentRsp,
 )
+from apps.services.conversation import ConversationManager
 from apps.services.document import DocumentManager
 from apps.services.knowledge_base import KnowledgeBaseService
 
@@ -34,7 +36,7 @@ router = APIRouter(
 
 @router.post("/{conversation_id}")
 async def document_upload(  # noqa: ANN201
-    conversation_id: str,
+    conversation_id: uuid.UUID,
     documents: Annotated[list[UploadFile], File(...)],
     user_sub: Annotated[str, Depends(get_user)],
     session_id: Annotated[str, Depends(get_session)],
@@ -66,7 +68,7 @@ async def document_upload(  # noqa: ANN201
 
 @router.get("/{conversation_id}", response_model=ConversationDocumentRsp)
 async def get_document_list(  # noqa: ANN201
-    conversation_id: str,
+    conversation_id: uuid.UUID,
     user_sub: Annotated[str, Depends(get_user)],
     session_id: Annotated[str, Depends(get_session)],
     *,
@@ -74,10 +76,21 @@ async def get_document_list(  # noqa: ANN201
     unused: Annotated[bool, Query()] = True,
 ):
     """获取文档列表"""
+    # 判断Conversation有权访问
+    if not await ConversationManager.verify_conversation_access(user_sub, conversation_id):
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content=ResponseData(
+                code=status.HTTP_403_FORBIDDEN,
+                message="无权限访问",
+                result={},
+            ),
+        )
+
     result = []
     if used:
         # 拿到所有已使用的文档
-        docs = await DocumentManager.get_used_docs(user_sub, conversation_id)
+        docs = await DocumentManager.get_used_docs(conversation_id)
         result += [
             ConversationDocumentItem(
                 _id=item.id,
@@ -92,7 +105,7 @@ async def get_document_list(  # noqa: ANN201
 
     if unused:
         # 拿到所有未使用的文档
-        unused_docs = await DocumentManager.get_unused_docs(user_sub, conversation_id)
+        unused_docs = await DocumentManager.get_unused_docs(conversation_id)
         doc_status = await KnowledgeBaseService.get_doc_status_from_rag(session_id, [item.id for item in unused_docs])
         for current_doc in unused_docs:
             for status_item in doc_status:

@@ -34,6 +34,7 @@ class LoginConfig(BaseModel):
     """OIDC配置"""
 
     provider: Literal["authhub", "openeuler", "disable"] = Field(description="OIDC Provider", default="authhub")
+    admin_user: list[str] = Field(description="管理员用户ID列表", default=[])
     settings: OIDCConfig | FixedUserConfig = Field(description="OIDC 配置")
 
 

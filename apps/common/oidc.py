@@ -8,7 +8,6 @@ from typing import Any
 from apps.constants import OIDC_ACCESS_TOKEN_EXPIRE_TIME, OIDC_REFRESH_TOKEN_EXPIRE_TIME
 
 from .config import config
-from .mongo import MongoDB
 from .oidc_provider.authhub import AuthhubOIDCProvider
 from .oidc_provider.openeuler import OpenEulerOIDCProvider
 

@@ -5,6 +5,9 @@ data_dir = '/var/lib/euler_copilot'
 
 [login]
 provider = 'authhub'
+admin_user = [
+    "admin"
+]
 [login.settings]
 host = 'http://127.0.0.1:8000'
 host_inner = 'http://127.0.0.1:11120'

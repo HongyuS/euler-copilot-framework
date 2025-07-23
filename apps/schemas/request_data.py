@@ -45,7 +45,6 @@ class RequestData(BaseModel):
     conversation_id: uuid.UUID = Field(
         default=uuid.UUID("00000000-0000-0000-0000-000000000000"), alias="conversationId", description="聊天ID",
     )
-    group_id: str | None = Field(default=None, alias="groupId", description="问答组ID")
     language: str = Field(default="zh", description="语言")
     files: list[str] = Field(default=[], description="文件列表")
     app: RequestDataApp | None = Field(default=None, description="应用")

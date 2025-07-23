@@ -3,56 +3,17 @@
 
 import logging
 import uuid
-from typing import Any
 
-import httpx
-from fastapi import status
 from sqlalchemy import select
 
-from apps.common.config import config
 from apps.common.postgres import postgres
 from apps.models.user import User
-
-from .session import SessionManager
 
 logger = logging.getLogger(__name__)
 
 
 class KnowledgeBaseManager:
     """用户资产库管理"""
-
-    @staticmethod
-    async def get_kb_list_from_rag(
-        user_sub: str,
-        kb_id: str | None = None,
-        kb_name: str | None = None,
-    ) -> list[dict[str, Any]]:
-        """
-        从RAG获取知识库列表
-
-        :param user_sub: 用户sub
-        :param kb_id: 知识库ID
-        :param kb_name: 知识库名称
-        :return: 知识库列表
-        """
-        session_id = await SessionManager.get_session_by_user_sub(user_sub)
-        url = config.rag.rag_service.rstrip("/")+"/kb"
-        headers = {
-            "Authorization": f"Bearer {session_id}",
-            "Content-Type": "application/json",
-        }
-        async with httpx.AsyncClient() as client:
-            data = {
-                "kbName": kb_name,
-            }
-            if kb_id:
-                data["kbId"] = kb_id
-            resp = await client.get(url, headers=headers, params=data, timeout=30.0)
-            resp_data = resp.json()
-            if resp.status_code != status.HTTP_200_OK:
-                return []
-        return resp_data["result"]["teamKnowledgebases"]
-
 
     @staticmethod
     async def get_selected_kb(user_sub: str) -> list[uuid.UUID]:

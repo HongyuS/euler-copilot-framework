@@ -7,13 +7,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from .collection import (
-    Document,
-)
 from .enum_var import CommentType, StepStatus
 
 
-class RecordDocument(Document):
+class RecordDocument(BaseModel):
     """GET /api/record/{conversation_id} Result中的document数据结构"""
 
     id: str = Field(alias="_id", default="")
@@ -55,15 +52,6 @@ class RecordContent(BaseModel):
     facts: list[str] = Field(description="[运行后修改]与Record关联的事实信息", default=[])
 
 
-class FootNoteMetaData(BaseModel):
-    """Record表子项：Record的脚注元信息"""
-
-    releated_id: str = Field(default="", description="相关ID", alias="releatedId")
-    insert_position: int = Field(default=0, description="插入位置", alias="insertPosition")
-    foot_source: str = Field(default="", description="脚注来源", alias="footSource")
-    foot_type: str = Field(default="", description="脚注类型", alias="footType")
-
-
 class RecordMetadata(BaseModel):
     """Record表子项：Record的元信息"""
 
@@ -88,10 +76,9 @@ class RecordComment(BaseModel):
 class RecordData(BaseModel):
     """GET /api/record/{conversation_id} Result内元素数据结构"""
 
-    id: str
-    group_id: str = Field(alias="groupId")
-    conversation_id: str = Field(alias="conversationId")
-    task_id: str = Field(alias="taskId")
+    id: uuid.UUID
+    conversation_id: uuid.UUID = Field(alias="conversationId")
+    task_id: uuid.UUID = Field(alias="taskId")
     document: list[RecordDocument] = []
     flow: RecordFlow | None = None
     content: RecordContent
