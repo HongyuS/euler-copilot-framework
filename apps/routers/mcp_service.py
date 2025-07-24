@@ -196,6 +196,16 @@ async def get_service_detail(
     )
 
 
+@admin_router.get("/{serviceId}", response_model=GetMCPServiceDetailRsp)
+async def get_service_detail(serviceId: Annotated[str, Path()]) -> JSONResponse:  # noqa: N803
+    """获取MCP服务详情"""
+    try:
+        data = await MCPServiceManager.get_mcp_service(serviceId)
+        config, icon = await MCPServiceManager.get_mcp_config(serviceId)
+    except Exception as e:
+        pass
+
+
 @admin_router.delete("/{serviceId}", response_model=DeleteMCPServiceRsp)
 async def delete_service(serviceId: Annotated[str, Path()]) -> JSONResponse:  # noqa: N803
     """删除服务"""
@@ -225,7 +235,7 @@ async def delete_service(serviceId: Annotated[str, Path()]) -> JSONResponse:  # 
 @admin_router.post("/icon", response_model=UpdateMCPServiceRsp)
 async def update_mcp_icon(
     serviceId: Annotated[str, Path()],  # noqa: N803
-    icon: Annotated[UploadFile, File(..., description="图标文件")],
+    icon: UploadFile,
 ) -> JSONResponse:
     """更新MCP服务图标"""
     # 检查当前MCP是否存在

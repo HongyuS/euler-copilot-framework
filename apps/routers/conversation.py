@@ -2,14 +2,15 @@
 """FastAPI：对话相关接口"""
 
 import logging
+import uuid
 from datetime import datetime
 from typing import Annotated
 
 import pytz
-from fastapi import APIRouter, Body, Depends, Query, status
+from fastapi import APIRouter, Body, Depends, Query, Request, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency import verify_admin, verify_personal_token, verify_session
+from apps.dependency import verify_personal_token, verify_session
 from apps.models.conversation import Conversation
 from apps.schemas.request_data import (
     DeleteConversationData,
@@ -23,8 +24,6 @@ from apps.schemas.response_data import (
     ConversationListRsp,
     DeleteConversationMsg,
     DeleteConversationRsp,
-    KbIteam,
-    LLMIteam,
     ResponseData,
     UpdateConversationRsp,
 )
@@ -36,17 +35,15 @@ router = APIRouter(
     prefix="/api/conversation",
     tags=["conversation"],
     dependencies=[
-        Depends(verify_user),
+        Depends(verify_session),
+        Depends(verify_personal_token),
     ],
 )
 logger = logging.getLogger(__name__)
 
 
 async def create_new_conversation(
-    user_sub: str,
-    app_id: str = "",
-    llm_id: str = "empty",
-    kb_ids: list[str] | None = None,
+    user_sub: str, app_id: uuid.UUID | None = None,
     *,
     debug: bool = False,
 ) -> Conversation:
@@ -58,8 +55,6 @@ async def create_new_conversation(
     new_conv = await ConversationManager.add_conversation_by_user_sub(
         user_sub,
         app_id=app_id,
-        llm_id=llm_id,
-        kb_ids=kb_ids or [],
         debug=debug,
     )
     if not new_conv:
@@ -67,49 +62,26 @@ async def create_new_conversation(
         raise RuntimeError(err)
     return new_conv
 
-@router.get(
-    "",
-    response_model=ConversationListRsp,
-    responses={
+@router.get("", response_model=ConversationListRsp, responses={
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": ResponseData},
     },
 )
-async def get_conversation_list(user_sub: Annotated[str, Depends(get_user)]) -> JSONResponse:
+async def get_conversation_list(request: Request) -> JSONResponse:
     """获取对话列表"""
-    conversations = await ConversationManager.get_conversation_by_user_sub(user_sub)
+    conversations = await ConversationManager.get_conversation_by_user_sub(
+        request.state.user_sub,
+    )
     # 把已有对话转换为列表
     result_conversations = []
     for conv in conversations:
         conversation_list_item = ConversationListItem(
             conversationId=conv.id,
             title=conv.title,
-            docCount=await DocumentManager.get_doc_count(user_sub, conv.id),
-            createdTime=datetime.fromtimestamp(conv.createdAt, tz=pytz.timezone("Asia/Shanghai")).strftime(
-                "%Y-%m-%d %H:%M:%S",
-            ),
-            appId=conv.appId if conv.appId else "",
-            debug=conv.debug if conv.debug else False,
+            docCount=await DocumentManager.get_doc_count(conv.id),
+            createdTime=conv.createdAt.strftime("%Y-%m-%d %H:%M:%S"),
+            appId=conv.appId,
+            debug=conv.isTemporary,
         )
-        if conv.llm:
-            llm_item = LLMIteam(
-                llmId=conv.llm.llm_id,
-                modelName=conv.llm.model_name,
-                icon=conv.llm.icon,
-            )
-        else:
-            llm_item = None
-        if conv.kb_list:
-            kb_item_list = []
-            for kb in conv.kb_list:
-                kb_item = KbIteam(
-                    kbId=kb.kb_id,
-                    kbName=kb.kb_name,
-                )
-                kb_item_list.append(kb_item)
-        else:
-            kb_item_list = []
-        conversation_list_item.llm = llm_item
-        conversation_list_item.kb_list = kb_item_list
         result_conversations.append(conversation_list_item)
 
     return JSONResponse(
@@ -124,10 +96,8 @@ async def get_conversation_list(user_sub: Annotated[str, Depends(get_user)]) -> 
 
 @router.post("", response_model=AddConversationRsp)
 async def add_conversation(
-    user_sub: Annotated[str, Depends(get_user)],
+    request: Request,
     app_id: Annotated[str, Query(..., alias="appId")] = "",
-    llm_id: Annotated[str, Body(..., alias="llmId")] = "empty",
-    kb_ids: Annotated[list[str] | None, Body(..., alias="kbIds")] = None,
     *,
     debug: Annotated[bool, Query()] = False,
 ) -> JSONResponse:
@@ -137,10 +107,8 @@ async def add_conversation(
         app_id = app_id if app_id else ""
         debug = debug if debug is not None else False
         new_conv = await create_new_conversation(
-            user_sub,
+            request.state.user_sub,
             app_id=app_id,
-            llm_id=llm_id,
-            kb_ids=kb_ids or [],
             debug=debug,
         )
     except RuntimeError as e:
@@ -223,16 +191,22 @@ async def update_conversation(
 
 @router.delete("", response_model=ResponseData)
 async def delete_conversation(
+    request: Request,
     post_body: DeleteConversationData,
-    user_sub: Annotated[str, Depends(get_user)],
 ) -> JSONResponse:
     """删除特定对话"""
     deleted_conversation = []
     for conversation_id in post_body.conversation_list:
         # 删除对话
-        await ConversationManager.delete_conversation_by_conversation_id(user_sub, conversation_id)
+        await ConversationManager.delete_conversation_by_conversation_id(
+            request.state.user_sub,
+            conversation_id,
+        )
         # 删除对话对应的文件
-        await DocumentManager.delete_document_by_conversation_id(conversation_id)
+        await DocumentManager.delete_document_by_conversation_id(
+            request.state.user_sub,
+            conversation_id,
+        )
         deleted_conversation.append(conversation_id)
 
     return JSONResponse(
