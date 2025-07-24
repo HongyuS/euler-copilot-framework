@@ -8,7 +8,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # 恢复默认颜色
 
 # 默认配置
-eulercopilot_version="0.9.5"
+eulercopilot_version="0.9.6"
 ARCH_SUFFIX=""
 OUTPUT_DIR="/home/eulercopilot/images/${eulercopilot_version}"
 
@@ -23,7 +23,7 @@ show_help() {
     echo -e "  --arch <架构>     指定系统架构 (arm/x86, 默认自动检测)"
     echo -e ""
     echo -e "${YELLOW}示例:${NC}"
-    echo -e "  $0 --version 0.9.5 --arch arm"
+    echo -e "  $0 --version ${eulercopilot_version} --arch arm"
     echo -e "  $0 --help"
     exit 0
 }
