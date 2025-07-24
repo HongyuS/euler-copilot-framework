@@ -7,7 +7,7 @@ import uuid
 
 import asyncer
 from fastapi import UploadFile
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 
 from apps.common.minio import MinioClient
 from apps.common.postgres import postgres
@@ -91,8 +91,10 @@ class DocumentManager:
         async with postgres.session() as session:
             conv = (await session.scalars(
                 select(ConversationDocument).where(
-                    ConversationDocument.conversationId == conversation_id,
-                    ConversationDocument.isUnused.is_(True),
+                    and_(
+                        ConversationDocument.conversationId == conversation_id,
+                        ConversationDocument.isUnused.is_(True),
+                    ),
                 ),
             )).all()
             if not conv:
@@ -175,7 +177,12 @@ class DocumentManager:
         async with postgres.session() as session:
             for doc in document_list:
                 doc_info = await session.scalars(
-                    select(Document).where(Document.id == doc, Document.userSub == user_sub),
+                    select(Document).where(
+                        and_(
+                            Document.id == doc,
+                            Document.userSub == user_sub,
+                        ),
+                    ),
                 )
                 if not doc_info:
                     logger.error("[DocumentManager] 文件不存在: %s", doc)
@@ -183,8 +190,10 @@ class DocumentManager:
 
                 conv_doc = await session.scalars(
                     select(ConversationDocument).where(
-                        ConversationDocument.documentId == doc,
-                        ConversationDocument.isUnused.is_(True),
+                        and_(
+                            ConversationDocument.documentId == doc,
+                            ConversationDocument.isUnused.is_(True),
+                        ),
                     ),
                 )
                 if not conv_doc:
@@ -238,7 +247,12 @@ class DocumentManager:
         """文件状态由unused改为used"""
         async with postgres.session() as session:
             conversation = (await session.scalars(
-                select(Conversation).where(Conversation.id == conversation_id, Conversation.userSub == user_sub),
+                select(Conversation).where(
+                    and_(
+                        Conversation.id == conversation_id,
+                        Conversation.userSub == user_sub,
+                    ),
+                ),
             )).one_or_none()
             if not conversation:
                 logger.error("[DocumentManager] 对话不存在: %s", conversation_id)
@@ -247,8 +261,10 @@ class DocumentManager:
             # 把unused_docs加入RecordGroup中，并与问题关联
             docs = (await session.scalars(
                 select(ConversationDocument).where(
-                    ConversationDocument.conversationId == conversation_id,
-                    ConversationDocument.isUnused.is_(True),
+                    and_(
+                        ConversationDocument.conversationId == conversation_id,
+                        ConversationDocument.isUnused.is_(True),
+                    ),
                 ),
             )).all()
             if not docs:
@@ -265,7 +281,12 @@ class DocumentManager:
         async with postgres.session() as session:
             # 查询对应的Record
             record = (await session.scalars(
-                select(Record).where(Record.id == record_id, Record.userSub == user_sub),
+                select(Record).where(
+                    and_(
+                        Record.id == record_id,
+                        Record.userSub == user_sub,
+                    ),
+                ),
             )).one_or_none()
             if not record:
                 logger.error("[DocumentManager] 记录不存在或非当前用户: %s", record_id)
@@ -279,6 +300,6 @@ class DocumentManager:
 
                 if doc:
                     doc.isUnused = False
-                    doc.associated = ConvDocAssociated.answer
+                    doc.associated = ConvDocAssociated.ANSWER
                     doc.recordId = record_id
             await session.commit()

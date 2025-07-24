@@ -6,8 +6,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.common.config import config
-
 from .appcenter import AppData
 from .enum_var import CommentType
 from .flow_topology import FlowItem
@@ -20,22 +18,6 @@ class RequestDataApp(BaseModel):
     app_id: str = Field(description="应用ID", alias="appId")
     flow_id: str = Field(description="Flow ID", alias="flowId")
     params: dict[str, Any] = Field(description="插件参数")
-
-
-class MockRequestData(BaseModel):
-    """POST /api/mock/chat的请求体"""
-
-    app_id: str = Field(default="", description="应用ID", alias="appId")
-    flow_id: str = Field(default="", description="流程ID", alias="flowId")
-    conversation_id: str = Field(..., description="会话ID", alias="conversationId")
-    question: str = Field(..., description="问题", alias="question")
-
-
-class RequestDataFeatures(BaseModel):
-    """POST /api/chat的features字段数据"""
-
-    max_tokens: int | None = Field(default=config.llm.max_tokens, description="最大生成token数")
-    context_num: int = Field(default=5, description="上下文消息数量", le=10, ge=0)
 
 
 class RequestData(BaseModel):
@@ -122,12 +104,6 @@ class ModFavServiceRequest(BaseModel):
     """PUT /api/service/{serviceId} 请求数据结构"""
 
     favorited: bool = Field(..., description="是否收藏")
-
-
-class ClientSessionData(BaseModel):
-    """客户端Session信息"""
-
-    session_id: str | None = Field(default=None)
 
 
 class ModifyConversationData(BaseModel):

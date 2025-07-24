@@ -10,7 +10,6 @@ from fastapi import UploadFile
 from PIL import Image
 from sqids.sqids import Sqids
 
-from apps.common.mongo import MongoDB
 from apps.constants import (
     ALLOWED_ICON_MIME_TYPES,
     ICON_PATH,

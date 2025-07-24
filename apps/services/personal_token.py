@@ -5,7 +5,7 @@ import hashlib
 import logging
 import uuid
 
-from sqlalchemy import func, select, update
+from sqlalchemy import select, update
 
 from apps.common.postgres import postgres
 from apps.models.user import User
@@ -36,28 +36,6 @@ class PersonalTokenManager:
                 return None
             else:
                 return result
-
-
-    @staticmethod
-    async def verify_personal_token(personal_token: str) -> bool:
-        """
-        验证Personal Token，用于FastAPI dependency
-
-        :param personal_token: Personal Token
-        :return: 验证Personal Token是否成功
-        """
-        async with postgres.session() as session:
-            try:
-                result = (
-                    await session.scalars(
-                        select(func.count(User.id)).where(User.personalToken == personal_token),
-                    )
-                ).one()
-            except Exception:
-                logger.exception("[PersonalTokenManager] 验证Personal Token失败")
-                return False
-            else:
-                return result > 0
 
 
     @staticmethod

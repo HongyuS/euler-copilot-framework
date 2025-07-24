@@ -12,7 +12,6 @@ from apps.common.config import config
 from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.llm.reasoning import ReasoningLLM
 from apps.llm.token import TokenCalculator
-from apps.schemas.collection import LLM
 from apps.schemas.config import LLMConfig
 from apps.schemas.enum_var import EventType
 from apps.schemas.rag_data import RAGQueryReq

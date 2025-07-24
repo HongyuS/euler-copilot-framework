@@ -6,16 +6,18 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from apps.common.mongo import MongoDB
+from sqlalchemy import select
+
+from apps.common.postgres import postgres
 from apps.constants import SERVICE_PAGE_SIZE
 from apps.exceptions import InstancePermissionError
+from apps.models.app import App
 from apps.models.user import User
 from apps.scheduler.pool.loader.app import AppLoader
 from apps.schemas.agent import AgentAppMetadata
 from apps.schemas.appcenter import AppCenterCardItem, AppData, AppPermissionData
 from apps.schemas.enum_var import AppFilterType, AppType, PermissionType
 from apps.schemas.flow import AppMetadata, MetadataType, Permission
-from apps.schemas.pool import AppPool
 from apps.schemas.response_data import RecentAppList, RecentAppListItem
 
 from .flow import FlowManager
@@ -154,21 +156,24 @@ class AppCenterManager:
 
         return app_cards, total_apps
 
+
     @staticmethod
-    async def fetch_app_data_by_id(app_id: str) -> AppPool:
+    async def fetch_app_data_by_id(app_id: str) -> App:
         """
-        根据应用ID获取应用元数据
+        根据应用ID获取应用元数据（使用PostgreSQL）
 
         :param app_id: 应用唯一标识
-        :return: 应用元数据
+        :return: 应用数据
         """
-        mongo = MongoDB()
-        app_collection = mongo.get_collection("app")
-        db_data = await app_collection.find_one({"_id": app_id})
-        if not db_data:
-            msg = "应用不存在"
-            raise ValueError(msg)
-        return AppPool.model_validate(db_data)
+        async with postgres.session() as session:
+            app_obj = (await session.scalars(
+                select(App).where(App.id == app_id),
+            )).one_or_none()
+            if not app_obj:
+                msg = f"[AppCenterManager] 应用不存在: {app_id}"
+                raise ValueError(msg)
+            return app_obj
+
 
     @staticmethod
     async def create_app(user_sub: str, data: AppData) -> str:
@@ -187,6 +192,7 @@ class AppCenterManager:
             data=data,
         )
         return app_id
+
 
     @staticmethod
     async def update_app(user_sub: str, app_id: str, data: AppData) -> None:
@@ -213,6 +219,7 @@ class AppCenterManager:
             app_data=app_data,
         )
 
+
     @staticmethod
     async def update_app_publish_status(app_id: str, user_sub: str) -> bool:
         """
@@ -233,12 +240,16 @@ class AppCenterManager:
                 break
 
         # 更新数据库
-        mongo = MongoDB()
-        app_collection = mongo.get_collection("app")
-        await app_collection.update_one(
-            {"_id": app_id},
-            {"$set": {"published": published}},
-        )
+        async with postgres.session() as session:
+            app_obj = (await session.scalars(
+                select(App).where(App.id == app_id),
+            )).one_or_none()
+            if not app_obj:
+                msg = f"[AppCenterManager] 应用不存在: {app_id}"
+                raise ValueError(msg)
+            app_obj.isPublished = published
+            session.add(app_obj)
+            await session.commit()
 
         await AppCenterManager._process_app_and_save(
             app_type=app_data.app_type,
@@ -249,6 +260,7 @@ class AppCenterManager:
         )
 
         return published
+
 
     @staticmethod
     async def modify_favorite_app(app_id: str, user_sub: str, *, favorited: bool) -> None:

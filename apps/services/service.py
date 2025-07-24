@@ -7,7 +7,7 @@ from typing import Any
 
 import yaml
 from anyio import Path
-from sqlalchemy import select
+from sqlalchemy import and_, select
 
 from apps.common.config import config
 from apps.common.postgres import postgres
@@ -127,8 +127,10 @@ class ServiceCenterManager:
         async with postgres.session() as session:
             db_service = (await session.scalars(
                 select(Service).where(
-                    Service.name == validated_data.id,
-                    Service.description == validated_data.description,
+                    and_(
+                        Service.name == validated_data.id,
+                        Service.description == validated_data.description,
+                    ),
                 ),
             )).one_or_none()
 
