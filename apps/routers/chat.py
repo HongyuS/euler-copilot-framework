@@ -3,16 +3,14 @@
 
 import asyncio
 import logging
-import uuid
 from collections.abc import AsyncGenerator
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from apps.common.queue import MessageQueue
 from apps.common.wordscheck import WordsCheck
-from apps.dependency import get_session, get_user
+from apps.dependency import verify_personal_token, verify_session
 from apps.scheduler.scheduler import Scheduler
 from apps.scheduler.scheduler.context import save_data
 from apps.schemas.request_data import RequestData
@@ -28,19 +26,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/api",
     tags=["chat"],
+    dependencies=[
+        Depends(verify_session),
+        Depends(verify_personal_token),
+    ],
 )
 
 
 async def init_task(post_body: RequestData, user_sub: str, session_id: str) -> Task:
     """初始化Task"""
-    # 生成group_id
-    if not post_body.group_id:
-        post_body.group_id = str(uuid.uuid4())
     # 创建或还原Task
     task = await TaskManager.get_task(session_id=session_id, post_body=post_body, user_sub=user_sub)
     # 更改信息并刷新数据库
     task.runtime.question = post_body.question
-    task.ids.group_id = post_body.group_id
     return task
 
 
@@ -111,12 +109,10 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
 
 
 @router.post("/chat")
-async def chat(
-    post_body: RequestData,
-    user_sub: Annotated[str, Depends(get_user)],
-    session_id: Annotated[str, Depends(get_session)],
-) -> StreamingResponse:
+async def chat(request: Request, post_body: RequestData) -> StreamingResponse:
     """LLM流式对话接口"""
+    user_sub = request.state.user_sub
+    session_id = request.state.session_id
     # 问题黑名单检测
     if not await QuestionBlacklistManager.check_blacklisted_questions(input_question=post_body.question):
         # 用户扣分
@@ -138,9 +134,9 @@ async def chat(
 
 
 @router.post("/stop", response_model=ResponseData)
-async def stop_generation(user_sub: Annotated[str, Depends(get_user)]):  # noqa: ANN201
+async def stop_generation(request: Request) -> JSONResponse:
     """停止生成"""
-    await Activity.remove_active(user_sub)
+    await Activity.remove_active(request.state.user_sub)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ResponseData(

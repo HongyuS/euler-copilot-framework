@@ -8,7 +8,6 @@ from textwrap import dedent
 from apps.common.config import config
 from apps.common.queue import MessageQueue
 from apps.models.document import Document
-from apps.schemas.collection import LLM
 from apps.schemas.enum_var import EventType
 from apps.schemas.message import (
     DocumentAddContent,

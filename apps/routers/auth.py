@@ -3,14 +3,14 @@
 
 import logging
 from pathlib import Path
-from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
+from apps.common.config import config
 from apps.common.oidc import oidc_provider
-from apps.dependency import get_session, get_user, verify_user
+from apps.dependency import verify_personal_token, verify_session
 from apps.schemas.response_data import (
     AuthUserMsg,
     AuthUserRsp,
@@ -26,8 +26,12 @@ router = APIRouter(
     prefix="/api/auth",
     tags=["auth"],
 )
+user_router = APIRouter(
+    prefix="/api/user",
+    tags=["user"],
+    dependencies=[Depends(verify_session), Depends(verify_personal_token)],
+)
 logger = logging.getLogger(__name__)
-
 templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates")
 
 
@@ -56,7 +60,13 @@ async def oidc_login(request: Request, code: str) -> HTMLResponse:
             status_code=status_code,
         )
 
-    user_host = request.client.host if request.client else None
+    if not request.client:
+        return templates.TemplateResponse(
+            "login_failed.html.j2",
+            {"request": request, "reason": "无法获取用户信息，请关闭本窗口并重试。"},
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+    user_host = request.client.host
 
     if not user_sub:
         logger.error("OIDC no user_sub associated.")
@@ -76,12 +86,8 @@ async def oidc_login(request: Request, code: str) -> HTMLResponse:
 
 
 # 用户主动logout
-@router.get("/logout", response_model=ResponseData)
-async def logout(
-    request: Request,
-    user_sub: Annotated[str, Depends(get_user)],
-    session_id: Annotated[str, Depends(get_session)],
-) -> JSONResponse:
+@user_router.get("/logout", response_model=ResponseData)
+async def logout(request: Request) -> JSONResponse:
     """用户登出EulerCopilot"""
     if not request.client:
         return JSONResponse(
@@ -92,8 +98,10 @@ async def logout(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    await TokenManager.delete_plugin_token(user_sub)
-    await SessionManager.delete_session(session_id)
+    await TokenManager.delete_plugin_token(request.state.user_sub)
+
+    if hasattr(request.state, "session_id"):
+        await SessionManager.delete_session(request.state.session_id)
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -120,7 +128,7 @@ async def oidc_redirect() -> JSONResponse:
 
 
 # TODO(zwt): OIDC主动触发logout
-@router.post("/logout", dependencies=[Depends(verify_user)], response_model=ResponseData)
+@router.post("/logout", response_model=ResponseData)
 async def oidc_logout(token: str) -> JSONResponse:
     """OIDC主动触发登出"""
     return JSONResponse(
@@ -133,13 +141,10 @@ async def oidc_logout(token: str) -> JSONResponse:
     )
 
 
-@router.get("/user", response_model=AuthUserRsp)
-async def userinfo(
-    user_sub: Annotated[str, Depends(get_user)],
-    _: Annotated[None, Depends(verify_user)],
-) -> JSONResponse:
+@user_router.get("/user", response_model=AuthUserRsp)
+async def userinfo(request: Request) -> JSONResponse:
     """获取用户信息"""
-    user = await UserManager.get_user(user_sub=user_sub)
+    user = await UserManager.get_user(user_sub=request.state.user_sub)
     if not user:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -149,15 +154,16 @@ async def userinfo(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
+    is_admin = user.userSub in config.login.admin_user
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=AuthUserRsp(
             code=status.HTTP_200_OK,
             message="success",
             result=AuthUserMsg(
-                user_sub=user_sub,
+                user_sub=request.state.user_sub,
                 revision=user.isActive,
-                is_admin=user.isAdmin,
+                is_admin=is_admin,
             ),
         ).model_dump(exclude_none=True, by_alias=True),
     )

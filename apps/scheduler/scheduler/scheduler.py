@@ -5,7 +5,6 @@ import logging
 from datetime import UTC, datetime
 
 from apps.common.config import config
-from apps.common.mongo import MongoDB
 from apps.common.queue import MessageQueue
 from apps.scheduler.executor.agent import MCPAgentExecutor
 from apps.scheduler.executor.flow import FlowExecutor
