@@ -91,7 +91,7 @@ class KbIteam(BaseModel):
 class ConversationListItem(BaseModel):
     """GET /api/conversation Result数据结构"""
 
-    conversation_id: str = Field(alias="conversationId")
+    conversation_id: uuid.UUID = Field(alias="conversationId")
     title: str
     doc_count: int = Field(alias="docCount")
     created_time: str = Field(alias="createdTime")
