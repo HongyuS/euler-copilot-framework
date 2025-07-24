@@ -1,9 +1,10 @@
 """黑名单 数据库表结构"""
 
+import uuid
 from datetime import datetime
 
 import pytz
-from sqlalchemy import BigInteger, Boolean, DateTime, String
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -15,6 +16,8 @@ class Blacklist(Base):
     __tablename__ = "framework_blacklist"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """主键ID"""
+    recordId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_record.id"))  # noqa: N815
+    """关联的问答对ID"""
     question: Mapped[str] = mapped_column(String(65535))
     """黑名单问题"""
     answer: Mapped[str | None] = mapped_column(String(65535), default=None)

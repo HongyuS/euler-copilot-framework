@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 import pytz
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 
 from apps.common.postgres import postgres
 from apps.models.conversation import Conversation
@@ -27,8 +27,10 @@ class ConversationManager:
         async with postgres.session() as session:
             result = (await session.scalars(
                 select(Conversation).where(
-                    Conversation.userSub == user_sub,
-                    Conversation.isTemporary == False,  # noqa: E712
+                    and_(
+                        Conversation.userSub == user_sub,
+                        Conversation.isTemporary == False,  # noqa: E712
+                    ),
                 ).order_by(
                     Conversation.createdAt.desc(),
                 ),
@@ -42,8 +44,10 @@ class ConversationManager:
         async with postgres.session() as session:
             return (await session.scalars(
                 select(Conversation).where(
-                    Conversation.id == conversation_id,
-                    Conversation.userSub == user_sub,
+                    and_(
+                        Conversation.id == conversation_id,
+                        Conversation.userSub == user_sub,
+                    ),
                 ),
             )).one_or_none()
 
@@ -54,8 +58,10 @@ class ConversationManager:
         async with postgres.session() as session:
             result = (await session.scalars(
                 func.count(Conversation.id).where(
-                    Conversation.id == conversation_id,
-                    Conversation.userSub == user_sub,
+                    and_(
+                        Conversation.id == conversation_id,
+                        Conversation.userSub == user_sub,
+                    ),
                 ),
             )).one()
             return bool(result)
@@ -79,7 +85,12 @@ class ConversationManager:
                 # 如果是非调试模式且app_id存在，更新App的使用情况
                 if app_id and not debug:
                     app_obj = (await session.scalars(
-                        select(UserAppUsage).where(UserAppUsage.userSub == user_sub, UserAppUsage.appId == app_id),
+                        select(UserAppUsage).where(
+                            and_(
+                                UserAppUsage.userSub == user_sub,
+                                UserAppUsage.appId == app_id,
+                            ),
+                        ),
                     )).one_or_none()
                     if app_obj:
                         # 假设App模型有last_used和usage_count字段（如没有请根据实际表结构调整）
@@ -110,8 +121,10 @@ class ConversationManager:
         async with postgres.session() as session:
             conv = (await session.scalars(
                 select(Conversation).where(
-                    Conversation.id == conversation_id,
-                    Conversation.userSub == user_sub,
+                    and_(
+                        Conversation.id == conversation_id,
+                        Conversation.userSub == user_sub,
+                    ),
                 ),
             )).one_or_none()
             if not conv:
@@ -129,8 +142,10 @@ class ConversationManager:
         async with postgres.session() as session:
             conv = (await session.scalars(
                 select(Conversation).where(
-                    Conversation.id == conversation_id,
-                    Conversation.userSub == user_sub,
+                    and_(
+                        Conversation.id == conversation_id,
+                        Conversation.userSub == user_sub,
+                    ),
                 ),
             )).one_or_none()
             if not conv:
@@ -148,8 +163,10 @@ class ConversationManager:
         async with postgres.session() as session:
             result = (await session.scalars(
                 func.count(Conversation.id).where(
-                    Conversation.id == conversation_id,
-                    Conversation.userSub == user_sub,
+                    and_(
+                        Conversation.id == conversation_id,
+                        Conversation.userSub == user_sub,
+                    ),
                 ),
             )).one()
             return bool(result)
