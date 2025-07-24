@@ -2,13 +2,14 @@
 """FastAPI Record相关接口"""
 
 import json
+import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Path, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.common.security import Security
-from apps.dependency import get_user, verify_user
+from apps.dependency import verify_admin, verify_personal_token, verify_session
 from apps.schemas.record import (
     RecordContent,
     RecordData,
@@ -31,19 +32,21 @@ router = APIRouter(
     prefix="/api/record",
     tags=["record"],
     dependencies=[
-        Depends(verify_user),
+        Depends(verify_session),
+        Depends(verify_personal_token),
     ],
 )
 
 
-@router.get(
-    "/{conversation_id}",
-    response_model=RecordListRsp,
-    responses={status.HTTP_403_FORBIDDEN: {"model": ResponseData}},
+@router.get("/{conversationId}", response_model=RecordListRsp, responses={
+        status.HTTP_403_FORBIDDEN: {"model": ResponseData},
+    },
 )
-async def get_record(conversation_id: str, user_sub: Annotated[str, Depends(get_user)]) -> JSONResponse:
+async def get_record(request: Request, conversationId: Annotated[uuid.UUID, Path()]) -> JSONResponse:  # noqa: N803
     """获取某个对话的所有问答对"""
-    cur_conv = await ConversationManager.get_conversation_by_conversation_id(user_sub, conversation_id)
+    cur_conv = await ConversationManager.get_conversation_by_conversation_id(
+        request.state.user_sub, conversationId,
+    )
     # 判断conversation是否合法
     if not cur_conv:
         return JSONResponse(
@@ -55,7 +58,7 @@ async def get_record(conversation_id: str, user_sub: Annotated[str, Depends(get_
             ).model_dump(exclude_none=True),
         )
 
-    record_group_list = await RecordManager.query_record_group_by_conversation_id(conversation_id)
+    record_group_list = await RecordManager.query_record_group_by_conversation_id(conversationId)
     result = []
     for record_group in record_group_list:
         for record in record_group.records:
@@ -66,7 +69,7 @@ async def get_record(conversation_id: str, user_sub: Annotated[str, Depends(get_
                 id=record.id,
                 groupId=record_group.id,
                 taskId=record_group.task_id,
-                conversationId=conversation_id,
+                conversationId=conversationId,
                 content=record_data,
                 metadata=record.metadata
                 if record.metadata

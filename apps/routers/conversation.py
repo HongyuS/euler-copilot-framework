@@ -6,10 +6,10 @@ from datetime import datetime
 from typing import Annotated
 
 import pytz
-from fastapi import APIRouter, Body, Depends, Query, Request, status
+from fastapi import APIRouter, Body, Depends, Query, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency import get_user, verify_user
+from apps.dependency import verify_admin, verify_personal_token, verify_session
 from apps.models.conversation import Conversation
 from apps.schemas.request_data import (
     DeleteConversationData,

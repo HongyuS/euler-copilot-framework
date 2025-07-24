@@ -10,7 +10,7 @@ from apps.schemas.response_data import ResponseData
 from apps.services.tag import TagManager
 
 admin_router = APIRouter(
-    prefix="/api/tag",
+    prefix="/api/admin/tag",
     tags=["tag"],
     dependencies=[
         Depends(verify_session),

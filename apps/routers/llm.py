@@ -36,7 +36,7 @@ admin_router = APIRouter(
 )
 
 
-@router.get("/provider", response_model=ListLLMProviderRsp, responses={
+@admin_router.get("/provider", response_model=ListLLMProviderRsp, responses={
         status.HTTP_404_NOT_FOUND: {"model": ResponseData},
     },
 )
@@ -73,7 +73,7 @@ async def list_llm(
     )
 
 
-@router.put("", responses={
+@admin_router.put("", responses={
         status.HTTP_404_NOT_FOUND: {"model": ResponseData},
     },
 )
@@ -94,7 +94,7 @@ async def create_llm(
     )
 
 
-@router.delete(
+@admin_router.delete(
     "",
     responses={
         status.HTTP_404_NOT_FOUND: {"model": ResponseData},
@@ -127,7 +127,7 @@ async def update_user_llm(
     conversation_id: Annotated[str, Query(description="对话ID", alias="conversationId")],
     llm_id: Annotated[str, Query(description="llm ID", alias="llmId")] = "empty",
 ) -> JSONResponse:
-    """更新对话的知识库"""
+    """更新用户所选的大模型"""
     llm_id = await LLMManager.update_user_llm(request.state.user_sub, conversation_id, llm_id)
     return JSONResponse(
         status_code=status.HTTP_200_OK,

@@ -4,7 +4,7 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, Path, Request, status
+from fastapi import APIRouter, Depends, Path, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import verify_personal_token, verify_session
@@ -181,7 +181,7 @@ async def update_service(request: Request, data: UpdateServiceRequest) -> JSONRe
 
 @router.get("/{serviceId}", response_model=GetServiceDetailRsp)
 async def get_service_detail(
-    request: Request, serviceId: str,  # noqa: N803
+    request: Request, serviceId: Annotated[str, Path()],  # noqa: N803
     *, edit: bool = False,
 ) -> JSONResponse:
     """获取服务详情"""
@@ -246,7 +246,7 @@ async def get_service_detail(
 
 
 @router.delete("/{serviceId}", response_model=DeleteServiceRsp)
-async def delete_service(request: Request, serviceId: str) -> JSONResponse:  # noqa: N803
+async def delete_service(request: Request, serviceId: Annotated[str, Path()]) -> JSONResponse:  # noqa: N803
     """删除服务"""
     try:
         await ServiceCenterManager.delete_service(request.state.user_sub, serviceId)
@@ -285,13 +285,17 @@ async def delete_service(request: Request, serviceId: str) -> JSONResponse:  # n
 
 @router.put("/{serviceId}", response_model=ModFavServiceRsp)
 async def modify_favorite_service(
-    user_sub: Annotated[str, Depends(get_user)],
-    service_id: Annotated[str, Path(..., alias="serviceId", description="服务ID")],
-    data: Annotated[ModFavServiceRequest, Body(..., description="更改收藏状态请求对象")],
+    request: Request,
+    serviceId: Annotated[str, Path()],  # noqa: N803
+    data: ModFavServiceRequest,
 ) -> JSONResponse:
     """修改服务收藏状态"""
     try:
-        success = await ServiceCenterManager.modify_favorite_service(user_sub, service_id, favorited=data.favorited)
+        success = await ServiceCenterManager.modify_favorite_service(
+            request.state.user_sub,
+            serviceId,
+            favorited=data.favorited,
+        )
         if not success:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -320,6 +324,6 @@ async def modify_favorite_service(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    msg = ModFavServiceMsg(serviceId=service_id, favorited=data.favorited)
+    msg = ModFavServiceMsg(serviceId=serviceId, favorited=data.favorited)
     rsp = ModFavServiceRsp(code=status.HTTP_200_OK, message="OK", result=msg)
     return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))

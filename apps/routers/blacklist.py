@@ -141,7 +141,7 @@ async def change_blacklist_question(request: QuestionBlacklistRequest) -> JSONRe
     ).model_dump(exclude_none=True, by_alias=True))
 
 
-@admin_router.post("/complaint", response_model=ResponseData)
+@user_router.post("/complaint", response_model=ResponseData)
 async def abuse_report(raw_request: Request, request: AbuseRequest) -> JSONResponse:
     """用户实施举报"""
     result = await AbuseManager.change_abuse_report(

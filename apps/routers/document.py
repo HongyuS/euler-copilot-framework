@@ -5,8 +5,9 @@ Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, UploadFile, status
+from fastapi import APIRouter, Depends, Path, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import verify_personal_token, verify_session
@@ -35,7 +36,11 @@ router = APIRouter(
 
 
 @router.post("/{conversation_id}")
-async def document_upload(request: Request, conversation_id: uuid.UUID, documents: list[UploadFile]) -> JSONResponse:
+async def document_upload(
+    request: Request,
+    conversation_id: Annotated[uuid.UUID, Path()],
+    documents: list[UploadFile],
+) -> JSONResponse:
     """上传文档"""
     result = await DocumentManager.storage_docs(request.state.user_sub, conversation_id, documents)
     await KnowledgeBaseService.send_file_to_rag(request.state.session_id, result)
@@ -63,7 +68,7 @@ async def document_upload(request: Request, conversation_id: uuid.UUID, document
 
 @router.get("/{conversation_id}", response_model=ConversationDocumentRsp)
 async def get_document_list(
-    request: Request, conversation_id: uuid.UUID,
+    request: Request, conversation_id: Annotated[uuid.UUID, Path()],
     *,
     used: bool = False, unused: bool = True,
 ) -> JSONResponse:
@@ -136,7 +141,9 @@ async def get_document_list(
 
 
 @router.delete("/{document_id}", response_model=ResponseData)
-async def delete_single_document(request: Request, document_id: str) -> JSONResponse:
+async def delete_single_document(
+    request: Request, document_id: Annotated[str, Path()],
+) -> JSONResponse:
     """删除单个文件"""
     # 在Framework侧删除
     result = await DocumentManager.delete_document(request.state.user_sub, [document_id])
