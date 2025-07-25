@@ -338,6 +338,16 @@ function check_k3s_status() {
     fi
 }
 
+check_hub_connection() {
+    if curl -sSf http://hub.oepkgs.net >/dev/null 2>&1; then
+        echo -e "[Info] 镜像站连接正常"
+        return 1
+    else
+        echo -e "[Error] 镜像站连接失败"
+        return 1
+    fi
+}
+
 function main {
     # 创建工具目录
     mkdir -p "$TOOLS_DIR"
@@ -356,13 +366,6 @@ function main {
     else
         echo -e "[Info] K3s 已经安装，跳过安装步骤"
     fi
-     # 优先检查网络
-    if check_network; then
-        echo -e "\033[32m[Info] 在线环境，跳过镜像导入\033[0m"
-    else
-        echo -e "\033[33m[Info] 离线环境，开始导入本地镜像，请确保本地目录已存在所有镜像文件\033[0m"
-        bash "$IMPORT_SCRIPT/9-other-script/import_images.sh" -v "$eulercopilot_version"
-    fi
 
     # 安装Helm（如果尚未安装）
     if ! command -v helm &> /dev/null; then
@@ -373,6 +376,14 @@ function main {
     mkdir -p ~/.kube
     ln -sf /etc/rancher/k3s/k3s.yaml ~/.kube/config
     check_k3s_status
+
+    # 优先检查网络
+    if check_hub_connection; then
+        echo -e "\033[32m[Info] 在线环境，跳过镜像导入\033[0m"
+    else
+        echo -e "\033[33m[Info] 离线环境，开始导入本地镜像，请确保本地目录已存在所有镜像文件\033[0m"
+        bash "$IMPORT_SCRIPT/9-other-script/import_images.sh" -v "$eulercopilot_version"
+    fi
 
     echo -e "\n\033[32m=== 全部工具安装完成 ===\033[0m"
     echo -e "K3s 版本：$(k3s --version | head -n1)"

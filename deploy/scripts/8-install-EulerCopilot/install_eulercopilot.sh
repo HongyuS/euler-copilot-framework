@@ -76,6 +76,32 @@ parse_arguments() {
     done
 }
 
+
+# 安装成功信息显示函数
+show_success_message() {
+    local host=$1
+    local arch=$2 
+
+    echo -e "\n${GREEN}==================================================${NC}"
+    echo -e "${GREEN}          EulerCopilot 部署完成！                 ${NC}"
+    echo -e "${GREEN}==================================================${NC}"
+
+    echo -e "${YELLOW}访问信息：${NC}"
+    echo -e "EulerCopilot UI:    ${eulercopilot_address}"
+    echo -e "AuthHub 管理界面:   ${authhub_address}"
+
+    echo -e "\n${YELLOW}系统信息：${NC}"
+    echo -e "内网IP:     ${host}"
+    echo -e "系统架构:   $(uname -m) (识别为: ${arch})"
+    echo -e "插件目录:   ${PLUGINS_DIR}"
+    echo -e "Chart目录:  ${DEPLOY_DIR}/chart/"
+
+    echo -e "${BLUE}操作指南：${NC}"
+    echo -e "1. 查看集群状态: kubectl get all -n $NAMESPACE"
+    echo -e "2. 查看实时日志: kubectl logs -n $NAMESPACE -f deployment/$NAMESPACE"
+    echo -e "3. 查看POD状态：kubectl get pods -n $NAMESPACE"
+}
+
 # 获取系统架构
 get_architecture() {
     local arch=$(uname -m)
@@ -258,17 +284,19 @@ uninstall_eulercopilot() {
         echo -e "${YELLOW}未找到需要清理的Helm Release: euler-copilot${NC}"
     fi
 
-    # 删除 PVC: framework-semantics-claim
-    local pvc_name="framework-semantics-claim"
-    if kubectl get pvc "$pvc_name" -n euler-copilot &>/dev/null; then
-        echo -e "${GREEN}找到PVC: ${pvc_name}，开始清理...${NC}"
-        if ! kubectl delete pvc "$pvc_name" -n euler-copilot --force --grace-period=0; then
-            echo -e "${RED}错误：删除PVC ${pvc_name} 失败！${NC}" >&2
-            return 1
+    # 删除 PVC: framework-semantics-claim 和 web-static
+    local pvc_names=("framework-semantics-claim" "web-static")
+    for pvc_name in "${pvc_names[@]}"; do
+        if kubectl get pvc "$pvc_name" -n euler-copilot &>/dev/null; then
+            echo -e "${GREEN}找到PVC: ${pvc_name}，开始清理...${NC}"
+            if ! kubectl delete pvc "$pvc_name" -n euler-copilot --force --grace-period=0; then
+                echo -e "${RED}错误：删除PVC ${pvc_name} 失败！${NC}" >&2
+                return 1
+            fi
+        else
+            echo -e "${YELLOW}未找到需要清理的PVC: ${pvc_name}${NC}"
         fi
-    else
-        echo -e "${YELLOW}未找到需要清理的PVC: ${pvc_name}${NC}"
-    fi
+    done
 
     # 删除 Secret: euler-copilot-system
     local secret_name="euler-copilot-system"
@@ -295,6 +323,7 @@ modify_yaml() {
 
     # 添加其他必填参数
     set_args+=(
+        "--set" "globals.arch=$arch"
         "--set" "login.client.id=${client_id}"
         "--set" "login.client.secret=${client_secret}"
         "--set" "domain.euler_copilot=${eulercopilot_address}"
@@ -350,11 +379,10 @@ pre_install_checks() {
 
 # 执行安装
 execute_helm_install() {
-    local arch=$1
     echo -e "${BLUE}开始部署EulerCopilot（架构: $arch）...${NC}" >&2
 
     enter_chart_directory
-    helm upgrade --install $NAMESPACE -n $NAMESPACE ./euler_copilot --set globals.arch=$arch --create-namespace || {
+    helm upgrade --install $NAMESPACE -n $NAMESPACE ./euler_copilot --create-namespace || {
         echo -e "${RED}Helm 安装 EulerCopilot 失败！${NC}" >&2
         exit 1
     }
@@ -439,7 +467,7 @@ main() {
     modify_yaml "$host" "$preserve_models"
     
     echo -e "${BLUE}开始Helm安装...${NC}"
-    execute_helm_install "$arch"
+    execute_helm_install
     
     if check_pods_status; then
         echo -e "${GREEN}所有组件已就绪!${NC}"
@@ -447,32 +475,6 @@ main() {
     else
 	echo -e "${YELLOW}部分组件尚未就绪，建议进行排查!${NC}"
     fi
-}
-
-# 添加安装成功信息显示函数
-show_success_message() {
-    local host=$1
-    local arch=$2
-    
-
-    echo -e "\n${GREEN}==================================================${NC}"
-    echo -e "${GREEN}          EulerCopilot 部署完成！                 ${NC}"
-    echo -e "${GREEN}==================================================${NC}"
-
-    echo -e "${YELLOW}访问信息：${NC}"
-    echo -e "EulerCopilot UI:    ${eulercopilot_address}"
-    echo -e "AuthHub 管理界面:   ${authhub_address}"
-
-    echo -e "\n${YELLOW}系统信息：${NC}"
-    echo -e "内网IP:     ${host}"
-    echo -e "系统架构:   $(uname -m) (识别为: ${arch})"
-    echo -e "插件目录:   ${PLUGINS_DIR}"
-    echo -e "Chart目录:  ${DEPLOY_DIR}/chart/"
-
-    echo -e "${BLUE}操作指南：${NC}"
-    echo -e "1. 查看集群状态: kubectl get all -n $NAMESPACE"
-    echo -e "2. 查看实时日志: kubectl logs -n $NAMESPACE -f deployment/$NAMESPACE"
-    echo -e "3. 查看POD状态：kubectl get pods -n $NAMESPACE"
 }
 
 main "$@"
