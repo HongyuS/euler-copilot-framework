@@ -8,28 +8,12 @@ from lancedb.pydantic import LanceModel, Vector
 from pydantic import BaseModel, Field
 
 
-class MCPInstallStatus(str, Enum):
-    """MCP 服务状态"""
-
-    INSTALLING = "installing"
-    READY = "ready"
-    FAILED = "failed"
-
-
 class MCPStatus(str, Enum):
     """MCP 状态"""
 
     UNINITIALIZED = "uninitialized"
     RUNNING = "running"
     STOPPED = "stopped"
-
-
-class MCPType(str, Enum):
-    """MCP 类型"""
-
-    SSE = "sse"
-    STDIO = "stdio"
-    STREAMABLE = "stream"
 
 
 class MCPBasicConfig(BaseModel):

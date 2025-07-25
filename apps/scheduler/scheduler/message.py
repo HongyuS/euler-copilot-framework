@@ -65,7 +65,7 @@ async def push_rag_message(
     """推送RAG消息"""
     full_answer = ""
 
-    async for chunk in RAG.get_rag_result(user_sub, llm, history, doc_ids, rag_data):
+    async for chunk in RAG.chat_with_llm_base_on_rag(user_sub, llm, history, doc_ids, rag_data):
         task, content_obj = await _push_rag_chunk(task, queue, chunk)
         if content_obj.event_type == EventType.TEXT_ADD.value:
             # 如果是文本消息，直接拼接到答案中

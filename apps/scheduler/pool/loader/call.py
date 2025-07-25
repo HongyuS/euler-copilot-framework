@@ -14,7 +14,7 @@ from apps.common.lance import LanceDB
 from apps.common.mongo import MongoDB
 from apps.common.singleton import SingletonMeta
 from apps.llm.embedding import Embedding
-from apps.models.node import Node
+from apps.models.node import NodeInfo
 
 logger = logging.getLogger(__name__)
 BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "call"

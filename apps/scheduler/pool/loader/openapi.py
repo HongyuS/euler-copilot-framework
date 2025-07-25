@@ -8,7 +8,7 @@ from typing import Any
 import yaml
 from anyio import Path
 
-from apps.models.node import Node
+from apps.models.node import NodeInfo
 from apps.scheduler.openapi import (
     ReducedOpenAPIEndpoint,
     ReducedOpenAPISpec,
@@ -166,7 +166,7 @@ class OpenAPILoader:
         return spec
 
 
-    async def load_one(self, service_id: str, yaml_path: Path, server: str) -> list[Node]:
+    async def load_one(self, service_id: str, yaml_path: Path, server: str) -> list[NodeInfo]:
         """加载单个OpenAPI文档，可以直接指定路径"""
         try:
             spec = await self._read_yaml(yaml_path)
@@ -185,7 +185,7 @@ class OpenAPILoader:
             raise RuntimeError(err) from e
 
         return [
-            Node(
+            NodeInfo(
                 name=node.name,
                 description=node.description,
                 callId=node.call_id,

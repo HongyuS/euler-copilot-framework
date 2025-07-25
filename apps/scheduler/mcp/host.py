@@ -9,7 +9,6 @@ from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 from mcp.types import TextContent
 
-from apps.common.mongo import MongoDB
 from apps.llm.function import JsonGenerator
 from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
 from apps.scheduler.pool.mcp.client import MCPClient
@@ -17,6 +16,7 @@ from apps.scheduler.pool.mcp.pool import MCPPool
 from apps.schemas.enum_var import StepStatus
 from apps.schemas.mcp import MCPPlanItem, MCPTool
 from apps.schemas.task import FlowStepHistory
+from apps.services.mcp_service import MCPServiceManager
 from apps.services.task import TaskManager
 
 logger = logging.getLogger(__name__)
@@ -43,12 +43,7 @@ class MCPHost:
 
     async def get_client(self, mcp_id: str) -> MCPClient | None:
         """获取MCP客户端"""
-        mongo = MongoDB()
-        mcp_collection = mongo.get_collection("mcp")
-
-        # 检查用户是否启用了这个mcp
-        mcp_db_result = await mcp_collection.find_one({"_id": mcp_id, "activated": self._user_sub})
-        if not mcp_db_result:
+        if not await MCPServiceManager.is_user_actived(self._user_sub, mcp_id):
             logger.warning("用户 %s 未启用MCP %s", self._user_sub, mcp_id)
             return None
 
@@ -173,21 +168,16 @@ class MCPHost:
 
     async def get_tool_list(self, mcp_id_list: list[str]) -> list[MCPTool]:
         """获取工具列表"""
-        mongo = MongoDB()
-        mcp_collection = mongo.get_collection("mcp")
-
         # 获取工具列表
         tool_list = []
         for mcp_id in mcp_id_list:
             # 检查用户是否启用了这个mcp
-            mcp_db_result = await mcp_collection.find_one({"_id": mcp_id, "activated": self._user_sub})
-            if not mcp_db_result:
+            if not await MCPServiceManager.is_user_actived(self._user_sub, mcp_id):
                 logger.warning("用户 %s 未启用MCP %s", self._user_sub, mcp_id)
                 continue
             # 获取MCP工具配置
             try:
-                for tool in mcp_db_result["tools"]:
-                    tool_list.extend([MCPTool.model_validate(tool)])
+                tool_list.extend(await MCPServiceManager.get_service_tools(mcp_id))
             except KeyError:
                 logger.warning("用户 %s 的MCP Tool %s 配置错误", self._user_sub, mcp_id)
                 continue

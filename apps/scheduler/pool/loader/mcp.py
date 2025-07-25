@@ -12,23 +12,20 @@ import asyncer
 from anyio import Path
 from sqids.sqids import Sqids
 
-from apps.common.lance import LanceDB
-from apps.common.mongo import MongoDB
 from apps.common.process_handler import ProcessHandler
 from apps.common.singleton import SingletonMeta
 from apps.constants import MCP_PATH
 from apps.llm.embedding import Embedding
+from apps.models.mcp import MCPInfo, MCPInstallStatus, MCPTools, MCPType
 from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.install import install_npx, install_uvx
 from apps.schemas.mcp import (
     MCPCollection,
-    MCPInstallStatus,
     MCPServerConfig,
     MCPServerSSEConfig,
     MCPServerStdioConfig,
     MCPTool,
     MCPToolVector,
-    MCPType,
     MCPVector,
 )
 

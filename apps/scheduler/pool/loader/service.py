@@ -12,7 +12,7 @@ from apps.common.config import config
 from apps.common.mongo import MongoDB
 from apps.common.postgres import postgres
 from apps.llm.embedding import Embedding
-from apps.models.node import Node
+from apps.models.node import NodeInfo
 from apps.models.service import Service
 from apps.models.vectors import NodePoolVector, ServicePoolVector
 from apps.scheduler.pool.check import FileChecker

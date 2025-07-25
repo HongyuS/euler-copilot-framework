@@ -3,7 +3,7 @@
 
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import and_, select
 
 from apps.common.postgres import postgres
 from apps.models.tag import Tag
@@ -56,11 +56,14 @@ class UserTagManager:
             user_domain = (
                 await session.scalars(
                     select(UserTag).where(
-                        UserTag.userSub == user_sub,
-                        UserTag.tag == tag.id,
+                        and_(
+                            UserTag.userSub == user_sub,
+                            UserTag.tag == tag.id,
+                        ),
                     ),
                 )
             ).one_or_none()
+
             if not user_domain:
                 user_domain = UserTag(userSub=user_sub, tag=tag.id, count=1)
                 session.add(user_domain)
