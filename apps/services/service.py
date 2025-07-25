@@ -12,7 +12,7 @@ from sqlalchemy import and_, select
 from apps.common.config import config
 from apps.common.postgres import postgres
 from apps.exceptions import InstancePermissionError, ServiceIDError
-from apps.models.node import Node
+from apps.models.node import NodeInfo
 from apps.models.service import Service
 from apps.scheduler.openapi import ReducedOpenAPISpec
 from apps.scheduler.pool.loader.openapi import OpenAPILoader

@@ -158,6 +158,19 @@ class ConversationManager:
 
 
     @staticmethod
+    async def delete_conversation_by_user_sub(user_sub: str) -> None:
+        """通过用户ID删除对话"""
+        async with postgres.session() as session:
+            convs = list((await session.scalars(
+                select(Conversation).where(Conversation.userSub == user_sub),
+            )).all())
+            for conv in convs:
+                await session.delete(conv)
+                await TaskManager.delete_tasks_by_conversation_id(conv.id)
+            await session.commit()
+
+
+    @staticmethod
     async def verify_conversation_id(user_sub: str, conversation_id: uuid.UUID) -> bool:
         """验证对话ID是否属于用户"""
         async with postgres.session() as session:
