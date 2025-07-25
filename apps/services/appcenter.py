@@ -12,7 +12,7 @@ from apps.common.postgres import postgres
 from apps.constants import SERVICE_PAGE_SIZE
 from apps.exceptions import InstancePermissionError
 from apps.models.app import App
-from apps.models.user import User
+from apps.models.user import User, UserAppUsage
 from apps.scheduler.pool.loader.app import AppLoader
 from apps.schemas.agent import AgentAppMetadata
 from apps.schemas.appcenter import AppCenterCardItem, AppData, AppPermissionData
@@ -20,7 +20,6 @@ from apps.schemas.enum_var import AppFilterType, AppType, PermissionType
 from apps.schemas.flow import AppMetadata, MetadataType, Permission
 from apps.schemas.response_data import RecentAppList, RecentAppListItem
 
-from .flow import FlowManager
 from .mcp_service import MCPServiceManager
 from .user import UserManager
 
@@ -208,7 +207,7 @@ class AppCenterManager:
 
         # 不允许更改应用类型
         if app_data.app_type != data.app_type:
-            err = "不允许更改应用类型"
+            err = f"【AppCenterManager】不允许更改应用类型: {app_data.app_type} -> {data.app_type}"
             raise ValueError(err)
 
         await AppCenterManager._process_app_and_save(
@@ -307,20 +306,19 @@ class AppCenterManager:
         :param app_id: 应用唯一标识
         :param user_sub: 用户唯一标识
         """
-        mongo = MongoDB()
-        app_collection = mongo.get_collection("app")
-        app_data = AppPool.model_validate(await app_collection.find_one({"_id": app_id}))
-        if not app_data:
-            msg = "应用不存在"
-            raise ValueError(msg)
-        if app_data.author != user_sub:
-            msg = "权限不足"
-            raise InstancePermissionError(msg)
-        # 删除应用
-        await AppLoader.delete(app_id)
-        # 删除应用相关的工作流
-        for flow in app_data.flows:
-            await FlowManager.delete_flow_by_app_and_flow_id(app_id, flow.id)
+        async with postgres.session() as session:
+            app_obj = (await session.scalars(
+                select(App).where(App.id == app_id),
+            )).one_or_none()
+            if not app_obj:
+                msg = f"[AppCenterManager] 应用不存在: {app_id}"
+                raise ValueError(msg)
+            if app_obj.author != user_sub:
+                msg = f"[AppCenterManager] 权限不足: {user_sub} -> {app_obj.author}"
+                raise InstancePermissionError(msg)
+            await session.delete(app_obj)
+            await session.commit()
+
 
     @staticmethod
     async def get_recently_used_apps(count: int, user_sub: str) -> RecentAppList:
@@ -355,7 +353,7 @@ class AppCenterManager:
         )
 
     @staticmethod
-    async def update_recent_app(user_sub: str, app_id: str) -> bool:
+    async def update_recent_app(user_sub: str, app_id: uuid.UUID) -> None:
         """
         更新用户的最近使用应用列表
 
@@ -363,56 +361,29 @@ class AppCenterManager:
         :param app_id: 应用唯一标识
         :return: 更新是否成功
         """
-        if not app_id:
-            return True
-        try:
-            mongo = MongoDB()
-            user_collection = mongo.get_collection("user")
-            current_time = round(datetime.now(UTC).timestamp(), 3)
-            result = await user_collection.update_one(
-                {"_id": user_sub},  # 查询条件
-                {
-                    "$set": {
-                        f"app_usage.{app_id}.last_used": current_time,  # 更新最后使用时间
-                    },
-                    "$inc": {
-                        f"app_usage.{app_id}.count": 1,  # 增加使用次数
-                    },
-                },
-                upsert=True,  # 如果 app_usage 字段或 app_id 不存在，则创建
-            )
-            if result.modified_count > 0 or result.upserted_id is not None:
-                logger.info("[AppCenterManager] 更新用户最近使用应用: %s", user_sub)
-                return True
-            logger.warning("[AppCenterManager] 用户 %s 没有更新", user_sub)
-        except Exception:
-            logger.exception("[AppCenterManager] 更新用户最近使用应用失败")
+        if str(app_id) == "00000000-0000-0000-0000-000000000000":
+            return
 
-        return False
+        async with postgres.session() as session:
+            app_usages = list((await session.scalars(
+                select(UserAppUsage).where(UserAppUsage.userSub == user_sub),
+            )).all())
+            if not app_usages:
+                msg = f"[AppCenterManager] 用户不存在: {user_sub}"
+                raise ValueError(msg)
 
-    @staticmethod
-    async def get_default_flow_id(app_id: str) -> str | None:
-        """
-        获取默认工作流ID
+            for app_data in app_usages:
+                if app_data.appId == app_id:
+                    app_data.lastUsed = datetime.now(UTC)
+                    app_data.usageCount += 1
+                    session.add(app_data)
+                    break
+            else:
+                app_data = UserAppUsage(userSub=user_sub, appId=app_id, lastUsed=datetime.now(UTC), usageCount=1)
+                session.add(app_data)
+            await session.commit()
+            return
 
-        :param app_id: 应用唯一标识
-        :return: 默认工作流ID
-        """
-        try:
-            mongo = MongoDB()
-            app_collection = mongo.get_collection("app")
-            db_data = await app_collection.find_one({"_id": app_id})
-            if not db_data:
-                logger.warning("[AppCenterManager] 应用不存在: %s", app_id)
-                return None
-            app_data = AppPool.model_validate(db_data)
-            if not app_data.flows or len(app_data.flows) == 0:
-                logger.warning("[AppCenterManager] 应用 %s 没有工作流", app_id)
-                return None
-            return app_data.flows[0].id
-        except Exception:
-            logger.exception("[AppCenterManager] 获取默认工作流ID失败")
-        return None
 
     @staticmethod
     async def _search_apps_by_filter(
@@ -433,6 +404,7 @@ class AppCenterManager:
         )
         apps = [AppPool.model_validate(doc) for doc in db_data]
         return apps, total_apps
+
 
     @staticmethod
     async def _get_app_data(app_id: str, user_sub: str, *, check_permission: bool = True) -> AppPool:
@@ -457,6 +429,7 @@ class AppCenterManager:
             raise InstancePermissionError(msg)
         return app_data
 
+
     @staticmethod
     def _build_common_metadata_params(app_id: str, user_sub: str, source: AppPool | AppData) -> dict:
         """构建元数据通用参数"""
@@ -470,14 +443,6 @@ class AppCenterManager:
             "description": source.description,
             "history_len": source.history_len,
         }
-
-    @staticmethod
-    def _create_permission(permission_data: AppPermissionData) -> Permission:
-        """创建权限对象"""
-        return Permission(
-            type=permission_data.type,
-            users=permission_data.users or [],
-        )
 
     @staticmethod
     def _create_flow_metadata(
@@ -602,7 +567,10 @@ class AppCenterManager:
 
         # 设置权限
         if data:
-            common_params["permission"] = AppCenterManager._create_permission(data.permission)
+            common_params["permission"] = Permission(
+                type=data.permission.type,
+                users=data.permission.users or [],
+            )
         elif app_data:
             common_params["permission"] = app_data.permission
 

@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from apps.llm.function import JsonGenerator
 from apps.llm.reasoning import ReasoningLLM
+from apps.llm.token import TokenCalculator
 
 from .core import CorePattern
 
@@ -41,16 +42,36 @@ class QuestionRewrite(CorePattern):
           </instruction>
 
           <example>
-            <input>openEuler的特点？</input>
+            <history>
+              <qa>
+                <question>
+                  openEuler的优势有哪些？
+                </question>
+                <answer>
+                  openEuler的优势包括开源、社区支持、以及对云计算和边缘计算的优化。
+                </answer>
+              </qa>
+            </history>
+
+            <question>
+              详细点？
+            </question>
             <output>
               {{
-                "question": "openEuler相较于其他操作系统，其特点是什么？"
+                "question": "详细说明openEuler操作系统的优势和应用场景"
               }}
             </output>
           </example>
         </instructions>
 
-        <input>{question}</input>
+        <history>
+          {history}
+        </history>
+        <question>
+          {question}
+        </question>
+
+        现在，请输出补全后的问题：
         <output>
     """
     """用户提示词"""
@@ -62,11 +83,34 @@ class QuestionRewrite(CorePattern):
 
         messages = [
             {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": self.user_prompt.format(question=question)},
+            {"role": "user", "content": self.user_prompt.format(history="", question=question)},
         ]
-        messages = history+messages
+        llm = kwargs.get("llm")
+        if not llm:
+            llm = ReasoningLLM()
+        leave_tokens = llm._config.max_tokens
+        leave_tokens -= TokenCalculator().calculate_token_length(messages)
+        if leave_tokens <= 0:
+            logger.error("[QuestionRewrite] 大模型上下文窗口不足，无法进行问题补全与重写")
+            return question
+        index = 0
+        qa = ""
+        while index < len(history)-1 and leave_tokens > 0:
+            q = history[index-1].get("content", "")
+            a = history[index].get("content", "")
+            sub_qa = f"<qa>\n<question>\n{q}\n</question>\n<answer>\n{a}\n</answer>\n</qa>"
+            leave_tokens -= TokenCalculator().calculate_token_length(
+                messages=[
+                    {"role": "user", "content": sub_qa},
+                ],
+                pure_text=True,
+            )
+            if leave_tokens >= 0:
+                qa = sub_qa + qa
+            index += 2
+
+        messages[1]["content"] = self.user_prompt.format(history=qa, question=question)
         result = ""
-        llm = ReasoningLLM()
         async for chunk in llm.call(messages, streaming=False):
             result += chunk
         self.input_tokens = llm.input_tokens

@@ -6,7 +6,7 @@ from datetime import datetime
 from hashlib import sha256
 
 import pytz
-from sqlalchemy import ARRAY, BigInteger, Boolean, DateTime, Enum, Integer, String
+from sqlalchemy import ARRAY, BigInteger, Boolean, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -68,9 +68,9 @@ class UserAppUsage(Base):
     __tablename__ = "framework_user_app_usage"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """用户应用使用情况ID"""
-    userSub: Mapped[str] = mapped_column(String(50), index=True, foreign_key="framework_user.userSub")  # noqa: N815
+    userSub: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"), unique=True)  # noqa: N815
     """用户名"""
-    appId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)  # noqa: N815
+    appId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_app.id"))  # noqa: N815
     """应用ID"""
     usageCount: Mapped[int] = mapped_column(Integer, default=0)  # noqa: N815
     """应用使用次数"""
@@ -86,9 +86,9 @@ class UserTag(Base):
     __tablename__ = "framework_user_tag"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """用户标签ID"""
-    userSub: Mapped[str] = mapped_column(String(50), index=True, foreign_key="framework_user.userSub")  # noqa: N815
+    userSub: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"), unique=True)  # noqa: N815
     """用户名"""
-    tag: Mapped[int] = mapped_column(BigInteger, index=True, foreign_key="framework_tag.id")
+    tag: Mapped[int] = mapped_column(ForeignKey("framework_tag.id"))
     """标签ID"""
     count: Mapped[int] = mapped_column(Integer, default=0)
     """标签归类次数"""

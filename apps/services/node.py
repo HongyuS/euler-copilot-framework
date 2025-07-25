@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import select
 
 from apps.common.postgres import postgres
-from apps.models.node import Node
+from apps.models.node import NodeInfo
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
@@ -19,11 +19,11 @@ class NodeManager:
     """Node管理器"""
 
     @staticmethod
-    async def get_node(node_id: str) -> Node:
+    async def get_node(node_id: str) -> NodeInfo:
         """获取Node信息"""
         async with postgres.session() as session:
             node = (await session.scalars(
-                select(Node).where(Node.id == node_id),
+                select(NodeInfo).where(NodeInfo.id == node_id),
             )).one_or_none()
             if not node:
                 err = f"[NodeManager] Node {node_id} not found."

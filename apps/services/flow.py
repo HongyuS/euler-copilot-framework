@@ -6,7 +6,7 @@ import logging
 from pymongo import ASCENDING
 
 from apps.common.postgres import postgres
-from apps.models.node import Node
+from apps.models.node import NodeInfo
 from apps.models.user import User
 from apps.scheduler.pool.loader.flow import FlowLoader
 from apps.scheduler.slot.slot import Slot
