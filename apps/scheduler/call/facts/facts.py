@@ -8,7 +8,7 @@ from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
-from apps.models.node import Node
+from apps.models.node import NodeInfo
 from apps.scheduler.call.core import CoreCall
 from apps.schemas.enum_var import CallOutputType
 from apps.schemas.scheduler import CallInfo, CallOutputChunk, CallVars
@@ -39,7 +39,7 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
 
 
     @classmethod
-    async def instance(cls, executor: "StepExecutor", node: Node | None, **kwargs: Any) -> Self:
+    async def instance(cls, executor: "StepExecutor", node: NodeInfo | None, **kwargs: Any) -> Self:
         """初始化工具"""
         obj = cls(
             answer=executor.task.runtime.answer,
