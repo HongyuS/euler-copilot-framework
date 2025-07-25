@@ -11,7 +11,7 @@ from pydantic import Field
 
 from apps.llm.function import FunctionLLM, JsonGenerator
 from apps.llm.reasoning import ReasoningLLM
-from apps.models.node import Node
+from apps.models.node import NodeInfo
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.slot.slot import Slot as SlotProcessor
 from apps.schemas.enum_var import CallOutputType
@@ -94,7 +94,7 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
         return await json_gen.generate()
 
     @classmethod
-    async def instance(cls, executor: "StepExecutor", node: Node | None, **kwargs: Any) -> Self:
+    async def instance(cls, executor: "StepExecutor", node: NodeInfo | None, **kwargs: Any) -> Self:
         """实例化Call类"""
         obj = cls(
             name=executor.step.step.name,

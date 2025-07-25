@@ -71,7 +71,6 @@ class UserManager:
             user.lastLogin = datetime.now(tz=pytz.timezone("Asia/Shanghai"))
             await session.commit()
 
-
     @staticmethod
     async def delete_user(user_sub: str) -> None:
         """
@@ -89,5 +88,4 @@ class UserManager:
             await session.delete(user)
             await session.commit()
 
-            for conv_id in result.conversations:
-                await ConversationManager.delete_conversation_by_conversation_id(user_sub, conv_id)
+            await ConversationManager.delete_conversation_by_user_sub(user_sub)

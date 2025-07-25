@@ -3,8 +3,6 @@
 
 import logging
 
-from apps.common.lance import LanceDB
-from apps.common.mongo import MongoDB
 from apps.llm.embedding import Embedding
 from apps.llm.function import FunctionLLM
 from apps.llm.reasoning import ReasoningLLM
@@ -12,6 +10,7 @@ from apps.schemas.mcp import (
     MCPSelectResult,
     MCPTool,
 )
+from apps.services.mcp_service import MCPServiceManager
 
 logger = logging.getLogger(__name__)
 
@@ -80,21 +79,11 @@ class MCPSelector:
         )).where(f"mcp_id IN {MCPSelector._assemble_sql(mcp_list)}").limit(top_n).to_list()
 
         # 拿到工具
-        tool_collection = MongoDB().get_collection("mcp")
         llm_tool_list = []
 
         for tool_vec in tool_vecs:
-            # 到MongoDB里找对应的工具
             logger.info("[MCPHelper] 查询MCP Tool名称和描述: %s", tool_vec["mcp_id"])
-            tool_data = await tool_collection.aggregate([
-                {"$match": {"_id": tool_vec["mcp_id"]}},
-                {"$unwind": "$tools"},
-                {"$match": {"tools.id": tool_vec["id"]}},
-                {"$project": {"_id": 0, "tools": 1}},
-                {"$replaceRoot": {"newRoot": "$tools"}},
-            ])
-            async for tool in tool_data:
-                tool_obj = MCPTool.model_validate(tool)
-                llm_tool_list.append(tool_obj)
+            tool_data = await MCPServiceManager.get_service_tools(tool_vec["mcp_id"])
+            llm_tool_list.extend(tool_data)
 
         return llm_tool_list

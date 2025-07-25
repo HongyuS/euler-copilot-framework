@@ -5,7 +5,7 @@ import logging
 import uuid
 from typing import Any
 
-from apps.common.mongo import MongoDB
+from apps.common.postgres import postgres
 from apps.schemas.record import RecordGroup
 from apps.schemas.request_data import RequestData
 from apps.schemas.task import (
@@ -151,7 +151,7 @@ class TaskManager:
 
 
     @staticmethod
-    async def delete_tasks_by_conversation_id(conversation_id: str) -> None:
+    async def delete_tasks_by_conversation_id(conversation_id: uuid.UUID) -> None:
         """通过ConversationID删除Task信息"""
         mongo = MongoDB()
         task_collection = mongo.get_collection("task")

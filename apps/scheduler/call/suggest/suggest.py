@@ -13,7 +13,7 @@ from pydantic.json_schema import SkipJsonSchema
 
 from apps.common.security import Security
 from apps.llm.function import FunctionLLM
-from apps.models.node import Node
+from apps.models.node import NodeInfo
 from apps.scheduler.call.core import CoreCall
 from apps.schemas.enum_var import CallOutputType
 from apps.schemas.record import RecordContent
@@ -57,7 +57,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
 
 
     @classmethod
-    async def instance(cls, executor: "StepExecutor", node: Node | None, **kwargs: Any) -> Self:
+    async def instance(cls, executor: "StepExecutor", node: NodeInfo | None, **kwargs: Any) -> Self:
         """初始化"""
         context = [
             {

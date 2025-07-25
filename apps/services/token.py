@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 from fastapi import status
-from sqlalchemy import select
+from sqlalchemy import and_, select
 
 from apps.common.config import config
 from apps.common.oidc import oidc_provider
@@ -42,9 +42,11 @@ class TokenManager:
                 await session.scalars(
                     select(Session)
                     .where(
-                        Session.userSub == user_sub,
-                        Session.sessionType == SessionType.ACCESS_TOKEN,
-                        Session.pluginId == str(plugin_id),
+                        and_(
+                            Session.userSub == user_sub,
+                            Session.sessionType == SessionType.ACCESS_TOKEN,
+                            Session.pluginId == str(plugin_id),
+                        ),
                     ),
                 )
             ).one_or_none()
@@ -96,7 +98,12 @@ class TokenManager:
             token_data = (
                 await session.scalars(
                     select(Session)
-                    .where(Session.userSub == user_sub, Session.sessionType == SessionType.ACCESS_TOKEN),
+                    .where(
+                        and_(
+                            Session.userSub == user_sub,
+                            Session.sessionType == SessionType.ACCESS_TOKEN,
+                        ),
+                    ),
                 )
             ).one_or_none()
 
@@ -108,7 +115,12 @@ class TokenManager:
                 refresh_token = (
                     await session.scalars(
                         select(Session)
-                        .where(Session.userSub == user_sub, Session.sessionType == SessionType.REFRESH_TOKEN),
+                        .where(
+                            and_(
+                                Session.userSub == user_sub,
+                                Session.sessionType == SessionType.REFRESH_TOKEN,
+                            ),
+                        ),
                     )
                 ).one_or_none()
 
@@ -171,12 +183,14 @@ class TokenManager:
             token_data = (await session.scalars(
                 select(Session)
                 .where(
-                    Session.userSub == user_sub,
-                    Session.sessionType.in_([
-                        SessionType.ACCESS_TOKEN,
-                        SessionType.REFRESH_TOKEN,
-                        SessionType.PLUGIN_TOKEN,
-                    ]),
+                    and_(
+                        Session.userSub == user_sub,
+                        Session.sessionType.in_([
+                            SessionType.ACCESS_TOKEN,
+                            SessionType.REFRESH_TOKEN,
+                            SessionType.PLUGIN_TOKEN,
+                        ]),
+                    ),
                 ),
             )).all()
             for token in token_data:
