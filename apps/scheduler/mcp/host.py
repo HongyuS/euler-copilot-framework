@@ -10,11 +10,12 @@ from jinja2.sandbox import SandboxedEnvironment
 from mcp.types import TextContent
 
 from apps.llm.function import JsonGenerator
+from apps.models.mcp import MCPTools
 from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
 from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.pool import MCPPool
 from apps.schemas.enum_var import StepStatus
-from apps.schemas.mcp import MCPPlanItem, MCPTool
+from apps.schemas.mcp import MCPPlanItem
 from apps.schemas.task import FlowStepHistory
 from apps.services.mcp_service import MCPServiceManager
 from apps.services.task import TaskManager
@@ -76,7 +77,7 @@ class MCPHost:
 
     async def _save_memory(
         self,
-        tool: MCPTool,
+        tool: MCPTools,
         plan_item: MCPPlanItem,
         input_data: dict[str, Any],
         result: str,
@@ -100,8 +101,8 @@ class MCPHost:
             task_id=self._task_id,
             flow_id=self._runtime_id,
             flow_name=self._runtime_name,
-            step_id=tool.name,
-            step_name=tool.name,
+            step_id=tool.toolId,
+            step_name=tool.toolName,
             # description是规划的实际内容
             step_description=plan_item.content,
             status=StepStatus.SUCCESS,
@@ -121,7 +122,7 @@ class MCPHost:
         return output_data
 
 
-    async def _fill_params(self, tool: MCPTool, query: str) -> dict[str, Any]:
+    async def _fill_params(self, tool: MCPTools, query: str) -> dict[str, Any]:
         """填充工具参数"""
         # 更清晰的输入·指令，这样可以调用generate
         llm_query = rf"""
@@ -137,24 +138,24 @@ class MCPHost:
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": await self.assemble_memory()},
             ],
-            tool.input_schema,
+            tool.inputSchema,
         )
         return await json_generator.generate()
 
 
-    async def call_tool(self, tool: MCPTool, plan_item: MCPPlanItem) -> list[dict[str, Any]]:
+    async def call_tool(self, tool: MCPTools, plan_item: MCPPlanItem) -> list[dict[str, Any]]:
         """调用工具"""
         # 拿到Client
-        client = await MCPPool().get(tool.mcp_id, self._user_sub)
+        client = await MCPPool().get(tool.mcpId, self._user_sub)
         if client is None:
-            err = f"[MCPHost] MCP Server不合法: {tool.mcp_id}"
+            err = f"[MCPHost] MCP Server不合法: {tool.mcpId}"
             logger.error(err)
             raise ValueError(err)
 
         # 填充参数
         params = await self._fill_params(tool, plan_item.instruction)
         # 调用工具
-        result = await client.call_tool(tool.name, params)
+        result = await client.call_tool(tool.toolName, params)
         # 保存记忆
         processed_result = []
         for item in result.content:
@@ -166,7 +167,7 @@ class MCPHost:
         return processed_result
 
 
-    async def get_tool_list(self, mcp_id_list: list[str]) -> list[MCPTool]:
+    async def get_tool_list(self, mcp_id_list: list[str]) -> list[MCPTools]:
         """获取工具列表"""
         # 获取工具列表
         tool_list = []

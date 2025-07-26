@@ -34,13 +34,13 @@ class OIDCProvider:
     async def set_token(user_sub: str, access_token: str, refresh_token: str) -> None:
         """设置MongoDB中的OIDC Token到sessions集合"""
         async with postgres.session() as session:
-            session.add(Session(
+            await session.merge(Session(
                 userSub=user_sub,
                 sessionType=SessionType.ACCESS_TOKEN,
                 token=access_token,
                 validUntil=datetime.now(UTC) + timedelta(minutes=OIDC_ACCESS_TOKEN_EXPIRE_TIME),
             ))
-            session.add(Session(
+            await session.merge(Session(
                 userSub=user_sub,
                 sessionType=SessionType.REFRESH_TOKEN,
                 token=refresh_token,

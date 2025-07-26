@@ -9,7 +9,6 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy import delete, insert
 
 from apps.common.config import config
-from apps.common.mongo import MongoDB
 from apps.common.postgres import postgres
 from apps.llm.embedding import Embedding
 from apps.models.node import NodeInfo
@@ -42,7 +41,7 @@ class ServiceLoader:
 
         # 载入OpenAPI文档，获取Node列表
         try:
-            nodes: list[NodePool] = []
+            nodes: list[NodeInfo] = []
             async for yaml_path in (service_path / "openapi").rglob("*.yaml"):
                 nodes.extend(await OpenAPILoader().load_one(service_id, yaml_path, metadata.api.server))
         except Exception:
@@ -100,7 +99,7 @@ class ServiceLoader:
 
 
     @staticmethod
-    async def _update_db(nodes: list[NodePool], metadata: ServiceMetadata) -> None:
+    async def _update_db(nodes: list[NodeInfo], metadata: ServiceMetadata) -> None:
         """更新数据库"""
         if not metadata.hashes:
             err = f"[ServiceLoader] 服务 {metadata.id} 的哈希值为空"

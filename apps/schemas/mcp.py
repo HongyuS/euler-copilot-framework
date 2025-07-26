@@ -2,10 +2,10 @@
 """MCP 相关数据结构"""
 
 from enum import Enum
-from typing import Any
 
-from lancedb.pydantic import LanceModel, Vector
 from pydantic import BaseModel, Field
+
+from apps.models.mcp import MCPType
 
 
 class MCPStatus(str, Enum):
@@ -47,44 +47,6 @@ class MCPServerConfig(BaseModel):
     type: MCPType = Field(description="MCP 服务器类型", default=MCPType.STDIO)
     author: str = Field(description="MCP 服务器上传者", default="")
     config: MCPServerStdioConfig | MCPServerSSEConfig = Field(description="MCP 服务器配置")
-
-
-class MCPTool(BaseModel):
-    """MCP工具"""
-
-    id: str = Field(description="MCP工具ID")
-    name: str = Field(description="MCP工具名称")
-    description: str = Field(description="MCP工具描述")
-    mcp_id: str = Field(description="MCP ID")
-    input_schema: dict[str, Any] = Field(description="MCP工具输入参数")
-
-
-class MCPCollection(BaseModel):
-    """MCP相关信息"""
-
-    id: str = Field(description="MCP ID", alias="_id", default="")
-    name: str = Field(description="MCP 自然语言名称", default="")
-    description: str = Field(description="MCP 自然语言描述", default="")
-    type: MCPType = Field(description="MCP 类型", default=MCPType.SSE)
-    activated: list[str] = Field(description="激活该MCP的用户ID列表", default=[])
-    tools: list[MCPTool] = Field(description="MCP工具列表", default=[])
-    status: MCPInstallStatus = Field(description="MCP服务状态", default=MCPInstallStatus.INSTALLING)
-    author: str = Field(description="MCP作者", default="")
-
-
-class MCPVector(LanceModel):
-    """MCP向量化数据，存储在LanceDB的 ``mcp`` 表中"""
-
-    id: str = Field(description="MCP ID")
-    embedding: Vector(dim=1024) = Field(description="MCP描述的向量信息")  # type: ignore[call-arg]
-
-
-class MCPToolVector(LanceModel):
-    """MCP工具向量化数据，存储在LanceDB的 ``mcp_tool`` 表中"""
-
-    id: str = Field(description="工具ID")
-    mcp_id: str = Field(description="MCP ID")
-    embedding: Vector(dim=1024) = Field(description="MCP工具描述的向量信息")  # type: ignore[call-arg]
 
 
 class MCPSelectResult(BaseModel):

@@ -6,10 +6,8 @@ import logging
 from apps.llm.embedding import Embedding
 from apps.llm.function import FunctionLLM
 from apps.llm.reasoning import ReasoningLLM
-from apps.schemas.mcp import (
-    MCPSelectResult,
-    MCPTool,
-)
+from apps.models.mcp import MCPTools
+from apps.schemas.mcp import MCPSelectResult
 from apps.services.mcp_service import MCPServiceManager
 
 logger = logging.getLogger(__name__)
@@ -69,7 +67,7 @@ class MCPSelector:
 
 
     @staticmethod
-    async def select_top_tool(query: str, mcp_list: list[str], top_n: int = 10) -> list[MCPTool]:
+    async def select_top_tool(query: str, mcp_list: list[str], top_n: int = 10) -> list[MCPTools]:
         """选择最合适的工具"""
         tool_vector = await LanceDB().get_table("mcp_tool")
         query_embedding = await Embedding.get_embedding([query])

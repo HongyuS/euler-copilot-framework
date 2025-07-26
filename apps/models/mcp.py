@@ -3,10 +3,11 @@
 import uuid
 from datetime import UTC, datetime
 from enum import Enum as PyEnum
+from hashlib import shake_128
 from typing import Any
 
 from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -42,7 +43,7 @@ class MCPInfo(Base):
     """MCP 创建者"""
     config: Mapped[dict[str, Any]] = mapped_column(JSONB)
     """MCP 配置"""
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default_factory=uuid.uuid4)
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
     """MCP ID"""
     updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
@@ -60,9 +61,9 @@ class MCPActivated(Base):
     """MCP 激活用户"""
 
     __tablename__ = "framework_mcp_activated"
-    mcp_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_mcp.id"), index=True, unique=True)
+    mcpId: Mapped[str] = mapped_column(ForeignKey("framework_mcp.id"), index=True, unique=True)  # noqa: N815
     """MCP ID"""
-    user_sub: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"))
+    userSub: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"))  # noqa: N815
     """用户ID"""
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """主键ID"""
@@ -72,9 +73,19 @@ class MCPTools(Base):
     """MCP 工具"""
 
     __tablename__ = "framework_mcp_tools"
-    mcp_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_mcp.id"), index=True)
+    mcpId: Mapped[str] = mapped_column(ForeignKey("framework_mcp.id"), index=True)  # noqa: N815
     """MCP ID"""
-    tools: Mapped[dict[str, Any]] = mapped_column(JSONB)
-    """MCP 工具"""
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
+    toolName: Mapped[str] = mapped_column(String(255))  # noqa: N815
+    """MCP 工具名称"""
+    description: Mapped[str] = mapped_column(String(65535))
+    """MCP 工具描述"""
+    inputSchema: Mapped[dict[str, Any]] = mapped_column(JSONB)  # noqa: N815
+    """MCP 工具输入参数"""
+    outputSchema: Mapped[dict[str, Any]] = mapped_column(JSONB)  # noqa: N815
+    """MCP 工具输出参数"""
+    id: Mapped[str] = mapped_column(
+        String(32),
+        primary_key=True,
+        default_factory=lambda: shake_128(uuid.uuid4().bytes).hexdigest(8),
+    )
     """主键ID"""
