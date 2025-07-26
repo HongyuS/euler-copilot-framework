@@ -2,16 +2,11 @@
 """Call 加载器"""
 
 import asyncio
-import importlib
 import logging
-import sys
-from hashlib import shake_128
 from pathlib import Path
 
 import apps.scheduler.call as system_call
 from apps.common.config import config
-from apps.common.lance import LanceDB
-from apps.common.mongo import MongoDB
 from apps.common.singleton import SingletonMeta
 from apps.llm.embedding import Embedding
 from apps.models.node import NodeInfo

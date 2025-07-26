@@ -3,10 +3,10 @@
 
 import logging
 
-from apps.common.mongo import MongoDB
 from apps.common.singleton import SingletonMeta
 from apps.constants import MCP_PATH
-from apps.schemas.mcp import MCPServerConfig, MCPType
+from apps.models.mcp import MCPType
+from apps.schemas.mcp import MCPServerConfig
 
 from .client import MCPClient
 

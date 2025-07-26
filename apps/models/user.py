@@ -2,10 +2,9 @@
 
 import enum
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from hashlib import sha256
 
-import pytz
 from sqlalchemy import ARRAY, BigInteger, Boolean, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -22,7 +21,7 @@ class User(Base):
     userSub: Mapped[str] = mapped_column(String(50), index=True, unique=True)  # noqa: N815
     """用户名"""
     lastLogin: Mapped[datetime] = mapped_column(  # noqa: N815
-        DateTime(timezone=True), default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
+        DateTime(timezone=True), default_factory=lambda: datetime.now(tz=UTC),
     )
     """用户最后一次登录时间"""
     isActive: Mapped[bool] = mapped_column(Boolean, default=True)  # noqa: N815
@@ -75,7 +74,7 @@ class UserAppUsage(Base):
     usageCount: Mapped[int] = mapped_column(Integer, default=0)  # noqa: N815
     """应用使用次数"""
     lastUsed: Mapped[datetime] = mapped_column(  # noqa: N815
-        DateTime(timezone=True), default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
+        DateTime(timezone=True), default_factory=lambda: datetime.now(tz=UTC),
     )
     """用户最后一次使用时间"""
 

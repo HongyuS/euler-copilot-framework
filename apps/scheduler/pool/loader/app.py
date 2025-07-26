@@ -8,7 +8,6 @@ from anyio import Path
 from fastapi.encoders import jsonable_encoder
 
 from apps.common.config import config
-from apps.common.mongo import MongoDB
 from apps.models.app import App
 from apps.scheduler.pool.check import FileChecker
 from apps.schemas.agent import AgentAppMetadata

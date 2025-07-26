@@ -2,9 +2,7 @@
 """MCP 默认配置"""
 
 import logging
-import random
-
-from sqids.sqids import Sqids
+import uuid
 
 from apps.schemas.mcp import (
     MCPServerConfig,
@@ -14,9 +12,8 @@ from apps.schemas.mcp import (
 )
 
 logger = logging.getLogger(__name__)
-sqids = Sqids(min_length=6)
 DEFAULT_STDIO = MCPServerConfig(
-    name="MCP服务_" + sqids.encode([random.randint(0, 1000000) for _ in range(5)]),  # noqa: S311
+    name="MCP服务_" + uuid.uuid4().hex[:6],
     description="MCP服务描述",
     type=MCPType.STDIO,
     config=MCPServerStdioConfig(
@@ -32,7 +29,7 @@ DEFAULT_STDIO = MCPServerConfig(
 """默认的Stdio协议MCP Server配置"""
 
 DEFAULT_SSE = MCPServerConfig(
-    name="MCP服务_" + sqids.encode([random.randint(0, 1000000) for _ in range(5)]),  # noqa: S311
+    name="MCP服务_" + uuid.uuid4().hex[:6],
     description="MCP服务描述",
     type=MCPType.SSE,
     config=MCPServerSSEConfig(

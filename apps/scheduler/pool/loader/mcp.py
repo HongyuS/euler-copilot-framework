@@ -5,13 +5,14 @@ import asyncio
 import base64
 import json
 import logging
-import random
 import shutil
+from hashlib import shake_128
 
 import asyncer
 from anyio import Path
-from sqids.sqids import Sqids
+from sqlalchemy import select
 
+from apps.common.postgres import postgres
 from apps.common.process_handler import ProcessHandler
 from apps.common.singleton import SingletonMeta
 from apps.constants import MCP_PATH
@@ -20,17 +21,12 @@ from apps.models.mcp import MCPInfo, MCPInstallStatus, MCPTools, MCPType
 from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.install import install_npx, install_uvx
 from apps.schemas.mcp import (
-    MCPCollection,
     MCPServerConfig,
     MCPServerSSEConfig,
     MCPServerStdioConfig,
-    MCPTool,
-    MCPToolVector,
-    MCPVector,
 )
 
 logger = logging.getLogger(__name__)
-sqids = Sqids(min_length=12)
 
 
 class MCPLoader(metaclass=SingletonMeta):
@@ -57,6 +53,7 @@ class MCPLoader(metaclass=SingletonMeta):
             await (MCP_PATH / "users").unlink(missing_ok=True)
             await (MCP_PATH / "users").mkdir(parents=True, exist_ok=True)
 
+
     @staticmethod
     async def _load_config(config_path: Path) -> MCPServerConfig:
         """
@@ -76,6 +73,7 @@ class MCPLoader(metaclass=SingletonMeta):
         await f.aclose()
 
         return MCPServerConfig.model_validate(f_content)
+
 
     @staticmethod
     async def _install_template_task(
@@ -175,12 +173,13 @@ class MCPLoader(metaclass=SingletonMeta):
             logger.info("[MCPLoader] 初始化MCP模板: %s", mcp_dir.as_posix())
             await MCPLoader.init_one_template(mcp_dir.name, config)
 
+
     @staticmethod
     async def _get_template_tool(
             mcp_id: str,
             config: MCPServerConfig,
             user_sub: str | None = None,
-    ) -> list[MCPTool]:
+    ) -> list[MCPTools]:
         """
         获取MCP模板的工具列表
 
@@ -206,12 +205,13 @@ class MCPLoader(metaclass=SingletonMeta):
         # 获取工具列表
         tool_list = []
         for item in client.tools:
-            tool_list += [MCPTool(
-                id=sqids.encode([random.randint(0, 1000000) for _ in range(5)])[:6],  # noqa: S311
-                name=item.name,
-                mcp_id=mcp_id,
+            tool_list += [MCPTools(
+                mcpId=mcp_id,
+                toolId=item.,
+                toolName=item.name,
                 description=item.description or "",
-                input_schema=item.inputSchema,
+                inputSchema=item.inputSchema,
+                outputSchema=item.outputSchema or {},
             )]
         await client.stop()
         return tool_list
@@ -261,6 +261,12 @@ class MCPLoader(metaclass=SingletonMeta):
 
         # 服务本身向量化
         embedding = await Embedding.get_embedding([config.description])
+
+        async with postgres.session() as session:
+            await session.merge(MCPVector(
+                id=mcp_id,
+                embedding=embedding[0],
+            ))
 
         while True:
             try:
@@ -358,23 +364,6 @@ class MCPLoader(metaclass=SingletonMeta):
         await f.aclose()
         return MCPServerConfig.model_validate(config)
 
-    @staticmethod
-    async def update_template_status(mcp_id: str, status: MCPInstallStatus) -> None:
-        """
-        更新数据库中MCP模板状态
-
-        :param str mcp_id: MCP模板ID
-        :param MCPStatus status: MCP模板status
-        :return: 无
-        """
-        # 更新数据库
-        mongo = MongoDB()
-        mcp_collection = mongo.get_collection("mcp")
-        await mcp_collection.update_one(
-            {"_id": mcp_id},
-            {"$set": {"status": status}},
-            upsert=True,
-        )
 
     @staticmethod
     async def user_active_template(user_sub: str, mcp_id: str) -> None:
@@ -488,6 +477,23 @@ class MCPLoader(metaclass=SingletonMeta):
                     else:
                         raise
         logger.info("[MCPLoader] 清除LanceDB中无效的MCP")
+
+
+    @staticmethod
+    async def update_template_status(mcp_id: str, status: MCPInstallStatus) -> None:
+        """
+        更新数据库中MCP模板状态
+
+        :param str mcp_id: MCP模板ID
+        :param MCPInstallStatus status: MCP模板状态
+        :return: 无
+        """
+        async with postgres.session() as session:
+            mcp_data = (await session.scalars(select(MCPInfo).where(MCPInfo.id == mcp_id))).one_or_none()
+            if mcp_data:
+                mcp_data.status = status
+                await session.merge(mcp_data)
+
 
     @staticmethod
     async def delete_mcp(mcp_id: str) -> None:
