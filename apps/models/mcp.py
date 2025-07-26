@@ -7,7 +7,7 @@ from hashlib import shake_128
 from typing import Any
 
 from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -39,11 +39,11 @@ class MCPInfo(Base):
     """MCP 概述"""
     description: Mapped[str] = mapped_column(String(65535))
     """MCP 描述"""
-    author: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"))
+    author: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"))
     """MCP 创建者"""
     config: Mapped[dict[str, Any]] = mapped_column(JSONB)
     """MCP 配置"""
-    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default_factory=uuid.uuid4)
     """MCP ID"""
     updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
@@ -61,9 +61,11 @@ class MCPActivated(Base):
     """MCP 激活用户"""
 
     __tablename__ = "framework_mcp_activated"
-    mcpId: Mapped[str] = mapped_column(ForeignKey("framework_mcp.id"), index=True, unique=True)  # noqa: N815
+    mcpId: Mapped[uuid.UUID] = mapped_column(  # noqa: N815
+        UUID(as_uuid=True), ForeignKey("framework_mcp.id"), index=True, unique=True,
+    )
     """MCP ID"""
-    userSub: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"))  # noqa: N815
+    userSub: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"))  # noqa: N815
     """用户ID"""
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """主键ID"""
@@ -73,7 +75,9 @@ class MCPTools(Base):
     """MCP 工具"""
 
     __tablename__ = "framework_mcp_tools"
-    mcpId: Mapped[str] = mapped_column(ForeignKey("framework_mcp.id"), index=True)  # noqa: N815
+    mcpId: Mapped[uuid.UUID] = mapped_column(  # noqa: N815
+        UUID(as_uuid=True), ForeignKey("framework_mcp.id"), index=True,
+    )
     """MCP ID"""
     toolName: Mapped[str] = mapped_column(String(255))  # noqa: N815
     """MCP 工具名称"""

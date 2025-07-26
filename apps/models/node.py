@@ -1,10 +1,9 @@
 """节点 数据库表"""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
-import pytz
 from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -34,8 +33,8 @@ class NodeInfo(Base):
     """节点ID"""
     updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
-        default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
-        onupdate=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
+        default_factory=lambda: datetime.now(tz=UTC),
+        onupdate=lambda: datetime.now(tz=UTC),
     )
     """节点更新时间"""
 

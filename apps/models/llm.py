@@ -1,8 +1,7 @@
 """大模型信息 数据库表"""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
-import pytz
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -32,7 +31,7 @@ class LLMData(Base):
     """LLM最大Token数量"""
     createdAt: Mapped[DateTime] = mapped_column(  # noqa: N815
         DateTime,
-        default_factory=lambda: datetime.now(pytz.timezone("Asia/Shanghai")),
+        default_factory=lambda: datetime.now(tz=UTC),
         init=False,
     )
     """添加LLM的时间"""

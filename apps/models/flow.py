@@ -1,9 +1,8 @@
 """Flow 数据库表"""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
-import pytz
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -33,8 +32,8 @@ class Flow(Base):
     """Flow的ID"""
     updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
-        default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
-        onupdate=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
+        default_factory=lambda: datetime.now(tz=UTC),
+        onupdate=lambda: datetime.now(tz=UTC),
     )
     """Flow的更新时间"""
     __table_args__ = (

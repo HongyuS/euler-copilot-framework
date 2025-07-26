@@ -7,7 +7,7 @@ from unittest import TestCase
 from fastapi.testclient import TestClient
 from fastapi import status, FastAPI, Request
 
-from apps.routers.blacklist import router
+from apps.routers.blacklist import admin_router
 from apps.dependency import verify_csrf_token, get_current_user
 from apps.schemas.user import User
 
@@ -24,7 +24,7 @@ class TestBlacklistRouter(TestCase):
     @classmethod
     def setUpClass(cls):
         app = FastAPI()
-        app.include_router(router)
+        app.include_router(admin_router)
         app.dependency_overrides[verify_csrf_token] = mock_csrf_token
         app.dependency_overrides[get_current_user] = mock_get_user
         cls.client = TestClient(app)

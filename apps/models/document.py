@@ -1,9 +1,8 @@
 """文件 数据库表"""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
-import pytz
 from sqlalchemy import DateTime, Float, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -31,7 +30,7 @@ class Document(Base):
     """文件的ID"""
     createdAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
-        default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
+        default_factory=lambda: datetime.now(tz=UTC),
     )
     """文件的创建时间"""
     __table_args__ = (

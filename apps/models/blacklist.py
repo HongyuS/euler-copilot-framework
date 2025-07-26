@@ -1,9 +1,8 @@
 """黑名单 数据库表结构"""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
-import pytz
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -30,7 +29,7 @@ class Blacklist(Base):
     """举报原因"""
     updatedAt: Mapped[DateTime] = mapped_column(  # noqa: N815
         DateTime,
-        default_factory=lambda: datetime.now(pytz.timezone("Asia/Shanghai")),
+        default_factory=lambda: datetime.now(tz=UTC),
         init=False,
     )
     """更新时间"""

@@ -1,9 +1,8 @@
 """插件 数据库表"""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
-import pytz
 from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -25,8 +24,8 @@ class Service(Base):
     """插件作者"""
     updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
-        default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
-        onupdate=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
+        default_factory=lambda: datetime.now(tz=UTC),
+        onupdate=lambda: datetime.now(tz=UTC),
     )
     """插件更新时间"""
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default_factory=uuid.uuid4)
