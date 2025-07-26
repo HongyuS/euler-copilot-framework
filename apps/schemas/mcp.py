@@ -44,7 +44,7 @@ class MCPServerConfig(BaseModel):
     name: str = Field(description="MCP 服务器自然语言名称", default="")
     overview: str = Field(description="MCP 服务器概述", default="")
     description: str = Field(description="MCP 服务器自然语言描述", default="")
-    type: MCPType = Field(description="MCP 服务器类型", default=MCPType.STDIO)
+    mcp_type: MCPType = Field(description="MCP 服务器类型", default=MCPType.STDIO)
     author: str = Field(description="MCP 服务器上传者", default="")
     config: MCPServerStdioConfig | MCPServerSSEConfig = Field(description="MCP 服务器配置")
 

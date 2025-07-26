@@ -2,9 +2,8 @@
 """用户限流"""
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
-import pytz
 from sqlalchemy import delete
 
 from apps.common.postgres import postgres
@@ -24,7 +23,7 @@ class Activity:
         :param user_sub: 用户实体ID
         :return: 判断结果，正在提问则返回True
         """
-        time = datetime.now(pytz.timezone("Asia/Shanghai"))
+        time = datetime.now(tz=UTC)
 
         # 检查窗口内总请求数
         count = await MongoDB().get_collection("activity").count_documents(

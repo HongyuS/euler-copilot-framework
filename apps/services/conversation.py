@@ -3,10 +3,9 @@
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
-import pytz
 from sqlalchemy import and_, func, select
 
 from apps.common.postgres import postgres
@@ -78,7 +77,7 @@ class ConversationManager:
         # 使用PostgreSQL实现新建对话，并根据debug和usage进行更新
         try:
             async with postgres.session() as session:
-                session.add(conv)
+                await session.merge(conv)
                 await session.commit()
                 await session.refresh(conv)
 
@@ -96,15 +95,15 @@ class ConversationManager:
                         # 假设App模型有last_used和usage_count字段（如没有请根据实际表结构调整）
                         # 这里只做示例，实际字段名和类型请根据实际情况修改
                         app_obj.usageCount += 1
-                        app_obj.lastUsed = datetime.now(pytz.timezone("Asia/Shanghai"))
-                        session.add(app_obj)
+                        app_obj.lastUsed = datetime.now(tz=UTC)
+                        await session.merge(app_obj)
                         await session.commit()
                     else:
-                        session.add(UserAppUsage(
+                        await session.merge(UserAppUsage(
                             userSub=user_sub,
                             appId=app_id,
                             usageCount=1,
-                            lastUsed=datetime.now(pytz.timezone("Asia/Shanghai")),
+                            lastUsed=datetime.now(tz=UTC),
                         ))
                         await session.commit()
                 return conv
@@ -131,7 +130,7 @@ class ConversationManager:
                 return False
             for key, value in data.items():
                 setattr(conv, key, value)
-            session.add(conv)
+            await session.merge(conv)
             await session.commit()
             return True
 

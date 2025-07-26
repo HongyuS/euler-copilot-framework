@@ -6,6 +6,7 @@ import base64
 import json
 import logging
 import shutil
+import uuid
 from hashlib import shake_128
 
 import asyncer
@@ -120,7 +121,7 @@ class MCPLoader(metaclass=SingletonMeta):
 
 
     @staticmethod
-    async def init_one_template(mcp_id: str, config: MCPServerConfig) -> None:
+    async def init_one_template(mcp_id: uuid.UUID, config: MCPServerConfig) -> None:
         """
         初始化单个MCP模板
 
@@ -132,7 +133,7 @@ class MCPLoader(metaclass=SingletonMeta):
         await MCPLoader._insert_template_db(mcp_id, config)
 
         # 检查目录
-        template_path = MCP_PATH / "template" / mcp_id
+        template_path = MCP_PATH / "template" / str(mcp_id)
         await Path.mkdir(template_path, parents=True, exist_ok=True)
 
         # 安装MCP模板
@@ -191,12 +192,12 @@ class MCPLoader(metaclass=SingletonMeta):
         """
         # 创建客户端
         if (
-            (config.type == MCPType.STDIO and isinstance(config.config, MCPServerStdioConfig))
-            or (config.type == MCPType.SSE and isinstance(config.config, MCPServerSSEConfig))
+            (config.mcp_type == MCPType.STDIO and isinstance(config.config, MCPServerStdioConfig))
+            or (config.mcp_type == MCPType.SSE and isinstance(config.config, MCPServerSSEConfig))
         ):
             client = MCPClient()
         else:
-            err = f"MCP {mcp_id}：未知的MCP服务类型“{config.type}”"
+            err = f"MCP {mcp_id}：未知的MCP服务类型“{config.mcp_type}”"
             logger.error(err)
             raise ValueError(err)
 
@@ -217,7 +218,7 @@ class MCPLoader(metaclass=SingletonMeta):
         return tool_list
 
     @staticmethod
-    async def _insert_template_db(mcp_id: str, config: MCPServerConfig) -> None:
+    async def _insert_template_db(mcp_id: uuid.UUID, config: MCPServerConfig) -> None:
         """插入单个MCP Server模板信息到数据库"""
         mcp_collection = MongoDB().get_collection("mcp")
         await mcp_collection.update_one(
@@ -227,7 +228,7 @@ class MCPLoader(metaclass=SingletonMeta):
                     _id=mcp_id,
                     name=config.name,
                     description=config.description,
-                    type=config.type,
+                    type=config.mcp_type,
                     author=config.author,
                 ).model_dump(by_alias=True, exclude_none=True),
             },
@@ -311,7 +312,7 @@ class MCPLoader(metaclass=SingletonMeta):
         await LanceDB().create_index("mcp_tool")
 
     @staticmethod
-    async def save_one(mcp_id: str, config: MCPServerConfig) -> None:
+    async def save_one(mcp_id: uuid.UUID, config: MCPServerConfig) -> None:
         """
         保存单个MCP模板的配置文件（``config.json``文件和``icon.png``文件）
 
@@ -451,7 +452,15 @@ class MCPLoader(metaclass=SingletonMeta):
         :param list[str] deleted_mcp_list: 被删除的MCP列表
         :return: 无
         """
-        # 从MongoDB中移除
+        # 移除Info
+        async with postgres.session() as session:
+            for mcp_id in deleted_mcp_list:
+                mcp_info = (await session.scalars(select(MCPInfo).where(MCPInfo.id == mcp_id))).one_or_none()
+                if mcp_info:
+                    await session.delete(mcp_info)
+
+
+
         mcp_collection = MongoDB().get_collection("mcp")
         mcp_service_list = await mcp_collection.find(
             {"_id": {"$in": deleted_mcp_list}},
