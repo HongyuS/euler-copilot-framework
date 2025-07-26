@@ -1,8 +1,7 @@
 """用户标签 数据库表"""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
-import pytz
 from sqlalchemy import BigInteger, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -21,7 +20,7 @@ class Tag(Base):
     """标签定义"""
     updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
-        default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
-        onupdate=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
+        default_factory=lambda: datetime.now(tz=UTC),
+        onupdate=lambda: datetime.now(tz=UTC),
     )
     """标签的更新时间"""

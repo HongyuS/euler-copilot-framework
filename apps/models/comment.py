@@ -1,9 +1,8 @@
 """评论 数据库表"""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
-import pytz
 from sqlalchemy import ARRAY, BigInteger, DateTime, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -31,6 +30,6 @@ class Comment(Base):
     feedbackContent: Mapped[str] = mapped_column(String(1000))  # noqa: N815
     """投诉内容"""
     createdAt: Mapped[datetime] = mapped_column(  # noqa: N815
-        DateTime(timezone=True), default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
+        DateTime(timezone=True), default_factory=lambda: datetime.now(tz=UTC),
     )
     """评论创建时间"""

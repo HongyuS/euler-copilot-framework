@@ -1,10 +1,9 @@
 """对话 数据库表"""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum as PyEnum
 
-import pytz
 from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -29,7 +28,7 @@ class Conversation(Base):
     )
     """对话ID"""
     createdAt: Mapped[datetime] = mapped_column(  # noqa: N815
-        DateTime(timezone=True), default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
+        DateTime(timezone=True), default_factory=lambda: datetime.now(tz=UTC),
     )
     """对话创建时间"""
     isTemporary: Mapped[bool] = mapped_column(Boolean, default=False)  # noqa: N815

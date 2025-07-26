@@ -1,37 +1,40 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
-"""MCP服务管理器"""
+"""MCP服务（插件中心）管理器"""
 
 import logging
-import random
 import re
+import uuid
 from typing import Any
 
 from fastapi import UploadFile
 from PIL import Image
-from sqids.sqids import Sqids
+from sqlalchemy import and_, or_, select
 
+from apps.common.postgres import postgres
 from apps.constants import (
     ALLOWED_ICON_MIME_TYPES,
     ICON_PATH,
     SERVICE_PAGE_SIZE,
 )
+from apps.models.mcp import (
+    MCPActivated,
+    MCPInfo,
+    MCPInstallStatus,
+    MCPTools,
+    MCPType,
+)
 from apps.scheduler.pool.loader.mcp import MCPLoader
 from apps.scheduler.pool.mcp.pool import MCPPool
 from apps.schemas.enum_var import SearchType
 from apps.schemas.mcp import (
-    MCPCollection,
-    MCPInstallStatus,
     MCPServerConfig,
     MCPServerSSEConfig,
     MCPServerStdioConfig,
-    MCPTool,
-    MCPType,
 )
 from apps.schemas.request_data import UpdateMCPServiceRequest
 from apps.schemas.response_data import MCPServiceCardItem
 
 logger = logging.getLogger(__name__)
-sqids = Sqids(min_length=6)
 MCP_ICON_PATH = ICON_PATH / "mcp"
 
 
@@ -47,10 +50,15 @@ class MCPServiceManager:
         :param str mcp_id: MCP服务ID
         :return: 是否激活
         """
-        mongo = MongoDB()
-        mcp_collection = mongo.get_collection("mcp")
-        mcp_list = await mcp_collection.find({"_id": mcp_id}, {"activated": True}).to_list(None)
-        return any(user_sub in db_item.get("activated", []) for db_item in mcp_list)
+        async with postgres.session() as session:
+            mcp_info = (await session.scalars(select(MCPActivated).where(
+                and_(
+                    MCPActivated.mcpId == mcp_id,
+                    MCPActivated.userSub == user_sub,
+                ),
+            ))).one_or_none()
+            return bool(mcp_info)
+
 
     @staticmethod
     async def get_service_status(mcp_id: str) -> MCPInstallStatus:
@@ -60,16 +68,12 @@ class MCPServiceManager:
         :param str mcp_id: MCP服务ID
         :return: MCP服务状态
         """
-        mongo = MongoDB()
-        mcp_collection = mongo.get_collection("mcp")
-        mcp_list = await mcp_collection.find({"_id": mcp_id}, {"status": True}).to_list(None)
-        for db_item in mcp_list:
-            status = db_item.get("status")
-            if MCPInstallStatus.READY.value == status:
-                return MCPInstallStatus.READY
-            if MCPInstallStatus.INSTALLING.value == status:
-                return MCPInstallStatus.INSTALLING
-        return MCPInstallStatus.FAILED
+        async with postgres.session() as session:
+            mcp_info = (await session.scalars(select(MCPInfo).where(MCPInfo.id == mcp_id))).one_or_none()
+            if mcp_info:
+                return mcp_info.status
+            return MCPInstallStatus.FAILED
+
 
     @staticmethod
     async def fetch_mcp_services(
@@ -87,8 +91,7 @@ class MCPServiceManager:
         :param page: int: 页码
         :return: MCP服务列表
         """
-        filters = MCPServiceManager._build_filters(search_type, keyword)
-        mcpservice_pools = await MCPServiceManager._search_mcpservice(filters, page)
+        mcpservice_pools = await MCPServiceManager._search_mcpservice(search_type, keyword, page)
         return [
             MCPServiceCardItem(
                 mcpserviceId=item.id,
@@ -102,21 +105,18 @@ class MCPServiceManager:
             for item in mcpservice_pools
         ]
 
+
     @staticmethod
-    async def get_mcp_service(mcpservice_id: str) -> MCPCollection:
+    async def get_mcp_service(mcpservice_id: str) -> MCPInfo | None:
         """
         获取MCP服务详细信息
 
         :param mcpservice_id: str: MCP服务ID
         :return: MCP服务详细信息
         """
-        # 验证用户权限
-        mcpservice_collection = MongoDB().get_collection("mcp")
-        db_service = await mcpservice_collection.find_one({"_id": mcpservice_id})
-        if not db_service:
-            msg = "[MCPServiceManager] MCP服务未找到"
-            raise RuntimeError(msg)
-        return MCPCollection.model_validate(db_service)
+        async with postgres.session() as session:
+            return (await session.scalars(select(MCPInfo).where(MCPInfo.id == mcpservice_id))).one_or_none()
+
 
     @staticmethod
     async def get_mcp_config(mcpservice_id: str) -> tuple[MCPServerConfig, str]:
@@ -130,31 +130,27 @@ class MCPServiceManager:
         config = await MCPLoader.get_config(mcpservice_id)
         return config, icon
 
+
     @staticmethod
     async def get_service_tools(
             service_id: str,
-    ) -> list[MCPTool]:
+    ) -> list[MCPTools]:
         """
         获取MCP可以用工具
 
         :param service_id: str: MCP服务ID
         :return: MCP工具详细信息列表
         """
-        # 获取服务名称
-        service_collection = MongoDB().get_collection("mcp")
-        data = await service_collection.find({"_id": service_id}, {"tools": True}).to_list(None)
-        result = []
-        for item in data:
-            for tool in item.get("tools", {}):
-                tool_data = MCPTool.model_validate(tool)
-                result.append(tool_data)
-        return result
+        async with postgres.session() as session:
+            return list((await session.scalars(select(MCPTools).where(MCPTools.mcpId == service_id))).all())
+
 
     @staticmethod
     async def _search_mcpservice(
-            search_conditions: dict[str, Any],
+            search_type: SearchType,
+            keyword: str | None,
             page: int,
-    ) -> list[MCPCollection]:
+    ) -> list[MCPInfo]:
         """
         基于输入条件搜索MCP服务
 
@@ -162,44 +158,53 @@ class MCPServiceManager:
         :param page: int: 页码
         :return: MCP列表
         """
-        mcpservice_collection = MongoDB().get_collection("mcp")
         # 分页查询
         skip = (page - 1) * SERVICE_PAGE_SIZE
-        db_mcpservices = await mcpservice_collection.find(search_conditions).skip(skip).limit(
-            SERVICE_PAGE_SIZE,
-        ).to_list()
+
+        async with postgres.session() as session:
+            if not keyword:
+                result = list(
+                    (await session.scalars(select(MCPInfo).offset(skip).limit(SERVICE_PAGE_SIZE))).all(),
+                )
+            elif search_type == SearchType.ALL:
+                result = list(
+                    (await session.scalars(select(MCPInfo).where(
+                        or_(
+                            MCPInfo.name.like(f"%{keyword}%"),
+                            MCPInfo.description.like(f"%{keyword}%"),
+                            MCPInfo.author.like(f"%{keyword}%"),
+                        ),
+                    ).offset(skip).limit(SERVICE_PAGE_SIZE))).all(),
+                )
+            elif search_type == SearchType.NAME:
+                result = list(
+                    (await session.scalars(
+                        select(MCPInfo).where(MCPInfo.name.like(f"%{keyword}%")).offset(skip).limit(SERVICE_PAGE_SIZE),
+                    )).all(),
+                )
+            elif search_type == SearchType.DESCRIPTION:
+                result = list(
+                    (await session.scalars(
+                        select(MCPInfo).where(MCPInfo.description.like(f"%{keyword}%")).offset(skip).limit(SERVICE_PAGE_SIZE),
+                    )).all(),
+                )
+            elif search_type == SearchType.AUTHOR:
+                result = list(
+                    (await session.scalars(
+                        select(MCPInfo).where(MCPInfo.author.like(f"%{keyword}%")).offset(skip).limit(SERVICE_PAGE_SIZE),
+                    )).all(),
+                )
+
         # 如果未找到，返回空列表
-        if not db_mcpservices:
-            logger.warning("[MCPServiceManager] 没有找到符合条件的MCP服务: %s", search_conditions)
+        if not result:
+            logger.warning("[MCPServiceManager] 没有找到符合条件的MCP服务: %s", search_type)
             return []
         # 将数据库中的MCP服务转换为对象
-        return [MCPCollection.model_validate(db_mcpservice) for db_mcpservice in db_mcpservices]
-
-    @staticmethod
-    def _build_filters(
-            search_type: SearchType,
-            keyword: str | None,
-    ) -> dict[str, Any]:
-        if not keyword:
-            return {}
-
-        if search_type == SearchType.ALL:
-            base_filters = {"$or": [
-                {"name": {"$regex": keyword, "$options": "i"}},
-                {"description": {"$regex": keyword, "$options": "i"}},
-                {"author": {"$regex": keyword, "$options": "i"}},
-            ]}
-        elif search_type == SearchType.NAME:
-            base_filters = {"name": {"$regex": keyword, "$options": "i"}}
-        elif search_type == SearchType.DESCRIPTION:
-            base_filters = {"description": {"$regex": keyword, "$options": "i"}}
-        elif search_type == SearchType.AUTHOR:
-            base_filters = {"author": {"$regex": keyword, "$options": "i"}}
-        return base_filters
+        return result
 
 
     @staticmethod
-    async def create_mcpservice(data: UpdateMCPServiceRequest, user_sub: str) -> str:
+    async def create_mcpservice(data: UpdateMCPServiceRequest, user_sub: str) -> uuid.UUID:
         """
         创建MCP服务
 
@@ -218,23 +223,23 @@ class MCPServiceManager:
             overview=data.overview,
             description=data.description,
             config=config,
-            type=data.mcp_type,
+            mcp_type=data.mcp_type,
             author=user_sub,
         )
 
         # 检查是否存在相同服务
-        mcp_collection = MongoDB().get_collection("mcp")
-        db_service = await mcp_collection.find_one({"name": mcp_server.name})
-        mcp_id = sqids.encode([random.randint(0, 1000000) for _ in range(5)])[:6]  # noqa: S311
-        if db_service:
-            mcp_server.name = f"{mcp_server.name}-{mcp_id}"
-            logger.warning("[MCPServiceManager] 已存在相同名称和描述的MCP服务")
+        async with postgres.session() as session:
+            mcp_info = (await session.scalars(select(MCPInfo).where(MCPInfo.name == mcp_server.name))).one_or_none()
+            if mcp_info:
+                mcp_server.name = f"{mcp_server.name}-{uuid.uuid4().hex[:6]}"
+                logger.warning("[MCPServiceManager] 已存在相同ID或名称的MCP服务")
 
         # 保存并载入配置
         logger.info("[MCPServiceManager] 创建mcp：%s", mcp_server.name)
-        await MCPLoader.save_one(mcp_id, mcp_server)
-        await MCPLoader.init_one_template(mcp_id=mcp_id, config=mcp_server)
-        return mcp_id
+        await MCPLoader.save_one(mcp_server.id, mcp_server)
+        await MCPLoader.init_one_template(mcp_id=mcp_server.id, config=mcp_server)
+        return mcp_server.id
+
 
     @staticmethod
     async def update_mcpservice(data: UpdateMCPServiceRequest, user_sub: str) -> str:
@@ -267,18 +272,18 @@ class MCPServiceManager:
             ) if data.mcp_type == MCPType.STDIO else MCPServerSSEConfig.model_validate_json(
                 data.config,
             ),
-            type=data.mcp_type,
+            mcp_type=data.mcp_type,
             author=user_sub,
         ))
         # 返回服务ID
         return data.service_id
+
 
     @staticmethod
     async def delete_mcpservice(service_id: str) -> None:
         """
         删除MCP服务
 
-        :param user_sub: str: 用户ID
         :param service_id: str: MCP服务ID
         :return: 是否删除成功
         """
@@ -291,6 +296,7 @@ class MCPServiceManager:
             {"mcp_service": service_id},
             {"$pull": {"mcp_service": service_id}},
         )
+
 
     @staticmethod
     async def active_mcpservice(
@@ -370,3 +376,50 @@ class MCPServiceManager:
         image.save(MCP_ICON_PATH / f"{service_id}.png", format="PNG", optimize=True, compress_level=9)
 
         return f"/static/mcp/{service_id}.png"
+
+
+    @staticmethod
+    async def is_user_actived(user_sub: str, mcp_id: str) -> bool:
+        """
+        判断用户是否激活MCP
+
+        :param user_sub: str: 用户ID
+        :param mcp_id: str: MCP服务ID
+        :return: 是否激活
+        """
+        async with postgres.session() as session:
+            mcp_info = (await session.scalars(select(MCPActivated).where(
+                and_(
+                    MCPActivated.mcpId == mcp_id,
+                    MCPActivated.userSub == user_sub,
+                ),
+            ))).one_or_none()
+            return bool(mcp_info)
+
+
+    @staticmethod
+    async def query_mcp_tools(mcp_id: str) -> list[MCPTools]:
+        """
+        查询MCP工具
+
+        :param mcp_id: str: MCP服务ID
+        :return: MCP工具列表
+        """
+        async with postgres.session() as session:
+            mcp_tools = list((await session.scalars(select(MCPTools).where(MCPTools.mcpId == mcp_id))).all())
+
+
+    @staticmethod
+    async def add_mcp_template(mcp_id: str, config: MCPServerConfig, tools: list[MCPTools]) -> None:
+        # 插入MCP表
+        async with postgres.session() as session:
+            await session.merge(MCPInfo(
+                id=mcp_id,
+                name=config.name,
+                description=config.description,
+                config=config,
+                overview=config.overview,
+                mcpType=config.mcp_type,
+                author=config.author,
+                status=MCPInstallStatus.INSTALLING,
+            ))

@@ -33,7 +33,7 @@ class MCPPool(metaclass=SingletonMeta):
 
         config = MCPServerConfig.model_validate_json(await config_path.read_text())
 
-        if config.type in (MCPType.SSE, MCPType.STDIO):
+        if config.mcp_type in (MCPType.SSE, MCPType.STDIO):
             client = MCPClient()
         else:
             logger.warning("[MCPPool] 用户 %s 的MCP %s 类型错误", user_sub, mcp_id)

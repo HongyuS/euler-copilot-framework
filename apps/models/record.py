@@ -1,10 +1,9 @@
 """问答对 数据库表"""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
-import pytz
 from sqlalchemy import VARCHAR, BigInteger, DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -31,7 +30,7 @@ class Record(Base):
     )
     """问答对ID"""
     createdAt: Mapped[datetime] = mapped_column(  # noqa: N815
-        DateTime(timezone=True), default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")),
+        DateTime(timezone=True), default_factory=lambda: datetime.now(tz=UTC),
     )
     """问答对创建时间"""
 

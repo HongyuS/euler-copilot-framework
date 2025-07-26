@@ -1,10 +1,9 @@
 """会话相关 数据库表"""
 
 import secrets
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum as PyEnum
 
-import pytz
 from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -28,7 +27,7 @@ class Session(Base):
     """用户名"""
     validUntil: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
-        default_factory=lambda: datetime.now(tz=pytz.timezone("Asia/Shanghai")) + timedelta(days=30),
+        default_factory=lambda: datetime.now(tz=UTC) + timedelta(days=30),
     )
     """有效期"""
     id: Mapped[str] = mapped_column(String(255), primary_key=True, default_factory=lambda: secrets.token_hex(16))

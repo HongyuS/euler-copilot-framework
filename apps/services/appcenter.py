@@ -247,7 +247,7 @@ class AppCenterManager:
                 msg = f"[AppCenterManager] 应用不存在: {app_id}"
                 raise ValueError(msg)
             app_obj.isPublished = published
-            session.add(app_obj)
+            await session.merge(app_obj)
             await session.commit()
 
         await AppCenterManager._process_app_and_save(
@@ -376,11 +376,11 @@ class AppCenterManager:
                 if app_data.appId == app_id:
                     app_data.lastUsed = datetime.now(UTC)
                     app_data.usageCount += 1
-                    session.add(app_data)
+                    await session.merge(app_data)
                     break
             else:
                 app_data = UserAppUsage(userSub=user_sub, appId=app_id, lastUsed=datetime.now(UTC), usageCount=1)
-                session.add(app_data)
+                await session.merge(app_data)
             await session.commit()
             return
 
