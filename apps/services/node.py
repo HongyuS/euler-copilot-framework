@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from apps.common.postgres import postgres
 from apps.models.node import NodeInfo
+from apps.scheduler.pool.pool import Pool
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
@@ -57,8 +58,6 @@ class NodeManager:
     @staticmethod
     async def get_node_params(node_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
         """获取Node数据"""
-        from apps.scheduler.pool.pool import Pool
-
         # 查找Node信息
         logger.info("[NodeManager] 获取节点 %s", node_id)
         node_data = await NodeManager.get_node(node_id)

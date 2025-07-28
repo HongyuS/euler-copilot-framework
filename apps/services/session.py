@@ -37,7 +37,7 @@ class SessionManager:
         )
 
         async with postgres.session() as session:
-            session.add(data)
+            await session.merge(data)
             await session.commit()
 
         return data.id

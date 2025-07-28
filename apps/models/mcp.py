@@ -7,7 +7,7 @@ from hashlib import shake_128
 from typing import Any
 
 from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -43,7 +43,7 @@ class MCPInfo(Base):
     """MCP 创建者"""
     config: Mapped[dict[str, Any]] = mapped_column(JSONB)
     """MCP 配置"""
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default_factory=uuid.uuid4)
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
     """MCP ID"""
     updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
@@ -61,8 +61,8 @@ class MCPActivated(Base):
     """MCP 激活用户"""
 
     __tablename__ = "framework_mcp_activated"
-    mcpId: Mapped[uuid.UUID] = mapped_column(  # noqa: N815
-        UUID(as_uuid=True), ForeignKey("framework_mcp.id"), index=True, unique=True,
+    mcpId: Mapped[str] = mapped_column(  # noqa: N815
+        String(100), ForeignKey("framework_mcp.id"), index=True, unique=True,
     )
     """MCP ID"""
     userSub: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"))  # noqa: N815
@@ -75,8 +75,8 @@ class MCPTools(Base):
     """MCP 工具"""
 
     __tablename__ = "framework_mcp_tools"
-    mcpId: Mapped[uuid.UUID] = mapped_column(  # noqa: N815
-        UUID(as_uuid=True), ForeignKey("framework_mcp.id"), index=True,
+    mcpId: Mapped[str] = mapped_column(  # noqa: N815
+        String(100), ForeignKey("framework_mcp.id"), index=True,
     )
     """MCP ID"""
     toolName: Mapped[str] = mapped_column(String(255))  # noqa: N815

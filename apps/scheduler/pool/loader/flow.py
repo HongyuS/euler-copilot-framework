@@ -2,6 +2,7 @@
 """Flow加载器"""
 
 import logging
+import uuid
 from hashlib import sha256
 from typing import Any
 
@@ -11,7 +12,6 @@ from anyio import Path
 from sqlalchemy import delete, insert
 
 from apps.common.config import config
-from apps.common.mongo import MongoDB
 from apps.common.postgres import postgres
 from apps.llm.embedding import Embedding
 from apps.models.app import App
@@ -53,7 +53,7 @@ class FlowLoader:
 
         return flow_yaml
 
-    async def _process_edges(self, flow_yaml: dict[str, Any], flow_id: str, app_id: str) -> dict[str, Any]:
+    async def _process_edges(self, flow_yaml: dict[str, Any], flow_id: uuid.UUID, app_id: uuid.UUID) -> dict[str, Any]:
         """处理工作流边的转换"""
         logger.info("[FlowLoader] 应用 %s：解析工作流 %s 的边", flow_id, app_id)
         try:
@@ -70,7 +70,7 @@ class FlowLoader:
         else:
             return flow_yaml
 
-    async def _process_steps(self, flow_yaml: dict[str, Any], flow_id: str, app_id: str) -> dict[str, Any]:
+    async def _process_steps(self, flow_yaml: dict[str, Any], flow_id: uuid.UUID, app_id: uuid.UUID) -> dict[str, Any]:
         """处理工作流步骤的转换"""
         logger.info("[FlowLoader] 应用 %s：解析工作流 %s 的步骤", flow_id, app_id)
         for key, step in flow_yaml["steps"].items():
@@ -87,24 +87,26 @@ class FlowLoader:
                 step["description"] = "结束节点"
                 step["type"] = "end"
             else:
+                node_info = await NodeManager.get_node(step["node"])
                 try:
-                    step["type"] = await NodeManager.get_node_call_id(step["node"])
+                    step["type"] = node_info.callId
                 except ValueError as e:
-                    logger.warning("[FlowLoader] 获取节点call_id失败：%s，错误信息：%s", step["node"], e)
+                    logger.warning("[FlowLoader] 获取节点call_id失败：%s，错误信息：%s", node_info.id, e)
                     step["type"] = "Empty"
                 step["name"] = (
-                    (await NodeManager.get_node_name(step["node"]))
+                    node_info.name
                     if "name" not in step or step["name"] == ""
                     else step["name"]
                 )
         return flow_yaml
 
-    async def load(self, app_id: str, flow_id: str) -> Flow | None:
+
+    async def load(self, app_id: uuid.UUID, flow_id: uuid.UUID) -> Flow | None:
         """从文件系统中加载【单个】工作流"""
         logger.info("[FlowLoader] 应用 %s：加载工作流 %s...", flow_id, app_id)
 
         # 构建工作流文件路径
-        flow_path = BASE_PATH / app_id / "flow" / f"{flow_id}.yaml"
+        flow_path = BASE_PATH / str(app_id) / "flow" / f"{flow_id}.yaml"
         if not await flow_path.exists():
             logger.error("[FlowLoader] 应用 %s：工作流文件 %s 不存在", app_id, flow_path)
             return None
@@ -141,9 +143,9 @@ class FlowLoader:
             logger.exception("[FlowLoader] 应用 %s：工作流 %s 格式不合法", app_id, flow_id)
             return None
 
-    async def save(self, app_id: str, flow_id: str, flow: Flow) -> None:
+    async def save(self, app_id: uuid.UUID, flow_id: uuid.UUID, flow: Flow) -> None:
         """保存工作流"""
-        flow_path = BASE_PATH / app_id / "flow" / f"{flow_id}.yaml"
+        flow_path = BASE_PATH / str(app_id) / "flow" / f"{flow_id}.yaml"
         if not await flow_path.parent.exists():
             await flow_path.parent.mkdir(parents=True)
 
@@ -170,9 +172,9 @@ class FlowLoader:
             ),
         )
 
-    async def delete(self, app_id: str, flow_id: str) -> bool:
+    async def delete(self, app_id: uuid.UUID, flow_id: uuid.UUID) -> bool:
         """删除指定工作流文件"""
-        flow_path = BASE_PATH / app_id / "flow" / f"{flow_id}.yaml"
+        flow_path = BASE_PATH / str(app_id) / "flow" / f"{flow_id}.yaml"
         # 确保目标为文件且存在
         if await flow_path.exists():
             try:
@@ -183,12 +185,13 @@ class FlowLoader:
                 return False
 
             async with postgres.session() as session:
-                await session.execute(delete(FlowPoolVector).where(FlowPoolVector.flow_id == flow_id))
+                await session.execute(delete(FlowPoolVector).where(FlowPoolVector.id == flow_id))
             return True
         logger.warning("[FlowLoader] 工作流文件不存在或不是文件：%s", flow_path)
         return True
 
-    async def _update_db(self, app_id: str, metadata: AppFlow) -> None:
+
+    async def _update_db(self, app_id: uuid.UUID, metadata: AppFlow) -> None:
         """更新数据库"""
         try:
             app_collection = MongoDB().get_collection("app")

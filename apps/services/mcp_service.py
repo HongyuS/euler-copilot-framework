@@ -4,8 +4,8 @@
 import logging
 import re
 import uuid
-from typing import Any
 
+import magic
 from fastapi import UploadFile
 from PIL import Image
 from sqlalchemy import and_, or_, select
@@ -223,7 +223,7 @@ class MCPServiceManager:
             overview=data.overview,
             description=data.description,
             config=config,
-            mcp_type=data.mcp_type,
+            mcpType=data.mcp_type,
             author=user_sub,
         )
 
@@ -272,7 +272,7 @@ class MCPServiceManager:
             ) if data.mcp_type == MCPType.STDIO else MCPServerSSEConfig.model_validate_json(
                 data.config,
             ),
-            mcp_type=data.mcp_type,
+            mcpType=data.mcp_type,
             author=user_sub,
         ))
         # 返回服务ID
@@ -301,7 +301,7 @@ class MCPServiceManager:
     @staticmethod
     async def active_mcpservice(
             user_sub: str,
-            service_id: str,
+            service_id: uuid.UUID,
     ) -> None:
         """
         激活MCP服务
@@ -310,20 +310,25 @@ class MCPServiceManager:
         :param service_id: str: MCP服务ID
         :return: 无
         """
-        mcp_collection = MongoDB().get_collection("mcp")
-        status = await mcp_collection.find({"_id": service_id}, {"status": 1}).to_list()
-        for item in status:
-            mcp_status = item.get("status", MCPInstallStatus.INSTALLING)
-            if mcp_status == MCPInstallStatus.READY:
-                await MCPLoader.user_active_template(user_sub, service_id)
-            else:
+        async with postgres.session() as session:
+            mcp_info = (await session.scalars(select(MCPInfo).where(MCPInfo.id == service_id))).one_or_none()
+            if not mcp_info:
+                err = "[MCPServiceManager] MCP服务未找到"
+                raise ValueError(err)
+            if mcp_info.status != MCPInstallStatus.READY:
                 err = "[MCPServiceManager] MCP服务未准备就绪"
                 raise RuntimeError(err)
+            await session.merge(MCPActivated(
+                mcpId=mcp_info.id,
+                userSub=user_sub,
+            ))
+            await session.commit()
+            await MCPLoader.user_active_template(user_sub, service_id)
 
     @staticmethod
     async def deactive_mcpservice(
             user_sub: str,
-            service_id: str,
+            service_id: uuid.UUID,
     ) -> None:
         """
         取消激活MCP服务
@@ -352,12 +357,11 @@ class MCPServiceManager:
 
     @staticmethod
     async def save_mcp_icon(
-            service_id: str,
+            service_id: uuid.UUID,
             icon: UploadFile,
     ) -> str:
         """保存MCP服务图标"""
         # 检查MIME
-        import magic
         mime = magic.from_buffer(icon.file.read(), mime=True)
         icon.file.seek(0)
 
@@ -406,7 +410,7 @@ class MCPServiceManager:
         :return: MCP工具列表
         """
         async with postgres.session() as session:
-            mcp_tools = list((await session.scalars(select(MCPTools).where(MCPTools.mcpId == mcp_id))).all())
+            return list((await session.scalars(select(MCPTools).where(MCPTools.mcpId == mcp_id))).all())
 
 
     @staticmethod
@@ -419,7 +423,7 @@ class MCPServiceManager:
                 description=config.description,
                 config=config,
                 overview=config.overview,
-                mcpType=config.mcp_type,
+                mcpType=config.mcpType,
                 author=config.author,
                 status=MCPInstallStatus.INSTALLING,
             ))

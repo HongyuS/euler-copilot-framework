@@ -20,9 +20,8 @@ class MCPBasicConfig(BaseModel):
     """MCP 基本配置"""
 
     env: dict[str, str] = Field(description="MCP 服务器环境变量", default={})
-    auto_approve: list[str] = Field(description="自动批准的MCP工具ID列表", default=[], alias="autoApprove")
-    disabled: bool = Field(description="MCP 服务器是否禁用", default=False)
-    auto_install: bool = Field(description="是否自动安装MCP服务器", default=True, alias="autoInstall")
+    autoApprove: list[str] = Field(description="自动批准的MCP权限列表", default=[])  # noqa: N815
+    autoInstall: bool = Field(description="是否自动安装MCP服务器", default=True)  # noqa: N815
 
 
 class MCPServerStdioConfig(MCPBasicConfig):
@@ -38,15 +37,24 @@ class MCPServerSSEConfig(MCPBasicConfig):
     url: str = Field(description="MCP 服务器地址", default="")
 
 
-class MCPServerConfig(BaseModel):
+class MCPServerItem(BaseModel):
+    """MCP 服务器信息"""
+
+    mcpServers: dict[str, MCPServerStdioConfig | MCPServerSSEConfig] = Field( # noqa: N815
+        description="MCP 服务器列表",
+        max_length=1,
+        min_length=1,
+    )
+
+
+class MCPServerConfig(MCPServerItem):
     """MCP 服务器配置"""
 
     name: str = Field(description="MCP 服务器自然语言名称", default="")
     overview: str = Field(description="MCP 服务器概述", default="")
     description: str = Field(description="MCP 服务器自然语言描述", default="")
-    mcp_type: MCPType = Field(description="MCP 服务器类型", default=MCPType.STDIO)
+    mcpType: MCPType = Field(description="MCP 服务器类型", default=MCPType.STDIO)  # noqa: N815
     author: str = Field(description="MCP 服务器上传者", default="")
-    config: MCPServerStdioConfig | MCPServerSSEConfig = Field(description="MCP 服务器配置")
 
 
 class MCPSelectResult(BaseModel):
