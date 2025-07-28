@@ -16,7 +16,7 @@ class FlowPoolVector(Base):
     __tablename__ = "framework_flow_vector"
     appId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_app.id"), nullable=False)  # noqa: N815
     """所属App的ID"""
-    embedding: Mapped[Vector] = mapped_column(Vector(1024), nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=False)
     """向量数据"""
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("framework_flow.id"), primary_key=True)
     """Flow的ID"""
@@ -35,7 +35,7 @@ class ServicePoolVector(Base):
     """Service向量数据"""
 
     __tablename__ = "framework_service_vector"
-    embedding: Mapped[Vector] = mapped_column(Vector(1024), nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=False)
     """向量数据"""
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("framework_service.id"), primary_key=True)
     """Service的ID"""
@@ -54,7 +54,7 @@ class NodePoolVector(Base):
     """Node向量数据"""
 
     __tablename__ = "framework_node_vector"
-    embedding: Mapped[Vector] = mapped_column(Vector(1024), nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=False)
     """向量数据"""
     serviceId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_service.id"), nullable=False)  # noqa: N815
     """Service的ID"""
@@ -75,7 +75,7 @@ class MCPVector(Base):
     """MCP向量数据"""
 
     __tablename__ = "framework_mcp_vector"
-    embedding: Mapped[Vector] = mapped_column(Vector(1024), nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=False)
     """向量数据"""
     id: Mapped[str] = mapped_column(String(255), ForeignKey("framework_mcp.id"), primary_key=True)
     """MCP的ID"""
@@ -94,7 +94,7 @@ class MCPToolVector(Base):
     """MCP工具向量数据"""
 
     __tablename__ = "framework_mcp_tool_vector"
-    embedding: Mapped[Vector] = mapped_column(Vector(1024), nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=False)
     """向量数据"""
     mcpId: Mapped[str] = mapped_column(String(255), ForeignKey("framework_mcp.id"), nullable=False, index=True)  # noqa: N815
     """MCP的ID"""

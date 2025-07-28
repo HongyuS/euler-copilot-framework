@@ -173,7 +173,7 @@ async def get_service_detail(
                 indent=4,
                 ensure_ascii=False,
             ),
-            mcpType=config.mcp_type,
+            mcpType=config.mcpType,
         )
     else:
         # 组装详情所需信息

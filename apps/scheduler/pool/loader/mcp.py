@@ -1,24 +1,21 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MCP 加载器"""
 
-import asyncio
-import base64
 import json
 import logging
 import shutil
-import uuid
-from hashlib import shake_128
 
 import asyncer
 from anyio import Path
-from sqlalchemy import select
+from sqlalchemy import and_, delete, select
 
 from apps.common.postgres import postgres
 from apps.common.process_handler import ProcessHandler
 from apps.common.singleton import SingletonMeta
 from apps.constants import MCP_PATH
 from apps.llm.embedding import Embedding
-from apps.models.mcp import MCPInfo, MCPInstallStatus, MCPTools, MCPType
+from apps.models.mcp import MCPActivated, MCPInfo, MCPInstallStatus, MCPTools, MCPType
+from apps.models.vectors import MCPToolVector, MCPVector
 from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.install import install_npx, install_uvx
 from apps.schemas.mcp import (
@@ -77,51 +74,51 @@ class MCPLoader(metaclass=SingletonMeta):
 
 
     @staticmethod
-    async def _install_template_task(
-        mcp_id: str, config: MCPServerConfig,
-    ) -> None:
+    async def _install_template_task(item: MCPServerConfig) -> None:
         """
         安装依赖；此函数在子进程中运行
 
-        :param str mcp_id: MCP模板ID
         :param MCPServerConfig config: MCP配置
         :return: 无
         """
-        if not config.config.auto_install:
+        mcp_id = next(iter(item.mcpServers.keys()))
+        mcp_config = item.mcpServers[mcp_id]
+
+        if not mcp_config.autoInstall:
             print(f"[Installer] MCP模板无需安装: {mcp_id}")  # noqa: T201
 
-        elif isinstance(config.config, MCPServerStdioConfig):
+        elif isinstance(mcp_config, MCPServerStdioConfig):
             print(f"[Installer] Stdio方式的MCP模板，开始自动安装: {mcp_id}")  # noqa: T201
-            if "uv" in config.config.command:
-                new_config = await install_uvx(mcp_id, config.config)
-            elif "npx" in config.config.command:
-                new_config = await install_npx(mcp_id, config.config)
+            if "uv" in mcp_config.command:
+                new_config = await install_uvx(mcp_id, mcp_config)
+            elif "npx" in mcp_config.command:
+                new_config = await install_npx(mcp_id, mcp_config)
 
             if new_config is None:
                 logger.error("[MCPLoader] MCP模板安装失败: %s", mcp_id)
                 await MCPLoader.update_template_status(mcp_id, MCPInstallStatus.FAILED)
                 return
 
-            config.config = new_config
+            item.mcpServers[mcp_id] = new_config
 
             # 重新保存config
             template_config = MCP_PATH / "template" / mcp_id / "config.json"
             f = await template_config.open("w+", encoding="utf-8")
-            config_data = config.model_dump(by_alias=True, exclude_none=True)
+            config_data = item.model_dump(by_alias=True, exclude_none=True)
             await f.write(json.dumps(config_data, indent=4, ensure_ascii=False))
             await f.aclose()
 
         else:
             print(f"[Installer] SSE/StreamableHTTP方式的MCP模板，无需安装: {mcp_id}")  # noqa: T201
-            config.config.auto_install = False
+            item.mcpServers[mcp_id].autoInstall = False
 
         print(f"[Installer] MCP模板安装成功: {mcp_id}")  # noqa: T201
         await MCPLoader.update_template_status(mcp_id, MCPInstallStatus.READY)
-        await MCPLoader._insert_template_tool(mcp_id, config)
+        await MCPLoader._insert_template_tool(mcp_id, item)
 
 
     @staticmethod
-    async def init_one_template(mcp_id: uuid.UUID, config: MCPServerConfig) -> None:
+    async def init_one_template(mcp_id: str, config: MCPServerConfig) -> None:
         """
         初始化单个MCP模板
 
@@ -129,6 +126,12 @@ class MCPLoader(metaclass=SingletonMeta):
         :param MCPServerConfig config: MCP配置
         :return: 无
         """
+        # 如果包含多个MCP Server，报错
+        if len(config.mcpServers) > 1:
+            err = f"[MCPLoader] MCP模板“{mcp_id}”包含多个MCP Server，无法初始化"
+            logger.error(err)
+            raise ValueError(err)
+
         # 插入数据库；这里用旧的config就可以
         await MCPLoader._insert_template_db(mcp_id, config)
 
@@ -146,7 +149,7 @@ class MCPLoader(metaclass=SingletonMeta):
     @staticmethod
     async def _init_all_template() -> None:
         """
-        初始化所有MCP模板
+        初始化所有文件夹中的MCP模板
 
         遍历 ``template`` 目录下的所有MCP模板，并初始化。在Framework启动时进行此流程，确保所有MCP均可正常使用。
         这一过程会与数据库内的条目进行对比，若发生修改，则重新创建数据库条目。
@@ -192,23 +195,22 @@ class MCPLoader(metaclass=SingletonMeta):
         """
         # 创建客户端
         if (
-            (config.mcp_type == MCPType.STDIO and isinstance(config.config, MCPServerStdioConfig))
-            or (config.mcp_type == MCPType.SSE and isinstance(config.config, MCPServerSSEConfig))
+            (config.mcpType == MCPType.STDIO and isinstance(config.mcpServers[mcp_id], MCPServerStdioConfig))
+            or (config.mcpType == MCPType.SSE and isinstance(config.mcpServers[mcp_id], MCPServerSSEConfig))
         ):
             client = MCPClient()
         else:
-            err = f"MCP {mcp_id}：未知的MCP服务类型“{config.mcp_type}”"
+            err = f"MCP {mcp_id}：未知的MCP服务类型“{config.mcpType}”"
             logger.error(err)
             raise ValueError(err)
 
-        await client.init(user_sub, mcp_id, config.config)
+        await client.init(user_sub, mcp_id, config.mcpServers[mcp_id])
 
         # 获取工具列表
         tool_list = []
         for item in client.tools:
             tool_list += [MCPTools(
                 mcpId=mcp_id,
-                toolId=item.,
                 toolName=item.name,
                 description=item.description or "",
                 inputSchema=item.inputSchema,
@@ -217,9 +219,16 @@ class MCPLoader(metaclass=SingletonMeta):
         await client.stop()
         return tool_list
 
+
     @staticmethod
-    async def _insert_template_db(mcp_id: uuid.UUID, config: MCPServerConfig) -> None:
-        """插入单个MCP Server模板信息到数据库"""
+    async def _insert_template_db(mcp_id: str, config: MCPServerConfig) -> None:
+        """
+        插入单个MCP Server信息到数据库，供前端展示
+
+        :param str mcp_id: MCP模板ID
+        :param MCPServerConfig config: MCP配置
+        :return: 无
+        """
         mcp_collection = MongoDB().get_collection("mcp")
         await mcp_collection.update_one(
             {"_id": mcp_id},
@@ -228,7 +237,7 @@ class MCPLoader(metaclass=SingletonMeta):
                     _id=mcp_id,
                     name=config.name,
                     description=config.description,
-                    type=config.mcp_type,
+                    type=config.mcpType,
                     author=config.author,
                 ).model_dump(by_alias=True, exclude_none=True),
             },
@@ -239,7 +248,7 @@ class MCPLoader(metaclass=SingletonMeta):
     @staticmethod
     async def _insert_template_tool(mcp_id: str, config: MCPServerConfig) -> None:
         """
-        插入单个MCP Server模板信息到数据库
+        插入单个MCP Server工具信息到数据库
 
         :param str mcp_id: MCP模板ID
         :param MCPServerSSEConfig | MCPServerStdioConfig config: MCP配置
@@ -249,75 +258,49 @@ class MCPLoader(metaclass=SingletonMeta):
         tool_list = await MCPLoader._get_template_tool(mcp_id, config)
 
         # 基本信息插入数据库
-        mcp_collection = MongoDB().get_collection("mcp")
-        await mcp_collection.update_one(
-            {"_id": mcp_id},
-            {
-                "$set": {
-                    "tools": [tool.model_dump(by_alias=True, exclude_none=True) for tool in tool_list],
-                },
-            },
-            upsert=True,
-        )
+        async with postgres.session() as session:
+            # 删除旧的工具
+            await session.execute(delete(MCPTools).where(MCPTools.mcpId == mcp_id))
+            # 插入新的工具
+            session.add_all(tool_list)
+            await session.commit()
 
         # 服务本身向量化
         embedding = await Embedding.get_embedding([config.description])
 
         async with postgres.session() as session:
-            await session.merge(MCPVector(
+            # 删除旧的向量
+            await session.execute(delete(MCPVector).where(MCPVector.id == mcp_id))
+            # 插入新的向量
+            session.add(MCPVector(
                 id=mcp_id,
                 embedding=embedding[0],
             ))
-
-        while True:
-            try:
-                mcp_table = await LanceDB().get_table("mcp")
-                await mcp_table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute([
-                    MCPVector(
-                        id=mcp_id,
-                        embedding=embedding[0],
-                    ),
-                ])
-                break
-            except Exception as e:
-                if "Commit conflict" in str(e):
-                    logger.error("[MCPLoader] LanceDB插入mcp冲突，重试中...")  # noqa: TRY400
-                    await asyncio.sleep(0.01)
-                else:
-                    raise
+            await session.commit()
 
         # 工具向量化
         tool_desc_list = [tool.description for tool in tool_list]
         tool_embedding = await Embedding.get_embedding(tool_desc_list)
-        for tool, embedding in zip(tool_list, tool_embedding, strict=True):
-            while True:
-                try:
-                    mcp_tool_table = await LanceDB().get_table("mcp_tool")
-                    await mcp_tool_table.merge_insert(
-                        "id",
-                    ).when_matched_update_all().when_not_matched_insert_all().execute([
-                        MCPToolVector(
-                            id=tool.id,
-                            mcp_id=mcp_id,
-                            embedding=embedding,
-                        ),
-                    ])
-                    break
-                except Exception as e:
-                    if "Commit conflict" in str(e):
-                        logger.error("[MCPLoader] LanceDB插入mcp_tool冲突，重试中...")  # noqa: TRY400
-                        await asyncio.sleep(0.01)
-                    else:
-                        raise
-        await LanceDB().create_index("mcp_tool")
+
+        async with postgres.session() as session:
+            # 删除旧的工具向量
+            await session.execute(delete(MCPToolVector).where(MCPToolVector.mcpId == mcp_id))
+            # 插入新的工具向量
+            for tool, embedding in zip(tool_list, tool_embedding, strict=True):
+                session.add(MCPToolVector(
+                    id=tool.id,
+                    mcpId=mcp_id,
+                    embedding=embedding,
+                ))
+            await session.commit()
+
 
     @staticmethod
-    async def save_one(mcp_id: uuid.UUID, config: MCPServerConfig) -> None:
+    async def save_one(mcp_id: str, config: MCPServerConfig) -> None:
         """
-        保存单个MCP模板的配置文件（``config.json``文件和``icon.png``文件）
+        保存单个MCP模板的配置文件（``config.json``文件）
 
         :param str mcp_id: MCP模板ID
-        :param str icon: MCP模板图标
         :param MCPConfig config: MCP配置
         :return: 无
         """
@@ -329,23 +312,6 @@ class MCPLoader(metaclass=SingletonMeta):
         await f.write(json.dumps(config_dict, indent=4, ensure_ascii=False))
         await f.aclose()
 
-    @staticmethod
-    async def get_icon(mcp_id: str) -> str:
-        """
-        获取MCP模板的图标
-
-        :param str mcp_id: MCP模板ID
-        :return: 图标
-        :rtype: str
-        """
-        icon_path = MCP_PATH / "template" / mcp_id / "icon.png"
-        if not await icon_path.exists():
-            logger.warning("[MCPLoader] MCP模板图标不存在: %s", mcp_id)
-            return ""
-        f = await icon_path.open("rb")
-        icon = await f.read()
-        await f.aclose()
-        return base64.b64encode(icon).decode("utf-8")
 
     @staticmethod
     async def get_config(mcp_id: str) -> MCPServerConfig:
@@ -378,8 +344,8 @@ class MCPLoader(metaclass=SingletonMeta):
         :return: 无
         :raises FileExistsError: MCP模板已存在或有同名文件，无法激活
         """
-        template_path = MCP_PATH / "template" / mcp_id
-        user_path = MCP_PATH / "users" / user_sub / mcp_id
+        template_path = MCP_PATH / "template" / str(mcp_id)
+        user_path = MCP_PATH / "users" / user_sub / str(mcp_id)
 
         # 判断是否存在
         if await user_path.exists():
@@ -395,12 +361,13 @@ class MCPLoader(metaclass=SingletonMeta):
         )
 
         # 更新数据库
-        mongo = MongoDB()
-        mcp_collection = mongo.get_collection("mcp")
-        await mcp_collection.update_one(
-            {"_id": mcp_id},
-            {"$addToSet": {"activated": user_sub}},
-        )
+        async with postgres.session() as session:
+            await session.merge(MCPActivated(
+                mcpId=mcp_id,
+                userSub=user_sub,
+            ))
+            await session.commit()
+
 
     @staticmethod
     async def user_deactive_template(user_sub: str, mcp_id: str) -> None:
@@ -414,16 +381,19 @@ class MCPLoader(metaclass=SingletonMeta):
         :return: 无
         """
         # 删除用户目录
-        user_path = MCP_PATH / "users" / user_sub / mcp_id
+        user_path = MCP_PATH / "users" / user_sub / str(mcp_id)
         await asyncer.asyncify(shutil.rmtree)(user_path.as_posix(), ignore_errors=True)
 
         # 更新数据库
-        mongo = MongoDB()
-        mcp_collection = mongo.get_collection("mcp")
-        await mcp_collection.update_one(
-            {"_id": mcp_id},
-            {"$pull": {"activated": user_sub}},
-        )
+        async with postgres.session() as session:
+            await session.execute(delete(MCPActivated).where(
+                and_(
+                    MCPActivated.mcpId == mcp_id,
+                    MCPActivated.userSub == user_sub,
+                ),
+            ))
+            await session.commit()
+
 
     @staticmethod
     async def _find_deleted_mcp() -> list[str]:
@@ -435,14 +405,15 @@ class MCPLoader(metaclass=SingletonMeta):
         """
         deleted_mcp_list = []
 
-        mcp_collection = MongoDB().get_collection("mcp")
-        mcp_list = await mcp_collection.find({}, {"_id": 1}).to_list(None)
-        for db_item in mcp_list:
-            mcp_path: Path = MCP_PATH / "template" / db_item["_id"]
-            if not await mcp_path.exists():
-                deleted_mcp_list.append(db_item["_id"])
-        logger.info("[MCPLoader] 这些MCP在文件系统中被删除: %s", deleted_mcp_list)
-        return deleted_mcp_list
+        async with postgres.session() as session:
+            mcp_info = (await session.scalars(select(MCPInfo.id))).all()
+            for mcp in mcp_info:
+                mcp_path: Path = MCP_PATH / "template" / str(mcp)
+                if not await mcp_path.exists():
+                    deleted_mcp_list.append(str(mcp))
+            logger.info("[MCPLoader] 这些MCP在文件系统中被删除: %s", deleted_mcp_list)
+            return deleted_mcp_list
+
 
     @staticmethod
     async def remove_deleted_mcp(deleted_mcp_list: list[str]) -> None:
@@ -456,36 +427,24 @@ class MCPLoader(metaclass=SingletonMeta):
         async with postgres.session() as session:
             for mcp_id in deleted_mcp_list:
                 mcp_info = (await session.scalars(select(MCPInfo).where(MCPInfo.id == mcp_id))).one_or_none()
-                if mcp_info:
-                    await session.delete(mcp_info)
+                if not mcp_info:
+                    continue
 
+                mcp_activated = (await session.scalars(select(MCPActivated).where(MCPActivated.mcpId == mcp_id))).all()
+                for activated in mcp_activated:
+                    await MCPLoader.user_deactive_template(activated.userSub, mcp_id)
+                    await session.delete(activated)
+                await session.delete(mcp_info)
+            await session.commit()
+            logger.info("[MCPLoader] 清除数据库中无效的MCP")
 
-
-        mcp_collection = MongoDB().get_collection("mcp")
-        mcp_service_list = await mcp_collection.find(
-            {"_id": {"$in": deleted_mcp_list}},
-        ).to_list(None)
-        for mcp_service in mcp_service_list:
-            item = MCPCollection.model_validate(mcp_service)
-            for user_sub in item.activated:
-                await MCPLoader.user_deactive_template(user_sub=user_sub, mcp_id=item.id)
-        await mcp_collection.delete_many({"_id": {"$in": deleted_mcp_list}})
-        logger.info("[MCPLoader] 清除数据库中无效的MCP")
-
-        # 从LanceDB中移除
-        for mcp_id in deleted_mcp_list:
-            while True:
-                try:
-                    mcp_table = await LanceDB().get_table("mcp")
-                    await mcp_table.delete(f"id == '{mcp_id}'")
-                    break
-                except Exception as e:
-                    if "Commit conflict" in str(e):
-                        logger.error("[MCPLoader] LanceDB删除mcp冲突，重试中...")  # noqa: TRY400
-                        await asyncio.sleep(0.01)
-                    else:
-                        raise
-        logger.info("[MCPLoader] 清除LanceDB中无效的MCP")
+        # 删除MCP的向量化数据
+        async with postgres.session() as session:
+            for mcp_id in deleted_mcp_list:
+                await session.execute(delete(MCPVector).where(MCPVector.id == mcp_id))
+                await session.execute(delete(MCPToolVector).where(MCPToolVector.mcpId == mcp_id))
+            await session.commit()
+            logger.info("[MCPLoader] 清除数据库中无效的MCP向量化数据")
 
 
     @staticmethod
@@ -513,9 +472,10 @@ class MCPLoader(metaclass=SingletonMeta):
         :return: 无
         """
         await MCPLoader.remove_deleted_mcp([mcp_id])
-        template_path = MCP_PATH / "template" / mcp_id
+        template_path = MCP_PATH / "template" / str(mcp_id)
         if await template_path.exists():
             await asyncer.asyncify(shutil.rmtree)(template_path.as_posix(), ignore_errors=True)
+
 
     @staticmethod
     async def _load_user_mcp() -> None:
@@ -530,34 +490,41 @@ class MCPLoader(metaclass=SingletonMeta):
             logger.warning("[MCPLoader] users目录不存在，跳过加载用户MCP")
             return
 
-        mongo = MongoDB()
-        mcp_collection = mongo.get_collection("mcp")
-
         mcp_list = {}
         # 遍历users目录
-        async for user_dir in user_path.iterdir():
-            if not await user_dir.is_dir():
-                continue
+        async with postgres.session() as session:
+            async for user_dir in user_path.iterdir():
+                if not await user_dir.is_dir():
+                    continue
 
-            # 遍历单个用户的目录
-            async for mcp_dir in user_dir.iterdir():
-                # 检查数据库中是否有这个MCP
-                mcp_item = await mcp_collection.find_one({"_id": mcp_dir.name})
-                if not mcp_item:
-                    # 数据库中不存在，当前文件夹无效，删除
-                    await asyncer.asyncify(shutil.rmtree)(mcp_dir.as_posix(), ignore_errors=True)
+                # 遍历单个用户的目录
+                async for mcp_dir in user_dir.iterdir():
+                    # 检查数据库中是否有这个MCP
+                    mcp_item = (
+                        await session.scalars(select(MCPInfo).where(MCPInfo.id == mcp_dir.name))
+                    ).one()
+                    if not mcp_item:
+                        # 数据库中不存在，当前文件夹无效，删除
+                        await asyncer.asyncify(shutil.rmtree)(mcp_dir.as_posix(), ignore_errors=True)
+                        continue
 
-                # 添加到dict
-                if mcp_dir.name not in mcp_list:
-                    mcp_list[mcp_dir.name] = []
-                mcp_list[mcp_dir.name].append(user_dir.name)
+                    # 添加到dict
+                    if mcp_dir.name not in mcp_list:
+                        mcp_list[mcp_dir.name] = []
+                    mcp_list[mcp_dir.name].append(user_dir.name)
 
         # 更新所有MCP的activated情况
-        for mcp_id, user_list in mcp_list.items():
-            await mcp_collection.update_one(
-                {"_id": mcp_id},
-                {"$set": {"activated": user_list}},
-            )
+        async with postgres.session() as session:
+            for mcp_id, user_list in mcp_list.items():
+                # 删除所有的激活情况
+                await session.execute(delete(MCPActivated).where(MCPActivated.mcpId == mcp_id))
+                # 插入新的激活情况
+                for user_sub in user_list:
+                    session.add(MCPActivated(
+                        mcpId=mcp_id,
+                        userSub=user_sub,
+                    ))
+            await session.commit()
 
 
     @staticmethod

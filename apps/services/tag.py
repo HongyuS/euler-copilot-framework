@@ -2,9 +2,8 @@
 """用户标签管理"""
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
-import pytz
 from sqlalchemy import select
 
 from apps.common.postgres import postgres
@@ -53,7 +52,7 @@ class TagManager:
                 name=data.tag,
                 definition=data.description,
             )
-            session.add(tag)
+            await session.merge(tag)
             await session.commit()
 
 
@@ -73,8 +72,8 @@ class TagManager:
                 raise ValueError(error_msg)
 
             tag.definition = data.description
-            tag.updatedAt = datetime.now(tz=pytz.timezone("Asia/Shanghai"))
-            session.add(tag)
+            tag.updatedAt = datetime.now(tz=UTC)
+            await session.merge(tag)
             await session.commit()
             return tag
 
