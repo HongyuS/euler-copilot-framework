@@ -52,7 +52,7 @@ class UserBlacklistRequest(BaseModel):
 class AbuseRequest(BaseModel):
     """POST /api/blacklist/complaint 请求数据结构"""
 
-    record_id: str
+    record_id: uuid.UUID
     reason: str
     reason_type: str
 
@@ -60,7 +60,7 @@ class AbuseRequest(BaseModel):
 class AbuseProcessRequest(BaseModel):
     """POST /api/blacklist/abuse 请求数据结构"""
 
-    id: str
+    id: uuid.UUID
     is_deletion: int
 
 
@@ -70,7 +70,7 @@ class CreateAppRequest(AppData):
     app_id: str | None = Field(None, alias="appId", description="应用ID")
 
 
-class ModFavAppRequest(BaseModel):
+class ChangeFavouriteAppRequest(BaseModel):
     """PUT /api/app/{appId} 请求数据结构"""
 
     favorited: bool = Field(..., description="是否收藏")
@@ -100,13 +100,13 @@ class UpdateServiceRequest(BaseModel):
     data: dict[str, Any] = Field(..., description="对应 YAML 内容的数据对象")
 
 
-class ModFavServiceRequest(BaseModel):
+class ChangeFavouriteServiceRequest(BaseModel):
     """PUT /api/service/{serviceId} 请求数据结构"""
 
     favorited: bool = Field(..., description="是否收藏")
 
 
-class ModifyConversationData(BaseModel):
+class ChangeConversationData(BaseModel):
     """修改会话信息"""
 
     title: str = Field(..., min_length=1, max_length=2000)
@@ -157,7 +157,7 @@ class DeleteLLMReq(BaseModel):
     llm_id: str = Field(description="大模型ID", alias="llmId")
 
 
-class UpdateKbReq(BaseModel):
+class UpdateUserKnowledgebaseReq(BaseModel):
     """更新知识库请求体"""
 
     kb_ids: list[uuid.UUID] = Field(description="知识库ID列表", alias="kbIds", default=[])

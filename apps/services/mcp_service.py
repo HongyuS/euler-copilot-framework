@@ -61,6 +61,19 @@ class MCPServiceManager:
 
 
     @staticmethod
+    async def get_icon_path(mcp_id: str) -> str:
+        """
+        获取MCP服务图标路径
+
+        :param mcp_id: str: MCP服务ID
+        :return: 图标路径
+        """
+        if (MCP_ICON_PATH / f"{mcp_id}.png").exists():
+            return f"/static/mcp/{mcp_id}.png"
+        return ""
+
+
+    @staticmethod
     async def get_service_status(mcp_id: str) -> MCPInstallStatus:
         """
         获取MCP服务状态
@@ -95,7 +108,7 @@ class MCPServiceManager:
         return [
             MCPServiceCardItem(
                 mcpserviceId=item.id,
-                icon=await MCPLoader.get_icon(item.id),
+                icon=await MCPServiceManager.get_icon_path(item.id),
                 name=item.name,
                 description=item.description,
                 author=item.author,
@@ -107,42 +120,40 @@ class MCPServiceManager:
 
 
     @staticmethod
-    async def get_mcp_service(mcpservice_id: str) -> MCPInfo | None:
+    async def get_mcp_service(mcp_id: str) -> MCPInfo | None:
         """
         获取MCP服务详细信息
 
-        :param mcpservice_id: str: MCP服务ID
+        :param mcp_id: str: MCP服务ID
         :return: MCP服务详细信息
         """
         async with postgres.session() as session:
-            return (await session.scalars(select(MCPInfo).where(MCPInfo.id == mcpservice_id))).one_or_none()
+            return (await session.scalars(select(MCPInfo).where(MCPInfo.id == mcp_id))).one_or_none()
 
 
     @staticmethod
-    async def get_mcp_config(mcpservice_id: str) -> tuple[MCPServerConfig, str]:
+    async def get_mcp_config(mcp_id: str) -> tuple[MCPServerConfig, str]:
         """
         获取MCP服务配置
 
-        :param mcpservice_id: str: MCP服务ID
+        :param mcp_id: str: MCP服务ID
         :return: MCP服务配置
         """
-        icon = await MCPLoader.get_icon(mcpservice_id)
-        config = await MCPLoader.get_config(mcpservice_id)
-        return config, icon
+        icon_path = ""
+        config = await MCPLoader.get_config(mcp_id)
+        return config, icon_path
 
 
     @staticmethod
-    async def get_service_tools(
-            service_id: str,
-    ) -> list[MCPTools]:
+    async def get_mcp_tools(mcp_id: str) -> list[MCPTools]:
         """
         获取MCP可以用工具
 
-        :param service_id: str: MCP服务ID
+        :param mcp_id: str: MCP服务ID
         :return: MCP工具详细信息列表
         """
         async with postgres.session() as session:
-            return list((await session.scalars(select(MCPTools).where(MCPTools.mcpId == service_id))).all())
+            return list((await session.scalars(select(MCPTools).where(MCPTools.mcpId == mcp_id))).all())
 
 
     @staticmethod
@@ -222,7 +233,7 @@ class MCPServiceManager:
             name=await MCPServiceManager.clean_name(data.name),
             overview=data.overview,
             description=data.description,
-            config=config,
+            mcpServers=config,
             mcpType=data.mcp_type,
             author=user_sub,
         )
@@ -242,7 +253,7 @@ class MCPServiceManager:
 
 
     @staticmethod
-    async def update_mcpservice(data: UpdateMCPServiceRequest, user_sub: str) -> str:
+    async def update_mcpservice(data: UpdateMCPServiceRequest, user_sub: str) -> uuid.UUID:
         """
         更新MCP服务
 
@@ -261,13 +272,13 @@ class MCPServiceManager:
 
         db_service = MCPCollection.model_validate(db_service)
         for user_id in db_service.activated:
-            await MCPServiceManager.deactive_mcpservice(user_sub=user_id, service_id=data.service_id)
+            await MCPServiceManager.deactive_mcpservice(user_sub=user_id, mcp_id=data.service_id)
 
         await MCPLoader.init_one_template(mcp_id=data.service_id, config=MCPServerConfig(
             name=data.name,
             overview=data.overview,
             description=data.description,
-            config=MCPServerStdioConfig.model_validate_json(
+            mcpServers=MCPServerStdioConfig.model_validate_json(
                 data.config,
             ) if data.mcp_type == MCPType.STDIO else MCPServerSSEConfig.model_validate_json(
                 data.config,
@@ -280,38 +291,38 @@ class MCPServiceManager:
 
 
     @staticmethod
-    async def delete_mcpservice(service_id: str) -> None:
+    async def delete_mcpservice(mcp_id: str) -> None:
         """
         删除MCP服务
 
-        :param service_id: str: MCP服务ID
+        :param mcp_id: str: MCP服务ID
         :return: 是否删除成功
         """
         # 删除对应的mcp
-        await MCPLoader.delete_mcp(service_id)
+        await MCPLoader.delete_mcp(mcp_id)
 
         # 遍历所有应用，将其中的MCP依赖删除
         app_collection = MongoDB().get_collection("application")
         await app_collection.update_many(
-            {"mcp_service": service_id},
-            {"$pull": {"mcp_service": service_id}},
+            {"mcp_service": mcp_id},
+            {"$pull": {"mcp_service": mcp_id}},
         )
 
 
     @staticmethod
     async def active_mcpservice(
             user_sub: str,
-            service_id: uuid.UUID,
+            mcp_id: str,
     ) -> None:
         """
         激活MCP服务
 
         :param user_sub: str: 用户ID
-        :param service_id: str: MCP服务ID
+        :param mcp_id: str: MCP服务ID
         :return: 无
         """
         async with postgres.session() as session:
-            mcp_info = (await session.scalars(select(MCPInfo).where(MCPInfo.id == service_id))).one_or_none()
+            mcp_info = (await session.scalars(select(MCPInfo).where(MCPInfo.id == mcp_id))).one_or_none()
             if not mcp_info:
                 err = "[MCPServiceManager] MCP服务未找到"
                 raise ValueError(err)
@@ -323,26 +334,28 @@ class MCPServiceManager:
                 userSub=user_sub,
             ))
             await session.commit()
-            await MCPLoader.user_active_template(user_sub, service_id)
+            await MCPLoader.user_active_template(user_sub, mcp_id)
+
 
     @staticmethod
     async def deactive_mcpservice(
             user_sub: str,
-            service_id: uuid.UUID,
+            mcp_id: str,
     ) -> None:
         """
         取消激活MCP服务
 
         :param user_sub: str: 用户ID
-        :param service_id: str: MCP服务ID
+        :param mcp_id: str: MCP服务ID
         :return: 无
         """
         mcp_pool = MCPPool()
         try:
-            await mcp_pool.stop(mcp_id=service_id, user_sub=user_sub)
+            await mcp_pool.stop(mcp_id=mcp_id, user_sub=user_sub)
         except KeyError:
             logger.warning("[MCPServiceManager] MCP服务无进程")
-        await MCPLoader.user_deactive_template(user_sub, service_id)
+        await MCPLoader.user_deactive_template(user_sub, mcp_id)
+
 
     @staticmethod
     async def clean_name(name: str) -> str:
@@ -355,9 +368,10 @@ class MCPServiceManager:
         invalid_chars = r'[\\\/:*?"<>|]'
         return re.sub(invalid_chars, "_", name)
 
+
     @staticmethod
     async def save_mcp_icon(
-            service_id: uuid.UUID,
+            mcp_id: str,
             icon: UploadFile,
     ) -> str:
         """保存MCP服务图标"""
@@ -377,9 +391,9 @@ class MCPServiceManager:
         if not await MCP_ICON_PATH.exists():
             await MCP_ICON_PATH.mkdir(parents=True, exist_ok=True)
         # 保存
-        image.save(MCP_ICON_PATH / f"{service_id}.png", format="PNG", optimize=True, compress_level=9)
+        image.save(MCP_ICON_PATH / f"{mcp_id}.png", format="PNG", optimize=True, compress_level=9)
 
-        return f"/static/mcp/{service_id}.png"
+        return f"/static/mcp/{mcp_id}.png"
 
 
     @staticmethod
@@ -411,19 +425,3 @@ class MCPServiceManager:
         """
         async with postgres.session() as session:
             return list((await session.scalars(select(MCPTools).where(MCPTools.mcpId == mcp_id))).all())
-
-
-    @staticmethod
-    async def add_mcp_template(mcp_id: str, config: MCPServerConfig, tools: list[MCPTools]) -> None:
-        # 插入MCP表
-        async with postgres.session() as session:
-            await session.merge(MCPInfo(
-                id=mcp_id,
-                name=config.name,
-                description=config.description,
-                config=config,
-                overview=config.overview,
-                mcpType=config.mcpType,
-                author=config.author,
-                status=MCPInstallStatus.INSTALLING,
-            ))

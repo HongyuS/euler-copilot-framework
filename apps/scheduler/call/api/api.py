@@ -185,7 +185,7 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
                 for item in self._auth.query:
                     req_params[item.name] = item.value
             # 如果oidc配置存在
-            if self._auth.oidc:
+            if self._service_id and self._auth.oidc:
                 token = await TokenManager.get_plugin_token(
                     self._service_id,
                     self._session_id,

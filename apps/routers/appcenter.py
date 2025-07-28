@@ -11,7 +11,7 @@ from apps.dependency.user import verify_personal_token, verify_session
 from apps.exceptions import InstancePermissionError
 from apps.schemas.appcenter import AppFlowInfo, AppPermissionData
 from apps.schemas.enum_var import AppFilterType, AppType
-from apps.schemas.request_data import CreateAppRequest, ModFavAppRequest
+from apps.schemas.request_data import CreateAppRequest, ChangeFavouriteAppRequest
 from apps.schemas.response_data import (
     BaseAppOperationMsg,
     BaseAppOperationRsp,
@@ -20,8 +20,8 @@ from apps.schemas.response_data import (
     GetAppPropertyMsg,
     GetAppPropertyRsp,
     GetRecentAppListRsp,
-    ModFavAppMsg,
-    ModFavAppRsp,
+    ChangeFavouriteAppMsg,
+    ChangeFavouriteAppRsp,
     ResponseData,
 )
 from apps.services.appcenter import AppCenterManager
@@ -343,11 +343,11 @@ async def publish_application(
     )
 
 
-@router.put("/{appId}", response_model=ModFavAppRsp | ResponseData)
+@router.put("/{appId}", response_model=ChangeFavouriteAppRsp | ResponseData)
 async def modify_favorite_application(
     raw_request: Request,
     app_id: Annotated[str, Path(..., alias="appId", description="应用ID")],
-    request: Annotated[ModFavAppRequest, Body(...)],
+    request: Annotated[ChangeFavouriteAppRequest, Body(...)],
 ) -> JSONResponse:
     """更改应用收藏状态"""
     user_sub: str = raw_request.state.user_sub
@@ -375,10 +375,10 @@ async def modify_favorite_application(
         )
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content=ModFavAppRsp(
+        content=ChangeFavouriteAppRsp(
             code=status.HTTP_200_OK,
             message="OK",
-            result=ModFavAppMsg(
+            result=ChangeFavouriteAppMsg(
                 appId=app_id,
                 favorited=request.favorited,
             ),

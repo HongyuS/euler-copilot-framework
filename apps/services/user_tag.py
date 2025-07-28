@@ -66,7 +66,7 @@ class UserTagManager:
 
             if not user_domain:
                 user_domain = UserTag(userSub=user_sub, tag=tag.id, count=1)
-                session.add(user_domain)
+                await session.merge(user_domain)
             else:
                 user_domain.count += 1
             await session.commit()

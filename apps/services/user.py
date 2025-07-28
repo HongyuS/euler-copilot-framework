@@ -2,9 +2,8 @@
 """用户 Manager"""
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
-import pytz
 from sqlalchemy import select
 
 from apps.common.postgres import postgres
@@ -64,11 +63,11 @@ class UserManager:
                     isWhitelisted=False,
                     credit=0,
                 )
-                session.add(user)
+                await session.merge(user)
                 await session.commit()
                 return
 
-            user.lastLogin = datetime.now(tz=pytz.timezone("Asia/Shanghai"))
+            user.lastLogin = datetime.now(tz=UTC)
             await session.commit()
 
     @staticmethod

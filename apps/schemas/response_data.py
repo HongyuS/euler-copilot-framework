@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from apps.models.blacklist import Blacklist
+from apps.models.mcp import MCPInstallStatus
 from apps.templates.generate_llm_operator_config import llm_provider_dict
 
 from .appcenter import AppCenterCardItem, AppData
@@ -16,7 +18,7 @@ from .flow_topology import (
     NodeServiceItem,
     PositionItem,
 )
-from .mcp import MCPInstallStatus, MCPTool, MCPType
+from .mcp import MCPTool, MCPType
 from .record import RecordData
 from .user import UserInfo
 
@@ -256,17 +258,17 @@ class GetAppPropertyRsp(ResponseData):
     result: GetAppPropertyMsg
 
 
-class ModFavAppMsg(BaseModel):
+class ChangeFavouriteAppMsg(BaseModel):
     """PUT /api/app/{appId} Result数据结构"""
 
     app_id: str = Field(..., alias="appId", description="应用ID")
     favorited: bool = Field(..., description="是否已收藏")
 
 
-class ModFavAppRsp(ResponseData):
+class ChangeFavouriteAppRsp(ResponseData):
     """PUT /api/app/{appId} 返回数据结构"""
 
-    result: ModFavAppMsg
+    result: ChangeFavouriteAppMsg
 
 
 class GetAppListMsg(BaseModel):
@@ -376,17 +378,17 @@ class DeleteServiceRsp(ResponseData):
     result: BaseServiceOperationMsg = Field(..., title="Result")
 
 
-class ModFavServiceMsg(BaseModel):
+class ChangeFavouriteServiceMsg(BaseModel):
     """PUT /api/service/{serviceId} Result数据结构"""
 
     service_id: str = Field(..., alias="serviceId", description="服务ID")
     favorited: bool = Field(..., description="是否已收藏")
 
 
-class ModFavServiceRsp(ResponseData):
+class ChangeFavouriteServiceRsp(ResponseData):
     """PUT /api/service/{serviceId} 返回数据结构"""
 
-    result: ModFavServiceMsg = Field(..., title="Result")
+    result: ChangeFavouriteServiceMsg = Field(..., title="Result")
 
 
 class NodeServiceListMsg(BaseModel):
@@ -435,7 +437,7 @@ class GetMCPServiceListRsp(ResponseData):
 class UpdateMCPServiceMsg(BaseModel):
     """插件中心：MCP服务属性数据结构"""
 
-    service_id: str = Field(..., alias="serviceId", description="MCP服务ID")
+    service_id: uuid.UUID = Field(..., alias="serviceId", description="MCP服务ID")
     name: str = Field(..., description="MCP服务名称")
 
 
@@ -493,12 +495,6 @@ class DeleteMCPServiceRsp(ResponseData):
     result: BaseMCPServiceOperationMsg = Field(..., title="Result")
 
 
-class NodeMetaDataRsp(ResponseData):
-    """GET /api/flow/service/node 返回数据结构"""
-
-    result: NodeMetaDataItem
-
-
 class FlowStructureGetMsg(BaseModel):
     """GET /api/flow result"""
 
@@ -509,13 +505,6 @@ class FlowStructureGetRsp(ResponseData):
     """GET /api/flow 返回数据结构"""
 
     result: FlowStructureGetMsg
-
-
-class PutFlowReq(BaseModel):
-    """创建/修改流拓扑结构"""
-
-    flow: FlowItem
-    focus_point: PositionItem = Field(alias="focusPoint", default=PositionItem())
 
 
 class FlowStructurePutMsg(BaseModel):

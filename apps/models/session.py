@@ -23,8 +23,16 @@ class Session(Base):
     """会话"""
 
     __tablename__ = "framework_session"
-    userSub: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"))  # noqa: N815
+    userSub: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), nullable=False)  # noqa: N815
     """用户名"""
+    ip: Mapped[str] = mapped_column(String(255), nullable=False)
+    """IP地址"""
+    nonce: Mapped[str] = mapped_column(String(255), nullable=False)
+    """随机值"""
+    pluginId: Mapped[str] = mapped_column(String(255), nullable=False)  # noqa: N815
+    """(AccessToken) 插件ID"""
+    token: Mapped[str] = mapped_column(String(2000), nullable=False)
+    """(AccessToken) Token信息"""
     validUntil: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
         default_factory=lambda: datetime.now(tz=UTC) + timedelta(days=30),
@@ -32,16 +40,10 @@ class Session(Base):
     """有效期"""
     id: Mapped[str] = mapped_column(String(255), primary_key=True, default_factory=lambda: secrets.token_hex(16))
     """会话ID"""
-    sessionType: Mapped[SessionType] = mapped_column(Enum(SessionType), default=SessionType.ACCESS_TOKEN)  # noqa: N815
+    sessionType: Mapped[SessionType] = mapped_column(  # noqa: N815
+        Enum(SessionType), default=SessionType.ACCESS_TOKEN, nullable=False,
+    )
     """会话类型"""
-    ip: Mapped[str] = mapped_column(String(255), default="")
-    """IP地址"""
-    nonce: Mapped[str] = mapped_column(String(255), default="")
-    """随机值"""
-    pluginId: Mapped[str] = mapped_column(String(255), default="")  # noqa: N815
-    """(AccessToken) 插件ID"""
-    token: Mapped[str] = mapped_column(String(2000), default="")
-    """(AccessToken) Token信息"""
 
 
 class SessionActivity(Base):
@@ -50,7 +52,7 @@ class SessionActivity(Base):
     __tablename__ = "framework_session_activity"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     """主键ID"""
-    userSub: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"))  # noqa: N815
+    userSub: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), nullable=False)  # noqa: N815
     """用户名"""
-    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     """时间戳"""
