@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Path, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.common.security import Security
-from apps.dependency import verify_admin, verify_personal_token, verify_session
+from apps.dependency import verify_personal_token, verify_session
 from apps.schemas.record import (
     RecordContent,
     RecordData,

@@ -5,7 +5,7 @@ import json
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, Request, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import verify_admin, verify_personal_token, verify_session
@@ -50,17 +50,16 @@ admin_router = APIRouter(
 
 @router.get("", response_model=GetMCPServiceListRsp | ResponseData)
 async def get_mcpservice_list(
-        user_sub: Annotated[str, Depends(get_user)],
-        search_type: Annotated[
-            SearchType, Query(..., alias="searchType", description="搜索类型"),
-        ] = SearchType.ALL,
-        keyword: Annotated[str | None, Query(..., alias="keyword", description="搜索关键字")] = None,
-        page: Annotated[int, Query(..., alias="page", ge=1, description="页码")] = 1,
+    request: Request,
+    searchType: SearchType = SearchType.ALL,  # noqa: N803
+    keyword: str | None = None,
+    page: Annotated[int, Query(ge=1)] = 1,
 ) -> JSONResponse:
     """获取服务列表"""
+    user_sub = request.state.user_sub
     try:
         service_cards = await MCPServiceManager.fetch_mcp_services(
-            search_type,
+            searchType,
             user_sub,
             keyword,
             page,
@@ -132,7 +131,7 @@ async def create_or_update_mcpservice(
     ).model_dump(exclude_none=True, by_alias=True))
 
 
-@router.get("/{serviceId}", response_model=GetMCPServiceDetailRsp)
+@admin_router.get("/{serviceId}", response_model=GetMCPServiceDetailRsp)
 async def get_service_detail(
     request: Request,
     service_id: Annotated[str, Path(..., alias="serviceId", description="服务ID")],
@@ -140,10 +139,6 @@ async def get_service_detail(
     edit: Annotated[bool, Query(..., description="是否为编辑模式")] = False,
 ) -> JSONResponse:
     """获取MCP服务详情"""
-    # 检查用户权限
-    if edit:
-        await _check_user_admin(user_sub)
-
     # 获取MCP服务详情
     try:
         data = await MCPServiceManager.get_mcp_service(service_id)
@@ -277,18 +272,18 @@ async def update_mcp_icon(
     )
 
 
-@router.post("/{serviceId}", response_model=ActiveMCPServiceRsp)
+@router.post("/{mcpId}", response_model=ActiveMCPServiceRsp)
 async def active_or_deactivate_mcp_service(
     request: Request,
-    serviceId: Annotated[str, Path()],  # noqa: N803
+    mcpId: Annotated[str, Path()],  # noqa: N803
     data: ActiveMCPServiceRequest,
 ) -> JSONResponse:
     """激活/取消激活mcp"""
     try:
         if data.active:
-            await MCPServiceManager.active_mcpservice(request.state.user_sub, serviceId)
+            await MCPServiceManager.active_mcpservice(request.state.user_sub, mcpId)
         else:
-            await MCPServiceManager.deactive_mcpservice(request.state.user_sub, serviceId)
+            await MCPServiceManager.deactive_mcpservice(request.state.user_sub, mcpId)
     except Exception as e:
         err = f"[MCPService] 激活mcp服务失败: {e!s}" if data.active else f"[MCPService] 取消激活mcp服务失败: {e!s}"
         logger.exception(err)
@@ -305,6 +300,6 @@ async def active_or_deactivate_mcp_service(
         content=ActiveMCPServiceRsp(
             code=status.HTTP_200_OK,
             message="OK",
-            result=BaseMCPServiceOperationMsg(serviceId=serviceId),
+            result=BaseMCPServiceOperationMsg(serviceId=mcpId),
         ).model_dump(exclude_none=True, by_alias=True),
     )

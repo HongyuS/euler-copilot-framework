@@ -25,13 +25,11 @@ class Session(Base):
     __tablename__ = "framework_session"
     userSub: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), nullable=False)  # noqa: N815
     """用户名"""
-    ip: Mapped[str] = mapped_column(String(255), nullable=False)
+    ip: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
     """IP地址"""
-    nonce: Mapped[str] = mapped_column(String(255), nullable=False)
-    """随机值"""
-    pluginId: Mapped[str] = mapped_column(String(255), nullable=False)  # noqa: N815
+    pluginId: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)  # noqa: N815
     """(AccessToken) 插件ID"""
-    token: Mapped[str] = mapped_column(String(2000), nullable=False)
+    token: Mapped[str | None] = mapped_column(String(2000), nullable=True, default=None)
     """(AccessToken) Token信息"""
     validUntil: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),

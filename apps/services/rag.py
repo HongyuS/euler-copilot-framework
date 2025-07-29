@@ -13,7 +13,6 @@ from apps.common.config import config
 from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.llm.reasoning import ReasoningLLM
 from apps.llm.token import TokenCalculator
-from apps.schemas.collection import LLM
 from apps.schemas.config import LLMConfig
 from apps.schemas.enum_var import EventType
 from apps.schemas.rag_data import RAGQueryReq
@@ -108,8 +107,8 @@ class RAG:
                     if response.status_code == status.HTTP_200_OK:
                         result = response.json()
                         doc_chunk_list += result["result"]["docChunks"]
-            except Exception as e:
-                logger.error(f"[RAG] 获取文档分片失败: {e}")
+            except Exception:
+                logger.exception("[RAG] 获取文档分片失败")
         if data.kb_ids:
             try:
                 async with httpx.AsyncClient(timeout=30) as client:
@@ -119,12 +118,14 @@ class RAG:
                     if response.status_code == status.HTTP_200_OK:
                         result = response.json()
                         doc_chunk_list += result["result"]["docChunks"]
-            except Exception as e:
-                logger.error(f"[RAG] 获取文档分片失败: {e}")
+            except Exception:
+                logger.exception("[RAG] 获取文档分片失败")
         return doc_chunk_list
 
     @staticmethod
-    async def assemble_doc_info(doc_chunk_list: list[dict[str, Any]], max_tokens: int) -> str:
+    async def assemble_doc_info(
+        doc_chunk_list: list[dict[str, Any]], max_tokens: int,
+    ) -> tuple[str, list[dict[str, Any]]]:
         """组装文档信息"""
         bac_info = ""
         doc_info_list = []
@@ -255,7 +256,7 @@ class RAG:
         ):
             if not await Activity.is_active(user_sub):
                 return
-            chunk = buffer + chunk
+            current_chunk = buffer + chunk
             # 防止脚注被截断
             if len(chunk) >= 2 and chunk[-2:] != "]]":
                 index = len(chunk) - 1
@@ -263,12 +264,12 @@ class RAG:
                     index -= 1
                 if index >= 0:
                     buffer = chunk[index + 1:]
-                    chunk = chunk[:index + 1]
+                    current_chunk = chunk[:index + 1]
             else:
                 buffer = ""
             output_tokens += TokenCalculator().calculate_token_length(
                 messages=[
-                    {"role": "assistant", "content": chunk},
+                    {"role": "assistant", "content": current_chunk},
                 ],
                 pure_text=True,
             )
@@ -277,7 +278,7 @@ class RAG:
                 + json.dumps(
                     {
                         "event_type": EventType.TEXT_ADD.value,
-                        "content": chunk,
+                        "content": current_chunk,
                         "input_tokens": input_tokens,
                         "output_tokens": output_tokens,
                     },

@@ -17,21 +17,22 @@ class LLMData(Base):
     __tablename__ = "framework_llm"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """主键ID"""
-    userSub: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"), index=True)  # noqa: N815
+    userSub: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"), index=True, nullable=False)  # noqa: N815
     """添加LLM所属的用户"""
-    icon: Mapped[str] = mapped_column(String(1000), default=llm_provider_dict["ollama"]["icon"])
+    icon: Mapped[str] = mapped_column(String(1000), default=llm_provider_dict["ollama"]["icon"], nullable=False)
     """LLM图标路径"""
-    openaiBaseUrl: Mapped[str] = mapped_column(String(300), default=config.llm.endpoint)  # noqa: N815
+    openaiBaseUrl: Mapped[str] = mapped_column(String(300), default=config.llm.endpoint, nullable=False)  # noqa: N815
     """LLM URL地址"""
-    openaiAPIKey: Mapped[str] = mapped_column(String(300), default=config.llm.key)  # noqa: N815
+    openaiAPIKey: Mapped[str] = mapped_column(String(300), default=config.llm.key, nullable=False)  # noqa: N815
     """LLM API Key"""
-    modelName: Mapped[str] = mapped_column(String(300), default=config.llm.model)  # noqa: N815
+    modelName: Mapped[str] = mapped_column(String(300), default=config.llm.model, nullable=False)  # noqa: N815
     """LLM模型名"""
-    maxToken: Mapped[int] = mapped_column(Integer, default=config.llm.max_tokens)  # noqa: N815
+    maxToken: Mapped[int] = mapped_column(Integer, default=config.llm.max_tokens, nullable=False)  # noqa: N815
     """LLM最大Token数量"""
     createdAt: Mapped[DateTime] = mapped_column(  # noqa: N815
         DateTime,
         default_factory=lambda: datetime.now(tz=UTC),
         init=False,
+        nullable=False,
     )
     """添加LLM的时间"""

@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from apps.dependency.user import verify_personal_token, verify_session
 from apps.exceptions import InstancePermissionError, ServiceIDError
 from apps.schemas.enum_var import SearchType
-from apps.schemas.request_data import ModFavServiceRequest, UpdateServiceRequest
+from apps.schemas.request_data import ChangeFavouriteServiceRequest, UpdateServiceRequest
 from apps.schemas.response_data import (
     BaseServiceOperationMsg,
     DeleteServiceRsp,
@@ -18,8 +18,8 @@ from apps.schemas.response_data import (
     GetServiceDetailRsp,
     GetServiceListMsg,
     GetServiceListRsp,
-    ModFavServiceMsg,
-    ModFavServiceRsp,
+    ChangeFavouriteServiceMsg,
+    ChangeFavouriteServiceRsp,
     ResponseData,
     UpdateServiceMsg,
     UpdateServiceRsp,
@@ -283,11 +283,11 @@ async def delete_service(request: Request, serviceId: Annotated[str, Path()]) ->
     return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))
 
 
-@router.put("/{serviceId}", response_model=ModFavServiceRsp)
+@router.put("/{serviceId}", response_model=ChangeFavouriteServiceRsp)
 async def modify_favorite_service(
     request: Request,
     serviceId: Annotated[str, Path()],  # noqa: N803
-    data: ModFavServiceRequest,
+    data: ChangeFavouriteServiceRequest,
 ) -> JSONResponse:
     """修改服务收藏状态"""
     try:
@@ -324,6 +324,6 @@ async def modify_favorite_service(
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    msg = ModFavServiceMsg(serviceId=serviceId, favorited=data.favorited)
-    rsp = ModFavServiceRsp(code=status.HTTP_200_OK, message="OK", result=msg)
+    msg = ChangeFavouriteServiceMsg(serviceId=serviceId, favorited=data.favorited)
+    rsp = ChangeFavouriteServiceRsp(code=status.HTTP_200_OK, message="OK", result=msg)
     return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))

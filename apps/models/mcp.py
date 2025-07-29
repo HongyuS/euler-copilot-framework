@@ -6,7 +6,7 @@ from enum import Enum as PyEnum
 from hashlib import shake_128
 from typing import Any
 
-from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String
+from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -33,27 +33,31 @@ class MCPInfo(Base):
     """MCP"""
 
     __tablename__ = "framework_mcp"
-    name: Mapped[str] = mapped_column(String(255))
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     """MCP 名称"""
-    overview: Mapped[str] = mapped_column(String(2000))
+    overview: Mapped[str] = mapped_column(String(2000), nullable=False)
     """MCP 概述"""
-    description: Mapped[str] = mapped_column(String(65535))
+    description: Mapped[str] = mapped_column(Text, nullable=False)
     """MCP 描述"""
-    author: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"))
+    author: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), nullable=False)
     """MCP 创建者"""
-    config: Mapped[dict[str, Any]] = mapped_column(JSONB)
-    """MCP 配置"""
     id: Mapped[str] = mapped_column(String(100), primary_key=True)
     """MCP ID"""
     updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
         default_factory=lambda: datetime.now(tz=UTC),
         onupdate=lambda: datetime.now(tz=UTC),
+        nullable=False,
+        index=True,
     )
     """MCP 更新时间"""
-    status: Mapped[MCPInstallStatus] = mapped_column(Enum(MCPInstallStatus), default=MCPInstallStatus.INSTALLING)
+    status: Mapped[MCPInstallStatus] = mapped_column(
+        Enum(MCPInstallStatus), default=MCPInstallStatus.INSTALLING, nullable=False,
+    )
     """MCP 状态"""
-    mcpType: Mapped[MCPType] = mapped_column(Enum(MCPType), default=MCPType.STDIO)  # noqa: N815
+    mcpType: Mapped[MCPType] = mapped_column(  # noqa: N815
+        Enum(MCPType), default=MCPType.STDIO, nullable=False,
+    )
     """MCP 类型"""
 
 
@@ -62,10 +66,10 @@ class MCPActivated(Base):
 
     __tablename__ = "framework_mcp_activated"
     mcpId: Mapped[str] = mapped_column(  # noqa: N815
-        String(100), ForeignKey("framework_mcp.id"), index=True, unique=True,
+        String(100), ForeignKey("framework_mcp.id"), index=True, nullable=False,
     )
     """MCP ID"""
-    userSub: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"))  # noqa: N815
+    userSub: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), nullable=False)  # noqa: N815
     """用户ID"""
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """主键ID"""
@@ -76,16 +80,16 @@ class MCPTools(Base):
 
     __tablename__ = "framework_mcp_tools"
     mcpId: Mapped[str] = mapped_column(  # noqa: N815
-        String(100), ForeignKey("framework_mcp.id"), index=True,
+        String(100), ForeignKey("framework_mcp.id"), index=True, nullable=False,
     )
     """MCP ID"""
-    toolName: Mapped[str] = mapped_column(String(255))  # noqa: N815
+    toolName: Mapped[str] = mapped_column(String(255), nullable=False)  # noqa: N815
     """MCP 工具名称"""
-    description: Mapped[str] = mapped_column(String(65535))
+    description: Mapped[str] = mapped_column(Text, nullable=False)
     """MCP 工具描述"""
-    inputSchema: Mapped[dict[str, Any]] = mapped_column(JSONB)  # noqa: N815
+    inputSchema: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)  # noqa: N815
     """MCP 工具输入参数"""
-    outputSchema: Mapped[dict[str, Any]] = mapped_column(JSONB)  # noqa: N815
+    outputSchema: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)  # noqa: N815
     """MCP 工具输出参数"""
     id: Mapped[str] = mapped_column(
         String(32),

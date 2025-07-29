@@ -51,7 +51,7 @@ class TokenManager:
                 )
             ).one_or_none()
 
-            if token_data:
+            if token_data and token_data.token:
                 return token_data.token
 
             token = await TokenManager.generate_plugin_token(
@@ -124,7 +124,7 @@ class TokenManager:
                     )
                 ).one_or_none()
 
-            if not refresh_token:
+            if not refresh_token or not refresh_token.token:
                 await SessionManager.delete_session(session_id)
                 err = "Refresh token均过期，需要重新登录"
                 raise RuntimeError(err)

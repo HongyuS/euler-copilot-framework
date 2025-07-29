@@ -17,11 +17,13 @@ class Conversation(Base):
     """对话"""
 
     __tablename__ = "framework_conversation"
-    userSub: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"))  # noqa: N815
+    userSub: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), nullable=False)  # noqa: N815
     """用户名"""
-    appId: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("framework_app.id"), nullable=True)  # noqa: N815
+    appId: Mapped[uuid.UUID | None] = mapped_column(  # noqa: N815
+        UUID(as_uuid=True), ForeignKey("framework_app.id"), nullable=True,
+    )
     """对话使用的App的ID"""
-    title: Mapped[str] = mapped_column(String(255), default=NEW_CHAT)
+    title: Mapped[str] = mapped_column(String(255), default=NEW_CHAT, nullable=False)
     """对话标题"""
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default_factory=lambda: uuid.uuid4(),
@@ -29,9 +31,10 @@ class Conversation(Base):
     """对话ID"""
     createdAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True), default_factory=lambda: datetime.now(tz=UTC),
+        nullable=False, index=True,
     )
     """对话创建时间"""
-    isTemporary: Mapped[bool] = mapped_column(Boolean, default=False)  # noqa: N815
+    isTemporary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # noqa: N815
     """是否为临时对话"""
 
 
@@ -48,11 +51,15 @@ class ConversationDocument(Base):
     __tablename__ = "framework_conversation_document"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """主键ID"""
-    conversationId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_conversation.id"))  # noqa: N815
+    conversationId: Mapped[uuid.UUID] = mapped_column(  # noqa: N815
+        UUID(as_uuid=True), ForeignKey("framework_conversation.id"), nullable=False, index=True,
+    )
     """对话ID"""
-    documentId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_document.id"))  # noqa: N815
+    documentId: Mapped[uuid.UUID] = mapped_column(  # noqa: N815
+        UUID(as_uuid=True), ForeignKey("framework_document.id"), nullable=False, index=True,
+    )
     """文件ID"""
-    isUnused: Mapped[bool] = mapped_column(Boolean, default=True)  # noqa: N815
+    isUnused: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)  # noqa: N815
     """是否未使用"""
     associated: Mapped[ConvDocAssociated | None] = mapped_column(
         Enum(ConvDocAssociated), nullable=True, default=None,
