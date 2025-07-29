@@ -16,13 +16,13 @@ class App(Base):
     """应用"""
 
     __tablename__ = "framework_app"
-    name: Mapped[str] = mapped_column(String(255))
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
     """应用名称"""
-    description: Mapped[str] = mapped_column(String(2000))
+    description: Mapped[str] = mapped_column(String(2000), nullable=False)
     """应用描述"""
-    author: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"))
+    author: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), nullable=False)
     """应用作者"""
-    type: Mapped[AppType] = mapped_column(Enum(AppType))
+    type: Mapped[AppType] = mapped_column(Enum(AppType), nullable=False)
     """应用类型"""
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default_factory=uuid.uuid4)
     """应用ID"""
@@ -31,13 +31,16 @@ class App(Base):
         default_factory=lambda: datetime.now(tz=UTC),
         onupdate=lambda: datetime.now(tz=UTC),
         index=True,
+        nullable=False,
     )
     """应用更新时间"""
-    iconPath: Mapped[str] = mapped_column(String(255), default="")  # noqa: N815
+    iconPath: Mapped[str] = mapped_column(String(255), default="", nullable=False)  # noqa: N815
     """应用图标路径"""
-    isPublished: Mapped[bool] = mapped_column(Boolean, default=False)  # noqa: N815
+    isPublished: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # noqa: N815
     """是否发布"""
-    permission: Mapped[PermissionType] = mapped_column(Enum(PermissionType), default=PermissionType.PUBLIC)
+    permission: Mapped[PermissionType] = mapped_column(
+        Enum(PermissionType), default=PermissionType.PUBLIC, nullable=False,
+    )
     """权限类型"""
     __table_args__ = (
         Index("idx_published_updated_at", "isPublished", "updatedAt"),
@@ -49,11 +52,11 @@ class AppACL(Base):
     """应用权限"""
 
     __tablename__ = "framework_app_acl"
-    appId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_app.id"))  # noqa: N815
+    appId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("framework_app.id"), primary_key=True)  # noqa: N815
     """关联的应用ID"""
-    userSub: Mapped[str] = mapped_column(ForeignKey("framework_user.userSub"))  # noqa: N815
+    userSub: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), nullable=False, index=True)  # noqa: N815
     """用户名"""
-    action: Mapped[str] = mapped_column(String(255), default="")
+    action: Mapped[str] = mapped_column(String(255), default="", index=True, nullable=False)
     """操作类型（读/写）"""
 
 
@@ -63,9 +66,9 @@ class AppHashes(Base):
     __tablename__ = "framework_app_hashes"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """主键ID"""
-    appId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_app.id"))  # noqa: N815
+    appId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("framework_app.id"), nullable=False)  # noqa: N815
     """关联的应用ID"""
-    filePath: Mapped[str] = mapped_column(String(255))  # noqa: N815
+    filePath: Mapped[str] = mapped_column(String(255), nullable=False)  # noqa: N815
     """文件路径"""
-    hash: Mapped[str] = mapped_column(String(255))
+    hash: Mapped[str] = mapped_column(String(255), nullable=False)
     """哈希值"""

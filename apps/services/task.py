@@ -6,7 +6,6 @@ import uuid
 from typing import Any
 
 from apps.common.postgres import postgres
-from apps.schemas.record import RecordGroup
 from apps.schemas.request_data import RequestData
 from apps.schemas.task import (
     Task,

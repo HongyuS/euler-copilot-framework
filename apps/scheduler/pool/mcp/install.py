@@ -59,7 +59,7 @@ async def install_uvx(mcp_id: str, config: "MCPServerStdioConfig") -> "MCPServer
 
         config.command = "uv"
         config.args = ["run", *config.args]
-        config.auto_install = False
+        config.autoInstall = False
 
         return config
 
@@ -86,7 +86,7 @@ async def install_uvx(mcp_id: str, config: "MCPServerStdioConfig") -> "MCPServer
     # 更新配置
     config.command = "uv"
     config.args = ["run", *config.args]
-    config.auto_install = False
+    config.autoInstall = False
 
     return config
 
@@ -139,6 +139,6 @@ async def install_npx(mcp_id: str, config: "MCPServerStdioConfig") -> "MCPServer
     # 更新配置
     config.command = "npm"
     config.args = ["exec", *config.args]
-    config.auto_install = False
+    config.autoInstall = False
 
     return config

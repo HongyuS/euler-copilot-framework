@@ -7,13 +7,13 @@ from typing import Any
 
 import yaml
 from anyio import Path
-from sqlalchemy import and_, select
+from sqlalchemy import and_, or_, select
 
 from apps.common.config import config
 from apps.common.postgres import postgres
 from apps.exceptions import InstancePermissionError, ServiceIDError
 from apps.models.node import NodeInfo
-from apps.models.service import Service
+from apps.models.service import Service, ServiceACL
 from apps.scheduler.openapi import ReducedOpenAPISpec
 from apps.scheduler.pool.loader.openapi import OpenAPILoader
 from apps.scheduler.pool.loader.service import ServiceLoader
@@ -222,6 +222,7 @@ class ServiceCenterManager:
             )
         return service_pool_store.name, api_list
 
+
     @staticmethod
     async def get_service_data(
         user_sub: str,
@@ -229,32 +230,49 @@ class ServiceCenterManager:
     ) -> tuple[str, dict[str, Any]]:
         """获取服务数据"""
         # 验证用户权限
-        service_collection = MongoDB().get_collection("service")
-        match_conditions = [
-            {"author": user_sub},
-            {"permission.type": PermissionType.PUBLIC.value},
-            {
-                "$and": [
-                    {"permission.type": PermissionType.PROTECTED.value},
-                    {"permission.users": user_sub},
-                ],
-            },
-        ]
-        query = {"$and": [{"_id": service_id}, {"$or": match_conditions}]}
-        db_service = await service_collection.find_one(query)
-        if not db_service:
-            msg = "Service not found"
-            raise ServiceIDError(msg)
-        service_pool_store = ServicePool.model_validate(db_service)
-        if service_pool_store.author != user_sub:
-            msg = "Permission denied"
-            raise InstancePermissionError(msg)
+        async with postgres.session() as session:
+            allowed_user = list((await session.scalars(
+                select(ServiceACL.userSub).where(
+                    ServiceACL.serviceId == service_id,
+                ),
+            )).all())
+
+            if user_sub in allowed_user:
+                db_service = (await session.scalars(
+                    select(Service).where(
+                        and_(
+                            Service.id == service_id,
+                            Service.permission == PermissionType.PRIVATE,
+                        ),
+                    ),
+                )).one_or_none()
+            else:
+                db_service = (await session.scalars(
+                    select(Service).where(
+                        and_(
+                            Service.id == service_id,
+                            or_(
+                                and_(
+                                    Service.author == user_sub,
+                                    Service.permission == PermissionType.PRIVATE,
+                                ),
+                                Service.permission == PermissionType.PUBLIC,
+                            ),
+                        ),
+                    ),
+                )).one_or_none()
+
+            if not db_service:
+                msg = "[ServiceCenterManager] Service not found or permission denied"
+                raise RuntimeError(msg)
+
         service_path = (
             Path(config.deploy.data_dir) / "semantics" / "service" / service_id / "openapi" / "api.yaml"
         )
         async with await service_path.open() as f:
             service_data = yaml.safe_load(await f.read())
-        return service_pool_store.name, service_data
+        return db_service.name, service_data
+
 
     @staticmethod
     async def get_service_metadata(

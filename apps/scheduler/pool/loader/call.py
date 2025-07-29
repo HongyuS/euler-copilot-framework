@@ -58,7 +58,7 @@ class CallLoader(metaclass=SingletonMeta):
                 ))
                 call_descriptions.append(call.description)
 
-            # 进行向量化，更新LanceDB
+            # 进行向量化
             call_vecs = await Embedding.get_embedding(call_descriptions)
             vector_data = []
             for call_id, vec in zip(call_metadata.keys(), call_vecs, strict=True):
