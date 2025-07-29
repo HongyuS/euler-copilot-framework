@@ -341,7 +341,7 @@ function check_k3s_status() {
 check_hub_connection() {
     if curl -sSf http://hub.oepkgs.net >/dev/null 2>&1; then
         echo -e "[Info] 镜像站连接正常"
-        return 1
+        return 0
     else
         echo -e "[Error] 镜像站连接失败"
         return 1
