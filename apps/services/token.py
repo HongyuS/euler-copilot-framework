@@ -65,7 +65,7 @@ class TokenManager:
                 err = "Generate plugin token failed"
                 raise RuntimeError(err)
 
-            session.add(Session(
+            await session.merge(Session(
                 userSub=user_sub,
                 sessionType=SessionType.PLUGIN_TOKEN,
                 pluginId=str(plugin_id),
@@ -137,7 +137,7 @@ class TokenManager:
 
                 # 更新OIDC token
                 async with postgres.session() as session:
-                    session.add(Session(
+                    await session.merge(Session(
                         userSub=user_sub,
                         sessionType=SessionType.ACCESS_TOKEN,
                         token=oidc_access_token,
@@ -164,7 +164,7 @@ class TokenManager:
 
             # 保存插件token
             async with postgres.session() as session:
-                session.add(Session(
+                await session.merge(Session(
                     userSub=user_sub,
                     sessionType=SessionType.ACCESS_TOKEN,
                     pluginId=str(plugin_name),

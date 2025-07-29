@@ -229,20 +229,16 @@ class MCPLoader(metaclass=SingletonMeta):
         :param MCPServerConfig config: MCP配置
         :return: 无
         """
-        mcp_collection = MongoDB().get_collection("mcp")
-        await mcp_collection.update_one(
-            {"_id": mcp_id},
-            {
-                "$set": MCPCollection(
-                    _id=mcp_id,
-                    name=config.name,
-                    description=config.description,
-                    type=config.mcpType,
-                    author=config.author,
-                ).model_dump(by_alias=True, exclude_none=True),
-            },
-            upsert=True,
-        )
+        async with postgres.session() as session:
+            await session.merge(MCPInfo(
+                id=mcp_id,
+                name=config.name,
+                overview=config.overview,
+                description=config.description,
+                mcpType=config.mcpType,
+                author=config.author or "",
+            ))
+            await session.commit()
 
 
     @staticmethod

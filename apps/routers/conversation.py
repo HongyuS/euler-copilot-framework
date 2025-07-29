@@ -13,7 +13,7 @@ from apps.dependency import verify_personal_token, verify_session
 from apps.models.conversation import Conversation
 from apps.schemas.request_data import (
     DeleteConversationData,
-    ModifyConversationData,
+    ChangeConversationData,
 )
 from apps.schemas.response_data import (
     AddConversationMsg,
@@ -134,7 +134,7 @@ async def add_conversation(
 async def update_conversation(
     user_sub: Annotated[str, Depends(get_user)],
     conversation_id: Annotated[str, Query(..., alias="conversationId")],
-    post_body: ModifyConversationData,
+    post_body: ChangeConversationData,
 ) -> JSONResponse:
     """更新特定Conversation的数据"""
     # 判断Conversation是否合法

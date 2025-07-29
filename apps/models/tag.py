@@ -14,13 +14,14 @@ class Tag(Base):
     __tablename__ = "framework_tag"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """标签ID"""
-    name: Mapped[str] = mapped_column(String(255), index=True, unique=True)
+    name: Mapped[str] = mapped_column(String(255), index=True, unique=True, nullable=False)
     """标签名称"""
-    definition: Mapped[str] = mapped_column(String(2000))
+    definition: Mapped[str] = mapped_column(String(2000), nullable=False)
     """标签定义"""
     updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
         default_factory=lambda: datetime.now(tz=UTC),
         onupdate=lambda: datetime.now(tz=UTC),
+        nullable=False,
     )
     """标签的更新时间"""

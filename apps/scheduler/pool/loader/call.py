@@ -1,12 +1,14 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Call 加载器"""
 
-import asyncio
 import logging
 from pathlib import Path
 
+from sqlalchemy import delete
+
 import apps.scheduler.call as system_call
 from apps.common.config import config
+from apps.common.postgres import postgres
 from apps.common.singleton import SingletonMeta
 from apps.llm.embedding import Embedding
 from apps.models.node import NodeInfo
@@ -20,92 +22,59 @@ BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "call"
 class CallLoader(metaclass=SingletonMeta):
     """Call 加载器"""
 
-    async def _load_system_call(self) -> list[CallInfo]:
+    async def _load_system_call(self) -> dict[str, CallInfo]:
         """加载系统Call"""
-        call_metadata = []
+        call_metadata = {}
 
         # 检查合法性
         for call_id in system_call.__all__:
             call_cls = getattr(system_call, call_id)
             call_info = call_cls.info()
-            call_metadata.append(call_info)
+            call_metadata[call_id] = call_info
 
         return call_metadata
 
 
     # 更新数据库
-    async def _add_to_db(self, call_metadata: list[CallPool]) -> None:  # noqa: C901
+    async def _add_to_db(self, call_metadata: dict[str, CallInfo]) -> None:
         """更新数据库"""
-        # 更新MongoDB
-        mongo = MongoDB()
-        node_collection = mongo.get_collection("node")
-        call_descriptions = []
-        try:
-            for call in call_metadata:
-                await node_collection.insert_one(
-                    NodePool(
-                        _id=call.id,
-                        name=call.name,
-                        description=call.description,
-                        service_id="",
-                        call_id=call.id,
-                    ).model_dump(exclude_none=True, by_alias=True),
-                )
-                call_descriptions += [call.description]
-        except Exception as e:
-            err = "[CallLoader] 更新MongoDB失败"
-            logger.exception(err)
-            raise RuntimeError(err) from e
+        # 清除旧数据
+        async with postgres.session() as session:
+            await session.execute(delete(NodeInfo).where(NodeInfo.serviceId == None))  # noqa: E711
+            await session.execute(delete(NodePoolVector).where(NodePoolVector.serviceId == None))  # noqa: E711
 
-        while True:
-            try:
-                table = await LanceDB().get_table("call")
-                # 删除重复的ID
-                for call in call_metadata:
-                    await table.delete(f"id = '{call.id}'")
-                break
-            except RuntimeError as e:
-                if "Commit conflict" in str(e):
-                    logger.error("[CallLoader] LanceDB插入call冲突，重试中...")  # noqa: TRY400
-                    await asyncio.sleep(0.01)
-                else:
-                    raise
+            # 更新数据库
+            call_descriptions = []
+            for call_id, call in call_metadata.items():
+                await session.merge(NodeInfo(
+                    id=call_id,
+                    name=call.name,
+                    description=call.description,
+                    serviceId=None,
+                    callId=call_id,
+                    knownParams={},
+                    overrideInput={},
+                    overrideOutput={},
+                ))
+                call_descriptions.append(call.description)
 
-        # 进行向量化，更新LanceDB
-        call_vecs = await Embedding.get_embedding(call_descriptions)
-        vector_data = []
-        for i, vec in enumerate(call_vecs):
-            vector_data.append(
-                CallPoolVector(
-                    id=call_metadata[i].id,
-                    embedding=vec,
-                ),
-            )
-        while True:
-            try:
-                table = await LanceDB().get_table("call")
-                await table.merge_insert("id").when_matched_update_all().when_not_matched_insert_all().execute(
-                    vector_data,
+            # 进行向量化，更新LanceDB
+            call_vecs = await Embedding.get_embedding(call_descriptions)
+            vector_data = []
+            for call_id, vec in zip(call_metadata.keys(), call_vecs, strict=True):
+                vector_data.append(
+                    NodePoolVector(
+                        id=call_id,
+                        serviceId=None,
+                        embedding=vec,
+                    ),
                 )
-                break
-            except RuntimeError as e:
-                if "Commit conflict" in str(e):
-                    logger.error("[CallLoader] LanceDB插入call冲突，重试中...")  # noqa: TRY400
-                    await asyncio.sleep(0.01)
-                else:
-                    raise
+            session.add_all(vector_data)
+            await session.commit()
 
 
     async def load(self) -> None:
         """初始化Call信息"""
-        # 清空collection
-        mongo = MongoDB()
-        node_collection = mongo.get_collection("node")
-        try:
-            await node_collection.delete_many({"service_id": ""})
-        except Exception:
-            logger.exception("[CallLoader] Call的collection清空失败")
-
         # 载入所有已知的Call信息
         try:
             sys_call_metadata = await self._load_system_call()
@@ -114,15 +83,5 @@ class CallLoader(metaclass=SingletonMeta):
             logger.exception(err)
             raise RuntimeError(err) from e
 
-        try:
-            user_call_metadata = await self._load_all_user_call()
-        except Exception:
-            err = "[CallLoader] 载入用户Call信息失败"
-            logger.exception(err)
-            user_call_metadata = []
-
-        # 合并Call元数据
-        call_metadata = sys_call_metadata + user_call_metadata
-
         # 更新数据库
-        await self._add_to_db(call_metadata)
+        await self._add_to_db(sys_call_metadata)

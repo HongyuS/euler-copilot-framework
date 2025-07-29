@@ -81,7 +81,7 @@ class MCPSelector:
 
         for tool_vec in tool_vecs:
             logger.info("[MCPHelper] 查询MCP Tool名称和描述: %s", tool_vec["mcp_id"])
-            tool_data = await MCPServiceManager.get_service_tools(tool_vec["mcp_id"])
+            tool_data = await MCPServiceManager.get_mcp_tools(tool_vec["mcp_id"])
             llm_tool_list.extend(tool_data)
 
         return llm_tool_list

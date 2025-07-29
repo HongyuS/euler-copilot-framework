@@ -178,7 +178,7 @@ class MCPHost:
                 continue
             # 获取MCP工具配置
             try:
-                tool_list.extend(await MCPServiceManager.get_service_tools(mcp_id))
+                tool_list.extend(await MCPServiceManager.get_mcp_tools(mcp_id))
             except KeyError:
                 logger.warning("用户 %s 的MCP Tool %s 配置错误", self._user_sub, mcp_id)
                 continue
