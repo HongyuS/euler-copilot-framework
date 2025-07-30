@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 from apps.common.config import config
 from apps.common.queue import MessageQueue
+from apps.models.app import App
 from apps.scheduler.executor.agent import MCPAgentExecutor
 from apps.scheduler.executor.flow import FlowExecutor
 from apps.scheduler.pool.pool import Pool
@@ -15,9 +16,7 @@ from apps.scheduler.scheduler.message import (
     push_init_message,
     push_rag_message,
 )
-from apps.schemas.collection import LLM
 from apps.schemas.enum_var import AppType, EventType
-from apps.schemas.pool import AppPool
 from apps.schemas.rag_data import RAGQueryReq
 from apps.schemas.request_data import RequestData
 from apps.schemas.scheduler import ExecutorBackground

@@ -6,6 +6,7 @@ import logging
 import uuid
 
 import asyncer
+import magic
 from fastapi import UploadFile
 from sqlalchemy import and_, func, select
 
@@ -30,7 +31,6 @@ class DocumentManager:
         MinioClient.check_bucket("document")
         file = document.file
         # 获取文件MIME
-        import magic
         mime = magic.from_buffer(file.read(), mime=True)
         file.seek(0)
 

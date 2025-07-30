@@ -3,6 +3,7 @@
 
 import logging
 import shutil
+import uuid
 
 from anyio import Path
 from fastapi.encoders import jsonable_encoder
@@ -24,13 +25,13 @@ BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "app"
 class AppLoader:
     """应用加载器"""
 
-    async def load(self, app_id: str, hashes: dict[str, str]) -> None:  # noqa: C901
+    async def load(self, app_id: uuid.UUID, hashes: dict[str, str]) -> None:  # noqa: C901
         """
         从文件系统中加载应用
 
         :param app_id: 应用 ID
         """
-        app_path = BASE_PATH / app_id
+        app_path = BASE_PATH / str(app_id)
         metadata_path = app_path / "metadata.yaml"
         metadata = await MetadataLoader().load_one(metadata_path)
         if not metadata:
@@ -84,7 +85,7 @@ class AppLoader:
                 raise RuntimeError(err) from e
         await self._update_db(metadata)
 
-    async def save(self, metadata: AppMetadata | AgentAppMetadata, app_id: str) -> None:
+    async def save(self, metadata: AppMetadata | AgentAppMetadata, app_id: uuid.UUID) -> None:
         """
         保存应用
 
@@ -92,7 +93,7 @@ class AppLoader:
         :param app_id: 应用 ID
         """
         # 创建文件夹
-        app_path = BASE_PATH / app_id
+        app_path = BASE_PATH / str(app_id)
         if not await app_path.exists():
             await app_path.mkdir(parents=True, exist_ok=True)
         # 保存元数据
@@ -104,7 +105,7 @@ class AppLoader:
 
 
     @staticmethod
-    async def delete(app_id: str, *, is_reload: bool = False) -> None:
+    async def delete(app_id: uuid.UUID, *, is_reload: bool = False) -> None:
         """
         删除App，并更新数据库
 
@@ -129,7 +130,7 @@ class AppLoader:
             logger.exception("[AppLoader] MongoDB删除App失败")
 
         if not is_reload:
-            app_path = BASE_PATH / app_id
+            app_path = BASE_PATH / str(app_id)
             if await app_path.exists():
                 shutil.rmtree(str(app_path), ignore_errors=True)
 

@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import and_, select
 
 from apps.common.postgres import postgres
 from apps.constants import SERVICE_PAGE_SIZE
@@ -57,6 +57,7 @@ class AppCenterManager:
         result = await app_collection.find_one(query)
         return result is not None
 
+
     @staticmethod
     async def validate_app_belong_to_user(user_sub: str, app_id: str) -> bool:
         """
@@ -66,15 +67,20 @@ class AppCenterManager:
         :param app_id: 应用id
         :return: 如果应用属于用户则返回True，否则返回False
         """
-        mongo = MongoDB()
-        app_collection = mongo.get_collection("app")  # 获取应用集合'
-        query = {
-            "_id": app_id,
-            "author": user_sub,
-        }
+        async with postgres.session() as session:
+            app_obj = (await session.scalars(
+                select(App).where(
+                    and_(
+                        App.id == app_id,
+                        App.author == user_sub,
+                    ),
+                ),
+            )).one_or_none()
+            if not app_obj:
+                msg = f"[AppCenterManager] 应用不存在或权限不足: {app_id}"
+                raise ValueError(msg)
+            return True
 
-        result = await app_collection.find_one(query)
-        return result is not None
 
     @staticmethod
     async def fetch_apps(
@@ -183,7 +189,7 @@ class AppCenterManager:
         :param data: 应用数据
         :return: 应用唯一标识
         """
-        app_id = str(uuid.uuid4())
+        app_id = uuid.uuid4()
         await AppCenterManager._process_app_and_save(
             app_type=data.app_type,
             app_id=app_id,
@@ -390,7 +396,7 @@ class AppCenterManager:
         search_conditions: dict[str, Any],
         page: int,
         page_size: int,
-    ) -> tuple[list[AppPool], int]:
+    ) -> tuple[list[App], int]:
         """根据过滤条件搜索应用并计算总页数"""
         mongo = MongoDB()
         app_collection = mongo.get_collection("app")
@@ -402,12 +408,12 @@ class AppCenterManager:
             .limit(page_size)
             .to_list(length=page_size)
         )
-        apps = [AppPool.model_validate(doc) for doc in db_data]
+        apps = [App.model_validate(doc) for doc in db_data]
         return apps, total_apps
 
 
     @staticmethod
-    async def _get_app_data(app_id: str, user_sub: str, *, check_permission: bool = True) -> AppPool:
+    async def _get_app_data(app_id: str, user_sub: str, *, check_permission: bool = True) -> App:
         """
         从数据库获取应用数据并验证权限
 
@@ -490,7 +496,7 @@ class AppCenterManager:
         common_params: dict,
         user_sub: str,
         data: AppData | None = None,
-        app_data: AppPool | None = None,
+        app_data: App | None = None,
         published: bool | None = None,
     ) -> AgentAppMetadata:
         """创建 Agent 应用的元数据"""
@@ -522,7 +528,7 @@ class AppCenterManager:
     @staticmethod
     async def _create_metadata(
         app_type: AppType,
-        app_id: str,
+        app_id: uuid.UUID,
         user_sub: str,
         **kwargs: Any,
     ) -> AppMetadata | AgentAppMetadata:
@@ -540,7 +546,7 @@ class AppCenterManager:
         :raises ValueError: 无效应用类型或缺少必要数据
         """
         data: AppData | None = kwargs.get("data")
-        app_data: AppPool | None = kwargs.get("app_data")
+        app_data: App | None = kwargs.get("app_data")
         published: bool | None = kwargs.get("published")
 
         # 验证必要数据
@@ -554,8 +560,8 @@ class AppCenterManager:
             msg = f"参数 data 类型应为 AppData，但获取到的是 {type(data).__name__}"
             raise ValueError(msg)
 
-        if app_data is not None and not isinstance(app_data, AppPool):
-            msg = f"参数 app_data 类型应为 AppPool，但获取到的是 {type(app_data).__name__}"
+        if app_data is not None and not isinstance(app_data, App):
+            msg = f"参数 app_data 类型应为 App，但获取到的是 {type(app_data).__name__}"
             raise ValueError(msg)
 
         if published is not None and not isinstance(published, bool):
@@ -587,7 +593,7 @@ class AppCenterManager:
     @staticmethod
     async def _process_app_and_save(
         app_type: AppType,
-        app_id: str,
+        app_id: uuid.UUID,
         user_sub: str,
         **kwargs: Any,
     ) -> Any:

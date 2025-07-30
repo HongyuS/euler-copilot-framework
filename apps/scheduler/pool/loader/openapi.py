@@ -2,6 +2,7 @@
 """OpenAPI文档载入器"""
 
 import logging
+import uuid
 from hashlib import shake_128
 from typing import Any
 
@@ -16,7 +17,7 @@ from apps.scheduler.openapi import (
 )
 from apps.scheduler.util import yaml_str_presenter
 from apps.schemas.enum_var import ContentType, HTTPMethod
-from apps.schemas.node import APINode, APINodeInput, APINodeOutput
+from apps.schemas.node import APINodeInput, APINodeOutput
 
 logger = logging.getLogger(__name__)
 
@@ -121,31 +122,43 @@ class OpenAPILoader:
 
     async def _process_spec(
         self,
-        service_id: str,
+        service_id: uuid.UUID,
         yaml_filename: str,
         spec: ReducedOpenAPISpec,
         server: str,
-    ) -> list[APINode]:
+    ) -> list[NodeInfo]:
         """将OpenAPI文档拆解为Node"""
         nodes = []
         for api_endpoint in spec.endpoints:
             # 通过算法生成唯一的标识符
             identifier = shake_128(f"openapi::{yaml_filename}::{api_endpoint.uri}".encode()).hexdigest(16)
             # 组装新的NodePool item
-            node = APINode(
-                _id=identifier,
+            node = NodeInfo(
+                id=identifier,
                 name=api_endpoint.name,
                 # 此处固定Call的ID是"API"
-                call_id="API",
+                callId="API",
                 description=api_endpoint.description,
-                service_id=service_id,
+                serviceId=service_id,
+                knownParams={},
+                overrideInput={},
+                overrideOutput={},
             )
 
             # 合并参数
-            node.override_input, node.override_output, node.known_params = await self._get_api_data(
+            override_input, override_output, known_params = await self._get_api_data(
                 api_endpoint,
                 server,
             )
+            node.overrideInput = override_input.model_dump(
+                exclude_none=True,
+                by_alias=True,
+            )
+            node.overrideOutput = override_output.model_dump(
+                exclude_none=True,
+                by_alias=True,
+            )
+            node.knownParams = known_params
             nodes.append(node)
         return nodes
 
@@ -157,7 +170,7 @@ class OpenAPILoader:
         """加载字典形式的OpenAPI文档"""
         spec = reduce_openapi_spec(yaml_dict)
         try:
-            await self._process_spec("temp", "temp.yaml", spec, spec.servers)
+            await self._process_spec(uuid.UUID("00000000-0000-0000-0000-000000000000"), "temp.yaml", spec, spec.servers)
         except Exception:
             err = "[OpenAPILoader] 处理OpenAPI文档失败"
             logger.exception(err)
@@ -166,7 +179,7 @@ class OpenAPILoader:
         return spec
 
 
-    async def load_one(self, service_id: str, yaml_path: Path, server: str) -> list[NodeInfo]:
+    async def load_one(self, service_id: uuid.UUID, yaml_path: Path, server: str) -> list[NodeInfo]:
         """加载单个OpenAPI文档，可以直接指定路径"""
         try:
             spec = await self._read_yaml(yaml_path)
@@ -184,23 +197,7 @@ class OpenAPILoader:
             logger.exception(err)
             raise RuntimeError(err) from e
 
-        return [
-            NodeInfo(
-                name=node.name,
-                description=node.description,
-                callId=node.call_id,
-                serviceId=service_id,
-                overrideInput=node.override_input.model_dump(
-                    exclude_none=True,
-                    by_alias=True,
-                )
-                if node.override_input
-                else {},
-                overrideOutput={},
-                knownParams=node.known_params,
-            )
-            for node in api_nodes
-        ]
+        return api_nodes
 
 
     async def save_one(self, yaml_path: Path, yaml_dict: dict[str, Any]) -> None:

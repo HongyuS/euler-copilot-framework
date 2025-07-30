@@ -43,8 +43,8 @@ class User(Base):
 class UserFavoriteType(str, enum.Enum):
     """用户收藏类型"""
 
-    app = "app"
-    service = "service"
+    APP = "app"
+    SERVICE = "service"
 
 
 class UserFavorite(Base):

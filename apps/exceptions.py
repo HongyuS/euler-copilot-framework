@@ -4,9 +4,6 @@
 Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """
 
-class ServiceIDError(Exception):
-    """Service ID错误"""
-
 
 class InstancePermissionError(Exception):
     """App/Service实例的权限错误"""

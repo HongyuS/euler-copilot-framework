@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """App、Flow和Service等外置配置数据结构"""
 
+import uuid
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -70,7 +71,7 @@ class MetadataBase(BaseModel):
     """
 
     type: MetadataType = Field(description="元数据类型")
-    id: str = Field(description="元数据ID")
+    id: uuid.UUID = Field(description="元数据ID")
     icon: str = Field(description="图标", default="")
     name: str = Field(description="元数据名称")
     description: str = Field(description="元数据描述")

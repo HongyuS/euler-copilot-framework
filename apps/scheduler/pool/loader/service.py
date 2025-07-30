@@ -3,10 +3,10 @@
 
 import logging
 import shutil
+import uuid
 
 from anyio import Path
-from fastapi.encoders import jsonable_encoder
-from sqlalchemy import delete, insert
+from sqlalchemy import delete
 
 from apps.common.config import config
 from apps.common.postgres import postgres
@@ -15,7 +15,7 @@ from apps.models.node import NodeInfo
 from apps.models.service import Service
 from apps.models.vectors import NodePoolVector, ServicePoolVector
 from apps.scheduler.pool.check import FileChecker
-from apps.schemas.flow import Permission, ServiceMetadata
+from apps.schemas.flow import PermissionType, ServiceMetadata
 
 from .metadata import MetadataLoader, MetadataType
 from .openapi import OpenAPILoader
@@ -28,9 +28,9 @@ class ServiceLoader:
     """Service 加载器"""
 
     @staticmethod
-    async def load(service_id: str, hashes: dict[str, str]) -> None:
+    async def load(service_id: uuid.UUID, hashes: dict[str, str]) -> None:
         """加载单个Service"""
-        service_path = BASE_PATH / service_id
+        service_path = BASE_PATH / str(service_id)
         # 载入元数据
         metadata = await MetadataLoader().load_one(service_path / "metadata.yaml")
         if not isinstance(metadata, ServiceMetadata):
@@ -52,9 +52,9 @@ class ServiceLoader:
 
 
     @staticmethod
-    async def save(service_id: str, metadata: ServiceMetadata, data: dict) -> None:
+    async def save(service_id: uuid.UUID, metadata: ServiceMetadata, data: dict) -> None:
         """在文件系统上保存Service，并更新数据库"""
-        service_path = BASE_PATH / service_id
+        service_path = BASE_PATH / str(service_id)
         # 创建文件夹
         if not await service_path.exists():
             await service_path.mkdir(parents=True, exist_ok=True)
@@ -72,28 +72,18 @@ class ServiceLoader:
 
 
     @staticmethod
-    async def delete(service_id: str, *, is_reload: bool = False) -> None:
+    async def delete(service_id: uuid.UUID, *, is_reload: bool = False) -> None:
         """删除Service，并更新数据库"""
-        mongo = MongoDB()
-        service_collection = mongo.get_collection("service")
-        node_collection = mongo.get_collection("node")
-        try:
-            await service_collection.delete_one({"_id": service_id})
-            await node_collection.delete_many({"service_id": service_id})
-        except Exception:
-            logger.exception("[ServiceLoader] 删除Service失败")
+        async with postgres.session() as session:
+            await session.execute(delete(Service).where(Service.id == service_id))
+            await session.execute(delete(NodeInfo).where(NodeInfo.serviceId == service_id))
 
-        try:
-            # 删除postgres中的向量数据
-            async with postgres.session() as session:
-                await session.execute(delete(ServicePoolVector).where(ServicePoolVector.service_id == service_id))
-                await session.execute(delete(NodePoolVector).where(NodePoolVector.serviceId == service_id))
-                await session.commit()
-        except Exception:
-            logger.exception("[ServiceLoader] 删除数据库失败")
+            await session.execute(delete(ServicePoolVector).where(ServicePoolVector.id == service_id))
+            await session.execute(delete(NodePoolVector).where(NodePoolVector.serviceId == service_id))
+            await session.commit()
 
         if not is_reload:
-            path = BASE_PATH / service_id
+            path = BASE_PATH / str(service_id)
             if await path.exists():
                 shutil.rmtree(path)
 
@@ -105,71 +95,54 @@ class ServiceLoader:
             err = f"[ServiceLoader] 服务 {metadata.id} 的哈希值为空"
             logger.error(err)
             raise ValueError(err)
-        # 更新MongoDB
-        mongo = MongoDB()
-        service_collection = mongo.get_collection("service")
-        node_collection = mongo.get_collection("node")
-        try:
-            # 先删除旧的节点
-            await node_collection.delete_many({"service_id": metadata.id})
-            # 插入或更新 Service
-            await service_collection.update_one(
-                {"_id": metadata.id},
-                {
-                    "$set": jsonable_encoder(
-                        ServicePool(
-                            _id=metadata.id,
-                            name=metadata.name,
-                            description=metadata.description,
-                            author=metadata.author,
-                            permission=metadata.permission if metadata.permission else Permission(),
-                            hashes=metadata.hashes,
-                        ),
-                    ),
-                },
-                upsert=True,
+
+        # 更新数据库
+        async with postgres.session() as session:
+            # 删除旧的数据
+            await session.execute(delete(Service).where(Service.id == metadata.id))
+            await session.execute(delete(NodeInfo).where(NodeInfo.serviceId == metadata.id))
+
+            # 插入新的数据
+            service_data = Service(
+                id=metadata.id,
+                name=metadata.name,
+                description=metadata.description,
+                author=metadata.author,
+                permission=PermissionType.PRIVATE,
             )
+            session.add(service_data)
+
             for node in nodes:
-                await node_collection.update_one({"_id": node.id}, {"$set": jsonable_encoder(node)}, upsert=True)
-        except Exception as e:
-            err = f"[ServiceLoader] 更新 MongoDB 失败：{e}"
-            logger.exception(err)
-            raise RuntimeError(err) from e
+                session.add(node)
+            await session.commit()
 
         # 删除旧的向量数据
         async with postgres.session() as session:
-            await session.execute(delete(ServicePoolVector).where(ServicePoolVector.service_id == metadata.id))
+            await session.execute(delete(ServicePoolVector).where(ServicePoolVector.id == metadata.id))
             await session.execute(delete(NodePoolVector).where(NodePoolVector.serviceId == metadata.id))
             await session.commit()
 
         # 进行向量化，更新postgres
         service_vecs = await Embedding.get_embedding([metadata.description])
         async with postgres.session() as session:
-            await session.execute(
-                insert(ServicePoolVector),
-                [
-                    {
-                        "service_id": metadata.id,
-                        "embedding": service_vecs[0],
-                    },
-                ],
+            pool_data = ServicePoolVector(
+                id=metadata.id,
+                embedding=service_vecs[0],
             )
+            session.add(pool_data)
             await session.commit()
 
         node_descriptions = []
         for node in nodes:
             node_descriptions += [node.description]
-
         node_vecs = await Embedding.get_embedding(node_descriptions)
+
         async with postgres.session() as session:
-            await session.execute(
-                insert(NodePoolVector),
-                [
-                    {
-                        "service_id": metadata.id,
-                        "embedding": vec,
-                    }
-                    for vec in node_vecs
-                ],
-            )
+            for vec in node_vecs:
+                node_data = NodePoolVector(
+                    id=node.id,
+                    serviceId=metadata.id,
+                    embedding=vec,
+                )
+                session.add(node_data)
             await session.commit()
