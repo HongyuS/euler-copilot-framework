@@ -3,17 +3,18 @@
 
 import logging
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 import yaml
 from anyio import Path
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 
 from apps.common.config import config
 from apps.common.postgres import postgres
-from apps.exceptions import InstancePermissionError, ServiceIDError
 from apps.models.node import NodeInfo
 from apps.models.service import Service, ServiceACL
+from apps.models.user import User, UserFavorite, UserFavoriteType
 from apps.scheduler.openapi import ReducedOpenAPISpec
 from apps.scheduler.pool.loader.openapi import OpenAPILoader
 from apps.scheduler.pool.loader.service import ServiceLoader
@@ -41,7 +42,43 @@ class ServiceCenterManager:
         page_size: int,
     ) -> tuple[list[ServiceCardItem], int]:
         """获取所有服务列表"""
-        service_pools, total_count = await ServiceCenterManager._search_service(filters, page, page_size)
+        async with postgres.session() as session:
+            if not keyword:
+                service_pools = list(
+                    (await session.scalars(select(Service).offset((page - 1) * page_size).limit(page_size))).all(),
+                )
+            elif search_type == SearchType.ALL:
+                service_pools = list(
+                    (await session.scalars(select(Service).where(
+                        or_(
+                            Service.name.like(f"%{keyword}%"),
+                            Service.description.like(f"%{keyword}%"),
+                            Service.author.like(f"%{keyword}%"),
+                        ),
+                    ).order_by(Service.updatedAt.desc()).offset((page - 1) * page_size).limit(page_size))).all(),
+                )
+            elif search_type == SearchType.NAME:
+                service_pools = list(
+                    (await session.scalars(select(Service).where(
+                        Service.name.like(f"%{keyword}%"),
+                    ).order_by(Service.updatedAt.desc()).offset((page - 1) * page_size).limit(page_size))).all(),
+                )
+            elif search_type == SearchType.DESCRIPTION:
+                service_pools = list(
+                    (await session.scalars(select(Service).where(
+                        Service.description.like(f"%{keyword}%"),
+                    ).order_by(Service.updatedAt.desc()).offset((page - 1) * page_size).limit(page_size))).all(),
+                )
+            elif search_type == SearchType.AUTHOR:
+                service_pools = list(
+                    (await session.scalars(select(Service).where(
+                        Service.author.like(f"%{keyword}%"),
+                    ).order_by(Service.updatedAt.desc()).offset((page - 1) * page_size).limit(page_size))).all(),
+                )
+            else:
+                service_pools = []
+            total_count = len(service_pools)
+
         fav_service_ids = await ServiceCenterManager._get_favorite_service_ids_by_user(user_sub)
         services = [
             ServiceCardItem(
@@ -55,6 +92,7 @@ class ServiceCenterManager:
             for service_pool in service_pools
         ]
         return services, total_count
+
 
     @staticmethod
     async def fetch_user_services(
@@ -69,9 +107,58 @@ class ServiceCenterManager:
             if keyword is not None and keyword not in user_sub:
                 return [], 0
             keyword = user_sub
-        base_filter = {"author": user_sub}
-        filters = ServiceCenterManager._build_filters(base_filter, search_type, keyword) if keyword else base_filter
-        service_pools, total_count = await ServiceCenterManager._search_service(filters, page, page_size)
+
+        async with postgres.session() as session:
+            if not keyword:
+                service_pools = list(
+                    (await session.scalars(select(Service).where(
+                        Service.author == user_sub,
+                    ).order_by(Service.updatedAt.desc()).offset((page - 1) * page_size).limit(page_size))).all(),
+                )
+            elif search_type == SearchType.ALL:
+                service_pools = list(
+                    (await session.scalars(select(Service).where(
+                        and_(
+                            Service.author == user_sub,
+                            or_(
+                                Service.name.like(f"%{keyword}%"),
+                                Service.description.like(f"%{keyword}%"),
+                                Service.author.like(f"%{keyword}%"),
+                            ),
+                        ),
+                    ).order_by(Service.updatedAt.desc()).offset((page - 1) * page_size).limit(page_size))).all(),
+                )
+            elif search_type == SearchType.NAME:
+                service_pools = list(
+                    (await session.scalars(select(Service).where(
+                        and_(
+                            Service.author == user_sub,
+                            Service.name.like(f"%{keyword}%"),
+                        ),
+                    ).order_by(Service.updatedAt.desc()).offset((page - 1) * page_size).limit(page_size))).all(),
+                )
+            elif search_type == SearchType.DESCRIPTION:
+                service_pools = list(
+                    (await session.scalars(select(Service).where(
+                        and_(
+                            Service.author == user_sub,
+                            Service.description.like(f"%{keyword}%"),
+                        ),
+                    ).order_by(Service.updatedAt.desc()).offset((page - 1) * page_size).limit(page_size))).all(),
+                )
+            elif search_type == SearchType.AUTHOR:
+                service_pools = list(
+                    (await session.scalars(select(Service).where(
+                        and_(
+                            Service.author == user_sub,
+                            Service.author.like(f"%{keyword}%"),
+                        ),
+                    ).order_by(Service.updatedAt.desc()).offset((page - 1) * page_size).limit(page_size))).all(),
+                )
+            else:
+                service_pools = []
+            total_count = len(service_pools)
+
         fav_service_ids = await ServiceCenterManager._get_favorite_service_ids_by_user(user_sub)
         services = [
             ServiceCardItem(
@@ -86,6 +173,7 @@ class ServiceCenterManager:
         ]
         return services, total_count
 
+
     @staticmethod
     async def fetch_favorite_services(
         user_sub: str,
@@ -96,30 +184,79 @@ class ServiceCenterManager:
     ) -> tuple[list[ServiceCardItem], int]:
         """获取用户收藏的服务"""
         fav_service_ids = await ServiceCenterManager._get_favorite_service_ids_by_user(user_sub)
-        base_filter = {"_id": {"$in": fav_service_ids}}
-        filters = ServiceCenterManager._build_filters(base_filter, search_type, keyword) if keyword else base_filter
-        service_pools, total_count = await ServiceCenterManager._search_service(filters, page, page_size)
-        services = [
-            ServiceCardItem(
-                serviceId=service_pool.id,
-                icon="",
-                name=service_pool.name,
-                description=service_pool.description,
-                author=service_pool.author,
-                favorited=True,
-            )
-            for service_pool in service_pools
-        ]
-        return services, total_count
+
+        async with postgres.session() as session:
+            if not keyword:
+                service_pools = list(
+                    (await session.scalars(select(Service).where(
+                        Service.id.in_(fav_service_ids),
+                    ).order_by(Service.updatedAt.desc()).offset((page - 1) * page_size).limit(page_size))).all(),
+                )
+            elif search_type == SearchType.ALL:
+                service_pools = list(
+                    (await session.scalars(select(Service).where(
+                        and_(
+                            Service.id.in_(fav_service_ids),
+                            or_(
+                                Service.name.like(f"%{keyword}%"),
+                                Service.description.like(f"%{keyword}%"),
+                                Service.author.like(f"%{keyword}%"),
+                            ),
+                        ),
+                    ).order_by(Service.updatedAt.desc()).offset((page - 1) * page_size).limit(page_size))).all(),
+                )
+            elif search_type == SearchType.NAME:
+                service_pools = list(
+                    (await session.scalars(select(Service).where(
+                        and_(
+                            Service.id.in_(fav_service_ids),
+                            Service.name.like(f"%{keyword}%"),
+                        ),
+                    ).order_by(Service.updatedAt.desc()).offset((page - 1) * page_size).limit(page_size))).all(),
+                )
+            elif search_type == SearchType.DESCRIPTION:
+                service_pools = list(
+                    (await session.scalars(select(Service).where(
+                        and_(
+                            Service.id.in_(fav_service_ids),
+                            Service.description.like(f"%{keyword}%"),
+                        ),
+                    ).order_by(Service.updatedAt.desc()).offset((page - 1) * page_size).limit(page_size))).all(),
+                )
+            elif search_type == SearchType.AUTHOR:
+                service_pools = list(
+                    (await session.scalars(select(Service).where(
+                        and_(
+                            Service.id.in_(fav_service_ids),
+                            Service.author.like(f"%{keyword}%"),
+                        ),
+                    ).order_by(Service.updatedAt.desc()).offset((page - 1) * page_size).limit(page_size))).all(),
+                )
+            else:
+                service_pools = []
+            total_count = len(service_pools)
+
+            services = [
+                ServiceCardItem(
+                    serviceId=service_pool.id,
+                    icon="",
+                    name=service_pool.name,
+                    description=service_pool.description,
+                    author=service_pool.author,
+                    favorited=True,
+                )
+                for service_pool in service_pools
+            ]
+            return services, total_count
 
 
     @staticmethod
     async def create_service(
         user_sub: str,
         data: dict[str, Any],
-    ) -> str:
+    ) -> uuid.UUID:
         """创建服务"""
-        service_id = str(uuid.uuid4())
+        service_id = uuid.uuid4()
         # 校验 OpenAPI 规范的 JSON Schema
         validated_data = await ServiceCenterManager._validate_service_data(data)
 
@@ -136,7 +273,7 @@ class ServiceCenterManager:
 
             if db_service:
                 msg = "[ServiceCenterManager] 已存在相同名称和描述的服务"
-                raise ServiceIDError(msg)
+                raise RuntimeError(msg)
 
         # 存入数据库
         service_metadata = ServiceMetadata(
@@ -157,9 +294,9 @@ class ServiceCenterManager:
     @staticmethod
     async def update_service(
         user_sub: str,
-        service_id: str,
+        service_id: uuid.UUID,
         data: dict[str, Any],
-    ) -> str:
+    ) -> uuid.UUID:
         """更新服务"""
         # 验证用户权限
         async with postgres.session() as session:
@@ -169,11 +306,12 @@ class ServiceCenterManager:
                 ),
             )).one_or_none()
             if not db_service:
-                msg = "Service not found"
-                raise ServiceIDError(msg)
+                msg = "[ServiceCenterManager] Service not found"
+                raise RuntimeError(msg)
             if db_service.author != user_sub:
-                msg = "Permission denied"
-                raise InstancePermissionError(msg)
+                msg = "[ServiceCenterManager] Permission denied"
+                raise RuntimeError(msg)
+            db_service.updatedAt = datetime.now(tz=UTC)
         # 校验 OpenAPI 规范的 JSON Schema
         validated_data = await ServiceCenterManager._validate_service_data(data)
         # 存入数据库
@@ -190,53 +328,83 @@ class ServiceCenterManager:
         # 返回服务ID
         return service_id
 
+
     @staticmethod
     async def get_service_apis(
-        service_id: str,
+        service_id: uuid.UUID,
     ) -> tuple[str, list[ServiceApiData]]:
         """获取服务API列表"""
         # 获取服务名称
         async with postgres.session() as session:
-            db_service = (await session.scalars(
-                select(Service).where(
+            service_name = (await session.scalars(
+                select(Service.name).where(
                     Service.id == service_id,
                 ),
             )).one_or_none()
-            if not db_service:
-                msg = "Service not found"
-                raise ServiceIDError(msg)
-        # 根据 service_id 获取 API 列表
-        node_collection = MongoDB().get_collection("node")
-        db_nodes = await node_collection.find({"service_id": service_id}).to_list()
-        api_list: list[ServiceApiData] = []
-        for db_node in db_nodes:
-            node = NodePool.model_validate(db_node)
-            api_list.append(
+            if not service_name:
+                msg = "[ServiceCenterManager] Service not found"
+                raise RuntimeError(msg)
+
+            # 根据 service_id 获取 API 列表
+            node_data = (await session.scalars(
+                select(NodeInfo).where(
+                    NodeInfo.serviceId == service_id,
+                ),
+            )).all()
+            api_list = [
                 ServiceApiData(
                     name=node.name,
-                    path=f"{node.known_params['method'].upper()} {node.known_params['url']}"
-                    if node.known_params and "method" in node.known_params and "url" in node.known_params
+                    path=f"{node.knownParams['method'].upper()} {node.knownParams['url']}"
+                    if node.knownParams and "method" in node.knownParams and "url" in node.knownParams
                     else "",
                     description=node.description,
-                ),
-            )
-        return service_pool_store.name, api_list
+                )
+                for node in node_data
+            ]
+            return service_name, api_list
 
 
     @staticmethod
     async def get_service_data(
         user_sub: str,
-        service_id: str,
+        service_id: uuid.UUID,
     ) -> tuple[str, dict[str, Any]]:
         """获取服务数据"""
         # 验证用户权限
+        async with postgres.session() as session:
+            db_service = (await session.scalars(
+                select(Service).where(
+                    and_(
+                        Service.id == service_id,
+                        Service.author == user_sub,
+                    ),
+                ),
+            )).one_or_none()
+
+            if not db_service:
+                msg = "[ServiceCenterManager] Service not found or permission denied"
+                raise RuntimeError(msg)
+
+        service_path = (
+            Path(config.deploy.data_dir) / "semantics" / "service" / str(service_id) / "openapi" / "api.yaml"
+        )
+        async with await service_path.open() as f:
+            service_data = yaml.safe_load(await f.read())
+        return db_service.name, service_data
+
+
+    @staticmethod
+    async def get_service_metadata(
+        user_sub: str,
+        service_id: uuid.UUID,
+    ) -> ServiceMetadata:
+        """获取服务元数据"""
         async with postgres.session() as session:
             allowed_user = list((await session.scalars(
                 select(ServiceACL.userSub).where(
                     ServiceACL.serviceId == service_id,
                 ),
             )).all())
-
             if user_sub in allowed_user:
                 db_service = (await session.scalars(
                     select(Service).where(
@@ -257,45 +425,14 @@ class ServiceCenterManager:
                                     Service.permission == PermissionType.PRIVATE,
                                 ),
                                 Service.permission == PermissionType.PUBLIC,
+                                Service.author == user_sub,
                             ),
                         ),
                     ),
                 )).one_or_none()
-
             if not db_service:
                 msg = "[ServiceCenterManager] Service not found or permission denied"
                 raise RuntimeError(msg)
-
-        service_path = (
-            Path(config.deploy.data_dir) / "semantics" / "service" / service_id / "openapi" / "api.yaml"
-        )
-        async with await service_path.open() as f:
-            service_data = yaml.safe_load(await f.read())
-        return db_service.name, service_data
-
-
-    @staticmethod
-    async def get_service_metadata(
-        user_sub: str,
-        service_id: uuid.UUID,
-    ) -> ServiceMetadata:
-        """获取服务元数据"""
-        service_collection = MongoDB().get_collection("service")
-        match_conditions = [
-            {"author": user_sub},
-            {"permission.type": PermissionType.PUBLIC.value},
-            {
-                "$and": [
-                    {"permission.type": PermissionType.PROTECTED.value},
-                    {"permission.users": user_sub},
-                ],
-            },
-        ]
-        query = {"$and": [{"_id": service_id}, {"$or": match_conditions}]}
-        db_service = await service_collection.find_one(query)
-        if not db_service:
-            msg = "Service not found"
-            raise ServiceIDError(msg)
 
         metadata_path = (
             Path(config.deploy.data_dir) / "semantics" / "service" / str(service_id) / "metadata.yaml"
@@ -304,94 +441,108 @@ class ServiceCenterManager:
             metadata_data = yaml.safe_load(await f.read())
         return ServiceMetadata.model_validate(metadata_data)
 
+
     @staticmethod
-    async def delete_service(
-        user_sub: str,
-        service_id: str,
-    ) -> bool:
+    async def delete_service(user_sub: str, service_id: uuid.UUID) -> None:
         """删除服务"""
-        service_collection = MongoDB().get_collection("service")
-        user_collection = MongoDB().get_collection("user")
-        db_service = await service_collection.find_one({"_id": service_id})
-        if not db_service:
-            msg = "[ServiceCenterManager] Service未找到"
-            raise ServiceIDError(msg)
-        # 验证用户权限
-        service_pool_store = ServicePool.model_validate(db_service)
-        if service_pool_store.author != user_sub:
-            msg = "Permission denied"
-            raise InstancePermissionError(msg)
-        # 删除服务
-        service_loader = ServiceLoader()
-        await service_loader.delete(service_id)
-        # 删除用户收藏
-        await user_collection.update_many(
-            {"fav_services": {"$in": [service_id]}},
-            {"$pull": {"fav_services": service_id}},
-        )
-        return True
+        async with postgres.session() as session:
+            db_service = (await session.scalars(
+                select(Service).where(
+                    and_(
+                        Service.id == service_id,
+                        Service.author == user_sub,
+                    ),
+                ),
+            )).one_or_none()
+            if not db_service:
+                msg = "[ServiceCenterManager] Service not found or permission denied"
+                raise RuntimeError(msg)
+
+            # 删除服务
+            service_loader = ServiceLoader()
+            await service_loader.delete(service_id)
+            # 删除ACL
+            await session.execute(
+                delete(ServiceACL).where(
+                    ServiceACL.serviceId == service_id,
+                ),
+            )
+            # 删除收藏
+            await session.execute(
+                delete(UserFavorite).where(
+                    UserFavorite.itemId == service_id,
+                    UserFavorite.type == UserFavoriteType.SERVICE,
+                ),
+            )
+            await session.commit()
+
 
     @staticmethod
     async def modify_favorite_service(
         user_sub: str,
-        service_id: str,
+        service_id: uuid.UUID,
         *,
         favorited: bool,
-    ) -> bool:
+    ) -> None:
         """修改收藏状态"""
-        service_collection = MongoDB().get_collection("service")
-        user_collection = MongoDB().get_collection("user")
-        db_service = await service_collection.find_one({"_id": service_id})
-        if not db_service:
-            msg = f"[ServiceCenterManager] Service未找到: {service_id}"
-            logger.warning(msg)
-            raise ServiceIDError(msg)
-        db_user = await user_collection.find_one({"_id": user_sub})
-        if not db_user:
-            msg = f"[ServiceCenterManager] 用户未找到: {user_sub}"
-            logger.warning(msg)
-            raise ServiceIDError(msg)
-        user_data = User.model_validate(db_user)
-        already_favorited = service_id in user_data.fav_services
-        if already_favorited == favorited:
-            return False
-        if favorited:
-            await user_collection.update_one(
-                {"_id": user_sub},
-                {"$addToSet": {"fav_services": service_id}},
-            )
-        else:
-            await user_collection.update_one(
-                {"_id": user_sub},
-                {"$pull": {"fav_services": service_id}},
-            )
-        return True
+        async with postgres.session() as session:
+            db_service = (await session.scalars(
+                select(func.count(Service.id)).where(
+                    Service.id == service_id,
+                ),
+            )).one()
+            if not db_service:
+                msg = f"[ServiceCenterManager] Service未找到: {service_id}"
+                logger.warning(msg)
+                raise RuntimeError(msg)
+
+            user = (await session.scalars(
+                select(func.count(User.userSub)).where(
+                    User.userSub == user_sub,
+                ),
+            )).one()
+            if not user:
+                msg = f"[ServiceCenterManager] 用户未找到: {user_sub}"
+                logger.warning(msg)
+                raise RuntimeError(msg)
+
+            # 检查是否已收藏
+            user_favourite = (await session.scalars(
+                select(UserFavorite).where(
+                    and_(
+                        UserFavorite.itemId == service_id,
+                        UserFavorite.userSub == user_sub,
+                        UserFavorite.type == UserFavoriteType.SERVICE,
+                    ),
+                ),
+            )).one_or_none()
+            if not user_favourite and favorited:
+                # 创建收藏条目
+                user_favourite = UserFavorite(
+                    itemId=service_id,
+                    userSub=user_sub,
+                    type=UserFavoriteType.SERVICE,
+                )
+                session.add(user_favourite)
+                await session.commit()
+            elif user_favourite and not favorited:
+                # 删除收藏条目
+                await session.delete(user_favourite)
+                await session.commit()
+
 
     @staticmethod
-    async def _search_service(
-        search_conditions: dict,
-        page: int,
-        page_size: int,
-    ) -> tuple[list[ServicePool], int]:
-        """基于输入条件获取服务数据"""
-        service_collection = MongoDB().get_collection("service")
-        # 获取服务总数
-        total = await service_collection.count_documents(search_conditions)
-        # 分页查询
-        skip = (page - 1) * page_size
-        db_services = await service_collection.find(search_conditions).skip(skip).limit(page_size).to_list()
-        if not db_services and total > 0:
-            logger.warning("[ServiceCenterManager] 没有找到符合条件的服务: %s", search_conditions)
-            return [], -1
-        service_pools = [ServicePool.model_validate(db_service) for db_service in db_services]
-        return service_pools, total
-
-    @staticmethod
-    async def _get_favorite_service_ids_by_user(user_sub: str) -> list[str]:
+    async def _get_favorite_service_ids_by_user(user_sub: str) -> list[uuid.UUID]:
         """获取用户收藏的服务ID"""
-        user_collection = MongoDB().get_collection("user")
-        user_data = User.model_validate(await user_collection.find_one({"_id": user_sub}))
-        return user_data.fav_services
+        async with postgres.session() as session:
+            user_favourite = (await session.scalars(
+                select(UserFavorite).where(
+                    UserFavorite.userSub == user_sub,
+                    UserFavorite.type == UserFavoriteType.SERVICE,
+                ),
+            )).all()
+            return [user_favourite.itemId for user_favourite in user_favourite]
+
 
     @staticmethod
     async def _validate_service_data(data: dict[str, Any]) -> ReducedOpenAPISpec:

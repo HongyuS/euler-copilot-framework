@@ -307,7 +307,7 @@ class GetRecentAppListRsp(ResponseData):
 class ServiceCardItem(BaseModel):
     """语义接口中心：服务卡片数据结构"""
 
-    service_id: str = Field(..., alias="serviceId", description="服务ID")
+    service_id: uuid.UUID = Field(..., alias="serviceId", description="服务ID")
     name: str = Field(..., description="服务名称")
     description: str = Field(..., description="服务简介")
     icon: str = Field(..., description="服务图标")
@@ -326,7 +326,7 @@ class ServiceApiData(BaseModel):
 class BaseServiceOperationMsg(BaseModel):
     """语义接口中心：基础服务操作Result数据结构"""
 
-    service_id: str = Field(..., alias="serviceId", description="服务ID")
+    service_id: uuid.UUID = Field(..., alias="serviceId", description="服务ID")
 
 
 class GetServiceListMsg(BaseModel):
@@ -346,7 +346,7 @@ class GetServiceListRsp(ResponseData):
 class UpdateServiceMsg(BaseModel):
     """语义接口中心：服务属性数据结构"""
 
-    service_id: str = Field(..., alias="serviceId", description="服务ID")
+    service_id: uuid.UUID = Field(..., alias="serviceId", description="服务ID")
     name: str = Field(..., description="服务名称")
     apis: list[ServiceApiData] = Field(..., description="解析后的接口列表")
 
@@ -360,7 +360,7 @@ class UpdateServiceRsp(ResponseData):
 class GetServiceDetailMsg(BaseModel):
     """GET /api/service/{serviceId} Result数据结构"""
 
-    service_id: str = Field(..., alias="serviceId", description="服务ID")
+    service_id: uuid.UUID = Field(..., alias="serviceId", description="服务ID")
     name: str = Field(..., description="服务名称")
     apis: list[ServiceApiData] | None = Field(default=None, description="解析后的接口列表")
     data: dict[str, Any] | None = Field(default=None, description="YAML 内容数据对象")
@@ -381,7 +381,7 @@ class DeleteServiceRsp(ResponseData):
 class ChangeFavouriteServiceMsg(BaseModel):
     """PUT /api/service/{serviceId} Result数据结构"""
 
-    service_id: str = Field(..., alias="serviceId", description="服务ID")
+    service_id: uuid.UUID = Field(..., alias="serviceId", description="服务ID")
     favorited: bool = Field(..., description="是否已收藏")
 
 
