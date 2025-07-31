@@ -1,16 +1,17 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """资源池，包含语义接口、应用等的载入和保存"""
 
-import importlib
 import logging
+import sys
 import uuid
 from typing import Any
 
 from anyio import Path
+from sqlalchemy import select
 
 from apps.common.config import config
 from apps.common.postgres import postgres
-from apps.models.app import App
+from apps.models.flow import Flow as FlowInfo
 from apps.schemas.enum_var import MetadataType
 from apps.schemas.flow import Flow
 
@@ -100,7 +101,7 @@ class Pool:
 
         # 批量加载
         for service in changed_service:
-            hash_key = Path("service/" + service).as_posix()
+            hash_key = Path("service/" + str(service)).as_posix()
             if hash_key in checker.hashes:
                 await service_loader.load(service, checker.hashes[hash_key])
 
@@ -117,7 +118,7 @@ class Pool:
 
         # 批量加载App
         for app in changed_app:
-            hash_key = Path("app/" + app).as_posix()
+            hash_key = Path("app/" + str(app)).as_posix()
             if hash_key in checker.hashes:
                 await app_loader.load(app, checker.hashes[hash_key])
 
@@ -126,25 +127,15 @@ class Pool:
         await MCPLoader.init()
 
 
-    async def get_flow_metadata(self, app_id: str) -> list[AppFlow]:
+    async def get_flow_metadata(self, app_id: uuid.UUID) -> list[FlowInfo]:
         """从数据库中获取特定App的全部Flow的元数据"""
-        mongo = MongoDB()
-        app_collection = mongo.get_collection("app")
-        flow_metadata_list = []
-        try:
-            flow_list = await app_collection.find_one({"_id": app_id}, {"flows": 1})
-            if not flow_list:
-                return []
-            for flow in flow_list["flows"]:
-                flow_metadata_list += [AppFlow.model_validate(flow)]
-        except Exception:
-            logger.exception("[Pool] 获取App %s 的Flow列表失败", app_id)
-            return []
-        else:
-            return flow_metadata_list
+        async with postgres.session() as session:
+            return list((await session.scalars(
+                select(FlowInfo).where(FlowInfo.appId == app_id),
+            )).all())
 
 
-    async def get_flow(self, app_id: str, flow_id: str) -> Flow | None:
+    async def get_flow(self, app_id: uuid.UUID, flow_id: uuid.UUID) -> Flow | None:
         """从文件系统中获取单个Flow的全部数据"""
         logger.info("[Pool] 获取工作流 %s", flow_id)
         flow_loader = FlowLoader()
@@ -153,29 +144,5 @@ class Pool:
 
     async def get_call(self, call_id: str) -> Any:
         """[Exception] 拿到Call的信息"""
-        # 从MongoDB里拿到数据
-        mongo = MongoDB()
-        call_collection = mongo.get_collection("call")
-        call_db_data = await call_collection.find_one({"_id": call_id})
-        if not call_db_data:
-            err = f"[Pool] Call{call_id}不存在"
-            logger.error(err)
-            raise ValueError(err)
-
-        call_metadata = CallPool.model_validate(call_db_data)
-        call_path_split = call_metadata.path.split("::")
-        if not call_path_split:
-            err = f"[Pool] Call路径{call_metadata.path}不合法"
-            logger.error(err)
-            raise ValueError(err)
-
-        # Python类型的Call
-        if call_path_split[0] == "python":
-            try:
-                call_module = importlib.import_module(call_path_split[1])
-                return getattr(call_module, call_path_split[2])
-            except Exception as e:
-                err = f"[Pool] 获取Call{call_metadata.path}类失败"
-                logger.exception(err)
-                raise RuntimeError(err) from e
-        return None
+        call_module = sys.modules.get("apps.scheduler.call")
+        return getattr(call_module, call_id)

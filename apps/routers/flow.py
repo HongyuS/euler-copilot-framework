@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """FastAPI Flow拓扑结构展示API"""
 
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Query, Request, status
@@ -60,7 +61,7 @@ async def get_services(request: Request) -> NodeServiceListRsp:
         status.HTTP_404_NOT_FOUND: {"model": ResponseData},
     },
 )
-async def get_flow(request: Request, appId: str, flowId: str) -> JSONResponse:  # noqa: N803
+async def get_flow(request: Request, appId: uuid.UUID, flowId: uuid.UUID) -> JSONResponse:  # noqa: N803
     """获取流拓扑结构"""
     if not await AppCenterManager.validate_user_app_access(request.state.user_sub, appId):
         return JSONResponse(
@@ -100,8 +101,8 @@ async def get_flow(request: Request, appId: str, flowId: str) -> JSONResponse:  
 )
 async def put_flow(
     request: Request,
-    appId: Annotated[str, Query()],  # noqa: N803
-    flowId: Annotated[str, Query()],  # noqa: N803
+    appId: Annotated[uuid.UUID, Query()],  # noqa: N803
+    flowId: Annotated[uuid.UUID, Query()],  # noqa: N803
     put_body: Annotated[PutFlowReq, Body()],
 ) -> JSONResponse:
     """修改流拓扑结构"""
@@ -152,7 +153,7 @@ async def put_flow(
         status.HTTP_404_NOT_FOUND: {"model": ResponseData},
     },
 )
-async def delete_flow(request: Request, appId: str, flowId: str) -> JSONResponse:  # noqa: N803
+async def delete_flow(request: Request, appId: uuid.UUID, flowId: uuid.UUID) -> JSONResponse:  # noqa: N803
     """删除流拓扑结构"""
     if not await AppCenterManager.validate_app_belong_to_user(request.state.user_sub, appId):
         return JSONResponse(

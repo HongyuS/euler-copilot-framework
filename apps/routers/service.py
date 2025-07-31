@@ -2,6 +2,7 @@
 """FastAPI 语义接口中心相关路由"""
 
 import logging
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Request, status
@@ -13,13 +14,13 @@ from apps.schemas.enum_var import SearchType
 from apps.schemas.request_data import ChangeFavouriteServiceRequest, UpdateServiceRequest
 from apps.schemas.response_data import (
     BaseServiceOperationMsg,
+    ChangeFavouriteServiceMsg,
+    ChangeFavouriteServiceRsp,
     DeleteServiceRsp,
     GetServiceDetailMsg,
     GetServiceDetailRsp,
     GetServiceListMsg,
     GetServiceListRsp,
-    ChangeFavouriteServiceMsg,
-    ChangeFavouriteServiceRsp,
     ResponseData,
     UpdateServiceMsg,
     UpdateServiceRsp,
@@ -181,7 +182,7 @@ async def update_service(request: Request, data: UpdateServiceRequest) -> JSONRe
 
 @router.get("/{serviceId}", response_model=GetServiceDetailRsp)
 async def get_service_detail(
-    request: Request, serviceId: Annotated[str, Path()],  # noqa: N803
+    request: Request, serviceId: Annotated[uuid.UUID, Path()],  # noqa: N803
     *, edit: bool = False,
 ) -> JSONResponse:
     """获取服务详情"""
@@ -246,7 +247,7 @@ async def get_service_detail(
 
 
 @router.delete("/{serviceId}", response_model=DeleteServiceRsp)
-async def delete_service(request: Request, serviceId: Annotated[str, Path()]) -> JSONResponse:  # noqa: N803
+async def delete_service(request: Request, serviceId: Annotated[uuid.UUID, Path()]) -> JSONResponse:  # noqa: N803
     """删除服务"""
     try:
         await ServiceCenterManager.delete_service(request.state.user_sub, serviceId)
@@ -286,7 +287,7 @@ async def delete_service(request: Request, serviceId: Annotated[str, Path()]) ->
 @router.put("/{serviceId}", response_model=ChangeFavouriteServiceRsp)
 async def modify_favorite_service(
     request: Request,
-    serviceId: Annotated[str, Path()],  # noqa: N803
+    serviceId: Annotated[uuid.UUID, Path()],  # noqa: N803
     data: ChangeFavouriteServiceRequest,
 ) -> JSONResponse:
     """修改服务收藏状态"""

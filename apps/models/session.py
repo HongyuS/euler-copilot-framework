@@ -48,7 +48,7 @@ class SessionActivity(Base):
     """会话活动"""
 
     __tablename__ = "framework_session_activity"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """主键ID"""
     userSub: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), nullable=False)  # noqa: N815
     """用户名"""

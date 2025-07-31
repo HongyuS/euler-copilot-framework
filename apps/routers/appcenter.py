@@ -2,6 +2,7 @@
 """FastAPI 应用中心相关路由"""
 
 import logging
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, Path, Query, Request, status
@@ -11,17 +12,17 @@ from apps.dependency.user import verify_personal_token, verify_session
 from apps.exceptions import InstancePermissionError
 from apps.schemas.appcenter import AppFlowInfo, AppPermissionData
 from apps.schemas.enum_var import AppFilterType, AppType
-from apps.schemas.request_data import CreateAppRequest, ChangeFavouriteAppRequest
+from apps.schemas.request_data import ChangeFavouriteAppRequest, CreateAppRequest
 from apps.schemas.response_data import (
     BaseAppOperationMsg,
     BaseAppOperationRsp,
+    ChangeFavouriteAppMsg,
+    ChangeFavouriteAppRsp,
     GetAppListMsg,
     GetAppListRsp,
     GetAppPropertyMsg,
     GetAppPropertyRsp,
     GetRecentAppListRsp,
-    ChangeFavouriteAppMsg,
-    ChangeFavouriteAppRsp,
     ResponseData,
 )
 from apps.services.appcenter import AppCenterManager
@@ -183,7 +184,7 @@ async def get_recently_used_applications(
 
 
 @router.get("/{appId}", response_model=GetAppPropertyRsp | ResponseData)
-async def get_application(appId: Annotated[str, Path()]) -> JSONResponse:  # noqa: N803
+async def get_application(appId: Annotated[uuid.UUID, Path()]) -> JSONResponse:  # noqa: N803
     """获取应用详情"""
     try:
         app_data = await AppCenterManager.fetch_app_data_by_id(appId)
@@ -248,7 +249,7 @@ async def get_application(appId: Annotated[str, Path()]) -> JSONResponse:  # noq
 )
 async def delete_application(
     request: Request,
-    app_id: Annotated[str, Path(..., alias="appId", description="应用ID")],
+    app_id: Annotated[uuid.UUID, Path(..., alias="appId", description="应用ID")],
 ) -> JSONResponse:
     """删除应用"""
     user_sub: str = request.state.user_sub
@@ -297,7 +298,7 @@ async def delete_application(
 @router.post("/{appId}", response_model=BaseAppOperationRsp)
 async def publish_application(
     request: Request,
-    app_id: Annotated[str, Path(..., alias="appId", description="应用ID")],
+    app_id: Annotated[uuid.UUID, Path(..., alias="appId", description="应用ID")],
 ) -> JSONResponse:
     """发布应用"""
     user_sub: str = request.state.user_sub
@@ -346,7 +347,7 @@ async def publish_application(
 @router.put("/{appId}", response_model=ChangeFavouriteAppRsp | ResponseData)
 async def modify_favorite_application(
     raw_request: Request,
-    app_id: Annotated[str, Path(..., alias="appId", description="应用ID")],
+    app_id: Annotated[uuid.UUID, Path(..., alias="appId", description="应用ID")],
     request: Annotated[ChangeFavouriteAppRequest, Body(...)],
 ) -> JSONResponse:
     """更改应用收藏状态"""

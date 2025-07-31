@@ -60,7 +60,7 @@ class StepExecutor(BaseExecutor):
         return flag
 
     @staticmethod
-    async def get_call_cls(call_id: uuid.UUID) -> type[CoreCall]:
+    async def get_call_cls(call_id: str) -> type[CoreCall]:
         """获取并验证Call类"""
         # 特判，用于处理隐藏节点
         if call_id == SpecialCallType.EMPTY.value:

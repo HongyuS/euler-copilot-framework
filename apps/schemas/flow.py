@@ -121,7 +121,7 @@ class ServiceMetadata(MetadataBase):
 class AppFlow(BaseModel):
     """Flow的元数据；会被存储在App下面"""
 
-    id: str
+    id: uuid.UUID
     name: str
     description: str
     enabled: bool = Field(description="是否启用", default=True)
