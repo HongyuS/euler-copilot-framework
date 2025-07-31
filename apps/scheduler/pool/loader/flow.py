@@ -9,16 +9,17 @@ from typing import Any
 import aiofiles
 import yaml
 from anyio import Path
-from sqlalchemy import delete, insert
+from sqlalchemy import and_, delete, func, select
 
 from apps.common.config import config
 from apps.common.postgres import postgres
 from apps.llm.embedding import Embedding
-from apps.models.app import App
+from apps.models.app import App, AppHashes
+from apps.models.flow import Flow as FlowInfo
 from apps.models.vectors import FlowPoolVector
 from apps.scheduler.util import yaml_enum_presenter, yaml_str_presenter
 from apps.schemas.enum_var import EdgeType
-from apps.schemas.flow import AppFlow, Flow
+from apps.schemas.flow import Flow
 from apps.services.node import NodeManager
 
 logger = logging.getLogger(__name__)
@@ -129,7 +130,8 @@ class FlowLoader:
             flow_config = Flow.model_validate(flow_yaml)
             await self._update_db(
                 app_id,
-                AppFlow(
+                FlowInfo(
+                    appId=app_id,
                     id=flow_id,
                     name=flow_config.name,
                     description=flow_config.description,
@@ -142,6 +144,7 @@ class FlowLoader:
         except Exception:
             logger.exception("[FlowLoader] 应用 %s：工作流 %s 格式不合法", app_id, flow_id)
             return None
+
 
     async def save(self, app_id: uuid.UUID, flow_id: uuid.UUID, flow: Flow) -> None:
         """保存工作流"""
@@ -162,7 +165,8 @@ class FlowLoader:
             )
         await self._update_db(
             app_id,
-            AppFlow(
+            FlowInfo(
+                appId=app_id,
                 id=flow_id,
                 name=flow.name,
                 description=flow.description,
@@ -171,6 +175,7 @@ class FlowLoader:
                 debug=flow.debug,
             ),
         )
+
 
     async def delete(self, app_id: uuid.UUID, flow_id: uuid.UUID) -> bool:
         """删除指定工作流文件"""
@@ -191,63 +196,50 @@ class FlowLoader:
         return True
 
 
-    async def _update_db(self, app_id: uuid.UUID, metadata: AppFlow) -> None:
+    async def _update_db(self, app_id: uuid.UUID, metadata: FlowInfo) -> None:
         """更新数据库"""
-        try:
-            app_collection = MongoDB().get_collection("app")
-            # 获取当前的flows
-            app_data = await app_collection.find_one({"_id": app_id})
-            if not app_data:
+        # 检查App是否存在
+        async with postgres.session() as session:
+            app_num = (await session.scalars(
+                select(func.count(App.id)).where(App.id == app_id),
+            )).one()
+            if app_num == 0:
                 err = f"[FlowLoader] App {app_id} 不存在"
                 logger.error(err)
                 return
-            app_obj = AppPool.model_validate(app_data)
-            flows = app_obj.flows
 
-            for flow in flows:
-                if flow.id == metadata.id:
-                    flows.remove(flow)
-                    break
-            flows.append(metadata)
+            # 删除旧的Flow数据
+            await session.execute(delete(FlowInfo).where(FlowInfo.appId == app_id))
+            await session.execute(delete(AppHashes).where(
+                and_(
+                    AppHashes.appId == app_id,
+                    AppHashes.filePath == f"flow/{metadata.id}.yaml",
+                ),
+            ))
+            await session.execute(delete(FlowPoolVector).where(FlowPoolVector.id == metadata.id))
 
-            # 执行更新操作
-            await app_collection.update_one(
-                filter={
-                    "_id": app_id,
-                },
-                update={
-                    "$set": {
-                        "flows": [flow.model_dump(by_alias=True, exclude_none=True) for flow in flows],
-                    },
-                },
-                upsert=True,
-            )
-            flow_path = BASE_PATH / app_id / "flow" / f"{metadata.id}.yaml"
+            # 创建新的Flow数据
+            session.add(metadata)
+
+            flow_path = BASE_PATH / str(app_id) / "flow" / f"{metadata.id}.yaml"
             async with aiofiles.open(flow_path, "rb") as f:
                 new_hash = sha256(await f.read()).hexdigest()
 
-            key = f"hashes.flow/{metadata.id}.yaml"
-            await app_collection.aggregate(
-                [
-                    {"$match": {"_id": app_id}},
-                    {"$replaceWith": {"$setField": {"field": key, "input": "$$ROOT", "value": new_hash}}},
-                ],
-            )
-        except Exception:
-            logger.exception("[FlowLoader] 更新 MongoDB 失败")
-
-        # 删除重复的ID
-        async with postgres.session() as session:
-            await session.execute(delete(FlowPoolVector).where(FlowPoolVector.flow_id == metadata.id))
-
-        # 进行向量化
-        service_embedding = await Embedding.get_embedding([metadata.description])
-        vector_data = [
-            FlowPoolVector(
-                flow_id=metadata.id,
+            flow_hash = AppHashes(
                 appId=app_id,
-                embedding=service_embedding[0],
-            ),
-        ]
-        async with postgres.session() as session:
-            await session.execute(insert(FlowPoolVector).values(vector_data))
+                hash=new_hash,
+                filePath=f"flow/{metadata.id}.yaml",
+            )
+            session.add(flow_hash)
+
+            # 进行向量化
+            service_embedding = await Embedding.get_embedding([metadata.description])
+            vector_data = [
+                FlowPoolVector(
+                    id=metadata.id,
+                    appId=app_id,
+                    embedding=service_embedding[0],
+                ),
+            ]
+            session.add_all(vector_data)
+            await session.commit()

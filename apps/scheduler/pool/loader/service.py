@@ -12,7 +12,7 @@ from apps.common.config import config
 from apps.common.postgres import postgres
 from apps.llm.embedding import Embedding
 from apps.models.node import NodeInfo
-from apps.models.service import Service
+from apps.models.service import Service, ServiceACL, ServiceHashes
 from apps.models.vectors import NodePoolVector, ServicePoolVector
 from apps.scheduler.pool.check import FileChecker
 from apps.schemas.flow import PermissionType, ServiceMetadata
@@ -77,7 +77,8 @@ class ServiceLoader:
         async with postgres.session() as session:
             await session.execute(delete(Service).where(Service.id == service_id))
             await session.execute(delete(NodeInfo).where(NodeInfo.serviceId == service_id))
-
+            await session.execute(delete(ServiceACL).where(ServiceACL.serviceId == service_id))
+            await session.execute(delete(ServiceHashes).where(ServiceHashes.serviceId == service_id))
             await session.execute(delete(ServicePoolVector).where(ServicePoolVector.id == service_id))
             await session.execute(delete(NodePoolVector).where(NodePoolVector.serviceId == service_id))
             await session.commit()

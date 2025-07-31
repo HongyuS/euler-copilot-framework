@@ -7,13 +7,17 @@ import uuid
 
 from anyio import Path
 from fastapi.encoders import jsonable_encoder
+from sqlalchemy import delete, select
 
 from apps.common.config import config
-from apps.models.app import App
+from apps.common.postgres import postgres
+from apps.models.app import App, AppACL, AppHashes
+from apps.models.flow import Flow
+from apps.models.user import UserAppUsage, UserFavorite
 from apps.scheduler.pool.check import FileChecker
 from apps.schemas.agent import AgentAppMetadata
 from apps.schemas.enum_var import AppType
-from apps.schemas.flow import AppFlow, AppMetadata, MetadataType, Permission
+from apps.schemas.flow import AppFlow, AppMetadata, MetadataType, Permission, PermissionType
 
 from .flow import FlowLoader
 from .metadata import MetadataLoader
@@ -53,7 +57,7 @@ class AppLoader:
             async for flow_file in flow_path.rglob("*.yaml"):
                 if flow_file.stem not in flow_ids:
                     logger.warning("[AppLoader] 工作流 %s 不在元数据中", flow_file)
-                flow = await flow_loader.load(app_id, flow_file.stem)
+                flow = await flow_loader.load(app_id, uuid.UUID(flow_file.stem))
                 if not flow:
                     err = f"[AppLoader] 工作流 {flow_file} 加载失败"
                     raise ValueError(err)
@@ -61,7 +65,7 @@ class AppLoader:
                     metadata.published = False
                 new_flows.append(
                     AppFlow(
-                        id=flow_file.stem,
+                        id=uuid.UUID(flow_file.stem),
                         name=flow.name,
                         description=flow.description,
                         path=flow_file.as_posix(),
@@ -84,6 +88,7 @@ class AppLoader:
                 logger.exception(err)
                 raise RuntimeError(err) from e
         await self._update_db(metadata)
+
 
     async def save(self, metadata: AppMetadata | AgentAppMetadata, app_id: uuid.UUID) -> None:
         """
@@ -111,28 +116,20 @@ class AppLoader:
 
         :param app_id: 应用 ID
         """
-        mongo = MongoDB()
-        try:
-            app_collection = mongo.get_collection("app")
-            await app_collection.delete_one({"_id": app_id})  # 删除应用数据
-            user_collection = mongo.get_collection("user")
-            # 删除用户使用记录
-            await user_collection.update_many(
-                {f"app_usage.{app_id}": {"$exists": True}},
-                {"$unset": {f"app_usage.{app_id}": ""}},
-            )
-            # 删除用户收藏
-            await user_collection.update_many(
-                {"fav_apps": {"$in": [app_id]}},
-                {"$pull": {"fav_apps": app_id}},
-            )
-        except Exception:
-            logger.exception("[AppLoader] MongoDB删除App失败")
+        async with postgres.session() as session:
+            await session.execute(delete(App).where(App.id == app_id))
+            await session.execute(delete(AppACL).where(AppACL.appId == app_id))
+            await session.execute(delete(AppHashes).where(AppHashes.appId == app_id))
+            await session.execute(delete(Flow).where(Flow.appId == app_id))
+            await session.execute(delete(UserAppUsage).where(UserAppUsage.appId == app_id))
+            await session.execute(delete(UserFavorite).where(UserFavorite.itemId == app_id))
+            await session.commit()
 
         if not is_reload:
             app_path = BASE_PATH / str(app_id)
             if await app_path.exists():
                 shutil.rmtree(str(app_path), ignore_errors=True)
+
 
     @staticmethod
     async def _update_db(metadata: AppMetadata | AgentAppMetadata) -> None:
@@ -142,6 +139,25 @@ class AppLoader:
             logger.error(err)
             raise ValueError(err)
         # 更新应用数据
+        async with postgres.session() as session:
+            # 保存App表
+            await session.merge(App(
+                id=metadata.id,
+                name=metadata.name,
+                description=metadata.description,
+                author=metadata.author,
+                type=metadata.app_type,
+                isPublished=metadata.published,
+                permission=metadata.permission.type if metadata.permission else PermissionType.PRIVATE,
+            ))
+            # 保存AppACL表
+            await session.merge(AppACL(
+                appId=metadata.id,
+                userSub=metadata.author,
+                permission=metadata.permission,
+            ))
+            # 保存AppHashes表
+            await session.commit()
         mongo = MongoDB()
         try:
             app_collection = mongo.get_collection("app")

@@ -2,6 +2,7 @@
 """元数据加载器"""
 
 import logging
+import uuid
 from typing import Any
 
 import yaml
@@ -46,7 +47,7 @@ class MetadataLoader:
             app_type = metadata_dict.get("app_type", AppType.FLOW)
             if app_type == AppType.FLOW:
                 try:
-                    app_id = file_path.parent.name
+                    app_id = uuid.UUID(file_path.parent.name)
                     metadata = AppMetadata(id=app_id, **metadata_dict)
                 except Exception as e:
                     err = "[MetadataLoader] App metadata.yaml格式错误"
@@ -54,7 +55,7 @@ class MetadataLoader:
                     raise RuntimeError(err) from e
             else:
                 try:
-                    app_id = file_path.parent.name
+                    app_id = uuid.UUID(file_path.parent.name)
                     metadata = AgentAppMetadata(id=app_id, **metadata_dict)
                 except Exception as e:
                     err = "[MetadataLoader] Agent app metadata.yaml格式错误"
@@ -62,7 +63,7 @@ class MetadataLoader:
                     raise RuntimeError(err) from e
         elif metadata_type == MetadataType.SERVICE.value:
             try:
-                service_id = file_path.parent.name
+                service_id = uuid.UUID(file_path.parent.name)
                 metadata = ServiceMetadata(id=service_id, **metadata_dict)
             except Exception as e:
                 err = "[MetadataLoader] Service metadata.yaml格式错误"
@@ -79,7 +80,7 @@ class MetadataLoader:
         self,
         metadata_type: MetadataType,
         metadata: dict[str, Any] | AppMetadata | ServiceMetadata | AgentAppMetadata,
-        resource_id: str,
+        resource_id: uuid.UUID,
     ) -> None:
         """保存单个元数据"""
         class_dict = {
@@ -89,9 +90,9 @@ class MetadataLoader:
 
         # 检查资源路径
         if metadata_type == MetadataType.APP.value:
-            resource_path = BASE_PATH / "app" / resource_id / "metadata.yaml"
+            resource_path = BASE_PATH / "app" / str(resource_id) / "metadata.yaml"
         elif metadata_type == MetadataType.SERVICE.value:
-            resource_path = BASE_PATH / "service" / resource_id / "metadata.yaml"
+            resource_path = BASE_PATH / "service" / str(resource_id) / "metadata.yaml"
         else:
             err = f"[MetadataLoader] metadata_type类型错误: {metadata_type}"
             logger.error(err)

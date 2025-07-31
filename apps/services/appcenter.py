@@ -12,7 +12,7 @@ from apps.common.postgres import postgres
 from apps.constants import SERVICE_PAGE_SIZE
 from apps.exceptions import InstancePermissionError
 from apps.models.app import App
-from apps.models.user import User, UserAppUsage
+from apps.models.user import User, UserAppUsage, UserFavorite, UserFavoriteType
 from apps.scheduler.pool.loader.app import AppLoader
 from apps.schemas.agent import AgentAppMetadata
 from apps.schemas.appcenter import AppCenterCardItem, AppData, AppPermissionData
@@ -30,7 +30,7 @@ class AppCenterManager:
     """应用中心管理器"""
 
     @staticmethod
-    async def validate_user_app_access(user_sub: str, app_id: str) -> bool:
+    async def validate_user_app_access(user_sub: str, app_id: uuid.UUID) -> bool:
         """
         验证用户对应用的访问权限
 
@@ -59,7 +59,7 @@ class AppCenterManager:
 
 
     @staticmethod
-    async def validate_app_belong_to_user(user_sub: str, app_id: str) -> bool:
+    async def validate_app_belong_to_user(user_sub: str, app_id: uuid.UUID) -> bool:
         """
         验证用户对应用的属权
 
@@ -163,7 +163,7 @@ class AppCenterManager:
 
 
     @staticmethod
-    async def fetch_app_data_by_id(app_id: str) -> App:
+    async def fetch_app_data_by_id(app_id: uuid.UUID) -> App:
         """
         根据应用ID获取应用元数据（使用PostgreSQL）
 
@@ -181,7 +181,7 @@ class AppCenterManager:
 
 
     @staticmethod
-    async def create_app(user_sub: str, data: AppData) -> str:
+    async def create_app(user_sub: str, data: AppData) -> uuid.UUID:
         """
         创建应用
 
@@ -200,7 +200,7 @@ class AppCenterManager:
 
 
     @staticmethod
-    async def update_app(user_sub: str, app_id: str, data: AppData) -> None:
+    async def update_app(user_sub: str, app_id: uuid.UUID, data: AppData) -> None:
         """
         更新应用
 
@@ -226,7 +226,7 @@ class AppCenterManager:
 
 
     @staticmethod
-    async def update_app_publish_status(app_id: str, user_sub: str) -> bool:
+    async def update_app_publish_status(app_id: uuid.UUID, user_sub: str) -> bool:
         """
         发布应用
 
@@ -268,7 +268,7 @@ class AppCenterManager:
 
 
     @staticmethod
-    async def modify_favorite_app(app_id: str, user_sub: str, *, favorited: bool) -> None:
+    async def modify_favorite_app(app_id: uuid.UUID, user_sub: str, *, favorited: bool) -> None:
         """
         修改收藏状态
 
@@ -276,36 +276,42 @@ class AppCenterManager:
         :param user_sub: 用户唯一标识
         :param favorited: 是否收藏
         """
-        mongo = MongoDB()
-        app_collection = mongo.get_collection("app")
-        user_collection = mongo.get_collection("user")
-        db_data = await app_collection.find_one({"_id": app_id})
-        if not db_data:
-            msg = "应用不存在"
-            raise ValueError(msg)
-        user_data = await UserManager.get_user(user_sub)
-        if not user_data:
-            msg = "用户不存在"
-            raise ValueError(msg)
+        async with postgres.session() as session:
+            app_obj = (await session.scalars(
+                select(App).where(App.id == app_id),
+            )).one_or_none()
+            if not app_obj:
+                msg = f"[AppCenterManager] 应用不存在: {app_id}"
+                raise ValueError(msg)
 
-        already_favorited = app_id in user_data.fav_apps
-        if favorited == already_favorited:
-            msg = "重复操作"
-            raise ValueError(msg)
+            app_favorite = (await session.scalars(
+                select(UserFavorite).where(
+                    and_(
+                        UserFavorite.userSub == user_sub,
+                        UserFavorite.itemId == app_id,
+                        UserFavorite.type == UserFavoriteType.APP,
+                    ),
+                ),
+            )).one_or_none()
+            if not app_favorite and favorited:
+                # 添加收藏
+                app_favorite = UserFavorite(
+                    userSub=user_sub,
+                    type=UserFavoriteType.APP,
+                    itemId=app_id,
+                )
+                session.add(app_favorite)
+            elif app_favorite and not favorited:
+                # 删除收藏
+                await session.delete(app_favorite)
+            else:
+                # 重复操作
+                msg = f"[AppCenterManager] 重复操作: {app_id}"
+                raise ValueError(msg)
 
-        if favorited:
-            await user_collection.update_one(
-                {"_id": user_sub},
-                {"$addToSet": {"fav_apps": app_id}},
-            )
-        else:
-            await user_collection.update_one(
-                {"_id": user_sub},
-                {"$pull": {"fav_apps": app_id}},
-            )
 
     @staticmethod
-    async def delete_app(app_id: str, user_sub: str) -> None:
+    async def delete_app(app_id: uuid.UUID, user_sub: str) -> None:
         """
         删除应用
 
@@ -413,7 +419,7 @@ class AppCenterManager:
 
 
     @staticmethod
-    async def _get_app_data(app_id: str, user_sub: str, *, check_permission: bool = True) -> App:
+    async def _get_app_data(app_id: uuid.UUID, user_sub: str, *, check_permission: bool = True) -> App:
         """
         从数据库获取应用数据并验证权限
 
@@ -437,7 +443,7 @@ class AppCenterManager:
 
 
     @staticmethod
-    def _build_common_metadata_params(app_id: str, user_sub: str, source: AppPool | AppData) -> dict:
+    def _build_common_metadata_params(app_id: uuid.UUID, user_sub: str, source: App) -> dict:
         """构建元数据通用参数"""
         return {
             "type": MetadataType.APP,
@@ -454,7 +460,8 @@ class AppCenterManager:
     def _create_flow_metadata(
         common_params: dict,
         data: AppData | None = None,
-        app_data: AppPool | None = None,
+        app_data: App | None = None,
+        *,
         published: bool | None = None,
     ) -> AppMetadata:
         """创建工作流应用的元数据"""
@@ -497,6 +504,7 @@ class AppCenterManager:
         user_sub: str,
         data: AppData | None = None,
         app_data: App | None = None,
+        *,
         published: bool | None = None,
     ) -> AgentAppMetadata:
         """创建 Agent 应用的元数据"""

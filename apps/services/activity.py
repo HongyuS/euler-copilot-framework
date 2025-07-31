@@ -1,10 +1,9 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """用户限流"""
 
-import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
 
 from apps.common.postgres import postgres
 from apps.constants import SLIDE_WINDOW_QUESTION_COUNT, SLIDE_WINDOW_TIME
@@ -25,36 +24,36 @@ class Activity:
         """
         time = datetime.now(tz=UTC)
 
-        # 检查窗口内总请求数
-        count = await MongoDB().get_collection("activity").count_documents(
-            {"timestamp": {"$gte": time - SLIDE_WINDOW_TIME, "$lte": time}},
-        )
-        if count >= SLIDE_WINDOW_QUESTION_COUNT:
-            return True
+        async with postgres.session() as session:
+            # 检查窗口内总请求数
+            count = (await session.scalars(select(func.count(SessionActivity.id)).where(
+                SessionActivity.timestamp >= time - timedelta(seconds=SLIDE_WINDOW_TIME),
+                SessionActivity.timestamp <= time,
+            ))).one()
+            if count >= SLIDE_WINDOW_QUESTION_COUNT:
+                return True
 
-        # 检查用户是否正在提问
-        active = await MongoDB().get_collection("activity").find_one(
-            {"user_sub": user_sub},
-        )
-        return bool(active)
+            # 检查用户是否正在提问
+            active = (await session.scalars(select(SessionActivity).where(
+                SessionActivity.userSub == user_sub,
+            ))).one_or_none()
+            return bool(active)
 
     @staticmethod
     async def set_active(user_sub: str) -> None:
         """设置用户的活跃标识"""
-        time = round(datetime.now(UTC).timestamp(), 3)
+        time = datetime.now(UTC)
         # 设置用户活跃状态
-        collection = MongoDB().get_collection("activity")
-        active = await collection.find_one({"user_sub": user_sub})
-        if active:
-            err = "用户正在提问"
-            raise ActivityError(err)
-        await collection.insert_one(
-            {
-                "_id": str(uuid.uuid4()),
-                "user_sub": user_sub,
-                "timestamp": time,
-            },
-        )
+        async with postgres.session() as session:
+            active = (
+                await session.scalars(select(SessionActivity).where(SessionActivity.userSub == user_sub))
+            ).one_or_none()
+            if active:
+                err = "用户正在提问"
+                raise ActivityError(err)
+            await session.merge(SessionActivity(userSub=user_sub, timestamp=time))
+            await session.commit()
+
 
     @staticmethod
     async def remove_active(user_sub: str) -> None:
