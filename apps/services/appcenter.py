@@ -341,19 +341,19 @@ class AppCenterManager:
         :param user_sub: 用户唯一标识
         :return: 最近使用的应用列表
         """
-        mongo = MongoDB()
-        user_collection = mongo.get_collection("user")
-        app_collection = mongo.get_collection("app")
-        # 校验用户信息
-        user_data = User.model_validate(await user_collection.find_one({"_id": user_sub}))
-        # 获取最近使用的应用ID列表，按最后使用时间倒序排序
-        # 允许 app_usage 为空
-        usage_list = sorted(
-            user_data.app_usage.items(),
-            key=lambda x: x[1].last_used,
-            reverse=True,
-        )[:count]
-        app_ids = [t[0] for t in usage_list]
+        # 获取用户使用情况
+        async with postgres.session() as session:
+            recent_apps = list((await session.scalars(
+                select(UserAppUsage.appId).where(
+                    UserAppUsage.userSub == user_sub,
+                ).order_by(
+                    UserAppUsage.lastUsed.desc(),
+                ),
+            )).all())
+            # 批量查询AppName
+            app_names = []
+            for app_id in recent_apps:
+                app_names.append(await AppCenterManager._get_app_data(app_id, user_sub))
         if not app_ids:
             apps = []  # 如果 app_ids 为空，直接返回空列表
         else:

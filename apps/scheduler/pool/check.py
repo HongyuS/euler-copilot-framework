@@ -2,12 +2,16 @@
 """文件检查器"""
 
 import logging
+import uuid
 from hashlib import sha256
 
 from anyio import Path
+from sqlalchemy import select
 
 from apps.common.config import config
-from apps.common.mongo import MongoDB
+from apps.common.postgres import postgres
+from apps.models.app import App, AppHashes
+from apps.models.service import Service, ServiceHashes
 from apps.schemas.enum_var import MetadataType
 
 logger = logging.getLogger(__name__)
@@ -41,57 +45,62 @@ class FileChecker:
         return hashes
 
 
-    async def diff_one(self, path: Path, previous_hashes: dict[str, str] | None = None) -> bool:
+    async def diff_one(self, path: Path, previous_hashes: AppHashes | ServiceHashes | None = None) -> bool:
         """检查文件是否发生变化"""
         self._resource_path = path
         semantics_path = Path(config.deploy.data_dir) / "semantics"
         path_diff = self._resource_path.relative_to(semantics_path)
+        # FIXME 不能使用字典比对，必须一条条比对
         self.hashes[path_diff.as_posix()] = await self.check_one(path)
         return self.hashes[path_diff.as_posix()] != previous_hashes
 
 
-    async def diff(self, check_type: MetadataType) -> tuple[list[str], list[str]]:
+    async def diff(self, check_type: MetadataType) -> tuple[list[uuid.UUID], list[uuid.UUID]]:
         """生成更新列表和删除列表"""
-        if check_type == MetadataType.APP:
-            collection = MongoDB().get_collection("app")
-            self._dir_path = Path(config.deploy.data_dir) / "semantics" / "app"
-        elif check_type == MetadataType.SERVICE:
-            collection = MongoDB().get_collection("service")
-            self._dir_path = Path(config.deploy.data_dir) / "semantics" / "service"
+        async with postgres.session() as session:
+            # 判断类型
+            if check_type == MetadataType.APP:
+                self._dir_path = Path(config.deploy.data_dir) / "semantics" / "app"
+                items = list((await session.scalars(select(App.id))).all())
+            elif check_type == MetadataType.SERVICE:
+                self._dir_path = Path(config.deploy.data_dir) / "semantics" / "service"
+                items = list((await session.scalars(select(Service.id))).all())
 
-        changed_list = []
-        deleted_list = []
+            changed_list = []
+            deleted_list = []
 
-        # 查询所有条目
-        try:
-            items = await collection.find({}).to_list(None)
-        except Exception as e:
-            err = f"[FileChecker] {check_type}类型数据的条目为空"
-            logger.exception(err)
-            raise RuntimeError(err) from e
+            # 遍历列表
+            for list_item in items:
+                # 判断是否存在？
+                if not await Path(self._dir_path / str(list_item)).exists():
+                    deleted_list.append(list_item)
+                    continue
 
-        # 遍历列表
-        for list_item in items:
-            # 判断是否存在？
-            if not await Path(self._dir_path / list_item["_id"]).exists():
-                deleted_list.append(list_item["_id"])
-                continue
-            # 判断是否发生变化
-            if await self.diff_one(Path(self._dir_path / list_item["_id"]), list_item.get("hashes", None)):
-                changed_list.append(list_item["_id"])
+                # 获取Hash
+                if check_type == MetadataType.APP:
+                    hashes = (
+                        await session.scalars(select(AppHashes).where(AppHashes.appId == list_item))
+                    ).one()
+                elif check_type == MetadataType.SERVICE:
+                    hashes = (
+                        await session.scalars(select(ServiceHashes).where(ServiceHashes.serviceId == list_item))
+                    ).one()
+                # 判断是否发生变化
+                if await self.diff_one(Path(self._dir_path / str(list_item)), hashes):
+                    changed_list.append(list_item)
 
-        logger.info("[FileChecker] 文件变动: %s；文件删除: %s", changed_list, deleted_list)
-        # 遍历目录
-        item_names = [item["_id"] for item in items]
-        async for service_folder in self._dir_path.iterdir():
-            # 判断是否新增？
-            if (
-                service_folder.name not in item_names
-                and service_folder.name not in deleted_list
-                and service_folder.name not in changed_list
-            ):
-                changed_list += [service_folder.name]
-                # 触发一次hash计算
-                await self.diff_one(service_folder)
+            logger.info("[FileChecker] 文件变动: %s；文件删除: %s", changed_list, deleted_list)
+            # 遍历目录
+            item_names = list(items)
+            async for service_folder in self._dir_path.iterdir():
+                # 判断是否新增？
+                if (
+                    service_folder.name not in item_names
+                    and service_folder.name not in deleted_list
+                    and service_folder.name not in changed_list
+                ):
+                    changed_list += [service_folder.name]
+                    # 触发一次hash计算
+                    await self.diff_one(service_folder)
 
-        return changed_list, deleted_list
+            return changed_list, deleted_list

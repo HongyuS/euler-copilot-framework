@@ -2,10 +2,10 @@
 """大模型管理"""
 
 import logging
+import uuid
 
 from sqlalchemy import and_, select
 
-from apps.common.config import config
 from apps.common.postgres import postgres
 from apps.models.llm import LLMData
 from apps.models.user import User
@@ -41,7 +41,7 @@ class LLMManager:
 
 
     @staticmethod
-    async def get_llm_id_by_user_id(user_sub: str) -> int | None:
+    async def get_user_default_llm(user_sub: str) -> uuid.UUID | None:
         """
         通过用户ID获取大模型ID
 
@@ -56,11 +56,11 @@ class LLMManager:
                 logger.error("[LLMManager] 用户 %s 不存在", user_sub)
                 return None
 
-            return user.selectedLLM
+            return user.defaultLLM
 
 
     @staticmethod
-    async def get_llm_by_id(user_sub: str, llm_id: int) -> LLMData | None:
+    async def get_llm(llm_id: uuid.UUID) -> LLMData | None:
         """
         通过ID获取大模型
 
@@ -71,10 +71,7 @@ class LLMManager:
         async with postgres.session() as session:
             llm = (await session.scalars(
                 select(LLMData).where(
-                    and_(
-                        LLMData.id == llm_id,
-                        LLMData.userSub == user_sub,
-                    ),
+                    LLMData.id == llm_id,
                 ),
             )).one_or_none()
             if not llm:
@@ -84,11 +81,10 @@ class LLMManager:
 
 
     @staticmethod
-    async def list_llm(user_sub: str, llm_id: int | None) -> list[LLMProviderInfo]:
+    async def list_llm(llm_id: uuid.UUID | None) -> list[LLMProviderInfo]:
         """
         获取大模型列表
 
-        :param user_sub: 用户ID
         :param llm_id: 大模型ID
         :return: 大模型列表
         """
@@ -96,41 +92,37 @@ class LLMManager:
             if llm_id:
                 llm_list = (await session.scalars(
                     select(LLMData).where(
-                        and_(
-                            LLMData.id == llm_id,
-                            LLMData.userSub == user_sub,
-                        ),
+                        LLMData.id == llm_id,
                     ),
                 )).all()
             else:
                 llm_list = (await session.scalars(
-                    select(LLMData).where(LLMData.userSub == user_sub),
+                    select(LLMData),
                 )).all()
             if not llm_list:
-                logger.error("[LLMManager] 无法找到用户 %s 的大模型", user_sub)
+                logger.error("[LLMManager] 无法找到大模型 %s", llm_id)
                 return []
 
         # 默认大模型
-        llm_item = LLMProviderInfo(llmId="empty")
-        llm_list = [llm_item]
-        for llm in result:
+        provider_list = []
+        for llm in llm_list:
             llm_item = LLMProviderInfo(
-                llmId=llm["_id"],
-                icon=llm["icon"],
-                openaiBaseUrl=llm["openai_base_url"],
-                openaiApiKey=llm["openai_api_key"],
-                modelName=llm["model_name"],
-                maxTokens=llm["max_tokens"],
+                llmId=llm.id,
+                icon=llm.icon,
+                openaiBaseUrl=llm.openaiBaseUrl,
+                openaiApiKey=llm.openaiAPIKey,
+                modelName=llm.modelName,
+                maxTokens=llm.maxToken,
             )
-            llm_list.append(llm_item)
-        return llm_list
+            provider_list.append(llm_item)
+        return provider_list
+
 
     @staticmethod
-    async def update_llm(user_sub: str, llm_id: str | None, req: UpdateLLMReq) -> str:
+    async def update_llm(llm_id: uuid.UUID | None, req: UpdateLLMReq) -> None:
         """
         创建大模型
 
-        :param user_sub: 用户ID
         :param req: 创建大模型请求体
         :return: 大模型对象
         """
@@ -163,15 +155,13 @@ class LLMManager:
                 max_tokens=req.max_tokens,
             )
             await llm_collection.insert_one(llm.model_dump(by_alias=True))
-        return llm.id
 
 
     @staticmethod
-    async def delete_llm(user_sub: str, llm_id: int | None) -> None:
+    async def delete_llm(user_sub: str, llm_id: uuid.UUID | None) -> None:
         """
         删除大模型
 
-        :param user_sub: 用户ID
         :param llm_id: 大模型ID
         """
         if llm_id is None:
@@ -181,10 +171,7 @@ class LLMManager:
         async with postgres.session() as session:
             llm = (await session.scalars(
                 select(LLMData).where(
-                    and_(
-                        LLMData.id == llm_id,
-                        LLMData.userSub == user_sub,
-                    ),
+                    LLMData.id == llm_id,
                 ),
             )).one_or_none()
             if not llm:
@@ -200,55 +187,22 @@ class LLMManager:
             if not user:
                 err = f"[LLMManager] 用户 {user_sub} 不存在"
                 raise ValueError(err)
-            user.selectedLLM = None
+            user.defaultLLM = None
             await session.commit()
 
 
     @staticmethod
-    async def update_user_llm(
+    async def update_user_default_llm(
         user_sub: str,
-        conversation_id: str,
-        llm_id: str,
-    ) -> str:
-        """更新对话的LLM"""
-        mongo = MongoDB()
-        conv_collection = mongo.get_collection("conversation")
-        llm_collection = mongo.get_collection("llm")
-
-        if llm_id != "empty":
-            llm_dict = await llm_collection.find_one({"_id": llm_id, "user_sub": user_sub})
-            if not llm_dict:
-                err = f"[LLMManager] LLM {llm_id} 不存在"
-                logger.error(err)
+        llm_id: uuid.UUID,
+    ) -> None:
+        """更新用户的默认LLM"""
+        async with postgres.session() as session:
+            user = (await session.scalars(
+                select(User).where(User.userSub == user_sub),
+            )).one_or_none()
+            if not user:
+                err = f"[LLMManager] 用户 {user_sub} 不存在"
                 raise ValueError(err)
-            llm_dict = {
-                "llm_id": llm_dict["_id"],
-                "model_name": llm_dict["model_name"],
-                "icon": llm_dict["icon"],
-            }
-        else:
-            llm_dict = {
-                "llm_id": "empty",
-                "model_name": config.llm.model,
-                "icon": llm_provider_dict["ollama"]["icon"],
-            }
-        conv_dict = await conv_collection.find_one({"_id": conversation_id, "user_sub": user_sub})
-        if not conv_dict:
-            err_msg = "[LLMManager] 更新对话的LLM失败，未找到对话"
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-
-        llm_item = LLMData(
-            userSub=user_sub,
-            icon=llm_dict["icon"],
-            openaiBaseUrl=llm_dict["openai_base_url"],
-            openaiAPIKey=llm_dict["openai_api_key"],
-            modelName=llm_dict["model_name"],
-            maxToken=llm_dict["max_tokens"],
-        )
-
-        await conv_collection.update_one(
-            {"_id": conversation_id, "user_sub": user_sub},
-            {"$set": {"llm": llm_item.model_dump(by_alias=True)}},
-        )
-        return conversation_id
+            user.defaultLLM = llm_id
+            await session.commit()

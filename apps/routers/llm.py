@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """FastAPI 大模型相关接口"""
 
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, status
@@ -36,9 +37,8 @@ admin_router = APIRouter(
 )
 
 
-@admin_router.get("/provider", response_model=ListLLMProviderRsp, responses={
-        status.HTTP_404_NOT_FOUND: {"model": ResponseData},
-    },
+@admin_router.get("/provider", response_model=ListLLMProviderRsp,
+    responses={status.HTTP_404_NOT_FOUND: {"model": ResponseData}},
 )
 async def list_llm_provider() -> JSONResponse:
     """获取大模型提供商列表"""
@@ -53,16 +53,12 @@ async def list_llm_provider() -> JSONResponse:
     )
 
 
-@router.get("", response_model=ListLLMRsp, responses={
-        status.HTTP_404_NOT_FOUND: {"model": ResponseData},
-    },
+@router.get("", response_model=ListLLMRsp,
+    responses={status.HTTP_404_NOT_FOUND: {"model": ResponseData}},
 )
-async def list_llm(
-    request: Request,
-    llm_id: Annotated[str | None, Query(description="大模型ID", alias="llmId")] = None,
-) -> JSONResponse:
+async def list_llm(llmId: uuid.UUID | None = None) -> JSONResponse:  # noqa: N803
     """获取大模型列表"""
-    llm_list = await LLMManager.list_llm(request.state.user_sub, llm_id)
+    llm_list = await LLMManager.list_llm(llmId)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ListLLMRsp(
@@ -73,17 +69,15 @@ async def list_llm(
     )
 
 
-@admin_router.put("", responses={
-        status.HTTP_404_NOT_FOUND: {"model": ResponseData},
-    },
+@admin_router.put("",
+    responses={status.HTTP_404_NOT_FOUND: {"model": ResponseData}},
 )
 async def create_llm(
-    request: Request,
     req: UpdateLLMReq,
-    llm_id: Annotated[str | None, Query(description="大模型ID", alias="llmId")] = None,
+    llmId: uuid.UUID | None = None,  # noqa: N803
 ) -> JSONResponse:
     """创建或更新大模型配置"""
-    llm_id = await LLMManager.update_llm(request.state.user_sub, llm_id, req)
+    await LLMManager.update_llm(llmId, req)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ResponseData(
@@ -94,46 +88,46 @@ async def create_llm(
     )
 
 
-@admin_router.delete(
-    "",
-    responses={
-        status.HTTP_404_NOT_FOUND: {"model": ResponseData},
-    },
+@admin_router.delete("",
+    responses={status.HTTP_404_NOT_FOUND: {"model": ResponseData}},
 )
-async def delete_llm(
-    request: Request,
-    llm_id: Annotated[str, Query(description="大模型ID", alias="llmId")],
-) -> JSONResponse:
+async def delete_llm(request: Request, llmId: uuid.UUID) -> JSONResponse:  # noqa: N803
     """删除大模型配置"""
-    await LLMManager.delete_llm(request.state.user_sub, llm_id)
+    await LLMManager.delete_llm(request.state.user_sub, llmId)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ResponseData(
             code=status.HTTP_200_OK,
             message="success",
-            result=llm_id,
+            result=llmId,
         ).model_dump(exclude_none=True, by_alias=True),
     )
 
 
-@router.put(
-    "/conv",
-    responses={
-        status.HTTP_404_NOT_FOUND: {"model": ResponseData},
-    },
+@router.put("/conv",
+    responses={status.HTTP_404_NOT_FOUND: {"model": ResponseData}},
 )
 async def update_user_llm(
     request: Request,
-    conversation_id: Annotated[str, Query(description="对话ID", alias="conversationId")],
-    llm_id: Annotated[str, Query(description="llm ID", alias="llmId")] = "empty",
+    llmId: uuid.UUID,  # noqa: N803
 ) -> JSONResponse:
     """更新用户所选的大模型"""
-    llm_id = await LLMManager.update_user_llm(request.state.user_sub, conversation_id, llm_id)
+    try:
+        await LLMManager.update_user_default_llm(request.state.user_sub, llmId)
+    except ValueError as e:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content=ResponseData(
+                code=status.HTTP_400_BAD_REQUEST,
+                message=str(e),
+                result=None,
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ResponseData(
             code=status.HTTP_200_OK,
             message="success",
-            result=llm_id,
+            result=llmId,
         ).model_dump(exclude_none=True, by_alias=True),
     )

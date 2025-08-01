@@ -15,8 +15,8 @@ from .mcp import MCPType
 class RequestDataApp(BaseModel):
     """模型对话中包含的app信息"""
 
-    app_id: str = Field(description="应用ID", alias="appId")
-    flow_id: str = Field(description="Flow ID", alias="flowId")
+    app_id: uuid.UUID = Field(description="应用ID", alias="appId")
+    flow_id: uuid.UUID = Field(description="Flow ID", alias="flowId")
     params: dict[str, Any] = Field(description="插件参数")
 
 
