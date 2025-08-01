@@ -6,7 +6,8 @@ from jinja2.sandbox import SandboxedEnvironment
 
 from apps.llm.function import JsonGenerator
 from apps.llm.reasoning import ReasoningLLM
-from apps.schemas.mcp import MCPPlan, MCPTool
+from apps.models.mcp import MCPTools
+from apps.schemas.mcp import MCPPlan
 
 from .prompt import CREATE_PLAN, FINAL_ANSWER
 
@@ -27,7 +28,7 @@ class MCPPlanner:
         self.output_tokens = 0
 
 
-    async def create_plan(self, tool_list: list[MCPTool], max_steps: int = 6) -> MCPPlan:
+    async def create_plan(self, tool_list: list[MCPTools], max_steps: int = 6) -> MCPPlan:
         """规划下一步的执行流程，并输出"""
         # 获取推理结果
         result = await self._get_reasoning_plan(tool_list, max_steps)
@@ -36,7 +37,7 @@ class MCPPlanner:
         return await self._parse_plan_result(result, max_steps)
 
 
-    async def _get_reasoning_plan(self, tool_list: list[MCPTool], max_steps: int) -> str:
+    async def _get_reasoning_plan(self, tool_list: list[MCPTools], max_steps: int) -> str:
         """获取推理大模型的结果"""
         # 格式化Prompt
         template = self._env.from_string(CREATE_PLAN)
