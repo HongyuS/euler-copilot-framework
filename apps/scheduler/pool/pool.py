@@ -138,8 +138,7 @@ class Pool:
     async def get_flow(self, app_id: uuid.UUID, flow_id: uuid.UUID) -> Flow | None:
         """从文件系统中获取单个Flow的全部数据"""
         logger.info("[Pool] 获取工作流 %s", flow_id)
-        flow_loader = FlowLoader()
-        return await flow_loader.load(app_id, flow_id)
+        return await FlowLoader.load(app_id, flow_id)
 
 
     async def get_call(self, call_id: str) -> Any:

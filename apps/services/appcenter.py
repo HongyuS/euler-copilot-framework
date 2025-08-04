@@ -9,7 +9,7 @@ from typing import Any
 from sqlalchemy import and_, select
 
 from apps.common.postgres import postgres
-from apps.constants import SERVICE_PAGE_SIZE
+from apps.constants import APP_DEFAULT_HISTORY_LEN, SERVICE_PAGE_SIZE
 from apps.exceptions import InstancePermissionError
 from apps.models.app import App
 from apps.models.user import User, UserAppUsage, UserFavorite, UserFavoriteType
@@ -212,7 +212,7 @@ class AppCenterManager:
         app_data = await AppCenterManager._get_app_data(app_id, user_sub)
 
         # 不允许更改应用类型
-        if app_data.app_type != data.app_type:
+        if app_data.appType != data.app_type:
             err = f"【AppCenterManager】不允许更改应用类型: {app_data.app_type} -> {data.app_type}"
             raise ValueError(err)
 
@@ -348,21 +348,17 @@ class AppCenterManager:
                     UserAppUsage.userSub == user_sub,
                 ).order_by(
                     UserAppUsage.lastUsed.desc(),
-                ),
+                ).limit(count),
             )).all())
             # 批量查询AppName
-            app_names = []
+            result = []
             for app_id in recent_apps:
-                app_names.append(await AppCenterManager._get_app_data(app_id, user_sub))
-        if not app_ids:
-            apps = []  # 如果 app_ids 为空，直接返回空列表
-        else:
-            # 查询 MongoDB，获取符合条件的应用
-            apps = await app_collection.find({"_id": {"$in": app_ids}}, {"name": 1}).to_list(length=len(app_ids))
-        app_map = {str(a["_id"]): a.get("name", "") for a in apps}
-        return RecentAppList(
-            applications=[RecentAppListItem(appId=app_id, name=app_map.get(app_id, "")) for app_id in app_ids],
-        )
+                name = (await session.scalars(select(App.name).where(App.id == app_id))).one_or_none()
+                if name:
+                    result.append(RecentAppListItem(appId=app_id, name=name))
+
+            return RecentAppList(applications=result)
+
 
     @staticmethod
     async def update_recent_app(user_sub: str, app_id: uuid.UUID) -> None:
@@ -419,42 +415,27 @@ class AppCenterManager:
 
 
     @staticmethod
-    async def _get_app_data(app_id: uuid.UUID, user_sub: str, *, check_permission: bool = True) -> App:
+    async def _get_app_data(app_id: uuid.UUID, user_sub: str, *, check_author: bool = True) -> AppData:
         """
         从数据库获取应用数据并验证权限
 
         :param app_id: 应用唯一标识
         :param user_sub: 用户唯一标识
-        :param check_permission: 是否检查权限
+        :param check_author: 是否检查作者
         :return: 应用数据
-        :raises ValueError: 应用不存在
-        :raises InstancePermissionError: 权限不足
         """
-        mongo = MongoDB()
-        app_collection = mongo.get_collection("app")
-        app_data = AppPool.model_validate(await app_collection.find_one({"_id": app_id}))
-        if not app_data:
-            msg = "应用不存在"
-            raise ValueError(msg)
-        if check_permission and app_data.author != user_sub:
-            msg = "权限不足"
-            raise InstancePermissionError(msg)
-        return app_data
+        async with postgres.session() as session:
+            app_data = (await session.scalars(
+                select(App).where(App.id == app_id),
+            )).one_or_none()
+            if not app_data:
+                msg = f"【AppCenterManager】应用不存在: {app_id}"
+                raise ValueError(msg)
+            if check_author and app_data.author != user_sub:
+                msg = f"【AppCenterManager】权限不足: {user_sub} -> {app_data.author}"
+                raise InstancePermissionError(msg)
+            return app_data
 
-
-    @staticmethod
-    def _build_common_metadata_params(app_id: uuid.UUID, user_sub: str, source: App) -> dict:
-        """构建元数据通用参数"""
-        return {
-            "type": MetadataType.APP,
-            "id": app_id,
-            "version": "1.0.0",
-            "author": user_sub,
-            "icon": source.icon,
-            "name": source.name,
-            "description": source.description,
-            "history_len": source.history_len,
-        }
 
     @staticmethod
     def _create_flow_metadata(
@@ -497,6 +478,7 @@ class AppCenterManager:
             metadata.published = False
 
         return metadata
+
 
     @staticmethod
     def _create_agent_metadata(
@@ -562,23 +544,17 @@ class AppCenterManager:
         if not source:
             msg = "必须提供 data 或 app_data 参数"
             raise ValueError(msg)
-
-        # 验证参数类型
-        if data is not None and not isinstance(data, AppData):
-            msg = f"参数 data 类型应为 AppData，但获取到的是 {type(data).__name__}"
-            raise ValueError(msg)
-
-        if app_data is not None and not isinstance(app_data, App):
-            msg = f"参数 app_data 类型应为 App，但获取到的是 {type(app_data).__name__}"
-            raise ValueError(msg)
-
-        if published is not None and not isinstance(published, bool):
-            msg = f"参数 published 类型应为 bool，但获取到的是 {type(published).__name__}"
-            raise ValueError(msg)
-
         # 构建通用参数
-        common_params = AppCenterManager._build_common_metadata_params(app_id, user_sub, source)
-
+        common_params = {
+            "type": MetadataType.APP,
+            "id": app_id,
+            "version": "1.0.0",
+            "author": user_sub,
+            "icon": source.icon,
+            "name": source.name,
+            "description": source.description,
+            "history_len": data.history_len if data else APP_DEFAULT_HISTORY_LEN,
+        }
         # 设置权限
         if data:
             common_params["permission"] = Permission(
@@ -597,6 +573,7 @@ class AppCenterManager:
 
         msg = "无效的应用类型"
         raise ValueError(msg)
+
 
     @staticmethod
     async def _process_app_and_save(
@@ -627,10 +604,21 @@ class AppCenterManager:
         await app_loader.save(metadata, app_id)
         return metadata
 
+
     @staticmethod
-    async def _get_favorite_app_ids_by_user(user_sub: str) -> list[str]:
+    async def _get_favorite_app_ids_by_user(user_sub: str) -> list[uuid.UUID]:
         """获取用户收藏的应用ID"""
-        mongo = MongoDB()
-        user_collection = mongo.get_collection("user")
-        user_data = User.model_validate(await user_collection.find_one({"_id": user_sub}))
-        return user_data.fav_apps
+        async with postgres.session() as session:
+            favorite_apps = list((await session.scalars(
+                select(UserFavorite.itemId).where(
+                    and_(
+                        UserFavorite.userSub == user_sub,
+                        UserFavorite.type == UserFavoriteType.APP,
+                    ),
+                ),
+            )).all())
+            if not favorite_apps:
+                msg = f"[AppCenterManager] 用户错误或收藏为空: {user_sub}"
+                raise ValueError(msg)
+
+            return favorite_apps

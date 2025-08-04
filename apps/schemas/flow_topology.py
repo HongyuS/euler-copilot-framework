@@ -9,24 +9,27 @@ from pydantic import BaseModel, Field
 from .enum_var import EdgeType
 
 
-class NodeMetaDataItem(BaseModel):
-    """节点元数据类"""
+class NodeMetaDataBase(BaseModel):
+    """节点元数据基类"""
 
-    node_id: str = Field(alias="nodeId")
+    node_id: uuid.UUID = Field(alias="nodeId")
     call_id: str = Field(alias="callId")
     name: str
+    created_at: float | None = Field(alias="createdAt")
+
+
+class NodeMetaDataItem(NodeMetaDataBase):
+    """节点元数据类"""
+
     description: str
     parameters: dict[str, Any] | None
-    editable: bool = Field(default=True)
-    created_at: float | None = Field(alias="createdAt")
 
 
 class NodeServiceItem(BaseModel):
     """GET /api/flow/service 中单个service信息以及service下的节点元数据的信息"""
 
-    service_id: str = Field(..., alias="serviceId", description="服务ID")
+    service_id: uuid.UUID = Field(..., alias="serviceId", description="服务ID")
     name: str = Field(..., description="服务名称")
-    type: str = Field(..., description="服务类型")
     node_meta_datas: list[NodeMetaDataItem] = Field(alias="nodeMetaDatas", default=[])
     created_at: str | None = Field(default=None, alias="createdAt", description="创建时间")
 

@@ -47,7 +47,7 @@ class Scheduler:
         """运行调度器"""
         try:
             # 获取当前会话使用的大模型
-            llm_id = await LLMManager.get_llm_id_by_user_id(
+            llm_id = await LLMManager.get_user_default_llm(
                 self.task.ids.user_sub, self.task.ids.conversation_id,
             )
             if not llm_id:
@@ -64,7 +64,7 @@ class Scheduler:
                     max_tokens=config.llm.max_tokens,
                 )
             else:
-                llm = await LLMManager.get_llm_by_id(self.task.ids.user_sub, llm_id)
+                llm = await LLMManager.get_llm(self.task.ids.user_sub, llm_id)
                 if not llm:
                     logger.error("[Scheduler] 获取大模型失败")
                     await self.queue.close()

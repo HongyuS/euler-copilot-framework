@@ -6,8 +6,7 @@ import shutil
 import uuid
 
 from anyio import Path
-from fastapi.encoders import jsonable_encoder
-from sqlalchemy import delete, select
+from sqlalchemy import delete
 
 from apps.common.config import config
 from apps.common.postgres import postgres
@@ -17,7 +16,7 @@ from apps.models.user import UserAppUsage, UserFavorite
 from apps.scheduler.pool.check import FileChecker
 from apps.schemas.agent import AgentAppMetadata
 from apps.schemas.enum_var import AppType
-from apps.schemas.flow import AppFlow, AppMetadata, MetadataType, Permission, PermissionType
+from apps.schemas.flow import AppFlow, AppMetadata, MetadataType, PermissionType
 
 from .flow import FlowLoader
 from .metadata import MetadataLoader
@@ -50,14 +49,13 @@ class AppLoader:
         if metadata.app_type == AppType.FLOW and isinstance(metadata, AppMetadata):
             # 加载工作流
             flow_path = app_path / "flow"
-            flow_loader = FlowLoader()
 
             flow_ids = [app_flow.id for app_flow in metadata.flows]
             new_flows: list[AppFlow] = []
             async for flow_file in flow_path.rglob("*.yaml"):
                 if flow_file.stem not in flow_ids:
                     logger.warning("[AppLoader] 工作流 %s 不在元数据中", flow_file)
-                flow = await flow_loader.load(app_id, uuid.UUID(flow_file.stem))
+                flow = await FlowLoader.load(app_id, uuid.UUID(flow_file.stem))
                 if not flow:
                     err = f"[AppLoader] 工作流 {flow_file} 加载失败"
                     raise ValueError(err)
@@ -141,7 +139,7 @@ class AppLoader:
         # 更新应用数据
         async with postgres.session() as session:
             # 保存App表
-            await session.merge(App(
+            app_info = App(
                 id=metadata.id,
                 name=metadata.name,
                 description=metadata.description,
@@ -149,30 +147,21 @@ class AppLoader:
                 type=metadata.app_type,
                 isPublished=metadata.published,
                 permission=metadata.permission.type if metadata.permission else PermissionType.PRIVATE,
-            ))
-            # 保存AppACL表
-            await session.merge(AppACL(
-                appId=metadata.id,
-                userSub=metadata.author,
-                permission=metadata.permission,
-            ))
+            )
+            await session.merge(app_info)
+            # 增加Permission
+            if (
+                metadata.permission
+                and metadata.permission.type == PermissionType.PROTECTED
+                and metadata.permission.users
+            ):
+                for user_sub in metadata.permission.users:
+                    await session.merge(AppACL(
+                        appId=metadata.id,
+                        userSub=user_sub,
+                        action="",
+                    ))
             # 保存AppHashes表
             await session.commit()
-        mongo = MongoDB()
-        try:
-            app_collection = mongo.get_collection("app")
-            metadata.permission = metadata.permission if metadata.permission else Permission()
-            await app_collection.update_one(
-                {"_id": metadata.id},
-                {
-                    "$set": jsonable_encoder(
-                        AppPool(
-                            _id=metadata.id,
-                            **(metadata.model_dump(by_alias=True)),
-                        ),
-                    ),
-                },
-                upsert=True,
-            )
-        except Exception:
-            logger.exception("[AppLoader] 更新 MongoDB 失败")
+
+            # FIXME 更新Hash值？
