@@ -94,10 +94,5 @@ class Facts(CorePattern):
             schema=FactsResult.model_json_schema(),
         )
 
-        try:
-            fact_dict = FactsResult.model_validate(await json_gen.generate())
-        except Exception:
-            logger.exception("[Facts] 事实提取失败")
-            return []
-
+        fact_dict = FactsResult.model_validate(await json_gen.generate())
         return fact_dict.facts

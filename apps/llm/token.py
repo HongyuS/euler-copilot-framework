@@ -35,22 +35,19 @@ class TokenCalculator(metaclass=SingletonMeta):
             return content
         if k <= 0:
             return ""
-        try:
+
+        if TokenCalculator().calculate_token_length(messages=[
+            {"role": "user", "content": content},
+        ], pure_text=True) <= k:
+            return content
+        left = 0
+        right = len(content)
+        while left + 1 < right:
+            mid = (left + right) // 2
             if TokenCalculator().calculate_token_length(messages=[
-                {"role": "user", "content": content},
+                {"role": "user", "content": content[:mid]},
             ], pure_text=True) <= k:
-                return content
-            left = 0
-            right = len(content)
-            while left + 1 < right:
-                mid = (left + right) // 2
-                if TokenCalculator().calculate_token_length(messages=[
-                    {"role": "user", "content": content[:mid]},
-                ], pure_text=True) <= k:
-                    left = mid
-                else:
-                    right = mid
-            return content[:left]
-        except Exception:
-            logger.exception("[TokenCalculator] 获取k个token的词失败")
-        return ""
+                left = mid
+            else:
+                right = mid
+        return content[:left]

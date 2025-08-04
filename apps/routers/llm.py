@@ -2,9 +2,8 @@
 """FastAPI 大模型相关接口"""
 
 import uuid
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import verify_admin, verify_personal_token, verify_session
@@ -77,13 +76,23 @@ async def create_llm(
     llmId: uuid.UUID | None = None,  # noqa: N803
 ) -> JSONResponse:
     """创建或更新大模型配置"""
-    await LLMManager.update_llm(llmId, req)
+    try:
+        await LLMManager.update_llm(llmId, req)
+    except ValueError as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ResponseData(
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message=str(e),
+                result=None,
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ResponseData(
             code=status.HTTP_200_OK,
             message="success",
-            result=llm_id,
+            result=llmId,
         ).model_dump(exclude_none=True, by_alias=True),
     )
 
@@ -93,7 +102,17 @@ async def create_llm(
 )
 async def delete_llm(request: Request, llmId: uuid.UUID) -> JSONResponse:  # noqa: N803
     """删除大模型配置"""
-    await LLMManager.delete_llm(request.state.user_sub, llmId)
+    try:
+        await LLMManager.delete_llm(request.state.user_sub, llmId)
+    except ValueError as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ResponseData(
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message=str(e),
+                result=None,
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ResponseData(
@@ -116,9 +135,9 @@ async def update_user_llm(
         await LLMManager.update_user_default_llm(request.state.user_sub, llmId)
     except ValueError as e:
         return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
-                code=status.HTTP_400_BAD_REQUEST,
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 message=str(e),
                 result=None,
             ).model_dump(exclude_none=True, by_alias=True),

@@ -54,13 +54,9 @@ class ExecutorThought(CorePattern):
 
     async def generate(self, **kwargs) -> str:  # noqa: ANN003
         """调用大模型，生成对话总结"""
-        try:
-            last_thought: str = kwargs["last_thought"]
-            user_question: str = kwargs["user_question"]
-            tool_info: dict[str, Any] = kwargs["tool_info"]
-        except Exception as e:
-            err = "参数不正确！"
-            raise ValueError(err) from e
+        last_thought: str = kwargs["last_thought"]
+        user_question: str = kwargs["user_question"]
+        tool_info: dict[str, Any] = kwargs["tool_info"]
 
         messages = [
             {"role": "system", "content": "You are a helpful assistant."},
