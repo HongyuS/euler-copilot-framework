@@ -101,8 +101,6 @@ class ProcessHandler:
                 logger.info("[ProcessHandler] 进程 %s (%s) 被杀死。", task_id, pid)
             else:
                 process.close()
-        except Exception:
-            logger.exception("[ProcessHandler] 杀死进程 %s 时发生异常", task_id)
         finally:
             if acquired:
                 ProcessHandler.lock.release()

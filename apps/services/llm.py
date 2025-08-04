@@ -4,7 +4,7 @@
 import logging
 import uuid
 
-from sqlalchemy import and_, select
+from sqlalchemy import select
 
 from apps.common.postgres import postgres
 from apps.models.llm import LLMData
@@ -119,42 +119,40 @@ class LLMManager:
 
 
     @staticmethod
-    async def update_llm(llm_id: uuid.UUID | None, req: UpdateLLMReq) -> None:
+    async def update_llm(llm_id: uuid.UUID | None, req: UpdateLLMReq) -> uuid.UUID:
         """
         创建大模型
 
         :param req: 创建大模型请求体
         :return: 大模型对象
         """
-        mongo = MongoDB()
-        llm_collection = mongo.get_collection("llm")
-
-        if llm_id:
-            llm_dict = await llm_collection.find_one({"_id": llm_id, "user_sub": user_sub})
-            if not llm_dict:
-                err = f"[LLMManager] LLM {llm_id} 不存在"
-                logger.error(err)
-                raise ValueError(err)
-            llm = LLM(
-                _id=llm_id,
-                user_sub=user_sub,
-                icon=llm_dict["icon"],
-                openai_base_url=req.openai_base_url,
-                openai_api_key=req.openai_api_key,
-                model_name=req.model_name,
-                max_tokens=req.max_tokens,
-            )
-            await llm_collection.update_one({"_id": llm_id}, {"$set": llm.model_dump(by_alias=True)})
-        else:
-            llm = LLM(
-                user_sub=user_sub,
-                icon=req.icon,
-                openai_base_url=req.openai_base_url,
-                openai_api_key=req.openai_api_key,
-                model_name=req.model_name,
-                max_tokens=req.max_tokens,
-            )
-            await llm_collection.insert_one(llm.model_dump(by_alias=True))
+        async with postgres.session() as session:
+            if llm_id:
+                llm = (await session.scalars(
+                    select(LLMData).where(
+                        LLMData.id == llm_id,
+                    ),
+                )).one_or_none()
+                if not llm:
+                    err = f"[LLMManager] LLM {llm_id} 不存在"
+                    raise ValueError(err)
+                llm.icon = req.icon
+                llm.openaiBaseUrl = req.openai_base_url
+                llm.openaiAPIKey = req.openai_api_key
+                llm.modelName = req.model_name
+                llm.maxToken = req.max_tokens
+                await session.commit()
+            else:
+                llm = LLMData(
+                    icon=req.icon,
+                    openaiBaseUrl=req.openai_base_url,
+                    openaiAPIKey=req.openai_api_key,
+                    modelName=req.model_name,
+                    maxToken=req.max_tokens,
+                )
+                session.add(llm)
+                await session.commit()
+            return llm.id
 
 
     @staticmethod

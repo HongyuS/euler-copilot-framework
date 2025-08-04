@@ -2,20 +2,24 @@
 """flow Manager"""
 
 import logging
+import uuid
 
-from pymongo import ASCENDING
+from sqlalchemy import and_, select
 
 from apps.common.postgres import postgres
+from apps.models.app import App
 from apps.models.node import NodeInfo
-from apps.models.user import User
+from apps.models.service import Service
+from apps.models.user import User, UserFavorite, UserFavoriteType
 from apps.scheduler.pool.loader.flow import FlowLoader
 from apps.scheduler.slot.slot import Slot
-from apps.schemas.enum_var import EdgeType, PermissionType
+from apps.schemas.enum_var import EdgeType
 from apps.schemas.flow import Edge, Flow, Step
 from apps.schemas.flow_topology import (
     EdgeItem,
     FlowItem,
     NodeItem,
+    NodeMetaDataBase,
     NodeMetaDataItem,
     NodeServiceItem,
     PositionItem,
@@ -30,53 +34,12 @@ class FlowManager:
     """Flow相关操作"""
 
     @staticmethod
-    async def validate_user_node_meta_data_access(user_sub: str, node_meta_data_id: str) -> bool:
+    async def get_node_id_by_service_id(service_id: uuid.UUID) -> list[NodeMetaDataBase] | None:
         """
-        验证用户对服务的访问权限
-
-        :param user_sub: 用户唯一标识符
-        :param service_id: 服务id
-        :return: 如果用户具有所需权限则返回True，否则返回False
-        """
-        node_pool_collection = MongoDB().get_collection("node")
-        service_collection = MongoDB().get_collection("service")
-
-        try:
-            node_pool_record = await node_pool_collection.find_one({"_id": node_meta_data_id})
-            if node_pool_record is None:
-                logger.error("[FlowManager] 节点元数据 %s 不存在", node_meta_data_id)
-                return False
-            match_conditions = [
-                {"author": user_sub},
-                {"permission.type": PermissionType.PUBLIC.value},
-                {
-                    "$and": [
-                        {"permission.type": PermissionType.PROTECTED.value},
-                        {"permission.users": user_sub},
-                    ],
-                },
-            ]
-            query = {
-                "$and": [
-                    {"_id": node_pool_record["service_id"]},
-                    {"$or": match_conditions},
-                ],
-            }
-
-            result = await service_collection.count_documents(query)
-        except Exception:
-            logger.exception("[FlowManager] 验证用户对服务的访问权限失败")
-            return False
-        else:
-            return (result > 0)
-
-    @staticmethod
-    async def get_node_id_by_service_id(service_id: str) -> list[NodeMetaDataItem] | None:
-        """
-        serviceId获取service的接口数据，并将接口转换为节点元数据
+        serviceId获取service的基础信息
 
         :param service_id: 服务id
-        :return: 节点元数据的列表
+        :return: 节点基础信息的列表，按创建时间排序
         """
         node_pool_collection = MongoDB().get_collection("node")  # 获取节点集合
         try:
@@ -99,7 +62,6 @@ class FlowManager:
                     callId=node_pool_record["call_id"],
                     name=node_pool_record["name"],
                     description=node_pool_record["description"],
-                    editable=True,
                     createdAt=node_pool_record["created_at"],
                     parameters=parameters,  # 添加 parametersTemplate 参数
                 )
@@ -110,76 +72,76 @@ class FlowManager:
         else:
             return nodes_meta_data_items
 
+
     @staticmethod
     async def get_service_by_user_id(user_sub: str) -> list[NodeServiceItem] | None:
         """
-        通过user_id获取用户自己上传的、其他人公开的且收藏的、受保护且有权限访问并收藏的service
+        通过user_id获取用户自己上传的或收藏的Service
 
         :user_sub: 用户的唯一标识符
         :return: service的列表
         """
-        service_collection = MongoDB().get_collection("service")
-        user_collection = MongoDB().get_collection("user")
-        try:
-            db_result = await user_collection.find_one({"_id": user_sub})
-            user = User.model_validate(db_result)
-            if user is None:
-                logger.error("[FlowManager] 用户 %s 不存在或数据损坏", user_sub)
-                return None
-            # 获取用户收藏的服务列表
-            fav_services = user.fav_services
-            logger.info("[FlowManager] 用户 %s 收藏的服务列表: %s", user_sub, fav_services)
-            match_conditions = [
-                {"author": user_sub},
-                {
-                    "$and": [
-                        {"permission.type": PermissionType.PUBLIC.value},
-                        {"_id": {"$in": fav_services}},
-                    ],
-                },
-                {
-                    "$and": [
-                        {"permission.type": PermissionType.PROTECTED.value},
-                        {"permission.users": {"$in": [user_sub]}},
-                        {"_id": {"$in": fav_services}},
-                    ],
-                },
-            ]
-            query = {"$or": match_conditions}
-            service_records_cursor = service_collection.find(
-                query,
-                sort=[("created_at", ASCENDING)],
-            )
-            service_records = await service_records_cursor.to_list(length=None)
-            service_items = [NodeServiceItem(serviceId="", name="系统", type="system", nodeMetaDatas=[])]
+        async with postgres.session() as session:
+            service_ids = []
+            # 用户所有收藏的服务
+            user_favs = list((await session.scalars(
+                select(UserFavorite.itemId).where(
+                    and_(
+                        UserFavorite.userSub == user_sub,
+                        UserFavorite.type == UserFavoriteType.SERVICE,
+                    ),
+                ),
+            )).all())
+            service_ids = service_ids + user_favs
+            # 用户所上传的Service
+            user_services = list((await session.scalars(
+                select(Service.id).where(
+                    Service.author == user_sub,
+                ),
+            )).all())
+            service_ids = service_ids + user_services
+            service_ids = list(set(service_ids))
+
+            # 获取Service
+            service_data = list((await session.scalars(
+                select(Service).where(
+                    Service.id.in_(service_ids),
+                ).order_by(Service.updatedAt.desc()),
+            )).all())
+
+            # 组装返回值
+            service_items = [NodeServiceItem(
+                serviceId=uuid.UUID("00000000-0000-0000-0000-000000000000"),
+                name="系统",
+                nodeMetaDatas=[],
+                createdAt=None,
+            )]
             service_items += [
                 NodeServiceItem(
-                    serviceId=record["_id"],
-                    name=record["name"],
-                    type="default",
+                    serviceId=item.id,
+                    name=item.name,
                     nodeMetaDatas=[],
-                    createdAt=str(record["created_at"]),
+                    createdAt=str(item.updatedAt.timestamp()),
                 )
-                for record in service_records
+                for item in service_data
             ]
+
             for service_item in service_items:
                 node_meta_datas = await FlowManager.get_node_id_by_service_id(service_item.service_id)
                 if node_meta_datas is None:
                     node_meta_datas = []
                 service_item.node_meta_datas = node_meta_datas
-        except Exception:
-            logger.exception("[FlowManager] 获取用户服务失败")
-            return None
-        else:
+
             return service_items
+
 
     @staticmethod
     async def get_node_by_node_id(node_id: str) -> NodeMetaDataItem | None:
         """
-        通过node_id获取对应的节点源数据信息
+        通过node_id获取对应的节点元数据信息
 
-        :param node_id: node_meta_data的id
-        :return: node_id对应的节点源数据信息
+        :param node_id: node的id
+        :return: node_id对应的节点元数据信息
         """
         node_pool_collection = MongoDB().get_collection("node")  # 获取节点集合
         try:
@@ -196,13 +158,13 @@ class FlowManager:
                 callId=node_pool_record["call_id"],
                 name=node_pool_record["name"],
                 description=node_pool_record["description"],
-                editable=True,
                 parameters=parameters,
                 createdAt=node_pool_record["created_at"],
             )
         except Exception:
             logger.exception("[FlowManager] 获取节点元数据失败")
             return None
+
 
     @staticmethod
     async def get_flow_by_app_and_flow_id(app_id: str, flow_id: str) -> FlowItem | None:  # noqa: C901, PLR0911, PLR0912
@@ -241,7 +203,7 @@ class FlowManager:
             return None
 
         try:
-            flow_config = await FlowLoader().load(app_id, flow_id)
+            flow_config = await FlowLoader.load(app_id, flow_id)
             if not flow_config:
                 logger.error("[FlowManager] 获取流配置失败")
                 return None
@@ -306,6 +268,7 @@ class FlowManager:
             logger.exception("[FlowManager] 获取流失败")
             return None
 
+
     @staticmethod
     async def is_flow_config_equal(flow_config_1: Flow, flow_config_2: Flow) -> bool:
         """
@@ -352,30 +315,31 @@ class FlowManager:
 
         return sorted(edge_list_1) == sorted(edge_list_2)
 
+
     @staticmethod
     async def put_flow_by_app_and_flow_id(
-        app_id: str,
-        flow_id: str,
-        flow_item: FlowItem,
-    ) -> FlowItem | None:
+        app_id: uuid.UUID, flow_id: uuid.UUID, flow_item: FlowItem,
+    ) -> None:
         """
         存储/更新flow的数据库数据和配置文件
 
         :param app_id: 应用的id
         :param flow_id: 流的id
         :param flow_item: 流的item
-        :return: 流的id
         """
-        try:
-            app_collection = MongoDB().get_collection("app")
-            app_record = await app_collection.find_one({"_id": app_id})
+        # 检查应用是否存在
+        async with postgres.session() as session:
+            app_record = (await session.scalars(
+                select(App.id).where(
+                    App.id == app_id,
+                ),
+            )).one_or_none()
             if app_record is None:
-                logger.error("[FlowManager] 应用 %s 不存在", app_id)
-                return None
-        except Exception:
-            logger.exception("[FlowManager] 获取流失败")
-            return None
-        try:
+                err = f"[FlowManager] 应用 {app_id} 不存在"
+                logger.error(err)
+                raise ValueError(err)
+
+            # Flow模版
             flow_config = Flow(
                 name=flow_item.name,
                 description=flow_item.description,
@@ -383,8 +347,9 @@ class FlowManager:
                 edges=[],
                 focus_point=flow_item.focus_point,
                 connectivity=flow_item.connectivity,
-                debug=flow_item.debug,
+                debug=False,
             )
+            # 增加Flow实际使用的节点
             for node_item in flow_item.nodes:
                 flow_config.steps[node_item.step_id] = Step(
                     type=node_item.call_id,
@@ -394,6 +359,7 @@ class FlowManager:
                     pos=node_item.position,
                     params=node_item.parameters.get("input_parameters", {}),
                 )
+            # 使用固定格式把边存入yaml中
             for edge_item in flow_item.edges:
                 edge_from = edge_item.source_node
                 if edge_item.branch_id:
@@ -406,52 +372,37 @@ class FlowManager:
                 )
                 flow_config.edges.append(edge_config)
 
-            flow_loader = FlowLoader()
-            old_flow_config = await flow_loader.load(app_id, flow_id)
-
-            if old_flow_config is None:
-                error_msg = f"[FlowManager] 流 {flow_id} 不存在；可能为新创建"
-                logger.error(error_msg)
-            elif old_flow_config.debug:
+            # 检查是否是修改动作；检查修改前后是否等价
+            old_flow_config = await FlowLoader.load(app_id, flow_id)
+            if old_flow_config and old_flow_config.debug:
                 flow_config.debug = await FlowManager.is_flow_config_equal(old_flow_config, flow_config)
-            else:
-                flow_config.debug = False
-            await flow_loader.save(app_id, flow_id, flow_config)
-        except Exception:
-            logger.exception("[FlowManager] 存储/更新流失败")
-            return None
-        else:
-            return flow_item
+
+            await FlowLoader.save(app_id, flow_id, flow_config)
+
 
     @staticmethod
-    async def delete_flow_by_app_and_flow_id(app_id: str, flow_id: str) -> str | None:
+    async def delete_flow_by_app_and_flow_id(app_id: uuid.UUID, flow_id: uuid.UUID) -> None:
         """
         删除flow的数据库数据和配置文件
 
         :param app_id: 应用的id
         :param flow_id: 流的id
-        :return: 流的id
         """
-        try:
+        app_collection = MongoDB().get_collection("app")
+        key = f"flow/{flow_id}.yaml"
+        await app_collection.update_one({"_id": app_id}, {"$unset": {f"hashes.{key}": ""}})
+        await app_collection.update_one({"_id": app_id}, {"$pull": {"flows": {"id": flow_id}}})
 
-            app_collection = MongoDB().get_collection("app")
-            key = f"flow/{flow_id}.yaml"
-            await app_collection.update_one({"_id": app_id}, {"$unset": {f"hashes.{key}": ""}})
-            await app_collection.update_one({"_id": app_id}, {"$pull": {"flows": {"id": flow_id}}})
+        result = await FlowLoader.delete(app_id, flow_id)
 
-            result = await FlowLoader().delete(app_id, flow_id)
+        if result is None:
+            error_msg = f"[FlowManager] 删除流 {flow_id} 失败"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
-            if result is None:
-                logger.error("[FlowManager] 删除流失败")
-                return None
-        except Exception:
-            logger.exception("[FlowManager] 删除流失败")
-            return None
-        else:
-            return flow_id
 
     @staticmethod
-    async def update_flow_debug_by_app_and_flow_id(app_id: str, flow_id: str, *, debug: bool) -> bool:
+    async def update_flow_debug_by_app_and_flow_id(app_id: uuid.UUID, flow_id: uuid.UUID, *, debug: bool) -> bool:
         """
         更新flow的debug状态
 
@@ -460,15 +411,12 @@ class FlowManager:
         :param debug: 是否开启debug
         :return: 是否更新成功
         """
-        try:
-            flow_loader = FlowLoader()
-            flow = await flow_loader.load(app_id, flow_id)
-            if flow is None:
-                return False
-            flow.debug = debug
-            await flow_loader.save(app_id=app_id, flow_id=flow_id, flow=flow)
-        except Exception:
-            logger.exception("[FlowManager] 更新流debug状态失败")
+        # 由于调用位置，从文件系统中获取Flow数据
+        flow = await FlowLoader.load(app_id, flow_id)
+        if flow is None:
             return False
-        else:
-            return True
+
+        flow.debug = debug
+        # 保存到文件系统
+        await FlowLoader.save(app_id=app_id, flow_id=flow_id, flow=flow)
+        return True

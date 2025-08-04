@@ -118,16 +118,19 @@ async def put_flow(
     put_body.flow = await FlowService.remove_excess_structure_from_flow(put_body.flow)
     await FlowService.validate_flow_illegal(put_body.flow)
     put_body.flow.connectivity = await FlowService.validate_flow_connectivity(put_body.flow)
-    result = await FlowManager.put_flow_by_app_and_flow_id(appId, flowId, put_body.flow)
-    if result is None:
+
+    try:
+        await FlowManager.put_flow_by_app_and_flow_id(appId, flowId, put_body.flow)
+    except Exception as e:  # noqa: BLE001
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=FlowStructurePutRsp(
                 code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                message="应用下流更新失败",
+                message=f"应用下流更新失败: {e!s}",
                 result=FlowStructurePutMsg(),
             ).model_dump(exclude_none=True, by_alias=True),
         )
+
     flow = await FlowManager.get_flow_by_app_and_flow_id(appId, flowId)
     await AppCenterManager.update_app_publish_status(appId, request.state.user_sub)
     if flow is None:

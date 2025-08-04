@@ -29,7 +29,8 @@ BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "app"
 class FlowLoader:
     """工作流加载器"""
 
-    async def _load_yaml_file(self, flow_path: Path) -> dict[str, Any]:
+    @staticmethod
+    async def _load_yaml_file(flow_path: Path) -> dict[str, Any]:
         """从YAML文件加载工作流配置"""
         try:
             async with aiofiles.open(flow_path, encoding="utf-8") as f:
@@ -38,7 +39,9 @@ class FlowLoader:
             logger.exception("[FlowLoader] 加载YAML文件失败：%s", flow_path)
             return {}
 
-    async def _validate_basic_fields(self, flow_yaml: dict[str, Any], flow_path: Path) -> dict[str, Any]:
+
+    @staticmethod
+    async def _validate_basic_fields(flow_yaml: dict[str, Any], flow_path: Path) -> dict[str, Any]:
         """验证工作流基本字段"""
         if "name" not in flow_yaml or not flow_yaml["name"]:
             logger.error("[FlowLoader] 工作流名称不能为空：%s", flow_path)
@@ -54,7 +57,9 @@ class FlowLoader:
 
         return flow_yaml
 
-    async def _process_edges(self, flow_yaml: dict[str, Any], flow_id: uuid.UUID, app_id: uuid.UUID) -> dict[str, Any]:
+
+    @staticmethod
+    async def _process_edges(flow_yaml: dict[str, Any], flow_id: uuid.UUID, app_id: uuid.UUID) -> dict[str, Any]:
         """处理工作流边的转换"""
         logger.info("[FlowLoader] 应用 %s：解析工作流 %s 的边", flow_id, app_id)
         try:
@@ -71,7 +76,9 @@ class FlowLoader:
         else:
             return flow_yaml
 
-    async def _process_steps(self, flow_yaml: dict[str, Any], flow_id: uuid.UUID, app_id: uuid.UUID) -> dict[str, Any]:
+
+    @staticmethod
+    async def _process_steps(flow_yaml: dict[str, Any], flow_id: uuid.UUID, app_id: uuid.UUID) -> dict[str, Any]:
         """处理工作流步骤的转换"""
         logger.info("[FlowLoader] 应用 %s：解析工作流 %s 的步骤", flow_id, app_id)
         for key, step in flow_yaml["steps"].items():
@@ -102,7 +109,8 @@ class FlowLoader:
         return flow_yaml
 
 
-    async def load(self, app_id: uuid.UUID, flow_id: uuid.UUID) -> Flow | None:
+    @staticmethod
+    async def load(app_id: uuid.UUID, flow_id: uuid.UUID) -> Flow | None:
         """从文件系统中加载【单个】工作流"""
         logger.info("[FlowLoader] 应用 %s：加载工作流 %s...", flow_id, app_id)
 
@@ -114,21 +122,21 @@ class FlowLoader:
 
         try:
             # 加载YAML文件
-            flow_yaml = await self._load_yaml_file(flow_path)
+            flow_yaml = await FlowLoader._load_yaml_file(flow_path)
             if not flow_yaml:
                 return None
 
             # 按顺序处理工作流配置
             for processor in [
-                lambda y: self._validate_basic_fields(y, flow_path),
-                lambda y: self._process_edges(y, flow_id, app_id),
-                lambda y: self._process_steps(y, flow_id, app_id),
+                lambda y: FlowLoader._validate_basic_fields(y, flow_path),
+                lambda y: FlowLoader._process_edges(y, flow_id, app_id),
+                lambda y: FlowLoader._process_steps(y, flow_id, app_id),
             ]:
                 flow_yaml = await processor(flow_yaml)
                 if not flow_yaml:
                     return None
             flow_config = Flow.model_validate(flow_yaml)
-            await self._update_db(
+            await FlowLoader._update_db(
                 app_id,
                 FlowInfo(
                     appId=app_id,
@@ -146,7 +154,8 @@ class FlowLoader:
             return None
 
 
-    async def save(self, app_id: uuid.UUID, flow_id: uuid.UUID, flow: Flow) -> None:
+    @staticmethod
+    async def save(app_id: uuid.UUID, flow_id: uuid.UUID, flow: Flow) -> None:
         """保存工作流"""
         flow_path = BASE_PATH / str(app_id) / "flow" / f"{flow_id}.yaml"
         if not await flow_path.parent.exists():
@@ -163,7 +172,7 @@ class FlowLoader:
                     sort_keys=False,
                 ),
             )
-        await self._update_db(
+        await FlowLoader._update_db(
             app_id,
             FlowInfo(
                 appId=app_id,
@@ -177,17 +186,14 @@ class FlowLoader:
         )
 
 
-    async def delete(self, app_id: uuid.UUID, flow_id: uuid.UUID) -> bool:
+    @staticmethod
+    async def delete(app_id: uuid.UUID, flow_id: uuid.UUID) -> bool:
         """删除指定工作流文件"""
         flow_path = BASE_PATH / str(app_id) / "flow" / f"{flow_id}.yaml"
         # 确保目标为文件且存在
         if await flow_path.exists():
-            try:
-                await flow_path.unlink()
-                logger.info("[FlowLoader] 成功删除工作流文件：%s", flow_path)
-            except Exception:
-                logger.exception("[FlowLoader] 删除工作流文件失败：%s", flow_path)
-                return False
+            logger.info("[FlowLoader] 删除工作流文件：%s", flow_path)
+            await flow_path.unlink()
 
             async with postgres.session() as session:
                 await session.execute(delete(FlowPoolVector).where(FlowPoolVector.id == flow_id))
@@ -196,7 +202,8 @@ class FlowLoader:
         return True
 
 
-    async def _update_db(self, app_id: uuid.UUID, metadata: FlowInfo) -> None:
+    @staticmethod
+    async def _update_db(app_id: uuid.UUID, metadata: FlowInfo) -> None:
         """更新数据库"""
         # 检查App是否存在
         async with postgres.session() as session:
