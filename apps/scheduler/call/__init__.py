@@ -2,6 +2,7 @@
 """Agent工具部分"""
 
 from apps.scheduler.call.api.api import API
+from apps.scheduler.call.choice.choice import Choice
 from apps.scheduler.call.graph.graph import Graph
 from apps.scheduler.call.llm.llm import LLM
 from apps.scheduler.call.mcp.mcp import MCP
@@ -16,6 +17,7 @@ __all__ = [
     "MCP",
     "RAG",
     "SQL",
+    "Choice",
     "Graph",
     "Suggestion",
 ]

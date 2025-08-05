@@ -112,11 +112,14 @@ async def save_data(task: Task, user_sub: str, post_body: RequestData) -> None:
         used_docs.append(
             RecordGroupDocument(
                 _id=docs["id"],
+                author=docs.get("author", ""),
+                order=docs.get("order", 0),
                 name=docs["name"],
                 abstract=docs.get("abstract", ""),
                 extension=docs.get("extension", ""),
                 size=docs.get("size", 0),
                 associated="answer",
+                created_at=docs.get("created_at", round(datetime.now(UTC).timestamp(), 3)),
             )
         )
         if docs.get("order") is not None:
@@ -197,7 +200,7 @@ async def save_data(task: Task, user_sub: str, post_body: RequestData) -> None:
         await AppCenterManager.update_recent_app(user_sub, post_body.app.app_id)
 
     # 若状态为成功，删除Task
-    if not task.state or task.state.status == StepStatus.SUCCESS:
+    if not task.state or task.state.flow_status == StepStatus.SUCCESS or task.state.flow_status == StepStatus.ERROR or task.state.flow_status == StepStatus.CANCELLED:
         await TaskManager.delete_task_by_task_id(task.id)
     else:
         # 更新Task
