@@ -57,6 +57,7 @@ class FlowChooser:
             return self._user_selected
 
         top_flow = await self.get_top_flow()
+        # FIXME KnowledgeBase不是UUID，要改个值
         if top_flow == "KnowledgeBase":
             return None
 

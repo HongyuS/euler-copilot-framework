@@ -28,7 +28,7 @@ class Edge(BaseModel):
 class Step(BaseModel):
     """Flow中Step的数据"""
 
-    node: uuid.UUID = Field(description="Step的Node ID")
+    node: str = Field(description="Step的Node ID")
     type: str = Field(description="Step的类型")
     name: str = Field(description="Step的名称")
     description: str = Field(description="Step的描述")

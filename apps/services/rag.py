@@ -4,6 +4,7 @@
 import json
 import logging
 from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -39,6 +40,7 @@ class RAG:
             2.脚注的格式为[[1]]，[[2]]，[[3]]等，脚注的内容为提供的文档的id。
             3.脚注只出现在回答的句子的末尾，例如句号、问号等标点符号后面。
             4.不要对脚注本身进行解释或说明。
+            5.请不要使用<example></example>中的文档的id作为脚注。
     </instructions>
     <example>
         <bac_info>
@@ -157,9 +159,11 @@ class RAG:
                     "id": doc_chunk["docId"],
                     "order": doc_cnt,
                     "name": doc_chunk.get("docName", ""),
+                    "author": doc_chunk.get("docAuthor", ""),
                     "extension": doc_chunk.get("docExtension", ""),
                     "abstract": doc_chunk.get("docAbstract", ""),
                     "size": doc_chunk.get("docSize", 0),
+                    "created_at": doc_chunk.get("docCreatedAt", round(datetime.now(UTC).timestamp(), 3)),
                 })
                 doc_id_map[doc_chunk["docId"]] = doc_cnt
             doc_index = doc_id_map[doc_chunk["docId"]]

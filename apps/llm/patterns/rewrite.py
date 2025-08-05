@@ -29,7 +29,7 @@ class QuestionRewrite(CorePattern):
     user_prompt: str = r"""
         <instructions>
           <instruction>
-            根据上面的对话，推断用户的实际意图并补全用户的提问内容。
+            根据历史对话，推断用户的实际意图并补全用户的提问内容,历史对话被包含在<history>标签中，用户意图被包含在<question>标签中。
             要求：
               1. 请使用JSON格式输出，参考下面给出的样例；不要包含任何XML标签，不要包含任何解释说明；
               2. 若用户当前提问内容与对话上文不相关，或你认为用户的提问内容已足够完整，请直接输出用户的提问内容。

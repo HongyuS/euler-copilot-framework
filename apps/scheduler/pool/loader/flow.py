@@ -110,48 +110,50 @@ class FlowLoader:
 
 
     @staticmethod
-    async def load(app_id: uuid.UUID, flow_id: uuid.UUID) -> Flow | None:
+    async def load(app_id: uuid.UUID, flow_id: uuid.UUID) -> Flow:
         """从文件系统中加载【单个】工作流"""
         logger.info("[FlowLoader] 应用 %s：加载工作流 %s...", flow_id, app_id)
 
         # 构建工作流文件路径
         flow_path = BASE_PATH / str(app_id) / "flow" / f"{flow_id}.yaml"
         if not await flow_path.exists():
-            logger.error("[FlowLoader] 应用 %s：工作流文件 %s 不存在", app_id, flow_path)
-            return None
+            err = f"[FlowLoader] 应用 {app_id}：工作流文件 {flow_path} 不存在"
+            logger.error(err)
+            raise FileNotFoundError(err)
 
-        try:
-            # 加载YAML文件
-            flow_yaml = await FlowLoader._load_yaml_file(flow_path)
+        # 加载YAML文件
+        flow_yaml = await FlowLoader._load_yaml_file(flow_path)
+        if not flow_yaml:
+            err = f"[FlowLoader] 应用 {app_id}：工作流文件 {flow_path} 加载失败"
+            logger.error(err)
+            raise RuntimeError(err)
+
+        # 按顺序处理工作流配置
+        for processor in [
+            lambda y: FlowLoader._validate_basic_fields(y, flow_path),
+            lambda y: FlowLoader._process_edges(y, flow_id, app_id),
+            lambda y: FlowLoader._process_steps(y, flow_id, app_id),
+        ]:
+            flow_yaml = await processor(flow_yaml)
             if not flow_yaml:
-                return None
+                err = f"[FlowLoader] 应用 {app_id}：工作流文件 {flow_path} 格式不合法"
+                logger.error(err)
+                raise RuntimeError(err)
 
-            # 按顺序处理工作流配置
-            for processor in [
-                lambda y: FlowLoader._validate_basic_fields(y, flow_path),
-                lambda y: FlowLoader._process_edges(y, flow_id, app_id),
-                lambda y: FlowLoader._process_steps(y, flow_id, app_id),
-            ]:
-                flow_yaml = await processor(flow_yaml)
-                if not flow_yaml:
-                    return None
-            flow_config = Flow.model_validate(flow_yaml)
-            await FlowLoader._update_db(
-                app_id,
-                FlowInfo(
-                    appId=app_id,
-                    id=flow_id,
-                    name=flow_config.name,
-                    description=flow_config.description,
-                    enabled=True,
-                    path=str(flow_path),
-                    debug=flow_config.debug,
-                ),
-            )
-            return Flow.model_validate(flow_yaml)
-        except Exception:
-            logger.exception("[FlowLoader] 应用 %s：工作流 %s 格式不合法", app_id, flow_id)
-            return None
+        flow_config = Flow.model_validate(flow_yaml)
+        await FlowLoader._update_db(
+            app_id,
+            FlowInfo(
+                appId=app_id,
+                id=flow_id,
+                name=flow_config.name,
+                description=flow_config.description,
+                enabled=True,
+                path=str(flow_path),
+                debug=flow_config.debug,
+            ),
+        )
+        return Flow.model_validate(flow_yaml)
 
 
     @staticmethod

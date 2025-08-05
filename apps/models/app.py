@@ -22,7 +22,7 @@ class App(Base):
     """应用描述"""
     author: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), nullable=False)
     """应用作者"""
-    type: Mapped[AppType] = mapped_column(Enum(AppType), nullable=False)
+    appType: Mapped[AppType] = mapped_column(Enum(AppType), nullable=False)  # noqa: N815
     """应用类型"""
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default_factory=uuid.uuid4)
     """应用ID"""

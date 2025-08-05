@@ -55,7 +55,7 @@ class UserFavorite(Base):
     """用户收藏ID"""
     userSub: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), index=True, nullable=False)  # noqa: N815
     """用户名"""
-    type: Mapped[UserFavoriteType] = mapped_column(Enum(UserFavoriteType), nullable=False)
+    favouriteType: Mapped[UserFavoriteType] = mapped_column(Enum(UserFavoriteType), nullable=False)  # noqa: N815
     """收藏类型"""
     itemId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)  # noqa: N815
     """收藏项目ID（App/Service ID）"""

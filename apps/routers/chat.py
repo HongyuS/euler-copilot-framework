@@ -35,10 +35,17 @@ router = APIRouter(
 
 async def init_task(post_body: RequestData, user_sub: str, session_id: str) -> Task:
     """初始化Task"""
+    if post_body.new_task:
+        # 创建或还原Task
+        task = await TaskManager.get_task(session_id=session_id, post_body=post_body, user_sub=user_sub)
+        if task:
+             await TaskManager.delete_task_by_task_id(task.id)
     # 创建或还原Task
     task = await TaskManager.get_task(session_id=session_id, post_body=post_body, user_sub=user_sub)
     # 更改信息并刷新数据库
-    task.runtime.question = post_body.question
+    if post_body.new_task:
+        task.runtime.question = post_body.question
+        task.ids.group_id = post_body.group_id
     return task
 
 
