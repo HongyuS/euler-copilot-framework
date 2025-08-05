@@ -33,6 +33,7 @@ from .routers import (
     knowledge,
     llm,
     mcp_service,
+    parameter,
     personal_token,
     record,
     service,
@@ -71,6 +72,7 @@ app.include_router(llm.admin_router)
 app.include_router(mcp_service.router)
 app.include_router(flow.router)
 app.include_router(user.router)
+app.include_router(parameter.router)
 app.include_router(tag.admin_router)
 app.include_router(tag.router)
 

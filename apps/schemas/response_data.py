@@ -14,11 +14,17 @@ from .appcenter import AppCenterCardItem, AppData
 from .enum_var import DocumentStatus
 from .flow_topology import (
     FlowItem,
-    NodeMetaDataItem,
     NodeServiceItem,
-    PositionItem,
 )
 from .mcp import MCPType
+from .parameters import (
+    BoolOperate,
+    DictOperate,
+    ListOperate,
+    NumberOperate,
+    StringOperate,
+    Type,
+)
 from .record import RecordData
 from .user import UserInfo
 
@@ -588,3 +594,44 @@ class ListLLMRsp(ResponseData):
     """GET /api/llm 返回数据结构"""
 
     result: list[LLMProviderInfo] = Field(default=[], title="Result")
+
+
+class ParamsNode(BaseModel):
+    """参数数据结构"""
+
+    param_name: str = Field(..., description="参数名称", alias="paramName")
+    param_path: str = Field(..., description="参数路径", alias="paramPath")
+    param_type: Type = Field(..., description="参数类型", alias="paramType")
+    sub_params: list["ParamsNode"] | None = Field(
+        default=None, description="子参数列表", alias="subParams",
+    )
+
+
+class StepParams(BaseModel):
+    """参数数据结构"""
+
+    step_id: str = Field(..., description="步骤ID", alias="stepId")
+    name: str = Field(..., description="Step名称")
+    params_node: ParamsNode | None = Field(
+        default=None, description="参数节点", alias="paramsNode")
+
+
+class GetParamsRsp(ResponseData):
+    """GET /api/params 返回数据结构"""
+
+    result: list[StepParams] = Field(
+        default=[], description="参数列表", alias="result",
+    )
+
+
+class OperateAndBindType(BaseModel):
+    """操作和绑定类型数据结构"""
+
+    operate: NumberOperate | StringOperate | ListOperate | BoolOperate | DictOperate = Field(description="操作类型")
+    bind_type: Type = Field(description="绑定类型")
+
+
+class GetOperaRsp(ResponseData):
+    """GET /api/operate 返回数据结构"""
+
+    result: list[OperateAndBindType] = Field(..., title="Result")
