@@ -144,7 +144,7 @@ class AppLoader:
                 name=metadata.name,
                 description=metadata.description,
                 author=metadata.author,
-                type=metadata.app_type,
+                appType=metadata.app_type,
                 isPublished=metadata.published,
                 permission=metadata.permission.type if metadata.permission else PermissionType.PRIVATE,
             )

@@ -8,9 +8,10 @@ from sqlalchemy import and_, select
 
 from apps.common.postgres import postgres
 from apps.models.app import App
+from apps.models.flow import Flow as FlowInfo
 from apps.models.node import NodeInfo
 from apps.models.service import Service
-from apps.models.user import User, UserFavorite, UserFavoriteType
+from apps.models.user import UserFavorite, UserFavoriteType
 from apps.scheduler.pool.loader.flow import FlowLoader
 from apps.scheduler.slot.slot import Slot
 from apps.schemas.enum_var import EdgeType
@@ -27,6 +28,7 @@ from apps.schemas.flow_topology import (
 
 from .node import NodeManager
 
+FLOW_SPLIT_LEN = 2
 logger = logging.getLogger(__name__)
 
 
@@ -41,36 +43,23 @@ class FlowManager:
         :param service_id: 服务id
         :return: 节点基础信息的列表，按创建时间排序
         """
-        node_pool_collection = MongoDB().get_collection("node")  # 获取节点集合
-        try:
-            cursor = node_pool_collection.find({"service_id": service_id}).sort("created_at", ASCENDING)
+        async with postgres.session() as session:
+            node_data = list((await session.scalars(
+                select(NodeInfo.id, NodeInfo.callId, NodeInfo.name, NodeInfo.updatedAt).where(
+                    NodeInfo.serviceId == service_id,
+                ).order_by(NodeInfo.updatedAt.desc()),
+            )).all())
 
-            nodes_meta_data_items = []
-            async for node_pool_record in cursor:
-                params_schema, output_schema = await NodeManager.get_node_params(node_pool_record["_id"])
-                try:
-                    # TODO: 由于现在没有动态表单，所以暂时使用Slot的create_empty_slot方法
-                    parameters = {
-                        "input_parameters": Slot(params_schema).create_empty_slot(),
-                        "output_parameters": Slot(output_schema).extract_type_desc_from_schema(),
-                    }
-                except Exception:
-                    logger.exception("[FlowManager] generate_from_schema 失败")
-                    continue
-                node_meta_data_item = NodeMetaDataItem(
-                    nodeId=node_pool_record["_id"],
-                    callId=node_pool_record["call_id"],
-                    name=node_pool_record["name"],
-                    description=node_pool_record["description"],
-                    createdAt=node_pool_record["created_at"],
-                    parameters=parameters,  # 添加 parametersTemplate 参数
-                )
-                nodes_meta_data_items.append(node_meta_data_item)
-        except Exception:
-            logger.exception("[FlowManager] 获取节点元数据失败")
-            return None
-        else:
-            return nodes_meta_data_items
+            # 进行格式转换
+            result = []
+            for item in node_data:
+                result += [NodeMetaDataBase(
+                    nodeId=item.id,
+                    callId=item.callId,
+                    name=item.name,
+                    updatedAt=round(item.updatedAt.timestamp(), 3),
+                )]
+            return result
 
 
     @staticmethod
@@ -88,7 +77,7 @@ class FlowManager:
                 select(UserFavorite.itemId).where(
                     and_(
                         UserFavorite.userSub == user_sub,
-                        UserFavorite.type == UserFavoriteType.SERVICE,
+                        UserFavorite.favouriteType == UserFavoriteType.SERVICE,
                     ),
                 ),
             )).all())
@@ -113,14 +102,14 @@ class FlowManager:
             service_items = [NodeServiceItem(
                 serviceId=uuid.UUID("00000000-0000-0000-0000-000000000000"),
                 name="系统",
-                nodeMetaDatas=[],
+                data=[],
                 createdAt=None,
             )]
             service_items += [
                 NodeServiceItem(
                     serviceId=item.id,
                     name=item.name,
-                    nodeMetaDatas=[],
+                    data=[],
                     createdAt=str(item.updatedAt.timestamp()),
                 )
                 for item in service_data
@@ -130,7 +119,7 @@ class FlowManager:
                 node_meta_datas = await FlowManager.get_node_id_by_service_id(service_item.service_id)
                 if node_meta_datas is None:
                     node_meta_datas = []
-                service_item.node_meta_datas = node_meta_datas
+                service_item.data = node_meta_datas
 
             return service_items
 
@@ -143,31 +132,35 @@ class FlowManager:
         :param node_id: node的id
         :return: node_id对应的节点元数据信息
         """
-        node_pool_collection = MongoDB().get_collection("node")  # 获取节点集合
-        try:
-            node_pool_record = await node_pool_collection.find_one({"_id": node_id})
-            if node_pool_record is None:
-                logger.error("[FlowManager] 节点元数据 %s 不存在", node_id)
-                return None
+        async with postgres.session() as session:
+            node_data = (await session.scalars(
+                select(NodeInfo).where(NodeInfo.id == node_id),
+            )).one_or_none()
+            # 判断如果没有Node
+            if node_data is None:
+                err = f"[FlowManager] 节点元数据 {node_id} 不存在"
+                logger.error(err)
+                raise ValueError(err)
+
+            # 处理Schema
+            params_schema, output_schema = await NodeManager.get_node_params(node_data.id)
             parameters = {
-                "input_parameters": node_pool_record["params_schema"],
-                "output_parameters": node_pool_record["output_schema"],
+                "input_parameters": Slot(params_schema).create_empty_slot(),
+                "output_parameters": Slot(output_schema).extract_type_desc_from_schema(),
             }
+
             return NodeMetaDataItem(
-                nodeId=node_pool_record["_id"],
-                callId=node_pool_record["call_id"],
-                name=node_pool_record["name"],
-                description=node_pool_record["description"],
+                nodeId=node_data.id,
+                callId=node_data.callId,
+                name=node_data.name,
+                description=node_data.description,
                 parameters=parameters,
-                createdAt=node_pool_record["created_at"],
+                updatedAt=round(node_data.updatedAt.timestamp(), 3),
             )
-        except Exception:
-            logger.exception("[FlowManager] 获取节点元数据失败")
-            return None
 
 
     @staticmethod
-    async def get_flow_by_app_and_flow_id(app_id: str, flow_id: str) -> FlowItem | None:  # noqa: C901, PLR0911, PLR0912
+    async def get_flow_by_app_and_flow_id(app_id: uuid.UUID, flow_id: uuid.UUID) -> FlowItem | None:
         """
         通过appId flowId获取flow config的路径和focus，并通过flow config的路径获取flow config，并将其转换为flow item。
 
@@ -175,72 +168,45 @@ class FlowManager:
         :param flow_id: 流的id
         :return: 流的item和用户在这个流上的视觉焦点
         """
-        try:
-            app_collection = MongoDB().get_collection("app")
-            app_record = await app_collection.find_one({"_id": app_id})
-            if app_record is None:
-                logger.error("[FlowManager] 应用 %s 不存在", app_id)
-                return None
-            cursor = app_collection.find(
-                {"_id": app_id, "flows.id": flow_id},
-                {"flows.$": 1},  # 只返回 flows 数组中符合条件的第一个元素
-            )
-            # 获取结果列表，并限制长度为1，因为我们只期待一个结果
-            app_records = await cursor.to_list(length=1)
-            if len(app_records) == 0:
-                return None
-            app_record = app_records[0]
-            if "flows" not in app_record or len(app_record["flows"]) == 0:
-                return None
-            for flow in app_record["flows"]:
-                if flow["id"] == flow_id:
-                    flow_record = flow
-                    break
-            if flow_record is None:
-                return None
-        except Exception:
-            logger.exception("[FlowManager] 获取流失败")
-            return None
+        async with postgres.session() as session:
+            flow_data = (await session.scalars(
+                select(FlowInfo).where(and_(FlowInfo.appId == app_id, FlowInfo.id == flow_id)),
+            )).one_or_none()
+            if flow_data is None:
+                err = f"[FlowManager] 流 {flow_id} 不存在"
+                logger.error(err)
+                raise ValueError(err)
 
-        try:
             flow_config = await FlowLoader.load(app_id, flow_id)
-            if not flow_config:
-                logger.error("[FlowManager] 获取流配置失败")
-                return None
             focus_point = flow_config.focus_point or PositionItem(x=0, y=0)
             flow_item = FlowItem(
                 flowId=flow_id,
                 name=flow_config.name,
                 description=flow_config.description,
                 enable=True,
-                editable=True,
                 nodes=[],
                 edges=[],
                 focusPoint=focus_point,
                 connectivity=flow_config.connectivity,
                 debug=flow_config.debug,
             )
+
             for node_id, node_config in flow_config.steps.items():
                 input_parameters = node_config.params
-                if node_config.node not in ("Empty"):
-                    _, output_parameters = await NodeManager.get_node_params(node_config.node)
-                else:
-                    output_parameters = {}
+                _, output_parameters = await NodeManager.get_node_params(node_config.node)
                 parameters = {
                     "input_parameters": input_parameters,
                     "output_parameters": Slot(output_parameters).extract_type_desc_from_schema(),
                 }
+
                 node_item = NodeItem(
                     stepId=node_id,
                     nodeId=node_config.node,
                     name=node_config.name,
                     description=node_config.description,
-                    enable=True,
-                    editable=True,
                     callId=node_config.type,
                     parameters=parameters,
-                    position=PositionItem(
-                        x=node_config.pos.x, y=node_config.pos.y),
+                    position=PositionItem(x=node_config.pos.x, y=node_config.pos.y),
                 )
                 flow_item.nodes.append(node_item)
 
@@ -248,10 +214,10 @@ class FlowManager:
                 edge_from = edge_config.edge_from
                 branch_id = ""
                 tmp_list = edge_config.edge_from.split(".")
-                if len(tmp_list) == 0 or len(tmp_list) > 2:
+                if len(tmp_list) == 0 or len(tmp_list) > FLOW_SPLIT_LEN:
                     logger.error("[FlowManager] Flow中边的格式错误")
                     continue
-                if len(tmp_list) == 2:
+                if len(tmp_list) == FLOW_SPLIT_LEN:
                     edge_from = tmp_list[0]
                     branch_id = tmp_list[1]
                 flow_item.edges.append(
@@ -264,9 +230,6 @@ class FlowManager:
                     ),
                 )
             return flow_item
-        except Exception:
-            logger.exception("[FlowManager] 获取流失败")
-            return None
 
 
     @staticmethod

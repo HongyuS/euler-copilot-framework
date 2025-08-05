@@ -12,10 +12,10 @@ from .enum_var import EdgeType
 class NodeMetaDataBase(BaseModel):
     """节点元数据基类"""
 
-    node_id: uuid.UUID = Field(alias="nodeId")
+    node_id: str = Field(alias="nodeId")
     call_id: str = Field(alias="callId")
     name: str
-    created_at: float | None = Field(alias="createdAt")
+    updated_at: float | None = Field(alias="updatedAt")
 
 
 class NodeMetaDataItem(NodeMetaDataBase):
@@ -30,7 +30,7 @@ class NodeServiceItem(BaseModel):
 
     service_id: uuid.UUID = Field(..., alias="serviceId", description="服务ID")
     name: str = Field(..., description="服务名称")
-    node_meta_datas: list[NodeMetaDataItem] = Field(alias="nodeMetaDatas", default=[])
+    data: list[NodeMetaDataBase] = Field(default=[])
     created_at: str | None = Field(default=None, alias="createdAt", description="创建时间")
 
 
@@ -41,27 +41,17 @@ class PositionItem(BaseModel):
     y: float = Field(default=0.0)
 
 
-class DependencyItem(BaseModel):
-    """请求/响应中的节点依赖变量类"""
-
-    node_id: str = Field(alias="nodeId")
-    type: str
-
-
 class NodeItem(BaseModel):
     """请求/响应中的节点变量类"""
 
     step_id: str = Field(alias="stepId", default="")
     service_id: str = Field(alias="serviceId", default="")
-    node_id: uuid.UUID = Field(alias="nodeId", default=uuid.UUID("00000000-0000-0000-0000-000000000000"))
+    node_id: str = Field(alias="nodeId", default="")
     name: str = Field(default="")
     call_id: str = Field(alias="callId", default="Empty")
     description: str = Field(default="")
-    enable: bool = Field(default=True)
     parameters: dict[str, Any] = Field(default={})
-    depedency: DependencyItem | None = None
     position: PositionItem = Field(default=PositionItem())
-    editable: bool = Field(default=True)
 
 
 class EdgeItem(BaseModel):
@@ -77,11 +67,10 @@ class EdgeItem(BaseModel):
 class FlowItem(BaseModel):
     """请求/响应中的流变量类"""
 
-    flow_id: str | None = Field(alias="flowId", default="工作流ID")
+    flow_id: uuid.UUID = Field(alias="flowId", default=uuid.UUID("00000000-0000-0000-0000-000000000000"))
     name: str = Field(default="工作流名称")
     description: str = Field(default="工作流描述")
     enable: bool = Field(default=True)
-    editable: bool = Field(default=True)
     nodes: list[NodeItem] = Field(default=[])
     edges: list[EdgeItem] = Field(default=[])
     created_at: float | None = Field(alias="createdAt", default=0)

@@ -6,13 +6,13 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, or_, select
 
 from apps.common.postgres import postgres
 from apps.constants import APP_DEFAULT_HISTORY_LEN, SERVICE_PAGE_SIZE
 from apps.exceptions import InstancePermissionError
-from apps.models.app import App
-from apps.models.user import User, UserAppUsage, UserFavorite, UserFavoriteType
+from apps.models.app import App, AppACL
+from apps.models.user import UserAppUsage, UserFavorite, UserFavoriteType
 from apps.scheduler.pool.loader.app import AppLoader
 from apps.schemas.agent import AgentAppMetadata
 from apps.schemas.appcenter import AppCenterCardItem, AppData, AppPermissionData
@@ -21,7 +21,6 @@ from apps.schemas.flow import AppMetadata, MetadataType, Permission
 from apps.schemas.response_data import RecentAppList, RecentAppListItem
 
 from .mcp_service import MCPServiceManager
-from .user import UserManager
 
 logger = logging.getLogger(__name__)
 
@@ -100,64 +99,86 @@ class AppCenterManager:
         :param filter_type: 过滤类型
         :return: 应用列表, 总应用数
         """
-        filters: dict[str, Any] = {
-            "$or": [
-                {"permission.type": PermissionType.PUBLIC.value},
-                {"$and": [
-                    {"permission.type": PermissionType.PROTECTED.value},
-                    {"permission.users": {"$in": [user_sub]}},
-                ]},
-                {"$and": [
-                    {"permission.type": PermissionType.PRIVATE.value},
-                    {"author": user_sub},
-                ]},
-            ],
-        }
-
-        user_favorite_app_ids = await AppCenterManager._get_favorite_app_ids_by_user(user_sub)
-
-        if filter_type == AppFilterType.ALL:
-            # 获取所有已发布的应用
-            filters["published"] = True
-        elif filter_type == AppFilterType.USER:
-            # 获取用户创建的应用
-            filters["author"] = user_sub
-        elif filter_type == AppFilterType.FAVORITE:
-            # 获取用户收藏的应用
-            filters = {
-                "_id": {"$in": user_favorite_app_ids},
-                "published": True,
-            }
-
-        # 添加关键字搜索条件
-        if keyword:
-            filters["$or"] = [
-                {"name": {"$regex": keyword, "$options": "i"}},
-                {"description": {"$regex": keyword, "$options": "i"}},
-                {"author": {"$regex": keyword, "$options": "i"}},
-            ]
-
-        # 添加应用类型过滤条件
-        if app_type is not None:
-            filters["app_type"] = app_type.value
-
-        # 获取应用列表
-        apps, total_apps = await AppCenterManager._search_apps_by_filter(filters, page, SERVICE_PAGE_SIZE)
-
-        # 构建返回的应用卡片列表
-        app_cards = [
-            AppCenterCardItem(
-                appId=app.id,
-                appType=app.app_type,
-                icon=app.icon,
-                name=app.name,
-                description=app.description,
-                author=app.author,
-                favorited=(app.id in user_favorite_app_ids),
-                published=app.published,
+        async with postgres.session() as session:
+            protected_apps = select(AppACL.appId).where(
+                AppACL.userSub == user_sub,
             )
-            for app in apps
-        ]
+            app_data = select(App).where(
+                or_(
+                    App.permission == PermissionType.PUBLIC,
+                    and_(
+                        App.permission == PermissionType.PRIVATE,
+                        App.author == user_sub,
+                    ),
+                    and_(
+                        App.permission == PermissionType.PROTECTED,
+                        App.id.in_(protected_apps),
+                    ),
+                ),
+            ).cte()
+
+            # 获取用户所有收藏的应用
+            user_favourite_apps = select(UserFavorite.itemId).where(
+                and_(
+                    UserFavorite.userSub == user_sub,
+                    UserFavorite.favouriteType == UserFavoriteType.APP,
+                ),
+            )
+
+            # 根据搜索类型加入搜索条件
+            if filter_type == AppFilterType.ALL:
+                filtered_apps = select(app_data).where(App.isPublished == True).cte()  # noqa: E712
+            elif filter_type == AppFilterType.USER:
+                filtered_apps = select(app_data).where(App.author == user_sub).cte()
+            elif filter_type == AppFilterType.FAVORITE:
+                filtered_apps = select(app_data).where(
+                    and_(
+                        App.id.in_(user_favourite_apps),
+                        App.isPublished == True,  # noqa: E712
+                    ),
+                ).cte()
+
+            # 根据应用类型加入搜索条件
+            if app_type is not None:
+                type_apps = select(filtered_apps).where(App.appType == AppType(app_type)).cte()
+            else:
+                type_apps = filtered_apps
+
+            # 加入关键字搜索条件
+            if keyword:
+                keyword_apps = select(type_apps).where(
+                    or_(
+                        App.name.ilike(f"%{keyword}%"),
+                        App.description.ilike(f"%{keyword}%"),
+                        App.author.ilike(f"%{keyword}%"),
+                    ),
+                ).cte()
+            else:
+                keyword_apps = type_apps
+
+            # 进行搜索
+            total_apps = (await session.scalars(
+                select(func.count()).select_from(keyword_apps),
+            )).one()
+            result: list[App] = list((await session.scalars(
+                select(keyword_apps).order_by(App.updatedAt.desc())
+                .offset((page - 1) * SERVICE_PAGE_SIZE).limit(SERVICE_PAGE_SIZE),
+            )).all())
+
+            # 构建返回的应用卡片列表
+            app_cards = [
+                AppCenterCardItem(
+                    appId=app.id,
+                    appType=app.appType,
+                    icon=app.icon,
+                    name=app.name,
+                    description=app.description,
+                    author=app.author,
+                    favorited=(app.id in user_favourite_apps),
+                    published=app.isPublished,
+                )
+                for app in result
+            ]
 
         return app_cards, total_apps
 
@@ -213,7 +234,7 @@ class AppCenterManager:
 
         # 不允许更改应用类型
         if app_data.appType != data.app_type:
-            err = f"【AppCenterManager】不允许更改应用类型: {app_data.app_type} -> {data.app_type}"
+            err = f"【AppCenterManager】不允许更改应用类型: {app_data.appType} -> {data.app_type}"
             raise ValueError(err)
 
         await AppCenterManager._process_app_and_save(
@@ -257,13 +278,12 @@ class AppCenterManager:
             await session.commit()
 
         await AppCenterManager._process_app_and_save(
-            app_type=app_data.app_type,
+            app_type=app_data.appType,
             app_id=app_id,
             user_sub=user_sub,
             app_data=app_data,
             published=published,
         )
-
         return published
 
 
@@ -289,7 +309,7 @@ class AppCenterManager:
                     and_(
                         UserFavorite.userSub == user_sub,
                         UserFavorite.itemId == app_id,
-                        UserFavorite.type == UserFavoriteType.APP,
+                        UserFavorite.favouriteType == UserFavoriteType.APP,
                     ),
                 ),
             )).one_or_none()
@@ -297,7 +317,7 @@ class AppCenterManager:
                 # 添加收藏
                 app_favorite = UserFavorite(
                     userSub=user_sub,
-                    type=UserFavoriteType.APP,
+                    favouriteType=UserFavoriteType.APP,
                     itemId=app_id,
                 )
                 session.add(app_favorite)
@@ -394,28 +414,7 @@ class AppCenterManager:
 
 
     @staticmethod
-    async def _search_apps_by_filter(
-        search_conditions: dict[str, Any],
-        page: int,
-        page_size: int,
-    ) -> tuple[list[App], int]:
-        """根据过滤条件搜索应用并计算总页数"""
-        mongo = MongoDB()
-        app_collection = mongo.get_collection("app")
-        total_apps = await app_collection.count_documents(search_conditions)
-        db_data = (
-            await app_collection.find(search_conditions)
-            .sort("created_at", -1)
-            .skip((page - 1) * page_size)
-            .limit(page_size)
-            .to_list(length=page_size)
-        )
-        apps = [App.model_validate(doc) for doc in db_data]
-        return apps, total_apps
-
-
-    @staticmethod
-    async def _get_app_data(app_id: uuid.UUID, user_sub: str, *, check_author: bool = True) -> AppData:
+    async def _get_app_data(app_id: uuid.UUID, user_sub: str, *, check_author: bool = True) -> App:
         """
         从数据库获取应用数据并验证权限
 
@@ -454,7 +453,7 @@ class AppCenterManager:
             metadata.first_questions = data.first_questions
         elif app_data:
             metadata.links = app_data.links
-            metadata.first_questions = app_data.first_questions
+            metadata.first_questions = app_data.firstQuestions
 
         # 处理 'flows' 字段
         if app_data:
@@ -516,11 +515,14 @@ class AppCenterManager:
         return metadata
 
     @staticmethod
-    async def _create_metadata(
+    async def _create_metadata(  # noqa: PLR0913
         app_type: AppType,
         app_id: uuid.UUID,
         user_sub: str,
-        **kwargs: Any,
+        data: AppData | None = None,
+        app_data: App | None = None,
+        *,
+        published: bool | None = None,
     ) -> AppMetadata | AgentAppMetadata:
         """
         创建应用元数据
@@ -528,17 +530,12 @@ class AppCenterManager:
         :param app_type: 应用类型
         :param app_id: 应用唯一标识
         :param user_sub: 用户唯一标识
-        :param kwargs: 可选参数，包含:
-            - data: 应用数据，用于新建或更新时提供
-            - app_data: 现有应用数据，用于更新时提供
-            - published: 发布状态，用于更新时提供
+        :param data: 应用数据，用于新建或更新时提供
+        :param app_data: 现有应用数据，用于更新时提供
+        :param published: 发布状态，用于更新时提供
         :return: 应用元数据
         :raises ValueError: 无效应用类型或缺少必要数据
         """
-        data: AppData | None = kwargs.get("data")
-        app_data: App | None = kwargs.get("app_data")
-        published: bool | None = kwargs.get("published")
-
         # 验证必要数据
         source = data if data else app_data
         if not source:
@@ -554,33 +551,31 @@ class AppCenterManager:
             "name": source.name,
             "description": source.description,
             "history_len": data.history_len if data else APP_DEFAULT_HISTORY_LEN,
-        }
-        # 设置权限
-        if data:
-            common_params["permission"] = Permission(
+            "permission": Permission(
                 type=data.permission.type,
                 users=data.permission.users or [],
-            )
-        elif app_data:
+            ) if data else app_data.permission,
+        }
+        # 设置权限
+        if app_data:
             common_params["permission"] = app_data.permission
 
         # 根据应用类型创建不同的元数据
-        if app_type == AppType.FLOW:
-            return AppCenterManager._create_flow_metadata(common_params, data, app_data, published)
-
         if app_type == AppType.AGENT:
-            return AppCenterManager._create_agent_metadata(common_params, user_sub, data, app_data, published)
+            return AppCenterManager._create_agent_metadata(common_params, user_sub, data, app_data, published=published)
 
-        msg = "无效的应用类型"
-        raise ValueError(msg)
+        return AppCenterManager._create_flow_metadata(common_params, data, app_data, published=published)
 
 
     @staticmethod
-    async def _process_app_and_save(
+    async def _process_app_and_save(  # noqa: PLR0913
         app_type: AppType,
         app_id: uuid.UUID,
         user_sub: str,
-        **kwargs: Any,
+        data: AppData | None = None,
+        app_data: App | None = None,
+        *,
+        published: bool | None = None,
     ) -> Any:
         """
         处理应用元数据创建和保存
@@ -596,29 +591,12 @@ class AppCenterManager:
             app_type=app_type,
             app_id=app_id,
             user_sub=user_sub,
-            **kwargs,
+            data=data,
+            app_data=app_data,
+            published=published,
         )
 
         # 保存应用
         app_loader = AppLoader()
         await app_loader.save(metadata, app_id)
         return metadata
-
-
-    @staticmethod
-    async def _get_favorite_app_ids_by_user(user_sub: str) -> list[uuid.UUID]:
-        """获取用户收藏的应用ID"""
-        async with postgres.session() as session:
-            favorite_apps = list((await session.scalars(
-                select(UserFavorite.itemId).where(
-                    and_(
-                        UserFavorite.userSub == user_sub,
-                        UserFavorite.type == UserFavoriteType.APP,
-                    ),
-                ),
-            )).all())
-            if not favorite_apps:
-                msg = f"[AppCenterManager] 用户错误或收藏为空: {user_sub}"
-                raise ValueError(msg)
-
-            return favorite_apps

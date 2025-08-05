@@ -57,6 +57,7 @@ async def get_applications(  # noqa: PLR0913
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
+
     try:
         filter_type = (
             AppFilterType.USER if createdByMe else (AppFilterType.FAVORITE if favorited else AppFilterType.ALL)

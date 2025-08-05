@@ -1,6 +1,8 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 """应用中心相关 API 基础数据结构定义"""
 
+import uuid
+
 from pydantic import BaseModel, Field
 
 from .enum_var import AppType, PermissionType
@@ -9,7 +11,7 @@ from .enum_var import AppType, PermissionType
 class AppCenterCardItem(BaseModel):
     """应用中心卡片数据结构"""
 
-    app_id: str = Field(..., alias="appId", description="应用ID")
+    app_id: uuid.UUID = Field(..., alias="appId", description="应用ID")
     app_type: AppType = Field(..., alias="appType", description="应用类型")
     icon: str = Field(..., description="应用图标")
     name: str = Field(..., description="应用名称")

@@ -471,7 +471,7 @@ class ServiceCenterManager:
             await session.execute(
                 delete(UserFavorite).where(
                     UserFavorite.itemId == service_id,
-                    UserFavorite.type == UserFavoriteType.SERVICE,
+                    UserFavorite.favouriteType == UserFavoriteType.SERVICE,
                 ),
             )
             await session.commit()
@@ -512,7 +512,7 @@ class ServiceCenterManager:
                     and_(
                         UserFavorite.itemId == service_id,
                         UserFavorite.userSub == user_sub,
-                        UserFavorite.type == UserFavoriteType.SERVICE,
+                        UserFavorite.favouriteType == UserFavoriteType.SERVICE,
                     ),
                 ),
             )).one_or_none()
@@ -521,7 +521,7 @@ class ServiceCenterManager:
                 user_favourite = UserFavorite(
                     itemId=service_id,
                     userSub=user_sub,
-                    type=UserFavoriteType.SERVICE,
+                    favouriteType=UserFavoriteType.SERVICE,
                 )
                 session.add(user_favourite)
                 await session.commit()
@@ -538,7 +538,7 @@ class ServiceCenterManager:
             user_favourite = (await session.scalars(
                 select(UserFavorite).where(
                     UserFavorite.userSub == user_sub,
-                    UserFavorite.type == UserFavoriteType.SERVICE,
+                    UserFavorite.favouriteType == UserFavoriteType.SERVICE,
                 ),
             )).all()
             return [user_favourite.itemId for user_favourite in user_favourite]

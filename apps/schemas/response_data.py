@@ -18,7 +18,7 @@ from .flow_topology import (
     NodeServiceItem,
     PositionItem,
 )
-from .mcp import MCPTool, MCPType
+from .mcp import MCPType
 from .record import RecordData
 from .user import UserInfo
 
@@ -288,7 +288,7 @@ class GetAppListRsp(ResponseData):
 class RecentAppListItem(BaseModel):
     """GET /api/app/recent 列表项数据结构"""
 
-    app_id: str = Field(..., alias="appId", description="应用ID")
+    app_id: uuid.UUID = Field(..., alias="appId", description="应用ID")
     name: str = Field(..., description="应用名称")
 
 
