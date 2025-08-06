@@ -15,6 +15,7 @@ class SlotType(str, Enum):
 class StepStatus(str, Enum):
     """步骤状态"""
 
+    UNKNOWN = "unknown"
     WAITING = "waiting"
     RUNNING = "running"
     SUCCESS = "success"
@@ -26,6 +27,7 @@ class StepStatus(str, Enum):
 class FlowStatus(str, Enum):
     """Flow状态"""
 
+    UNKNOWN = "unknown"
     WAITING = "waiting"
     RUNNING = "running"
     SUCCESS = "success"
@@ -57,6 +59,7 @@ class EventType(str, Enum):
     STEP_OUTPUT = "step.output"
     FLOW_STOP = "flow.stop"
     FLOW_FAILED = "flow.failed"
+    FLOW_SUCCESS = "flow.success"
     FLOW_CANCELLED = "flow.cancelled"
     DONE = "done"
 
@@ -90,7 +93,7 @@ class NodeType(str, Enum):
     START = "start"
     END = "end"
     NORMAL = "normal"
-    CHOICE = "choice"
+    CHOICE = "Choice"
 
 
 class PermissionType(str, Enum):
@@ -145,7 +148,7 @@ class SpecialCallType(str, Enum):
     LLM = "LLM"
     START = "start"
     END = "end"
-    CHOICE = "choice"
+    CHOICE = "Choice"
 
 
 class CommentType(str, Enum):

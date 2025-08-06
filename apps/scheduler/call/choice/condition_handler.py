@@ -1,12 +1,16 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """处理条件分支的工具"""
 
-
 import logging
 
 from pydantic import BaseModel
 
-from apps.scheduler.call.choice.schema import ChoiceBranch, Condition, Logic, Value
+from apps.scheduler.call.choice.schema import (
+    ChoiceBranch,
+    Condition,
+    Logic,
+    Value,
+)
 from apps.schemas.parameters import (
     BoolOperate,
     DictOperate,
@@ -69,15 +73,17 @@ class ConditionHandler(BaseModel):
     @staticmethod
     def handler(choices: list[ChoiceBranch]) -> str:
         """处理条件"""
-        default_branch = [c for c in choices if c.is_default]
-
-        for block_judgement in choices:
+        for block_judgement in choices[::-1]:
             results = []
             if block_judgement.is_default:
-                continue
+                return block_judgement.branch_id
             for condition in block_judgement.conditions:
                 result = ConditionHandler._judge_condition(condition)
-                results.append(result)
+                if result is not None:
+                    results.append(result)
+            if not results:
+                logger.warning(f"[Choice] 分支 {block_judgement.branch_id} 条件处理失败: 没有有效的条件")
+                continue
             if block_judgement.logic == Logic.AND:
                 final_result = all(results)
             elif block_judgement.logic == Logic.OR:
@@ -85,10 +91,6 @@ class ConditionHandler(BaseModel):
 
             if final_result:
                 return block_judgement.branch_id
-
-        # 如果没有匹配的分支，选择默认分支
-        if default_branch:
-            return default_branch[0].branch_id
         return ""
 
     @staticmethod
@@ -112,7 +114,7 @@ class ConditionHandler(BaseModel):
         if value_type == Type.STRING:
             result = ConditionHandler._judge_string_condition(left, operate, right)
         elif value_type == Type.NUMBER:
-            result = ConditionHandler._judge_int_condition(left, operate, right)
+            result = ConditionHandler._judge_number_condition(left, operate, right)
         elif value_type == Type.BOOL:
             result = ConditionHandler._judge_bool_condition(left, operate, right)
         elif value_type == Type.LIST:
@@ -120,9 +122,9 @@ class ConditionHandler(BaseModel):
         elif value_type == Type.DICT:
             result = ConditionHandler._judge_dict_condition(left, operate, right)
         else:
-            logger.error("不支持的数据类型: %s", value_type)
             msg = f"不支持的数据类型: {value_type}"
-            raise ValueError(msg)
+            logger.error(f"[Choice] 条件处理失败: {msg}")
+            return None
         return result
 
     @staticmethod
@@ -141,11 +143,10 @@ class ConditionHandler(BaseModel):
         """
         left_value = left.value
         if not isinstance(left_value, str):
-            logger.error("左值不是字符串类型: %s", left_value)
-            msg = "左值必须是字符串类型"
-            raise TypeError(msg)
+            msg = f"左值必须是字符串类型 ({left_value})"
+            logger.warning(msg)
+            return None
         right_value = right.value
-        result = False
         if operate == StringOperate.EQUAL:
             return left_value == right_value
         elif operate == StringOperate.NOT_EQUAL:
@@ -189,9 +190,9 @@ class ConditionHandler(BaseModel):
         """
         left_value = left.value
         if not isinstance(left_value, (int, float)):
-            logger.error("左值不是数字类型: %s", left_value)
-            msg = "左值必须是数字类型"
-            raise TypeError(msg)
+            msg = f"左值必须是数字类型 ({left_value})"
+            logger.warning(msg)
+            return None
         right_value = right.value
         if operate == NumberOperate.EQUAL:
             return left_value == right_value
@@ -223,9 +224,9 @@ class ConditionHandler(BaseModel):
         """
         left_value = left.value
         if not isinstance(left_value, bool):
-            logger.error("左值不是布尔类型: %s", left_value)
             msg = "左值必须是布尔类型"
-            raise TypeError(msg)
+            logger.warning(msg)
+            return None
         right_value = right.value
         if operate == BoolOperate.EQUAL:
             return left_value == right_value
@@ -253,9 +254,9 @@ class ConditionHandler(BaseModel):
         """
         left_value = left.value
         if not isinstance(left_value, list):
-            logger.error("左值不是列表类型: %s", left_value)
-            msg = "左值必须是列表类型"
-            raise TypeError(msg)
+            msg = f"左值必须是列表类型 ({left_value})"
+            logger.warning(msg)
+            return None
         right_value = right.value
         if operate == ListOperate.EQUAL:
             return left_value == right_value
@@ -293,9 +294,9 @@ class ConditionHandler(BaseModel):
         """
         left_value = left.value
         if not isinstance(left_value, dict):
-            logger.error("左值不是字典类型: %s", left_value)
-            msg = "左值必须是字典类型"
-            raise TypeError(msg)
+            msg = f"左值必须是字典类型 ({left_value})"
+            logger.warning(msg)
+            return None
         right_value = right.value
         if operate == DictOperate.EQUAL:
             return left_value == right_value

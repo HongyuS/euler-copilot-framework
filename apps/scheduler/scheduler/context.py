@@ -11,6 +11,7 @@ from apps.models.document import Document
 from apps.models.record import Record, RecordFootNote, RecordMetadata
 from apps.schemas.enum_var import StepStatus
 from apps.schemas.record import (
+    FlowHistory,
     RecordContent,
     RecordDocument,
     RecordGroupDocument,
@@ -174,7 +175,7 @@ async def save_data(task: Task, user_sub: str, post_body: RequestData) -> None:
         id=task.ids.record_id,
         conversationId=task.ids.conversation_id,
         taskId=task.id,
-        user_sub=user_sub,
+        userSub=user_sub,
         content=encrypt_data,
         key=encrypt_config,
         metadata=RecordMetadata(
@@ -185,7 +186,12 @@ async def save_data(task: Task, user_sub: str, post_body: RequestData) -> None:
             footNoteMetadataList=footnote_list,
         ),
         createdAt=current_time,
-        flow=[i["_id"] for i in task.context],
+        flow=FlowHistory(
+            flow_id=task.state.flow_id,
+            flow_name=task.state.flow_name,
+            flow_status=task.state.flow_status,
+            history_ids=[context["_id"] for context in task.context],
+        ),
     )
 
     # 修改文件状态

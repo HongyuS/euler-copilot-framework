@@ -47,6 +47,10 @@ class FlowExecutor(BaseExecutor):
     flow_id: str = Field(description="Flow ID")
     question: str = Field(description="用户输入")
     post_body_app: RequestDataApp = Field(description="请求体中的app信息")
+    current_step: StepQueueItem | None = Field(
+        description="当前执行的步骤",
+        default=None,
+    )
 
 
     async def load_state(self) -> None:
@@ -73,13 +77,13 @@ class FlowExecutor(BaseExecutor):
         self.step_queue: deque[StepQueueItem] = deque()
 
 
-    async def _invoke_runner(self, queue_item: StepQueueItem) -> None:
+    async def _invoke_runner(self) -> None:
         """单一Step执行"""
         # 创建步骤Runner
         step_runner = StepExecutor(
             msg_queue=self.msg_queue,
             task=self.task,
-            step=queue_item,
+            step=self.current_step,
             background=self.background,
             question=self.question,
         )
@@ -97,12 +101,12 @@ class FlowExecutor(BaseExecutor):
         """执行当前queue里面的所有步骤（在用户看来是单一Step）"""
         while True:
             try:
-                queue_item = self.step_queue.pop()
+                self.current_step = self.step_queue.pop()
             except IndexError:
                 break
 
             # 执行Step
-            await self._invoke_runner(queue_item)
+            await self._invoke_runner()
 
 
     async def _find_next_id(self, step_id: str) -> list[str]:
@@ -119,17 +123,17 @@ class FlowExecutor(BaseExecutor):
         # 如果当前步骤为结束，则直接返回
         if self.task.state.step_id == "end" or not self.task.state.step_id: # type: ignore[arg-type]
             return []
-        if self.task.state.step_name == "Choice":
+        if self.current_step.step.type == SpecialCallType.CHOICE.value:
             # 如果是choice节点，获取分支ID
             branch_id = self.task.context[-1]["output_data"]["branch_id"]
             if branch_id:
-                self.task.state.step_id = self.task.state.step_id + "." + branch_id
+                next_steps = await self._find_next_id(self.task.state.step_id + "." + branch_id)
                 logger.info("[FlowExecutor] 分支ID：%s", branch_id)
             else:
                 logger.warning("[FlowExecutor] 没有找到分支ID，返回空列表")
                 return []
-
-        next_steps = await self._find_next_id(self.task.state.step_id) # type: ignore[arg-type]
+        else:
+            next_steps = await self._find_next_id(self.task.state.step_id)  # type: ignore[arg-type]
         # 如果step没有任何出边，直接跳到end
         if not next_steps:
             return [
@@ -180,6 +184,7 @@ class FlowExecutor(BaseExecutor):
         self.task.state.flow_status = FlowStatus.RUNNING  # type: ignore[arg-type]
 
         # 运行Flow（未达终点）
+        is_error = False
         while not self._reached_end:
             # 如果当前步骤出错，执行错误处理步骤
             if self.task.state.step_status == StepStatus.ERROR: # type: ignore[arg-type]
@@ -202,7 +207,7 @@ class FlowExecutor(BaseExecutor):
                     enable_filling=False,
                     to_user=False,
                 ))
-                self.task.state.flow_status = FlowStatus.ERROR  # type: ignore[arg-type]
+                is_error = True
                 # 错误处理后结束
                 self._reached_end = True
 
@@ -217,6 +222,12 @@ class FlowExecutor(BaseExecutor):
             for step in next_step:
                 self.step_queue.append(step)
 
+        # 更新Task状态
+        if is_error:
+            self.task.state.flow_status = FlowStatus.ERROR  # type: ignore[arg-type]
+        else:
+            self.task.state.flow_status = FlowStatus.SUCCESS  # type: ignore[arg-type]
+
         # 尾插运行结束后的系统步骤
         for step in FIXED_STEPS_AFTER_END:
             self.step_queue.append(StepQueueItem(
@@ -228,6 +239,7 @@ class FlowExecutor(BaseExecutor):
         # FlowStop需要返回总时间，需要倒推最初的开始时间（当前时间减去当前已用总时间）
         self.task.tokens.time = round(datetime.now(UTC).timestamp(), 2) - self.task.tokens.full_time
         # 推送Flow停止消息
-        await self.push_message(EventType.FLOW_STOP.value)
-        # 更新Flow状态
-        self.task.state.flow_status = FlowStatus.SUCCESS  # type: ignore[arg-type]
+        if is_error:
+            await self.push_message(EventType.FLOW_FAILED.value)
+        else:
+            await self.push_message(EventType.FLOW_SUCCESS.value)

@@ -281,7 +281,7 @@ async def active_or_deactivate_mcp_service(
     """激活/取消激活mcp"""
     try:
         if data.active:
-            await MCPServiceManager.active_mcpservice(request.state.user_sub, mcpId)
+            await MCPServiceManager.active_mcpservice(request.state.user_sub, service_id, data.mcp_env)
         else:
             await MCPServiceManager.deactive_mcpservice(request.state.user_sub, mcpId)
     except Exception as e:
