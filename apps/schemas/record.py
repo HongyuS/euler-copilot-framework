@@ -41,6 +41,7 @@ class RecordFlow(BaseModel):
     id: str
     record_id: str = Field(alias="recordId")
     flow_id: str = Field(alias="flowId")
+    flow_name: str = Field(alias="flowName", default="")
     flow_status: StepStatus = Field(alias="flowStatus", default=StepStatus.SUCCESS)
     step_num: int = Field(alias="stepNum")
     steps: list[RecordFlowStep]
@@ -81,7 +82,7 @@ class RecordData(BaseModel):
 
     id: uuid.UUID
     conversation_id: uuid.UUID = Field(alias="conversationId")
-    task_id: uuid.UUID = Field(alias="taskId")
+    task_id: uuid.UUID | None = Field(alias="taskId", default=None)
     document: list[RecordDocument] = []
     flow: RecordFlow | None = None
     content: RecordContent
@@ -118,7 +119,8 @@ class Record(RecordData):
 
     user_sub: str
     key: dict[str, Any] = {}
-    content: str
+    task_id: uuid.UUID | None = Field(default=None, description="任务ID")
+    content: str = Field(default="", description="Record内容，已加密")
     comment: RecordComment = Field(default=RecordComment())
     flow: FlowHistory = Field(
         default=FlowHistory(), description="Flow执行历史信息")

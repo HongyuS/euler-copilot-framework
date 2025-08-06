@@ -57,7 +57,7 @@ class FlowExecutor(BaseExecutor):
         """从数据库中加载FlowExecutor的状态"""
         logger.info("[FlowExecutor] 加载Executor状态")
         # 尝试恢复State
-        if self.task.state:
+        if self.task.state and self.task.state.flow_status != FlowStatus.INIT:
             self.task.context = await TaskManager.get_context_by_task_id(self.task.id)
         else:
             # 创建ExecutorState
@@ -125,7 +125,7 @@ class FlowExecutor(BaseExecutor):
             return []
         if self.current_step.step.type == SpecialCallType.CHOICE.value:
             # 如果是choice节点，获取分支ID
-            branch_id = self.task.context[-1]["output_data"]["branch_id"]
+            branch_id = self.task.context[-1].output_data["branch_id"]
             if branch_id:
                 next_steps = await self._find_next_id(self.task.state.step_id + "." + branch_id)
                 logger.info("[FlowExecutor] 分支ID：%s", branch_id)

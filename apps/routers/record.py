@@ -68,7 +68,7 @@ async def get_record(request: Request, conversationId: Annotated[uuid.UUID, Path
             tmp_record = RecordData(
                 id=record.id,
                 groupId=record_group.id,
-                taskId=record_group.task_id,
+                taskId=record.task_id,
                 conversationId=conversationId,
                 content=record_data,
                 metadata=record.metadata
@@ -90,13 +90,13 @@ async def get_record(request: Request, conversationId: Annotated[uuid.UUID, Path
                 tmp_record.flow = RecordFlow(
                     id=record.flow.flow_id,  # TODO: 此处前端应该用name
                     recordId=record.id,
-                    flowStatus=record.flow.flow_staus,
                     flowId=record.flow.flow_id,
+                    flowName=record.flow.flow_name,
+                    flowStatus=record.flow.flow_staus,
                     stepNum=len(flow_step_list),
                     steps=[],
                 )
                 for flow_step in flow_step_list:
-                    flow_step = FlowStepHistory.model_validate(flow_step)
                     tmp_record.flow.steps.append(
                         RecordFlowStep(
                             stepId=flow_step.step_name,  # TODO: 此处前端应该用name

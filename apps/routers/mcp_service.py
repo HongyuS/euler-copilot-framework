@@ -54,6 +54,8 @@ async def get_mcpservice_list(
     searchType: SearchType = SearchType.ALL,  # noqa: N803
     keyword: str | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
+    *,
+    is_active: bool | None = None,
 ) -> JSONResponse:
     """获取服务列表"""
     user_sub = request.state.user_sub
@@ -63,6 +65,7 @@ async def get_mcpservice_list(
             user_sub,
             keyword,
             page,
+            is_active=is_active,
         )
     except Exception as e:
         err = f"[MCPServiceCenter] 获取MCP服务列表失败: {e}"

@@ -10,6 +10,7 @@ from .appcenter import AppData
 from .enum_var import CommentType
 from .flow_topology import FlowItem
 from .mcp import MCPType
+from .message import param
 
 
 class RequestDataApp(BaseModel):
@@ -17,7 +18,7 @@ class RequestDataApp(BaseModel):
 
     app_id: uuid.UUID = Field(description="应用ID", alias="appId")
     flow_id: str | None = Field(default=None, description="Flow ID", alias="flowId")
-    params: dict[str, Any] | None = Field(default=None, description="插件参数")
+    params: param | None = Field(default=None, description="流执行过程中的参数补充", alias="params")
 
 
 class RequestData(BaseModel):
@@ -31,7 +32,7 @@ class RequestData(BaseModel):
     files: list[str] = Field(default=[], description="文件列表")
     app: RequestDataApp | None = Field(default=None, description="应用")
     debug: bool = Field(default=False, description="是否调试")
-    new_task: bool = Field(default=True, description="是否新建任务")
+    task_id: str | None = Field(default=None, alias="taskId", description="任务ID")
 
 
 class QuestionBlacklistRequest(BaseModel):
@@ -163,3 +164,9 @@ class UpdateUserKnowledgebaseReq(BaseModel):
     """更新知识库请求体"""
 
     kb_ids: list[uuid.UUID] = Field(description="知识库ID列表", alias="kbIds", default=[])
+
+
+class UserUpdateRequest(BaseModel):
+    """更新用户信息请求体"""
+
+    auto_execute: bool = Field(default=False, description="是否自动执行", alias="autoExecute")

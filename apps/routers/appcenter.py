@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from apps.dependency.user import verify_personal_token, verify_session
 from apps.exceptions import InstancePermissionError
-from apps.schemas.appcenter import AppFlowInfo, AppPermissionData
+from apps.schemas.appcenter import AppFlowInfo, AppMcpServiceInfo, AppPermissionData
 from apps.schemas.enum_var import AppFilterType, AppType
 from apps.schemas.request_data import ChangeFavouriteAppRequest, CreateAppRequest
 from apps.schemas.response_data import (
@@ -26,6 +26,7 @@ from apps.schemas.response_data import (
     ResponseData,
 )
 from apps.services.appcenter import AppCenterManager
+from apps.services.mcp_service import MCPServiceManager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(
@@ -218,6 +219,15 @@ async def get_application(appId: Annotated[uuid.UUID, Path()]) -> JSONResponse: 
         )
         for flow in app_data.flows
     ]
+    mcp_service = []
+    if app_data.mcp_service:
+        for service in app_data.mcp_service:
+            mcp_collection = await MCPServiceManager.get_mcp_service(service)
+            mcp_service.append(AppMcpServiceInfo(
+                id=mcp_collection.id,
+                name=mcp_collection.name,
+                description=mcp_collection.description,
+            ))
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=GetAppPropertyRsp(
@@ -238,7 +248,7 @@ async def get_application(appId: Annotated[uuid.UUID, Path()]) -> JSONResponse: 
                     authorizedUsers=app_data.permission.users,
                 ),
                 workflows=workflows,
-                mcpService=app_data.mcp_service,
+                mcpService=mcp_service,
             ),
         ).model_dump(exclude_none=True, by_alias=True),
     )
