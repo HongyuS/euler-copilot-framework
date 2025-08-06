@@ -38,6 +38,8 @@ class User(Base):
     """用户选择的知识库的ID"""
     defaultLLM: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), default=None, nullable=True)  # noqa: N815
     """用户选择的大模型ID"""
+    autoExecute: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # noqa: N815
+    """Agent是否自动执行"""
 
 
 class UserFavoriteType(str, enum.Enum):

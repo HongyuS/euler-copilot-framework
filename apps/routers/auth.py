@@ -164,6 +164,7 @@ async def userinfo(request: Request) -> JSONResponse:
                 user_sub=request.state.user_sub,
                 revision=user.isActive,
                 is_admin=is_admin,
+                auto_execute=user.autoExecute,
             ),
         ).model_dump(exclude_none=True, by_alias=True),
     )

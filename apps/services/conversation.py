@@ -153,7 +153,7 @@ class ConversationManager:
             await session.delete(conv)
             await session.commit()
 
-        await TaskManager.delete_tasks_by_conversation_id(conversation_id)
+        await TaskManager.delete_tasks_and_flow_context_by_conversation_id(conversation_id)
 
 
     @staticmethod

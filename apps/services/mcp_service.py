@@ -95,6 +95,8 @@ class MCPServiceManager:
             user_sub: str,
             keyword: str | None,
             page: int,
+            *,
+            is_active: bool | None = None,
     ) -> list[MCPServiceCardItem]:
         """
         获取所有MCP服务列表
@@ -105,7 +107,7 @@ class MCPServiceManager:
         :param page: int: 页码
         :return: MCP服务列表
         """
-        mcpservice_pools = await MCPServiceManager._search_mcpservice(search_type, keyword, page)
+        mcpservice_pools = await MCPServiceManager._search_mcpservice(search_type, keyword, page, is_active)
         return [
             MCPServiceCardItem(
                 mcpserviceId=item.id,
@@ -162,6 +164,8 @@ class MCPServiceManager:
             search_type: SearchType,
             keyword: str | None,
             page: int,
+            *,
+            is_active: bool | None = None,
     ) -> list[MCPInfo]:
         """
         基于输入条件搜索MCP服务
