@@ -2,6 +2,8 @@
 """选择MCP Server及其工具"""
 
 import logging
+import uuid
+from collections.abc import AsyncGenerator
 
 from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
@@ -26,8 +28,9 @@ logger = logging.getLogger(__name__)
 class MCPSelector:
     """MCP选择器"""
 
-    def __init__(self) -> None:
+    def __init__(self, resoning_llm: ReasoningLLM = None) -> None:
         """初始化助手类"""
+        self.resoning_llm = resoning_llm or ReasoningLLM()
         self.input_tokens = 0
         self.output_tokens = 0
 
@@ -101,20 +104,15 @@ class MCPSelector:
         return await self._call_function_mcp(result, mcp_ids)
 
 
-    async def _call_reasoning(self, prompt: str) -> str:
+    async def _call_reasoning(self, prompt: str) -> AsyncGenerator[str, None]:
         """调用大模型进行推理"""
         logger.info("[MCPHelper] 调用推理大模型")
-        llm = ReasoningLLM()
         message = [
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt},
         ]
-        result = ""
-        async for chunk in llm.call(message):
-            result += chunk
-        self.input_tokens += llm.input_tokens
-        self.output_tokens += llm.output_tokens
-        return result
+        async for chunk in self.resoning_llm.call(message):
+            yield chunk
 
 
     async def _call_function_mcp(self, reasoning_result: str, mcp_ids: list[str]) -> MCPSelectResult:
@@ -181,5 +179,18 @@ class MCPSelector:
             async for tool in tool_data:
                 tool_obj = MCPTool.model_validate(tool)
                 llm_tool_list.append(tool_obj)
+
+        llm_tool_list.append(
+            MCPTool(
+                id="00000000-0000-0000-0000-000000000000",
+                name="Final",
+                description="It is the final step, indicating the end of the plan execution."),
+        )
+        llm_tool_list.append(
+            MCPTool(
+                id="00000000-0000-0000-0000-000000000001",
+                name="Chat",
+                description="It is a chat tool to communicate with the user."),
+        )
 
         return llm_tool_list

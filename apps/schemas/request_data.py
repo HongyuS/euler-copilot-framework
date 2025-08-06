@@ -92,6 +92,7 @@ class ActiveMCPServiceRequest(BaseModel):
     """POST /api/mcp/{serviceId} 请求数据结构"""
 
     active: bool = Field(description="是否激活mcp服务")
+    mcp_env: dict[str, Any] = Field(default={}, description="MCP服务环境变量", alias="mcpEnv")
 
 
 class UpdateServiceRequest(BaseModel):

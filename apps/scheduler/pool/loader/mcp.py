@@ -4,6 +4,7 @@
 import json
 import logging
 import shutil
+from typing import Any
 
 import asyncer
 from anyio import Path
@@ -329,7 +330,7 @@ class MCPLoader(metaclass=SingletonMeta):
 
 
     @staticmethod
-    async def user_active_template(user_sub: str, mcp_id: str) -> None:
+    async def user_active_template(user_sub: str, mcp_id: str, mcp_env: dict[str, Any]) -> None:
         """
         用户激活MCP模板
 
@@ -348,6 +349,8 @@ class MCPLoader(metaclass=SingletonMeta):
             err = f"MCP模板“{mcp_id}”已存在或有同名文件，无法激活"
             raise FileExistsError(err)
 
+        mcp_config = await MCPLoader.get_config(mcp_id)
+        mcp_config.mcpServers[mcp_id].env.update(mcp_env)
         # 拷贝文件
         await asyncer.asyncify(shutil.copytree)(
             template_path.as_posix(),
@@ -356,6 +359,17 @@ class MCPLoader(metaclass=SingletonMeta):
             symlinks=True,
         )
 
+        user_config_path = user_path / "config.json"
+        # 更新用户配置
+        f = await user_config_path.open("w", encoding="utf-8", errors="ignore")
+        await f.write(
+            json.dumps(
+                mcp_config.model_dump(by_alias=True, exclude_none=True),
+                indent=4,
+                ensure_ascii=False,
+            ),
+        )
+        await f.aclose()
         # 更新数据库
         async with postgres.session() as session:
             await session.merge(MCPActivated(

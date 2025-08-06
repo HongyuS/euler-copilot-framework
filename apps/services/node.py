@@ -9,6 +9,7 @@ from sqlalchemy import select
 from apps.common.postgres import postgres
 from apps.models.node import NodeInfo
 from apps.scheduler.pool.pool import Pool
+from apps.schemas.enum_var import SpecialCallType
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
@@ -59,6 +60,9 @@ class NodeManager:
     async def get_node_params(node_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
         """获取Node数据"""
         # 查找Node信息
+        if node_id == SpecialCallType.EMPTY.value:
+            # 如果是空节点，返回空Schema
+            return {}, {}
         logger.info("[NodeManager] 获取节点 %s", node_id)
         node_data = await NodeManager.get_node(node_id)
         call_id = node_data.callId

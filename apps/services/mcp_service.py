@@ -4,6 +4,7 @@
 import logging
 import re
 import uuid
+from typing import Any
 
 import magic
 from fastapi import UploadFile
@@ -313,6 +314,7 @@ class MCPServiceManager:
     async def active_mcpservice(
             user_sub: str,
             mcp_id: str,
+            mcp_env: dict[str, Any] = {},
     ) -> None:
         """
         激活MCP服务
@@ -334,7 +336,7 @@ class MCPServiceManager:
                 userSub=user_sub,
             ))
             await session.commit()
-            await MCPLoader.user_active_template(user_sub, mcp_id)
+            await MCPLoader.user_active_template(user_sub, mcp_id, mcp_env)
 
 
     @staticmethod

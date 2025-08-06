@@ -41,7 +41,7 @@ class ParameterManager:
             for item in operate:
                 result.append(OperateAndBindType(
                     operate=item,
-                    bind_type=ConditionHandler.get_value_type_from_operate(item)))
+                    bind_type=(await ConditionHandler.get_value_type_from_operate(item))))
         return result
 
     @staticmethod
@@ -51,8 +51,10 @@ class ParameterManager:
         q = [step_id]
         in_edges = {}
         step_id_to_node_id = {}
+        step_id_to_node_name = {}
         for step in flow.nodes:
             step_id_to_node_id[step.step_id] = step.node_id
+            step_id_to_node_name[step.step_id] = step.name
         for edge in flow.edges:
             if edge.target_node not in in_edges:
                 in_edges[edge.target_node] = []
@@ -65,16 +67,17 @@ class ParameterManager:
                 if pre_node_id not in q:
                     q.append(pre_node_id)
         pre_step_params = []
-        for step_id in q:
+        for i in range(1, len(q)):
+            step_id = q[i]
             node_id = step_id_to_node_id.get(step_id)
             params_schema, output_schema = await NodeManager.get_node_params(node_id)
             slot = Slot(output_schema)
-            params_node = slot.get_params_node_from_schema(root='/output')
+            params_node = slot.get_params_node_from_schema()
             pre_step_params.append(
                 StepParams(
-                    stepId=node_id,
-                    name=params_schema.get("name", ""),
+                    stepId=step_id,
+                    name=step_id_to_node_name.get(step_id),
                     paramsNode=params_node,
-                )
+                ),
             )
         return pre_step_params

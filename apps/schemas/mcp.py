@@ -1,7 +1,6 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MCP 相关数据结构"""
 
-import uuid
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -58,6 +57,28 @@ class MCPServerConfig(MCPServerItem):
     author: str = Field(description="MCP 服务器上传者", default="")
 
 
+class GoalEvaluationResult(BaseModel):
+    """MCP 目标评估结果"""
+
+    can_complete: bool = Field(description="是否可以完成目标")
+    reason: str = Field(description="评估原因")
+
+
+class Risk(str, Enum):
+    """MCP工具风险类型"""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class ToolRisk(BaseModel):
+    """MCP工具风险评估结果"""
+
+    risk: Risk = Field(description="风险类型", default=Risk.LOW)
+    reason: str = Field(description="风险原因", default="")
+
+
 class MCPSelectResult(BaseModel):
     """MCP选择结果"""
 
@@ -67,7 +88,7 @@ class MCPSelectResult(BaseModel):
 class MCPPlanItem(BaseModel):
     """MCP 计划"""
 
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    step_id: str = Field(description="步骤的ID", default="")
     content: str = Field(description="计划内容")
     tool: str = Field(description="工具名称")
     instruction: str = Field(description="工具指令")
@@ -76,4 +97,4 @@ class MCPPlanItem(BaseModel):
 class MCPPlan(BaseModel):
     """MCP 计划"""
 
-    plans: list[MCPPlanItem] = Field(description="计划列表")
+    plans: list[MCPPlanItem] = Field(description="计划列表", default=[])
