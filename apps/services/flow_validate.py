@@ -57,11 +57,13 @@ class FlowService:
             if node.call_id == NodeType.CHOICE.value:
                 input_parameters = node.parameters["input_parameters"]
                 if "choices" not in input_parameters:
-                    logger.error(f"[FlowService] 节点{node.name}的分支字段缺失")
-                    raise FlowBranchValidationError(f"[FlowService] 节点{node.name}的分支字段缺失")
+                    err = f"[FlowService] 节点{node.name}的分支字段缺失"
+                    logger.error(err)
+                    raise FlowBranchValidationError(err)
                 if not input_parameters["choices"]:
-                    logger.error(f"[FlowService] 节点{node.name}的分支字段为空")
-                    raise FlowBranchValidationError(f"[FlowService] 节点{node.name}的分支字段为空")
+                    err = f"[FlowService] 节点{node.name}的分支字段为空"
+                    logger.error(err)
+                    raise FlowBranchValidationError(err)
                 for choice in input_parameters["choices"]:
                     if "branch_id" not in choice:
                         err = f"[FlowService] 节点{node.name}的分支choice缺少branch_id字段"

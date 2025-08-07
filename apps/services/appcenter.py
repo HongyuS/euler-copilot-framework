@@ -494,7 +494,7 @@ class AppCenterManager:
         # mcp_service 逻辑
         if data is not None and hasattr(data, "mcp_service") and data.mcp_service:
             # 创建应用场景，验证传入的 mcp_service 状态，确保只使用已经激活的 (create_app)
-            metadata.mcp_service = [svc for svc in data.mcp_service if MCPServiceManager.is_active(user_sub, svc)]
+            metadata.mcp_service = [svc.id for svc in data.mcp_service if MCPServiceManager.is_active(user_sub, svc.id)]
         elif data is not None and hasattr(data, "mcp_service"):
             # 更新应用场景，使用 data 中的 mcp_service (update_app)
             metadata.mcp_service = data.mcp_service if data.mcp_service is not None else []
@@ -554,11 +554,8 @@ class AppCenterManager:
             "permission": Permission(
                 type=data.permission.type,
                 users=data.permission.users or [],
-            ) if data else app_data.permission,
+            ) if data else (app_data.permission if app_data else None),
         }
-        # 设置权限
-        if app_data:
-            common_params["permission"] = app_data.permission
 
         # 根据应用类型创建不同的元数据
         if app_type == AppType.AGENT:
@@ -597,6 +594,5 @@ class AppCenterManager:
         )
 
         # 保存应用
-        app_loader = AppLoader()
-        await app_loader.save(metadata, app_id)
+        await AppLoader.save(metadata, app_id)
         return metadata
