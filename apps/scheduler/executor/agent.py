@@ -3,18 +3,16 @@
 
 import logging
 import uuid
-from typing import Any
 
 from pydantic import Field
 
-from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.llm.reasoning import ReasoningLLM
 from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.mcp_agent.host import MCPHost
 from apps.scheduler.mcp_agent.plan import MCPPlanner
 from apps.scheduler.mcp_agent.select import FINAL_TOOL_ID, MCPSelector
 from apps.scheduler.pool.mcp.client import MCPClient
-from apps.schemas.enum_var import EventType, FlowStatus, SpecialCallType, StepStatus
+from apps.schemas.enum_var import EventType, FlowStatus, StepStatus
 from apps.schemas.mcp import (
     ErrorType,
     GoalEvaluationResult,
@@ -26,7 +24,7 @@ from apps.schemas.mcp import (
     ToolRisk,
 )
 from apps.schemas.message import param
-from apps.schemas.task import ExecutorState, FlowStepHistory, StepQueueItem
+from apps.schemas.task import FlowStepHistory
 from apps.services.appcenter import AppCenterManager
 from apps.services.mcp_service import MCPServiceManager
 from apps.services.task import TaskManager

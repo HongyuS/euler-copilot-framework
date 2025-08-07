@@ -22,8 +22,8 @@ class Record(Base):
         UUID(as_uuid=True), ForeignKey("framework_conversation.id"), nullable=False,
     )
     """对话ID"""
-    taskId: Mapped[uuid.UUID] = mapped_column(  # noqa: N815
-        UUID(as_uuid=True), ForeignKey("framework_task.id"), nullable=False,
+    taskId: Mapped[uuid.UUID | None] = mapped_column(  # noqa: N815
+        UUID(as_uuid=True), ForeignKey("framework_task.id"), nullable=True,
     )
     """任务ID"""
     content: Mapped[str] = mapped_column(Text, nullable=False)

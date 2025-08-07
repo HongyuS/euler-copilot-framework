@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """插件、工作流、步骤相关数据结构定义"""
 
+import uuid
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -19,10 +20,10 @@ class CallInfo(BaseModel):
 class CallIds(BaseModel):
     """Call的ID，来自于Task"""
 
-    task_id: str = Field(description="任务ID")
-    flow_id: str = Field(description="Flow ID")
+    task_id: uuid.UUID = Field(description="任务ID")
+    flow_id: uuid.UUID = Field(description="Flow ID")
     session_id: str = Field(description="当前用户的Session ID")
-    app_id: str = Field(description="当前应用的ID")
+    app_id: uuid.UUID = Field(description="当前应用的ID")
     user_sub: str = Field(description="当前用户的用户ID")
 
 

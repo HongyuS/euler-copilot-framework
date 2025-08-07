@@ -42,7 +42,7 @@ class Choice(CoreCall, input_model=ChoiceInput, output_model=ChoiceOutput):
         """返回Call的名称和描述"""
         return CallInfo(name="选择器", description="使用大模型或使用程序做出判断")
 
-    async def _prepare_message(self, call_vars: CallVars) -> list[dict[str, Any]]:
+    async def _prepare_message(self, call_vars: CallVars) -> list[ChoiceBranch]:  # noqa: C901, PLR0912, PLR0915
         """替换choices中的系统变量"""
         valid_choices = []
 
@@ -50,8 +50,8 @@ class Choice(CoreCall, input_model=ChoiceInput, output_model=ChoiceOutput):
             try:
                 # 验证逻辑运算符
                 if choice.logic not in [Logic.AND, Logic.OR]:
-                    msg = f"无效的逻辑运算符: {choice.logic}"
-                    logger.warning(f"[Choice] 分支 {choice.branch_id} 条件处理失败: {msg}")
+                    msg = f"[Choice] 分支 {choice.branch_id} 条件处理失败：无效的逻辑运算符：{choice.logic}"
+                    logger.warning(msg)
                     continue
 
                 valid_conditions = []
@@ -60,62 +60,74 @@ class Choice(CoreCall, input_model=ChoiceInput, output_model=ChoiceOutput):
                     # 处理左值
                     if condition.left.step_id is not None:
                         condition.left.value = self._extract_history_variables(
-                            condition.left.step_id+'/'+condition.left.value, call_vars.history)
+                            f"{condition.left.step_id}/{condition.left.value}", call_vars.history)
                         # 检查历史变量是否成功提取
                         if condition.left.value is None:
-                            msg = f"步骤 {condition.left.step_id} 的历史变量不存在"
-                            logger.warning(f"[Choice] 分支 {choice.branch_id} 条件处理失败: {msg}")
+                            msg = (f"[Choice] 分支 {choice.branch_id} 条件处理失败："
+                                   f"步骤 {condition.left.step_id} 的历史变量不存在")
+                            logger.warning(msg)
                             continue
-                        if not ConditionHandler.check_value_type(
-                                condition.left.value, condition.left.type):
-                            msg = f"左值类型不匹配: {condition.left.value} 应为 {condition.left.type.value}"
-                            logger.warning(f"[Choice] 分支 {choice.branch_id} 条件处理失败: {msg}")
+                        if not ConditionHandler.check_value_type(condition.left, condition.left.type):
+                            msg = (f"[Choice] 分支 {choice.branch_id} 条件处理失败："
+                                   f"左值类型不匹配：{condition.left.value}"
+                                   f"应为 {condition.left.type.value if condition.left.type else 'None'}")
+                            logger.warning(msg)
                             continue
                     else:
-                        msg = "左侧变量缺少step_id"
-                        logger.warning(f"[Choice] 分支 {choice.branch_id} 条件处理失败: {msg}")
+                        msg = f"[Choice] 分支 {choice.branch_id} 条件处理失败：左侧变量缺少step_id"
+                        logger.warning(msg)
                         continue
                     # 处理右值
                     if condition.right.step_id is not None:
                         condition.right.value = self._extract_history_variables(
-                            condition.right.step_id+'/'+condition.right.value, call_vars.history)
+                            f"{condition.right.step_id}/{condition.right.value}", call_vars.history,
+                        )
                         # 检查历史变量是否成功提取
                         if condition.right.value is None:
-                            msg = f"步骤 {condition.right.step_id} 的历史变量不存在"
-                            logger.warning(f"[Choice] 分支 {choice.branch_id} 条件处理失败: {msg}")
+                            msg = (f"[Choice] 分支 {choice.branch_id} 条件处理失败："
+                                   f"步骤 {condition.right.step_id} 的历史变量不存在")
+                            logger.warning(msg)
                             continue
                         if not ConditionHandler.check_value_type(
-                                condition.right.value, condition.right.type):
-                            msg = f"右值类型不匹配: {condition.right.value} 应为 {condition.right.type.value}"
-                            logger.warning(f"[Choice] 分支 {choice.branch_id} 条件处理失败: {msg}")
+                                condition.right, condition.right.type,
+                            ):
+                            msg = (f"[Choice] 分支 {choice.branch_id} 条件处理失败："
+                                   f"右值类型不匹配：{condition.right.value}"
+                                   f"应为 {condition.right.type.value if condition.right.type else 'None'}")
+                            logger.warning(msg)
                             continue
                     else:
                         # 如果右值没有step_id，尝试从call_vars中获取
                         right_value_type = await ConditionHandler.get_value_type_from_operate(
-                            condition.operate)
+                            condition.operate,
+                        )
                         if right_value_type is None:
-                            msg = f"不支持的运算符: {condition.operate}"
-                            logger.warning(f"[Choice] 分支 {choice.branch_id} 条件处理失败: {msg}")
+                            msg = f"[Choice] 分支 {choice.branch_id} 条件处理失败：不支持的运算符：{condition.operate}"
+                            logger.warning(msg)
                             continue
                         if condition.right.type != right_value_type:
-                            msg = f"右值类型不匹配: {condition.right.value} 应为 {right_value_type.value}"
-                            logger.warning(f"[Choice] 分支 {choice.branch_id} 条件处理失败: {msg}")
+                            msg = (f"[Choice] 分支 {choice.branch_id} 条件处理失败："
+                                   f"右值类型不匹配：{condition.right.value} 应为 {right_value_type.value}")
+                            logger.warning(msg)
                             continue
                         if right_value_type == Type.STRING:
                             condition.right.value = str(condition.right.value)
                         else:
                             condition.right.value = ast.literal_eval(condition.right.value)
                         if not ConditionHandler.check_value_type(
-                                condition.right.value, condition.right.type):
-                            msg = f"右值类型不匹配: {condition.right.value} 应为 {condition.right.type.value}"
-                            logger.warning(f"[Choice] 分支 {choice.branch_id} 条件处理失败: {msg}")
+                                condition.right, condition.right.type,
+                            ):
+                            msg = (f"[Choice] 分支 {choice.branch_id} 条件处理失败："
+                                   f"右值类型不匹配：{condition.right.value}"
+                                   f"应为 {condition.right.type.value if condition.right.type else 'None'}")
+                            logger.warning(msg)
                             continue
                     valid_conditions.append(condition)
 
                 # 如果所有条件都无效，抛出异常
                 if not valid_conditions and not choice.is_default:
-                    msg = "分支没有有效条件"
-                    logger.warning(f"[Choice] 分支 {choice.branch_id} 条件处理失败: {msg}")
+                    msg = f"[Choice] 分支 {choice.branch_id} 条件处理失败：没有有效条件"
+                    logger.warning(msg)
                     continue
 
                 # 更新有效条件
@@ -123,7 +135,8 @@ class Choice(CoreCall, input_model=ChoiceInput, output_model=ChoiceOutput):
                 valid_choices.append(choice)
 
             except ValueError as e:
-                logger.warning("分支 %s 处理失败: %s，已跳过", choice.branch_id, str(e))
+                msg = f"[Choice] 分支 {choice.branch_id} 处理失败：{e!s}，已跳过"
+                logger.warning(msg)
                 continue
 
         return valid_choices
@@ -135,7 +148,7 @@ class Choice(CoreCall, input_model=ChoiceInput, output_model=ChoiceOutput):
         )
 
     async def _exec(
-        self, input_data: dict[str, Any]
+        self, input_data: dict[str, Any],
     ) -> AsyncGenerator[CallOutputChunk, None]:
         """执行Choice工具"""
         # 解析输入数据

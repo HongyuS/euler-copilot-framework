@@ -3,10 +3,14 @@
 
 import logging
 
+from sqlalchemy import select
+
+from apps.common.postgres import postgres
 from apps.llm.embedding import Embedding
 from apps.llm.function import FunctionLLM
 from apps.llm.reasoning import ReasoningLLM
 from apps.models.mcp import MCPTools
+from apps.models.vectors import MCPToolVector
 from apps.schemas.mcp import MCPSelectResult
 from apps.services.mcp_service import MCPServiceManager
 
@@ -20,14 +24,6 @@ class MCPSelector:
         """初始化助手类"""
         self.input_tokens = 0
         self.output_tokens = 0
-
-    @staticmethod
-    def _assemble_sql(mcp_list: list[str]) -> str:
-        """组装SQL"""
-        sql = "("
-        for mcp_id in mcp_list:
-            sql += f"'{mcp_id}', "
-        return sql.rstrip(", ") + ")"
 
 
     async def _call_reasoning(self, prompt: str) -> str:
@@ -69,19 +65,19 @@ class MCPSelector:
     @staticmethod
     async def select_top_tool(query: str, mcp_list: list[str], top_n: int = 10) -> list[MCPTools]:
         """选择最合适的工具"""
-        tool_vector = await LanceDB().get_table("mcp_tool")
         query_embedding = await Embedding.get_embedding([query])
-        tool_vecs = await (await tool_vector.search(
-            query=query_embedding,
-            vector_column_name="embedding",
-        )).where(f"mcp_id IN {MCPSelector._assemble_sql(mcp_list)}").limit(top_n).to_list()
+        async with postgres.session() as session:
+            tool_vecs = await session.scalars(
+                select(MCPToolVector).where(MCPToolVector.mcpId.in_(mcp_list))
+                .order_by(MCPToolVector.embedding.cosine_distance(query_embedding)).limit(top_n),
+            )
 
         # 拿到工具
         llm_tool_list = []
 
         for tool_vec in tool_vecs:
-            logger.info("[MCPHelper] 查询MCP Tool名称和描述: %s", tool_vec["mcp_id"])
-            tool_data = await MCPServiceManager.get_mcp_tools(tool_vec["mcp_id"])
+            logger.info("[MCPHelper] 查询MCP Tool名称和描述: %s", tool_vec.mcpId)
+            tool_data = await MCPServiceManager.get_mcp_tools(tool_vec.mcpId)
             llm_tool_list.extend(tool_data)
 
         return llm_tool_list

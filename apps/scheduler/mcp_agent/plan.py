@@ -31,6 +31,7 @@ _env = SandboxedEnvironment(
 
 class MCPPlanner:
     """MCP 用户目标拆解与规划"""
+
     @staticmethod
     async def get_resoning_result(prompt: str, resoning_llm: ReasoningLLM = ReasoningLLM()) -> str:
         """获取推理结果"""
@@ -66,11 +67,12 @@ class MCPPlanner:
 
     @staticmethod
     async def evaluate_goal(
+            goal: str,
             tool_list: list[MCPTool],
             resoning_llm: ReasoningLLM = ReasoningLLM()) -> GoalEvaluationResult:
         """评估用户目标的可行性"""
         # 获取推理结果
-        result = await MCPPlanner._get_reasoning_evaluation(tool_list, resoning_llm)
+        result = await MCPPlanner._get_reasoning_evaluation(goal, tool_list, resoning_llm)
 
         # 解析为结构化数据
         evaluation = await MCPPlanner._parse_evaluation_result(result)

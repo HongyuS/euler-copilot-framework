@@ -2,6 +2,7 @@
 """处理条件分支的工具"""
 
 import logging
+import re
 
 from pydantic import BaseModel
 
@@ -25,9 +26,11 @@ logger = logging.getLogger(__name__)
 
 class ConditionHandler(BaseModel):
     """条件分支处理器"""
+
     @staticmethod
-    async def get_value_type_from_operate(operate: NumberOperate | StringOperate | ListOperate |
-                                          BoolOperate | DictOperate) -> Type:
+    async def get_value_type_from_operate(  # noqa: PLR0911
+        operate: NumberOperate | StringOperate | ListOperate | BoolOperate | DictOperate | None,
+    ) -> Type | None:
         """获取右值的类型"""
         if isinstance(operate, NumberOperate):
             return Type.NUMBER
@@ -56,7 +59,7 @@ class ConditionHandler(BaseModel):
         return None
 
     @staticmethod
-    def check_value_type(value: Value, expected_type: Type) -> bool:
+    def check_value_type(value: Value, expected_type: Type | None) -> bool:
         """检查值的类型是否符合预期"""
         if expected_type == Type.STRING and isinstance(value.value, str):
             return True
@@ -66,9 +69,7 @@ class ConditionHandler(BaseModel):
             return True
         if expected_type == Type.DICT and isinstance(value.value, dict):
             return True
-        if expected_type == Type.BOOL and isinstance(value.value, bool):
-            return True
-        return False
+        return bool(expected_type == Type.BOOL and isinstance(value.value, bool))
 
     @staticmethod
     def handler(choices: list[ChoiceBranch]) -> str:
@@ -82,7 +83,8 @@ class ConditionHandler(BaseModel):
                 if result is not None:
                     results.append(result)
             if not results:
-                logger.warning(f"[Choice] 分支 {block_judgement.branch_id} 条件处理失败: 没有有效的条件")
+                err = f"[Choice] 分支 {block_judgement.branch_id} 条件处理失败: 没有有效的条件"
+                logger.warning(err)
                 continue
             if block_judgement.logic == Logic.AND:
                 final_result = all(results)
@@ -108,27 +110,27 @@ class ConditionHandler(BaseModel):
         left = condition.left
         operate = condition.operate
         right = condition.right
-        value_type = condition.type
+        value_type = condition.left.type
 
-        result = None
-        if value_type == Type.STRING:
+        result = False
+        if value_type == Type.STRING and isinstance(operate, StringOperate):
             result = ConditionHandler._judge_string_condition(left, operate, right)
-        elif value_type == Type.NUMBER:
+        elif value_type == Type.NUMBER and isinstance(operate, NumberOperate):
             result = ConditionHandler._judge_number_condition(left, operate, right)
-        elif value_type == Type.BOOL:
+        elif value_type == Type.BOOL and isinstance(operate, BoolOperate):
             result = ConditionHandler._judge_bool_condition(left, operate, right)
-        elif value_type == Type.LIST:
+        elif value_type == Type.LIST and isinstance(operate, ListOperate):
             result = ConditionHandler._judge_list_condition(left, operate, right)
-        elif value_type == Type.DICT:
+        elif value_type == Type.DICT and isinstance(operate, DictOperate):
             result = ConditionHandler._judge_dict_condition(left, operate, right)
         else:
-            msg = f"不支持的数据类型: {value_type}"
-            logger.error(f"[Choice] 条件处理失败: {msg}")
-            return None
+            msg = f"[Choice] 条件处理失败: 不支持的数据类型: {value_type}"
+            logger.error(msg)
+            return False
         return result
 
     @staticmethod
-    def _judge_string_condition(left: Value, operate: StringOperate, right: Value) -> bool:
+    def _judge_string_condition(left: Value, operate: StringOperate, right: Value) -> bool:  # noqa: C901, PLR0911, PLR0912
         """
         判断字符串类型的条件。
 
@@ -145,33 +147,37 @@ class ConditionHandler(BaseModel):
         if not isinstance(left_value, str):
             msg = f"左值必须是字符串类型 ({left_value})"
             logger.warning(msg)
-            return None
+            return False
         right_value = right.value
+        if not isinstance(right_value, str):
+            msg = f"右值必须是字符串类型 ({right_value})"
+            logger.warning(msg)
+            return False
+
         if operate == StringOperate.EQUAL:
             return left_value == right_value
-        elif operate == StringOperate.NOT_EQUAL:
+        if operate == StringOperate.NOT_EQUAL:
             return left_value != right_value
-        elif operate == StringOperate.CONTAINS:
+        if operate == StringOperate.CONTAINS:
             return right_value in left_value
-        elif operate == StringOperate.NOT_CONTAINS:
+        if operate == StringOperate.NOT_CONTAINS:
             return right_value not in left_value
-        elif operate == StringOperate.STARTS_WITH:
+        if operate == StringOperate.STARTS_WITH:
             return left_value.startswith(right_value)
-        elif operate == StringOperate.ENDS_WITH:
+        if operate == StringOperate.ENDS_WITH:
             return left_value.endswith(right_value)
-        elif operate == StringOperate.REGEX_MATCH:
-            import re
+        if operate == StringOperate.REGEX_MATCH:
             return bool(re.match(right_value, left_value))
-        elif operate == StringOperate.LENGTH_EQUAL:
+        if operate == StringOperate.LENGTH_EQUAL:
             return len(left_value) == right_value
-        elif operate == StringOperate.LENGTH_GREATER_THAN:
-            return len(left_value) > right_value
-        elif operate == StringOperate.LENGTH_GREATER_THAN_OR_EQUAL:
-            return len(left_value) >= right_value
-        elif operate == StringOperate.LENGTH_LESS_THAN:
-            return len(left_value) < right_value
-        elif operate == StringOperate.LENGTH_LESS_THAN_OR_EQUAL:
-            return len(left_value) <= right_value
+        if operate == StringOperate.LENGTH_GREATER_THAN:
+            return len(left_value) > len(right_value)
+        if operate == StringOperate.LENGTH_GREATER_THAN_OR_EQUAL:
+            return len(left_value) >= len(right_value)
+        if operate == StringOperate.LENGTH_LESS_THAN:
+            return len(left_value) < len(right_value)
+        if operate == StringOperate.LENGTH_LESS_THAN_OR_EQUAL:
+            return len(left_value) <= len(right_value)
         return False
 
     @staticmethod
@@ -192,19 +198,24 @@ class ConditionHandler(BaseModel):
         if not isinstance(left_value, (int, float)):
             msg = f"左值必须是数字类型 ({left_value})"
             logger.warning(msg)
-            return None
+            return False
         right_value = right.value
+        if not isinstance(right_value, (int, float)):
+            msg = f"右值必须是数字类型 ({right_value})"
+            logger.warning(msg)
+            return False
+
         if operate == NumberOperate.EQUAL:
             return left_value == right_value
-        elif operate == NumberOperate.NOT_EQUAL:
+        if operate == NumberOperate.NOT_EQUAL:
             return left_value != right_value
-        elif operate == NumberOperate.GREATER_THAN:
+        if operate == NumberOperate.GREATER_THAN:
             return left_value > right_value
-        elif operate == NumberOperate.LESS_THAN:  # noqa: PLR2004
+        if operate == NumberOperate.LESS_THAN:
             return left_value < right_value
-        elif operate == NumberOperate.GREATER_THAN_OR_EQUAL:
+        if operate == NumberOperate.GREATER_THAN_OR_EQUAL:
             return left_value >= right_value
-        elif operate == NumberOperate.LESS_THAN_OR_EQUAL:
+        if operate == NumberOperate.LESS_THAN_OR_EQUAL:
             return left_value <= right_value
         return False
 
@@ -226,20 +237,21 @@ class ConditionHandler(BaseModel):
         if not isinstance(left_value, bool):
             msg = "左值必须是布尔类型"
             logger.warning(msg)
-            return None
+            return False
         right_value = right.value
+        if not isinstance(right_value, bool):
+            msg = "右值必须是布尔类型"
+            logger.warning(msg)
+            return False
+
         if operate == BoolOperate.EQUAL:
             return left_value == right_value
-        elif operate == BoolOperate.NOT_EQUAL:
+        if operate == BoolOperate.NOT_EQUAL:
             return left_value != right_value
-        elif operate == BoolOperate.IS_EMPTY:
-            return not left_value
-        elif operate == BoolOperate.NOT_EMPTY:
-            return left_value
         return False
 
     @staticmethod
-    def _judge_list_condition(left: Value, operate: ListOperate, right: Value):
+    def _judge_list_condition(left: Value, operate: ListOperate, right: Value) -> bool:  # noqa: C901, PLR0911
         """
         判断列表类型的条件。
 
@@ -256,30 +268,35 @@ class ConditionHandler(BaseModel):
         if not isinstance(left_value, list):
             msg = f"左值必须是列表类型 ({left_value})"
             logger.warning(msg)
-            return None
+            return False
         right_value = right.value
+        if not isinstance(right_value, list):
+            msg = f"右值必须是列表类型 ({right_value})"
+            logger.warning(msg)
+            return False
+
         if operate == ListOperate.EQUAL:
             return left_value == right_value
-        elif operate == ListOperate.NOT_EQUAL:
+        if operate == ListOperate.NOT_EQUAL:
             return left_value != right_value
-        elif operate == ListOperate.CONTAINS:
+        if operate == ListOperate.CONTAINS:
             return right_value in left_value
-        elif operate == ListOperate.NOT_CONTAINS:
+        if operate == ListOperate.NOT_CONTAINS:
             return right_value not in left_value
-        elif operate == ListOperate.LENGTH_EQUAL:
+        if operate == ListOperate.LENGTH_EQUAL:
             return len(left_value) == right_value
-        elif operate == ListOperate.LENGTH_GREATER_THAN:
-            return len(left_value) > right_value
-        elif operate == ListOperate.LENGTH_GREATER_THAN_OR_EQUAL:
-            return len(left_value) >= right_value
-        elif operate == ListOperate.LENGTH_LESS_THAN:
-            return len(left_value) < right_value
-        elif operate == ListOperate.LENGTH_LESS_THAN_OR_EQUAL:
-            return len(left_value) <= right_value
+        if operate == ListOperate.LENGTH_GREATER_THAN:
+            return len(left_value) > len(right_value)
+        if operate == ListOperate.LENGTH_GREATER_THAN_OR_EQUAL:
+            return len(left_value) >= len(right_value)
+        if operate == ListOperate.LENGTH_LESS_THAN:
+            return len(left_value) < len(right_value)
+        if operate == ListOperate.LENGTH_LESS_THAN_OR_EQUAL:
+            return len(left_value) <= len(right_value)
         return False
 
     @staticmethod
-    def _judge_dict_condition(left: Value, operate: DictOperate, right: Value):
+    def _judge_dict_condition(left: Value, operate: DictOperate, right: Value) -> bool:  # noqa: PLR0911
         """
         判断字典类型的条件。
 
@@ -296,14 +313,19 @@ class ConditionHandler(BaseModel):
         if not isinstance(left_value, dict):
             msg = f"左值必须是字典类型 ({left_value})"
             logger.warning(msg)
-            return None
+            return False
         right_value = right.value
+        if not isinstance(right_value, dict):
+            msg = f"右值必须是字典类型 ({right_value})"
+            logger.warning(msg)
+            return False
+
         if operate == DictOperate.EQUAL:
             return left_value == right_value
-        elif operate == DictOperate.NOT_EQUAL:
+        if operate == DictOperate.NOT_EQUAL:
             return left_value != right_value
-        elif operate == DictOperate.CONTAINS_KEY:
+        if operate == DictOperate.CONTAINS_KEY:
             return right_value in left_value
-        elif operate == DictOperate.NOT_CONTAINS_KEY:
+        if operate == DictOperate.NOT_CONTAINS_KEY:
             return right_value not in left_value
         return False
