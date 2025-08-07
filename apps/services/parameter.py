@@ -3,15 +3,12 @@
 
 import logging
 
-from pymongo import ASCENDING
-
 from apps.scheduler.call.choice.condition_handler import ConditionHandler
 from apps.scheduler.call.choice.schema import BoolOperate, DictOperate, ListOperate, NumberOperate, StringOperate, Type
 from apps.scheduler.slot.slot import Slot
 from apps.schemas.flow_topology import FlowItem
 from apps.schemas.response_data import (
     OperateAndBindType,
-    ParamsNode,
     StepParams,
 )
 from apps.services.node import NodeManager
@@ -39,9 +36,12 @@ class ParameterManager:
             operate = DictOperate
         if operate:
             for item in operate:
-                result.append(OperateAndBindType(
-                    operate=item,
-                    bind_type=(await ConditionHandler.get_value_type_from_operate(item))))
+                result += [
+                    OperateAndBindType(
+                        operate=item,
+                        bind_type=(await ConditionHandler.get_value_type_from_operate(item)),
+                    ),
+                ]
         return result
 
     @staticmethod
@@ -69,14 +69,19 @@ class ParameterManager:
         pre_step_params = []
         for i in range(1, len(q)):
             step_id = q[i]
-            node_id = step_id_to_node_id.get(step_id)
-            params_schema, output_schema = await NodeManager.get_node_params(node_id)
+            node_id: str | None = step_id_to_node_id.get(step_id)
+            node_name: str | None = step_id_to_node_name.get(step_id)
+            if node_id is None or node_name is None:
+                err = f"[ParameterManager] 节点 {step_id} 不存在"
+                logger.error(err)
+                continue
+            _, output_schema = await NodeManager.get_node_params(node_id)
             slot = Slot(output_schema)
             params_node = slot.get_params_node_from_schema()
             pre_step_params.append(
                 StepParams(
                     stepId=step_id,
-                    name=step_id_to_node_name.get(step_id),
+                    name=node_name,
                     paramsNode=params_node,
                 ),
             )

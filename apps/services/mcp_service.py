@@ -107,7 +107,7 @@ class MCPServiceManager:
         :param page: int: 页码
         :return: MCP服务列表
         """
-        mcpservice_pools = await MCPServiceManager._search_mcpservice(search_type, keyword, page, is_active)
+        mcpservice_pools = await MCPServiceManager._search_mcpservice(search_type, keyword, page, is_active=is_active)
         return [
             MCPServiceCardItem(
                 mcpserviceId=item.id,
@@ -318,7 +318,7 @@ class MCPServiceManager:
     async def active_mcpservice(
             user_sub: str,
             mcp_id: str,
-            mcp_env: dict[str, Any] = {},
+            mcp_env: dict[str, Any] | None = None,
     ) -> None:
         """
         激活MCP服务
@@ -327,6 +327,9 @@ class MCPServiceManager:
         :param mcp_id: str: MCP服务ID
         :return: 无
         """
+        if mcp_env is None:
+            mcp_env = {}
+
         async with postgres.session() as session:
             mcp_info = (await session.scalars(select(MCPInfo).where(MCPInfo.id == mcp_id))).one_or_none()
             if not mcp_info:
