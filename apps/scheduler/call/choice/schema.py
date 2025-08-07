@@ -3,7 +3,7 @@
 import uuid
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from apps.scheduler.call.core import DataBase
 from apps.schemas.parameters import (

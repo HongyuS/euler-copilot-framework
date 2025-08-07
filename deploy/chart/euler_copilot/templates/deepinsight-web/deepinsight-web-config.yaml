@@ -1,0 +1,10 @@
+{{- if .Values.euler_copilot.deepinsight_web.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: deepinsight-web-config
+  namespace: {{ .Release.Namespace }}
+data:
+  .env: |-
+    DEEPINSIGHT_BACEND_URL=http://deepinsight-service.{{ .Release.Namespace }}.svc.cluster.local:9380
+{{- end -}}

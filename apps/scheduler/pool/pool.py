@@ -108,19 +108,18 @@ class Pool:
         # 加载App
         logger.info("[Pool] 载入App")
         changed_app, deleted_app = await checker.diff(MetadataType.APP)
-        app_loader = AppLoader()
 
         # 批量删除App
         for app in changed_app:
-            await app_loader.delete(app, is_reload=True)
+            await AppLoader.delete(app, is_reload=True)
         for app in deleted_app:
-            await app_loader.delete(app)
+            await AppLoader.delete(app)
 
         # 批量加载App
         for app in changed_app:
             hash_key = Path("app/" + str(app)).as_posix()
             if hash_key in checker.hashes:
-                await app_loader.load(app, checker.hashes[hash_key])
+                await AppLoader.load(app, checker.hashes[hash_key])
 
         # 载入MCP
         logger.info("[Pool] 载入MCP")

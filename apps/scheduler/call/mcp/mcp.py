@@ -58,9 +58,9 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
         # 获取工具列表
         avaliable_tools = {}
         for tool in self._tool_list:
-            if tool.mcp_id not in avaliable_tools:
-                avaliable_tools[tool.mcp_id] = []
-            avaliable_tools[tool.mcp_id].append(tool.name)
+            if tool.mcpId not in avaliable_tools:
+                avaliable_tools[tool.mcpId] = []
+            avaliable_tools[tool.mcpId].append(tool.toolName)
 
         return MCPInput(avaliable_tools=avaliable_tools, max_steps=self.max_steps)
 
@@ -120,7 +120,7 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
 
         # 提示开始调用
         yield self._create_output(
-            f"[MCP] 正在调用工具 {tool.name}...\n\n",
+            f"[MCP] 正在调用工具 {tool.toolName}...\n\n",
             MCPMessageType.TOOL_BEGIN,
         )
 
@@ -128,14 +128,14 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
         try:
             result = await self._host.call_tool(tool, plan_item)
         except Exception as e:
-            err = f"[MCP] 工具 {tool.name} 调用失败: {e!s}"
+            err = f"[MCP] 工具 {tool.toolName} 调用失败: {e!s}"
             logger.exception(err)
             raise CallError(err, data={}) from e
 
         # 提示调用完成
-        logger.info("[MCP] 工具 %s 调用完成, 结果: %s", tool.name, result)
+        logger.info("[MCP] 工具 %s 调用完成, 结果: %s", tool.toolName, result)
         yield self._create_output(
-            f"[MCP] 工具 {tool.name} 调用完成\n\n",
+            f"[MCP] 工具 {tool.toolName} 调用完成\n\n",
             MCPMessageType.TOOL_END,
             data={
                 "data": result,

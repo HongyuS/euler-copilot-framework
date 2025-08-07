@@ -28,7 +28,8 @@ BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "app"
 class AppLoader:
     """应用加载器"""
 
-    async def load(self, app_id: uuid.UUID, hashes: dict[str, str]) -> None:  # noqa: C901
+    @staticmethod
+    async def load(app_id: uuid.UUID, hashes: dict[str, str]) -> None:  # noqa: C901
         """
         从文件系统中加载应用
 
@@ -85,10 +86,11 @@ class AppLoader:
                 err = "[AppLoader] Agent应用元数据验证失败"
                 logger.exception(err)
                 raise RuntimeError(err) from e
-        await self._update_db(metadata)
+        await AppLoader._update_db(metadata)
 
 
-    async def save(self, metadata: AppMetadata | AgentAppMetadata, app_id: uuid.UUID) -> None:
+    @staticmethod
+    async def save(metadata: AppMetadata | AgentAppMetadata, app_id: uuid.UUID) -> None:
         """
         保存应用
 
@@ -104,7 +106,7 @@ class AppLoader:
         # 重新载入
         file_checker = FileChecker()
         await file_checker.diff_one(app_path)
-        await self.load(app_id, file_checker.hashes[f"app/{app_id}"])
+        await AppLoader.load(app_id, file_checker.hashes[f"app/{app_id}"])
 
 
     @staticmethod

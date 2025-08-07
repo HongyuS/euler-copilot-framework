@@ -15,6 +15,8 @@ PLUGINS_DIR="/var/lib/eulercopilot"
 # 全局变量声明
 client_id=""
 client_secret=""
+eulercopilot_address=""
+authhub_address=""
 
 SCRIPT_PATH="$(
   cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1
@@ -26,6 +28,53 @@ DEPLOY_DIR="$(
   dirname "$(dirname "$(dirname "$canonical_path")")"
 )"
 
+# 显示帮助信息
+show_help() {
+    echo -e "${GREEN}用法: $0 [选项]"
+    echo -e "选项:"
+    echo -e "  --help                   显示此帮助信息"
+    echo -e "  --eulercopilot_address   指定EulerCopilot前端访问URL"
+    echo -e "  --authhub_address        指定Authhub前端访问URL"
+    echo -e ""
+    echo -e "示例:"
+    echo -e "  $0 --eulercopilot_address http://myhost:30080 --authhub_address http://myhost:30081${NC}"
+    exit 0
+}
+
+# 解析命令行参数
+parse_arguments() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --help)
+                show_help
+                ;;
+            --eulercopilot_address)
+                if [ -n "$2" ]; then
+                    eulercopilot_address="$2"
+                    shift
+                else
+                    echo -e "${RED}错误: --eulercopilot_address 需要提供一个值${NC}" >&2
+                    exit 1
+                fi
+                ;;
+            --authhub_address)
+                if [ -n "$2" ]; then
+                    authhub_address="$2"
+                    shift
+                else
+                    echo -e "${RED}错误: --authhub_address 需要提供一个值${NC}" >&2
+                    exit 1
+                fi
+                ;;
+            *)
+                echo -e "${RED}未知选项: $1${NC}" >&2
+                show_help
+                exit 1
+                ;;
+        esac
+        shift
+    done
+}
 
 
 # 安装成功信息显示函数
@@ -106,6 +155,14 @@ get_network_ip() {
 }
 
 get_address_input() {
+    # 如果命令行参数已经提供了地址，则直接使用，不进行交互式输入
+    if [ -n "$eulercopilot_address" ] && [ -n "$authhub_address" ]; then
+        echo -e "${GREEN}使用命令行参数配置："
+        echo "EulerCopilot地址: $eulercopilot_address"
+        echo "Authhub地址:     $authhub_address"
+        return
+    fi
+
     # 从环境变量读取或使用默认值
     eulercopilot_address=${EULERCOPILOT_ADDRESS:-"http://127.0.0.1:30080"}
     authhub_address=${AUTHHUB_ADDRESS:-"http://127.0.0.1:30081"}
@@ -125,8 +182,6 @@ get_address_input() {
     echo "EulerCopilot地址: $eulercopilot_address"
     echo "Authhub地址:     $authhub_address"
 }
-
-
 
 get_client_info_auto() {
     # 获取用户输入地址
@@ -376,6 +431,8 @@ check_pods_status() {
 
 # 修改main函数
 main() {
+    parse_arguments "$@"
+    
     pre_install_checks
     
     local arch host

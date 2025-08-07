@@ -629,7 +629,7 @@ class OperateAndBindType(BaseModel):
     """操作和绑定类型数据结构"""
 
     operate: NumberOperate | StringOperate | ListOperate | BoolOperate | DictOperate = Field(description="操作类型")
-    bind_type: Type = Field(description="绑定类型")
+    bind_type: Type | None = Field(description="绑定类型")
 
 
 class GetOperaRsp(ResponseData):

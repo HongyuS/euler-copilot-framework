@@ -23,6 +23,7 @@ from apps.schemas.scheduler import (
     CallOutputChunk,
     CallVars,
 )
+from apps.services.appcenter import AppCenterManager
 from apps.services.record import RecordManager
 from apps.services.user_tag import UserTagManager
 
@@ -83,8 +84,6 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
 
     async def _init(self, call_vars: CallVars) -> SuggestionInput:
         """初始化"""
-        from apps.services.appcenter import AppCenterManager
-
         self._history_questions = await self._get_history_questions(
             call_vars.ids.user_sub,
             self.conversation_id,

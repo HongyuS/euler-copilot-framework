@@ -3,6 +3,7 @@
 
 import json
 import logging
+import uuid
 from typing import Any
 
 from jinja2 import BaseLoader
@@ -14,7 +15,7 @@ from apps.models.mcp import MCPTools
 from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
 from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.pool import MCPPool
-from apps.schemas.enum_var import StepStatus
+from apps.schemas.enum_var import FlowStatus, StepStatus
 from apps.schemas.mcp import MCPPlanItem
 from apps.schemas.task import FlowStepHistory
 from apps.services.mcp_service import MCPServiceManager
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 class MCPHost:
     """MCP宿主服务"""
 
-    def __init__(self, user_sub: str, task_id: str, runtime_id: str, runtime_name: str) -> None:
+    def __init__(self, user_sub: str, task_id: uuid.UUID, runtime_id: uuid.UUID, runtime_name: str) -> None:
         """初始化MCP宿主"""
         self._user_sub = user_sub
         self._task_id = task_id
@@ -101,7 +102,7 @@ class MCPHost:
             task_id=self._task_id,
             flow_id=self._runtime_id,
             flow_name=self._runtime_name,
-            flow_status=StepStatus.RUNNING,
+            flow_status=FlowStatus.RUNNING,
             step_id=tool.id,
             step_name=tool.toolName,
             # description是规划的实际内容
