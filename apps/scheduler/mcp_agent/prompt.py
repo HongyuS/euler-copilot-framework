@@ -62,6 +62,7 @@ MCP_SELECT = dedent(r"""
     ### 请一步一步思考：
 
 """)
+
 TOOL_SELECT = dedent(r"""
     你是一个乐于助人的智能助手。
     你的任务是：根据当前目标，附加信息，选择最合适的MCP工具。
@@ -115,8 +116,7 @@ TOOL_SELECT = dedent(r"""
     ## 附加信息
     {{additional_info}}
     # 输出
-    """
-                     )
+    """)
 
 EVALUATE_GOAL = dedent(r"""
     你是一个计划评估器。
@@ -138,9 +138,9 @@ EVALUATE_GOAL = dedent(r"""
     # 工具集合
     你可以访问并使用一些工具，这些工具将在 <tools> </tools> XML标签中给出。
     <tools>
-        - <id> mysql_analyzer </id> <description> 分析MySQL数据库性能 </description>
-        - <id> performance_tuner </id> <description> 调优数据库性能 </description>
-        - <id> Final </id> <description> 结束步骤，当执行到这一步时，表示计划执行结束，所得到的结果将作为最终结果。</description>
+        - <id>mysql_analyzer</id> <description>分析MySQL数据库性能</description>
+        - <id>performance_tuner</id> <description>调优数据库性能</description>
+        - <id>Final</id> <description>结束步骤，当执行到这一步时，表示计划执行结束，所得到的结果将作为最终结果。</description>
     </tools>
 
     # 附加信息
@@ -160,15 +160,16 @@ EVALUATE_GOAL = dedent(r"""
 
     # 工具集合
     <tools>
-        { % for tool in tools % }
-        - <id> {{tool.id}} </id> <description> {{tool.name}}；{{tool.description}} </description>
-        { % endfor % }
+        {% for tool in tools %}
+        - <id>{{tool.id}}</id> <description>{{tool.name}}；{{tool.description}}</description>
+        {% endfor %}
     </tools>
 
     # 附加信息
     {{additional_info}}
 
 """)
+
 GENERATE_FLOW_NAME = dedent(r"""
     你是一个智能助手，你的任务是根据用户的目标，生成一个合适的流程名称。
 
@@ -188,6 +189,7 @@ GENERATE_FLOW_NAME = dedent(r"""
     {{goal}}
     # 输出
     """)
+
 GET_REPLAN_START_STEP_INDEX = dedent(r"""
     你是一个智能助手，你的任务是根据用户的目标、报错信息和当前计划和历史，获取重新规划的步骤起始索引。
 
@@ -293,9 +295,9 @@ CREATE_PLAN = dedent(r"""
     你可以访问并使用一些工具，这些工具将在 <tools> </tools> XML标签中给出。
 
     <tools>
-        { % for tool in tools % }
-        - <id> {{tool.id}} </id> <description> {{tool.name}}；{{tool.description}} </description>
-        { % endfor % }
+        {% for tool in tools %}
+        - <id>{{tool.id}}</id> <description>{{tool.name}}；{{tool.description}}</description>
+        {% endfor %}
     </tools>
 
     # 样例
@@ -349,6 +351,7 @@ CREATE_PLAN = dedent(r"""
 
     # 计划
 """)
+
 RECREATE_PLAN = dedent(r"""
     你是一个计划重建器。
     请根据用户的目标、当前计划和运行报错，重新生成一个计划。
@@ -392,12 +395,12 @@ RECREATE_PLAN = dedent(r"""
 
     请帮我扫描一下192.168.1.1的这台机器的端口，看看有哪些端口开放。
     # 工具
-    你可以访问并使用一些工具，这些工具将在 <tools> </tools> XML标签中给出。
+    你可以访问并使用一些工具，这些工具将在 <tools></tools> XML标签中给出。
     <tools>
-        - <id> command_generator </id> <description> 生成命令行指令 </description>
-        - <id> tool_selector </id> <description> 选择合适的工具 </description>
-        - <id> command_executor </id> <description> 执行命令行指令 </description>
-        - <id> Final </id> <description> 结束步骤，当执行到这一步时，表示计划执行结束，所得到的结果将作为最终结果。</description>
+        - <id>command_generator</id> <description>生成命令行指令</description>
+        - <id>tool_selector</id> <description>选择合适的工具</description>
+        - <id>command_executor</id> <description>执行命令行指令</description>
+        - <id>Final</id> <description>结束步骤，当执行到这一步时，表示计划执行结束，所得到的结果将作为最终结果。</description>
     </tools>     # 当前计划
     ```json
     {
@@ -481,12 +484,12 @@ RECREATE_PLAN = dedent(r"""
 
     # 工具
 
-    你可以访问并使用一些工具，这些工具将在 <tools> </tools> XML标签中给出。
+    你可以访问并使用一些工具，这些工具将在 <tools></tools> XML标签中给出。
 
     <tools>
-        { % for tool in tools % }
-        - <id> {{tool.id}} </id> <description> {{tool.name}}；{{tool.description}} </description>
-        { % endfor % }
+        {% for tool in tools %}
+        - <id>{{tool.id}}</id> <description>{{tool.name}}；{{tool.description}}</description>
+        {% endfor %}
     </tools>
 
     # 当前计划
@@ -497,6 +500,7 @@ RECREATE_PLAN = dedent(r"""
 
     # 重新生成的计划
 """)
+
 RISK_EVALUATE = dedent(r"""
     你是一个工具执行计划评估器。
     你的任务是根据当前工具的名称、描述和入参以及附加信息，判断当前工具执行的风险并输出提示。
@@ -535,16 +539,16 @@ RISK_EVALUATE = dedent(r"""
     ```
     # 工具
     <tool>
-        <name> {{tool_name}} </name>
-        <description> {{tool_description}} </description>
+        <name>{{tool_name}}</name>
+        <description>{{tool_description}}</description>
     </tool>
     # 工具入参
     {{input_param}}
     # 附加信息
     {{additional_info}}
     # 输出
-    """
-                       )
+    """)
+
 # 根据当前计划和报错信息决定下一步执行，具体计划有需要用户补充工具入参、重计划当前步骤、重计划接下来的所有计划
 TOOL_EXECUTE_ERROR_TYPE_ANALYSIS = dedent(r"""
     你是一个计划决策器。
@@ -583,8 +587,8 @@ TOOL_EXECUTE_ERROR_TYPE_ANALYSIS = dedent(r"""
     ]}
     # 当前使用的工具
     <tool>
-        <name> command_executor </name>
-        <description> 执行命令行指令 </description>
+        <name>command_executor</name>
+        <description>执行命令行指令</description>
     </tool>
     # 工具入参
     {
@@ -605,15 +609,15 @@ TOOL_EXECUTE_ERROR_TYPE_ANALYSIS = dedent(r"""
     {{current_plan}}
     # 当前使用的工具
     <tool>
-        <name> {{tool_name}} </name>
-        <description> {{tool_description}} </description>
+        <name>{{tool_name}}</name>
+        <description>{{tool_description}}</description>
     </tool>
     # 工具入参
     {{input_param}}
     # 工具运行报错
     {{error_message}}
     # 输出
-    """
+    """,
                                           )
 # 获取缺失的参数的json结构体
 GET_MISSING_PARAMS = dedent(r"""
@@ -687,8 +691,8 @@ GET_MISSING_PARAMS = dedent(r"""
     ```
     # 工具
     <tool>
-        <name> {{tool_name}} </name>
-        <description> {{tool_description}} </description>
+        <name>{{tool_name}}</name>
+        <description>{{tool_description}}</description>
     </tool>
     # 工具入参
     {{input_param}}
@@ -697,8 +701,8 @@ GET_MISSING_PARAMS = dedent(r"""
     # 运行报错
     {{error_message}}
     # 输出
-    """
-                            )
+    """)
+
 REPAIR_PARAMS = dedent(r"""
     你是一个工具参数修复器。
     你的任务是根据当前的工具信息、工具入参的schema、工具当前的入参、工具的报错、补充的参数和补充的参数描述，修复当前工具的入参。
@@ -706,8 +710,8 @@ REPAIR_PARAMS = dedent(r"""
     # 样例
     # 工具信息
     <tool>
-        <name> mysql_analyzer </name>
-        <description> 分析MySQL数据库性能 </description>
+        <name>mysql_analyzer</name>
+        <description>分析MySQL数据库性能</description>
     </tool>
     # 工具入参的schema
     {
@@ -759,8 +763,8 @@ REPAIR_PARAMS = dedent(r"""
     ```
     # 工具
     <tool>
-        <name> {{tool_name}} </name>
-        <description> {{tool_description}} </description>
+        <name>{{tool_name}}</name>
+        <description>{{tool_description}}</description>
     </tool>
     # 工具入参scheme
     {{input_schema}}
@@ -773,8 +777,8 @@ REPAIR_PARAMS = dedent(r"""
     # 补充的参数描述
     {{params_description}}
     # 输出
-    """
-                       )
+    """)
+
 FINAL_ANSWER = dedent(r"""
     综合理解计划执行结果和背景信息，向用户报告目标的完成情况。
 
@@ -796,10 +800,10 @@ FINAL_ANSWER = dedent(r"""
 
 """)
 MEMORY_TEMPLATE = dedent(r"""
-    {% for ctx in context_list % }
+    {% for ctx in context_list %}
     - 第{{loop.index}}步：{{ctx.step_description}}
       - 调用工具 `{{ctx.step_id}}`，并提供参数 `{{ctx.input_data}}`
       - 执行状态：{{ctx.status}}
       - 得到数据：`{{ctx.output_data}}`
-    {% endfor % }
+    {% endfor %}
 """)

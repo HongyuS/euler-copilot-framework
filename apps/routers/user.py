@@ -18,10 +18,10 @@ router = APIRouter(
 
 @router.get("")
 async def list_user(
-    request: Request,
+    request: Request, page_size: int = 10, page_num: int = 1,
 ) -> JSONResponse:
     """查询不包含当前用户的所有用户信息，返回给前端，用以进行应用权限设置"""
-    user_list = await UserManager.list_user()
+    user_list, total = await UserManager.list_user(page_size, page_num)
     user_info_list = []
     for user in user_list:
         if user.userSub == request.state.user_sub:
@@ -37,7 +37,7 @@ async def list_user(
         content=UserGetRsp(
             code=status.HTTP_200_OK,
             message="用户数据详细信息获取成功",
-            result=UserGetMsp(userInfoList=user_info_list),
+            result=UserGetMsp(userInfoList=user_info_list, total=total),
         ).model_dump(exclude_none=True, by_alias=True),
     )
 
