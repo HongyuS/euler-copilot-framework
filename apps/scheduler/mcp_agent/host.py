@@ -9,7 +9,6 @@ from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 from mcp.types import TextContent
 
-from apps.common.mongo import MongoDB
 from apps.llm.function import JsonGenerator
 from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
 from apps.scheduler.mcp_agent.prompt import REPAIR_PARAMS
@@ -20,13 +19,19 @@ from apps.schemas.mcp import MCPPlanItem, MCPTool
 from apps.schemas.task import FlowStepHistory, Task
 from apps.services.task import TaskManager
 
-logger = logging.getLogger(__name__)
 
+def tojson_filter(value: Any) -> str:
+    """将值转换为JSON字符串"""
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+logger = logging.getLogger(__name__)
 _env = SandboxedEnvironment(
     loader=BaseLoader,
-    autoescape=True,
+    autoescape=False,
     trim_blocks=True,
     lstrip_blocks=True,
+    filters={"tojson": tojson_filter},
 )
 
 
@@ -36,7 +41,6 @@ class MCPHost:
     @staticmethod
     async def assemble_memory(task: Task) -> str:
         """组装记忆"""
-
         return _env.from_string(MEMORY_TEMPLATE).render(
             context_list=task.context,
         )

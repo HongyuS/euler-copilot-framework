@@ -32,6 +32,9 @@ class ServiceLoader:
         """加载单个Service"""
         service_path = BASE_PATH / str(service_id)
         # 载入元数据
+        if not await (service_path / "metadata.yaml").exists():
+            logger.error("[ServiceLoader] Service %s 的元数据不存在", service_id)
+            return
         metadata = await MetadataLoader().load_one(service_path / "metadata.yaml")
         if not isinstance(metadata, ServiceMetadata):
             err = f"[ServiceLoader] 元数据类型错误: {service_path}/metadata.yaml"

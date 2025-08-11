@@ -82,6 +82,7 @@ class AppLoader:
             # 加载模型
             try:
                 metadata = AgentAppMetadata.model_validate(metadata)
+                logger.info("[AppLoader] Agent应用元数据验证成功: %s", metadata)
             except Exception as e:
                 err = "[AppLoader] Agent应用元数据验证失败"
                 logger.exception(err)

@@ -8,7 +8,7 @@ from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from apps.schemas.enum_var import FlowStatus, StepStatus
+from apps.schemas.enum_var import FlowStatus, Language, StepStatus
 
 from .base import Base
 
@@ -63,6 +63,8 @@ class TaskRuntime(Base):
     """计划"""
     document: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default={})
     """关联文档"""
+    language: Mapped[Language] = mapped_column(Enum(Language), nullable=False, default=Language.ZH)
+    """语言"""
 
 
 class ExecutorCheckpoint(Base):

@@ -119,7 +119,11 @@ class Pool:
         for app in changed_app:
             hash_key = Path("app/" + str(app)).as_posix()
             if hash_key in checker.hashes:
-                await AppLoader.load(app, checker.hashes[hash_key])
+                try:
+                    await AppLoader.load(app, checker.hashes[hash_key])
+                except Exception as e:
+                    await AppLoader.delete(app, is_reload=True)
+                    logger.warning("[Pool] 加载App %s 失败: %s", app, e)
 
         # 载入MCP
         logger.info("[Pool] 载入MCP")
