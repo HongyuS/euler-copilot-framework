@@ -14,6 +14,7 @@ class MCPStatus(str, Enum):
     UNINITIALIZED = "uninitialized"
     RUNNING = "running"
     STOPPED = "stopped"
+    ERROR = "error"
 
 
 class MCPBasicConfig(BaseModel):
@@ -22,6 +23,7 @@ class MCPBasicConfig(BaseModel):
     env: dict[str, str] = Field(description="MCP 服务器环境变量", default={})
     autoApprove: list[str] = Field(description="自动批准的MCP权限列表", default=[])  # noqa: N815
     autoInstall: bool = Field(description="是否自动安装MCP服务器", default=True)  # noqa: N815
+    timeout: int = Field(description="MCP 服务器超时时间（秒）", default=60, alias="timeout")
 
 
 class MCPServerStdioConfig(MCPBasicConfig):

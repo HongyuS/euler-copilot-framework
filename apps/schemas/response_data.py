@@ -82,14 +82,6 @@ class GetBlacklistQuestionRsp(ResponseData):
     result: GetBlacklistQuestionMsg
 
 
-class LLMIteam(BaseModel):
-    """GET /api/conversation Result数据结构"""
-
-    icon: str = Field(default=llm_provider_dict["ollama"]["icon"])
-    llm_id: str = Field(alias="llmId", default="empty")
-    model_name: str = Field(alias="modelName", default="Ollama LLM")
-
-
 class KbIteam(BaseModel):
     """GET /api/conversation Result数据结构"""
 
@@ -106,7 +98,6 @@ class ConversationListItem(BaseModel):
     created_time: str = Field(alias="createdTime")
     app_id: str = Field(alias="appId")
     debug: bool = Field(alias="debug")
-    llm: LLMIteam | None = Field(alias="llm", default=None)
     kb_list: list[KbIteam] = Field(alias="kbList", default=[])
 
 
@@ -257,6 +248,7 @@ class GetAppPropertyMsg(AppData):
 
     app_id: str = Field(..., alias="appId", description="应用ID")
     published: bool = Field(..., description="是否已发布")
+    mcp_service: list[AppMcpServiceInfo] = Field(default=[], alias="mcpService", description="MCP服务信息列表")
 
 
 class GetAppPropertyRsp(ResponseData):
@@ -541,6 +533,7 @@ class FlowStructureDeleteRsp(ResponseData):
 class UserGetMsp(BaseModel):
     """GET /api/user result"""
 
+    total: int = Field(default=0)
     user_info_list: list[UserInfo] = Field(alias="userInfoList", default=[])
 
 

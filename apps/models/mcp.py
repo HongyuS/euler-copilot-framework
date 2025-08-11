@@ -16,7 +16,9 @@ from .base import Base
 class MCPInstallStatus(str, PyEnum):
     """MCP 服务状态"""
 
+    INIT = "init"
     INSTALLING = "installing"
+    CANCELLED = "cancelled"
     READY = "ready"
     FAILED = "failed"
 
@@ -52,7 +54,7 @@ class MCPInfo(Base):
     )
     """MCP 更新时间"""
     status: Mapped[MCPInstallStatus] = mapped_column(
-        Enum(MCPInstallStatus), default=MCPInstallStatus.INSTALLING, nullable=False,
+        Enum(MCPInstallStatus), default=MCPInstallStatus.INIT, nullable=False,
     )
     """MCP 状态"""
     mcpType: Mapped[MCPType] = mapped_column(  # noqa: N815
