@@ -128,7 +128,12 @@ class Scheduler:
         # 创建用于通信的事件
         kill_event = asyncio.Event()
         monitor = asyncio.create_task(self._monitor_activity(kill_event, self.task.ids.user_sub))
-        if not self.post_body.app or self.post_body.app.app_id == "":
+        rag_method = True
+        if self.post_body.app and self.post_body.app.app_id:
+            rag_method = False
+        if self.task.state.app_id:
+            rag_method = False
+        if rag_method:
             llm = await self.get_llm_use_in_chat_with_rag()
             kb_ids = await self.get_kb_ids_use_in_chat_with_rag()
             self.task = await push_init_message(self.task, self.queue, 3, is_flow=False)
@@ -232,7 +237,7 @@ class Scheduler:
                 max_tokens=llm.max_tokens,
             ),
         )
-        if background.conversation:
+        if background.conversation and self.task.state.flow_status == FlowStatus.INIT:
             try:
                 question_obj = QuestionRewrite()
                 post_body.question = await question_obj.generate(history=background.conversation, question=post_body.question, llm=reasion_llm)
@@ -296,7 +301,7 @@ class Scheduler:
                 servers_id=servers_id,
                 background=background,
                 agent_id=app_info.app_id,
-                params=post_body.app.params,
+                params=post_body.params,
             )
             # 开始运行
             logger.info("[Scheduler] 运行Executor")

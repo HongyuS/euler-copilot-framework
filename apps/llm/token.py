@@ -3,6 +3,8 @@
 
 import logging
 
+import tiktoken
+
 from apps.common.singleton import SingletonMeta
 
 logger = logging.getLogger(__name__)
@@ -13,7 +15,6 @@ class TokenCalculator(metaclass=SingletonMeta):
 
     def __init__(self) -> None:
         """初始化Tokenizer"""
-        import tiktoken
         self._encoder = tiktoken.get_encoding("cl100k_base")
 
 

@@ -29,6 +29,7 @@ class MCPClient:
     mcp_id: str
     task: asyncio.Task
     ready_sign: asyncio.Event
+    error_sign: asyncio.Event
     stop_sign: asyncio.Event
     client: ClientSession
     status: MCPStatus
@@ -54,9 +55,10 @@ class MCPClient:
         """
         # 创建Client
         if isinstance(config, MCPServerSSEConfig):
+            env = config.env or {}
             client = sse_client(
                 url=config.url,
-                headers=config.env,
+                headers=env,
             )
         elif isinstance(config, MCPServerStdioConfig):
             if user_sub:
@@ -72,6 +74,7 @@ class MCPClient:
                 cwd=cwd.as_posix(),
             ))
         else:
+            self.error_sign.set()
             err = f"[MCPClient] MCP {mcp_id}：未知的MCP服务类型“{config.type}”"
             logger.error(err)
             raise TypeError(err)
@@ -85,6 +88,8 @@ class MCPClient:
             # 初始化Client
             await session.initialize()
         except Exception:
+            self.error_sign.set()
+            self.status = MCPStatus.STOPPED
             logger.exception("[MCPClient] MCP %s：初始化失败", mcp_id)
             raise
 
@@ -93,6 +98,7 @@ class MCPClient:
 
         # 等待关闭信号
         await self.stop_sign.wait()
+        logger.info("[MCPClient] MCP %s：收到停止信号，正在关闭", mcp_id)
 
         # 关闭Client
         try:
@@ -116,13 +122,22 @@ class MCPClient:
         # 初始化变量
         self.mcp_id = mcp_id
         self.ready_sign = asyncio.Event()
+        self.error_sign = asyncio.Event()
         self.stop_sign = asyncio.Event()
 
         # 创建协程
         self.task = asyncio.create_task(self._main_loop(user_sub, mcp_id, config))
 
         # 等待初始化完成
-        await self.ready_sign.wait()
+        done, pending = await asyncio.wait(
+            [asyncio.create_task(self.ready_sign.wait()),
+             asyncio.create_task(self.error_sign.wait())],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        if self.error_sign.is_set():
+            self.status = MCPStatus.ERROR
+            logger.error("[MCPClient] MCP %s：初始化失败", mcp_id)
+            raise Exception(f"MCP {mcp_id} 初始化失败")
 
         # 获取工具列表
         self.tools = (await self.client.list_tools()).tools
@@ -138,5 +153,5 @@ class MCPClient:
         self.stop_sign.set()
         try:
             await self.task
-        except Exception:
-            logger.exception("[MCPClient] MCP %s：停止失败", self.mcp_id)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("[MCPClient] MCP %s：停止时发生异常：%s", self.mcp_id, e)

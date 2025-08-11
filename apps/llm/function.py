@@ -7,6 +7,8 @@ import re
 from textwrap import dedent
 from typing import Any
 
+import ollama
+import openai
 from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 from jsonschema import Draft7Validator
@@ -45,29 +47,22 @@ class FunctionLLM:
             "messages": [],
         }
 
-        if self._config.backend == "ollama":
-            import ollama
-
-            if not self._config.api_key:
-                self._client = ollama.AsyncClient(host=self._config.endpoint)
-            else:
-                self._client = ollama.AsyncClient(
-                    host=self._config.endpoint,
-                    headers={
-                        "Authorization": f"Bearer {self._config.api_key}",
-                    },
-                )
-
-        else:
-            import openai
-
-            if not self._config.api_key:
-                self._client = openai.AsyncOpenAI(base_url=self._config.endpoint)
-            else:
-                self._client = openai.AsyncOpenAI(
-                    base_url=self._config.endpoint,
-                    api_key=self._config.api_key,
-                )
+        if self._config.backend == "ollama" and not self._config.api_key:
+            self._client = ollama.AsyncClient(host=self._config.endpoint)
+        elif self._config.backend == "ollama" and self._config.api_key:
+            self._client = ollama.AsyncClient(
+                host=self._config.endpoint,
+                headers={
+                    "Authorization": f"Bearer {self._config.api_key}",
+                },
+            )
+        elif self._config.backend != "ollama" and not self._config.api_key:
+            self._client = openai.AsyncOpenAI(base_url=self._config.endpoint)
+        elif self._config.backend != "ollama" and self._config.api_key:
+            self._client = openai.AsyncOpenAI(
+                base_url=self._config.endpoint,
+                api_key=self._config.api_key,
+            )
 
 
     async def _call_openai(

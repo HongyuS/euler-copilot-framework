@@ -24,11 +24,11 @@ class MCPPool(metaclass=SingletonMeta):
 
     async def _init_mcp(self, mcp_id: str, user_sub: str) -> MCPClient | None:
         """初始化MCP池"""
-        mcp_math = MCP_USER_PATH / user_sub / mcp_id / "project"
         config_path = MCP_USER_PATH / user_sub / mcp_id / "config.json"
 
-        if not await mcp_math.exists() or not await mcp_math.is_dir():
-            logger.warning("[MCPPool] 用户 %s 的MCP %s 未激活", user_sub, mcp_id)
+        flag = (await config_path.exists())
+        if not flag:
+            logger.warning("[MCPPool] 用户 %s 的MCP %s 配置文件不存在", user_sub, mcp_id)
             return None
 
         config = MCPServerConfig.model_validate_json(await config_path.read_text())
@@ -40,6 +40,9 @@ class MCPPool(metaclass=SingletonMeta):
             return None
 
         await client.init(user_sub, mcp_id, config.config)
+        if user_sub not in self.pool:
+            self.pool[user_sub] = {}
+        self.pool[user_sub][mcp_id] = client
         return client
 
 

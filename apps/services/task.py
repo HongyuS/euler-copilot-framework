@@ -53,7 +53,7 @@ class TaskManager:
 
 
     @staticmethod
-    async def get_context_by_task_id(task_id: str, length: int = 0) -> list[FlowStepHistory]:
+    async def get_context_by_task_id(task_id: str, length: int | None = None) -> list[FlowStepHistory]:
         """根据task_id获取flow信息"""
         async with postgres.session() as session:
             executor_history_collection = session.query(ExecutorHistory)
