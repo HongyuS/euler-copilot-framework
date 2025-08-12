@@ -45,7 +45,7 @@ class MCPHost:
             context_list=task.context,
         )
 
-    async def _get_first_input_params(mcp_tool: MCPTool, query: str, task: Task) -> dict[str, Any]:
+    async def get_first_input_params(mcp_tool: MCPTool, query: str, task: Task) -> dict[str, Any]:
         """填充工具参数"""
         # 更清晰的输入·指令，这样可以调用generate
         llm_query = rf"""

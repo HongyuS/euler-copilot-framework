@@ -1,10 +1,11 @@
-from typing import Annotated
+"""步骤参数相关路由"""
 
-from fastapi import APIRouter, Depends, Query, status
+import uuid
+
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency import get_user
-from apps.dependency.user import verify_user
+from apps.dependency.user import verify_personal_token, verify_session
 from apps.schemas.response_data import GetOperaRsp, GetParamsRsp
 from apps.services.appcenter import AppCenterManager
 from apps.services.flow import FlowManager
@@ -14,20 +15,18 @@ router = APIRouter(
     prefix="/api/parameter",
     tags=["parameter"],
     dependencies=[
-        Depends(verify_user),
+        Depends(verify_personal_token),
+        Depends(verify_session),
     ],
 )
 
 
 @router.get("", response_model=GetParamsRsp)
 async def get_parameters(
-    user_sub: Annotated[str, Depends(get_user)],
-    app_id: Annotated[str, Query(alias="appId")],
-    flow_id: Annotated[str, Query(alias="flowId")],
-    step_id: Annotated[str, Query(alias="stepId")],
+    request: Request, appId: uuid.UUID, flowId: uuid.UUID, stepId: uuid.UUID,  # noqa: N803
 ) -> JSONResponse:
     """Get parameters for node choice."""
-    if not await AppManager.validate_user_app_access(user_sub, app_id):
+    if not await AppCenterManager.validate_user_app_access(request.state.user_sub, appId):
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
             content=GetParamsRsp(
@@ -36,7 +35,7 @@ async def get_parameters(
                 result=[],
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    flow = await FlowManager.get_flow_by_app_and_flow_id(app_id, flow_id)
+    flow = await FlowManager.get_flow_by_app_and_flow_id(appId, flowId)
     if not flow:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -46,7 +45,7 @@ async def get_parameters(
                 result=[],
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    result = await ParameterManager.get_pre_params_by_flow_and_step_id(flow, step_id)
+    result = await ParameterManager.get_pre_params_by_flow_and_step_id(flow, stepId)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=GetParamsRsp(
@@ -58,12 +57,9 @@ async def get_parameters(
 
 
 @router.get("/operate", response_model=GetOperaRsp)
-async def get_operate_parameters(
-    user_sub: Annotated[str, Depends(get_user)],
-    param_type: Annotated[str, Query(alias="ParamType")],
-) -> JSONResponse:
+async def get_operate_parameters(paramType: str) -> JSONResponse:  # noqa: N803
     """Get parameters for node choice."""
-    result = await ParameterManager.get_operate_and_bind_type(param_type)
+    result = await ParameterManager.get_operate_and_bind_type(paramType)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=GetOperaRsp(

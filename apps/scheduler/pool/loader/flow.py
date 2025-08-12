@@ -189,7 +189,7 @@ class FlowLoader:
 
 
     @staticmethod
-    async def delete(app_id: uuid.UUID, flow_id: uuid.UUID) -> bool:
+    async def delete(app_id: uuid.UUID, flow_id: uuid.UUID) -> None:
         """删除指定工作流文件"""
         flow_path = BASE_PATH / str(app_id) / "flow" / f"{flow_id}.yaml"
         # 确保目标为文件且存在
@@ -198,10 +198,16 @@ class FlowLoader:
             await flow_path.unlink()
 
             async with postgres.session() as session:
+                await session.execute(delete(FlowInfo).where(
+                    and_(
+                        FlowInfo.appId == app_id,
+                        FlowInfo.id == flow_id,
+                    ),
+                ))
                 await session.execute(delete(FlowPoolVector).where(FlowPoolVector.id == flow_id))
-            return True
+                await session.commit()
+                return
         logger.warning("[FlowLoader] 工作流文件不存在或不是文件：%s", flow_path)
-        return True
 
 
     @staticmethod

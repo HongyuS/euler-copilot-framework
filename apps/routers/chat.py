@@ -144,10 +144,6 @@ async def chat(request: Request, post_body: RequestData) -> StreamingResponse:
         await UserBlacklistManager.change_blacklisted_users(user_sub, -10)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="question is blacklisted")
 
-    # 限流检查
-    if await Activity.is_active(user_sub):
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many requests")
-
     res = chat_generator(post_body, user_sub, session_id)
     return StreamingResponse(
         content=res,

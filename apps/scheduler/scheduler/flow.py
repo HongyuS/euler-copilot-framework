@@ -2,11 +2,12 @@
 """Scheduler中，关于Flow的逻辑"""
 
 import logging
+import uuid
 
 from apps.llm.patterns import Select
 from apps.scheduler.pool.pool import Pool
 from apps.schemas.request_data import RequestDataApp
-from apps.schemas.task import Task
+from apps.services.task import TaskManager
 
 logger = logging.getLogger(__name__)
 
@@ -14,9 +15,9 @@ logger = logging.getLogger(__name__)
 class FlowChooser:
     """Flow选择器"""
 
-    def __init__(self, task: Task, question: str, user_selected: RequestDataApp | None = None) -> None:
+    def __init__(self, task_id: uuid.UUID, question: str, user_selected: RequestDataApp | None = None) -> None:
         """初始化Flow选择器"""
-        self.task = task
+        self.task_id = task_id
         self._question = question
         self._user_selected = user_selected
 
@@ -31,15 +32,15 @@ class FlowChooser:
         if not flow_list:
             return "KnowledgeBase"
 
-        logger.info("[FlowChooser] 选择任务 %s 最合适的Flow", self.task.id)
+        logger.info("[FlowChooser] 选择任务 %s 最合适的Flow", self.task_id)
         choices = [{
             "name": flow.id,
             "description": f"{flow.name}, {flow.description}",
         } for flow in flow_list]
         select_obj = Select()
         top_flow = await select_obj.generate(question=self._question, choices=choices)
-        self.task.tokens.input_tokens += select_obj.input_tokens
-        self.task.tokens.output_tokens += select_obj.output_tokens
+
+        await TaskManager.update_task_token(self.task_id, select_obj.input_tokens, select_obj.output_tokens)
         return top_flow
 
 
@@ -64,5 +65,5 @@ class FlowChooser:
         return RequestDataApp(
             appId=self._user_selected.app_id,
             flowId=top_flow,
-            params={},
+            params=None,
         )

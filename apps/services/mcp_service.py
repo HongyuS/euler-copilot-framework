@@ -236,12 +236,17 @@ class MCPServiceManager:
         else:
             config = MCPServerStdioConfig.model_validate(data.config)
 
+        if not data.service_id:
+            data.service_id = str(uuid.uuid4())
+
         # 构造Server
         mcp_server = MCPServerConfig(
             name=await MCPServiceManager.clean_name(data.name),
             overview=data.overview,
             description=data.description,
-            mcpServers=config,
+            mcpServers={
+                data.service_id: config,
+            },
             mcpType=data.mcp_type,
             author=user_sub,
         )
@@ -255,7 +260,7 @@ class MCPServiceManager:
 
         # 保存并载入配置
         logger.info("[MCPServiceManager] 创建mcp：%s", mcp_server.name)
-        mcp_path = MCP_PATH / "template" / mcp_id / "project"
+        mcp_path = MCP_PATH / "template" / data.service_id / "project"
         index = None
         if isinstance(config, MCPServerStdioConfig):
             index = None
@@ -268,7 +273,7 @@ class MCPServiceManager:
                 if index >= len(config.args):
                     config.args.append(str(mcp_path))
                 else:
-                    config.args[index+1] = str(mcp_path)
+                    config.args[index] = str(mcp_path)
             else:
                 config.args += ["--directory", str(mcp_path)]
         await MCPLoader._insert_template_db(mcp_id=mcp_id, config=mcp_server)

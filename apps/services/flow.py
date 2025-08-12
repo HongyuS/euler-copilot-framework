@@ -4,18 +4,19 @@
 import logging
 import uuid
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, delete, select
 
 from apps.common.postgres import postgres
-from apps.models.app import App
+from apps.models.app import App, AppHashes
 from apps.models.flow import Flow as FlowInfo
 from apps.models.node import NodeInfo
 from apps.models.service import Service
 from apps.models.user import UserFavorite, UserFavoriteType
+from apps.scheduler.pool.loader.app import AppLoader
 from apps.scheduler.pool.loader.flow import FlowLoader
 from apps.scheduler.slot.slot import Slot
 from apps.schemas.enum_var import EdgeType
-from apps.schemas.flow import Edge, Flow, Step
+from apps.schemas.flow import AppMetadata, Edge, Flow, Step
 from apps.schemas.flow_topology import (
     EdgeItem,
     FlowItem,
@@ -38,7 +39,7 @@ class FlowManager:
     @staticmethod
     async def get_node_id_by_service_id(service_id: uuid.UUID) -> list[NodeMetaDataBase] | None:
         """
-        serviceId获取service的基础信息
+        根据serviceId获取service内节点的基础信息，用于左侧节点列表展示
 
         :param service_id: 服务id
         :return: 节点基础信息的列表，按创建时间排序
@@ -65,7 +66,7 @@ class FlowManager:
     @staticmethod
     async def get_service_by_user_id(user_sub: str) -> list[NodeServiceItem] | None:
         """
-        通过user_id获取用户自己上传的或收藏的Service
+        通过user_id获取用户自己上传的或收藏的Service，用于插件中心展示
 
         :user_sub: 用户的唯一标识符
         :return: service的列表
@@ -351,17 +352,26 @@ class FlowManager:
         :param app_id: 应用的id
         :param flow_id: 流的id
         """
-        app_collection = MongoDB().get_collection("app")
-        key = f"flow/{flow_id}.yaml"
-        await app_collection.update_one({"_id": app_id}, {"$unset": {f"hashes.{key}": ""}})
-        await app_collection.update_one({"_id": app_id}, {"$pull": {"flows": {"id": flow_id}}})
+        await FlowLoader.delete(app_id, flow_id)
 
-        result = await FlowLoader.delete(app_id, flow_id)
+        async with postgres.session() as session:
+            key = f"flow/{flow_id}.yaml"
+            await session.execute(
+                delete(AppHashes).where(
+                    and_(
+                        AppHashes.appId == app_id,
+                        AppHashes.filePath == key,
+                    ),
+                ),
+            )
 
-        if result is None:
-            error_msg = f"[FlowManager] 删除流 {flow_id} 失败"
-            logger.error(error_msg)
-            raise ValueError(error_msg)
+            metadata = await AppLoader.read_metadata(app_id)
+            if not isinstance(metadata, AppMetadata):
+                err = f"[FlowManager] 应用 {app_id} 不是Flow应用"
+                logger.error(err)
+                raise TypeError(err)
+            metadata.flows = [flow for flow in metadata.flows if flow.id != flow_id]
+            await AppLoader.save(metadata, app_id)
 
 
     @staticmethod

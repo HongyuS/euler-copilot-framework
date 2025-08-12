@@ -103,6 +103,7 @@ async def get_record(request: Request, conversationId: Annotated[uuid.UUID, Path
                             stepStatus=flow_step.step_status,
                             input=flow_step.input_data,
                             output=flow_step.output_data,
+                            exData=flow_step.ex_data,
                         ),
                     )
 

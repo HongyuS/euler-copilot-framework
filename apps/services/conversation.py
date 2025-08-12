@@ -67,7 +67,9 @@ class ConversationManager:
 
 
     @staticmethod
-    async def add_conversation_by_user_sub(user_sub: str, app_id: uuid.UUID, *, debug: bool) -> Conversation | None:
+    async def add_conversation_by_user_sub(
+        user_sub: str, app_id: uuid.UUID | None = None, *, debug: bool = False,
+    ) -> Conversation | None:
         """通过用户ID新建对话"""
         conv = Conversation(
             userSub=user_sub,

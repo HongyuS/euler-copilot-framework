@@ -15,7 +15,7 @@ from apps.models.app import App, AppACL
 from apps.models.user import UserAppUsage, UserFavorite, UserFavoriteType
 from apps.scheduler.pool.loader.app import AppLoader
 from apps.schemas.agent import AgentAppMetadata
-from apps.schemas.appcenter import AppCenterCardItem, AppData, AppPermissionData
+from apps.schemas.appcenter import AppCenterCardItem, AppData
 from apps.schemas.enum_var import AppFilterType, AppType, PermissionType
 from apps.schemas.flow import AppMetadata, MetadataType, Permission
 from apps.schemas.response_data import RecentAppList, RecentAppListItem
@@ -37,24 +37,30 @@ class AppCenterManager:
         :param app_id: 应用id
         :return: 如果用户具有所需权限则返回True，否则返回False
         """
-        mongo = MongoDB()
-        app_collection = mongo.get_collection("app")
-        query = {
-            "_id": app_id,
-            "$or": [
-                {"author": user_sub},
-                {"permission.type": PermissionType.PUBLIC.value},
-                {
-                    "$and": [
-                        {"permission.type": PermissionType.PROTECTED.value},
-                        {"permission.users": user_sub},
-                    ],
-                },
-            ],
-        }
+        async with postgres.session() as session:
+            sql = select(App.author, App.permission).where(App.id == app_id)
+            app_info = (await session.execute(sql)).one_or_none()
+            if not app_info:
+                msg = f"[AppCenterManager] 应用不存在: {app_id}"
+                raise ValueError(msg)
 
-        result = await app_collection.find_one(query)
-        return result is not None
+            # 作者一定可以访问
+            if app_info.author == user_sub:
+                return True
+
+            if app_info.permission == PermissionType.PUBLIC:
+                return True
+            if app_info.permission == PermissionType.PRIVATE:
+                return False
+            if app_info.permission == PermissionType.PROTECTED:
+                sql = select(AppACL.appId).where(
+                    AppACL.appId == app_id,
+                    AppACL.userSub == user_sub,
+                )
+                acl_info = (await session.execute(sql)).one_or_none()
+                if acl_info:
+                    return True
+            return False
 
 
     @staticmethod
@@ -118,12 +124,13 @@ class AppCenterManager:
             ).cte()
 
             # 获取用户所有收藏的应用
-            user_favourite_apps = select(UserFavorite.itemId).where(
+            favapps_sql = select(UserFavorite.itemId).where(
                 and_(
                     UserFavorite.userSub == user_sub,
                     UserFavorite.favouriteType == UserFavoriteType.APP,
                 ),
             )
+            favapps = list((await session.scalars(favapps_sql)).all())
 
             # 根据搜索类型加入搜索条件
             if filter_type == AppFilterType.ALL:
@@ -133,7 +140,7 @@ class AppCenterManager:
             elif filter_type == AppFilterType.FAVORITE:
                 filtered_apps = select(app_data).where(
                     and_(
-                        App.id.in_(user_favourite_apps),
+                        App.id.in_(favapps_sql),
                         App.isPublished == True,  # noqa: E712
                     ),
                 ).cte()
@@ -174,7 +181,7 @@ class AppCenterManager:
                     name=app.name,
                     description=app.description,
                     author=app.author,
-                    favorited=(app.id in user_favourite_apps),
+                    favorited=(app.id in favapps),
                     published=app.isPublished,
                 )
                 for app in result
@@ -480,7 +487,7 @@ class AppCenterManager:
 
 
     @staticmethod
-    def _create_agent_metadata(
+    async def _create_agent_metadata(
         common_params: dict,
         user_sub: str,
         data: AppData | None = None,
@@ -494,7 +501,9 @@ class AppCenterManager:
         # mcp_service 逻辑
         if data is not None and hasattr(data, "mcp_service") and data.mcp_service:
             # 创建应用场景，验证传入的 mcp_service 状态，确保只使用已经激活的 (create_app)
-            metadata.mcp_service = [svc.id for svc in data.mcp_service if MCPServiceManager.is_active(user_sub, svc.id)]
+            metadata.mcp_service = [
+                mcp_id for mcp_id in data.mcp_service if await MCPServiceManager.is_active(user_sub, mcp_id)
+            ]
         elif data is not None and hasattr(data, "mcp_service"):
             # 更新应用场景，使用 data 中的 mcp_service (update_app)
             metadata.mcp_service = data.mcp_service if data.mcp_service is not None else []
@@ -559,7 +568,9 @@ class AppCenterManager:
 
         # 根据应用类型创建不同的元数据
         if app_type == AppType.AGENT:
-            return AppCenterManager._create_agent_metadata(common_params, user_sub, data, app_data, published=published)
+            return await AppCenterManager._create_agent_metadata(
+                common_params, user_sub, data, app_data, published=published,
+            )
 
         return AppCenterManager._create_flow_metadata(common_params, data, app_data, published=published)
 

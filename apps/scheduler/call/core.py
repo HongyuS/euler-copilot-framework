@@ -14,7 +14,9 @@ from pydantic.json_schema import SkipJsonSchema
 
 from apps.llm.function import FunctionLLM
 from apps.llm.reasoning import ReasoningLLM
+from apps.models.llm import LLMData
 from apps.models.node import NodeInfo
+from apps.models.task import ExecutorHistory
 from apps.schemas.enum_var import CallOutputType
 from apps.schemas.scheduler import (
     CallError,
@@ -24,7 +26,6 @@ from apps.schemas.scheduler import (
     CallTokens,
     CallVars,
 )
-from apps.schemas.task import FlowStepHistory
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor
@@ -122,7 +123,7 @@ class CoreCall(BaseModel):
 
 
     @staticmethod
-    def _extract_history_variables(path: str, history: dict[str, FlowStepHistory]) -> Any:
+    def _extract_history_variables(path: str, history: dict[str, ExecutorHistory]) -> Any:
         """
         提取History中的变量
 
@@ -210,8 +211,7 @@ class CoreCall(BaseModel):
         return result
 
 
-    async def _json(self, messages: list[dict[str, Any]], schema: type[BaseModel]) -> BaseModel:
+    async def _json(self, messages: list[dict[str, Any]], schema: dict[str, Any]) -> dict[str, Any]:
         """Call可直接使用的JSON生成"""
         json = FunctionLLM()
-        result = await json.call(messages=messages, schema=schema.model_json_schema())
-        return schema.model_validate(result)
+        return await json.call(messages=messages, schema=schema)
