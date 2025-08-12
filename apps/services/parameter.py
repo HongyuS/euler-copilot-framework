@@ -2,6 +2,7 @@
 """Parameter Manager"""
 
 import logging
+import uuid
 
 from apps.scheduler.call.choice.condition_handler import ConditionHandler
 from apps.scheduler.call.choice.schema import BoolOperate, DictOperate, ListOperate, NumberOperate, StringOperate, Type
@@ -45,7 +46,7 @@ class ParameterManager:
         return result
 
     @staticmethod
-    async def get_pre_params_by_flow_and_step_id(flow: FlowItem, step_id: str) -> list[StepParams]:
+    async def get_pre_params_by_flow_and_step_id(flow: FlowItem, step_id: uuid.UUID) -> list[StepParams]:
         """Get pre params by flow and step id"""
         index = 0
         q = [step_id]

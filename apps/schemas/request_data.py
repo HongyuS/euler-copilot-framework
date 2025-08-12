@@ -10,7 +10,7 @@ from .appcenter import AppData
 from .enum_var import CommentType
 from .flow_topology import FlowItem
 from .mcp import MCPType
-from .message import param
+from .message import FlowParams
 
 
 class RequestDataApp(BaseModel):
@@ -18,7 +18,7 @@ class RequestDataApp(BaseModel):
 
     app_id: uuid.UUID = Field(description="应用ID", alias="appId")
     flow_id: str | None = Field(default=None, description="Flow ID", alias="flowId")
-    params: param | None = Field(default=None, description="流执行过程中的参数补充", alias="params")
+    params: FlowParams | None = Field(default=None, description="流执行过程中的参数补充", alias="params")
 
 
 class RequestData(BaseModel):

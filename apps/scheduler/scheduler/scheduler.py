@@ -3,13 +3,14 @@
 
 import asyncio
 import logging
-from datetime import UTC, datetime
+import uuid
 
 from apps.common.config import config
 from apps.common.queue import MessageQueue
 from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.llm.reasoning import ReasoningLLM
-from apps.models.app import App
+from apps.models.llm import LLMData
+from apps.models.task import Task
 from apps.scheduler.executor.agent import MCPAgentExecutor
 from apps.scheduler.executor.flow import FlowExecutor
 from apps.scheduler.pool.pool import Pool
@@ -24,11 +25,11 @@ from apps.schemas.enum_var import AppType, EventType, FlowStatus
 from apps.schemas.rag_data import RAGQueryReq
 from apps.schemas.request_data import RequestData
 from apps.schemas.scheduler import ExecutorBackground
-from apps.schemas.task import Task
 from apps.services.activity import Activity
 from apps.services.appcenter import AppCenterManager
 from apps.services.knowledge import KnowledgeBaseManager
 from apps.services.llm import LLMManager
+from apps.services.task import TaskManager
 
 logger = logging.getLogger(__name__)
 
@@ -40,16 +41,15 @@ class Scheduler:
     Scheduler包含一个“SchedulerContext”，作用为多个Executor的“聊天会话”
     """
 
-    def __init__(self, task: Task, queue: MessageQueue, post_body: RequestData) -> None:
+    async def init(self, task_id: uuid.UUID, queue: MessageQueue, post_body: RequestData) -> None:
         """初始化"""
         self.used_docs = []
-        self.task = task
-
+        self.task_id = task_id
         self.queue = queue
         self.post_body = post_body
 
 
-    async def _monitor_activity(self, kill_event, user_sub):
+    async def _monitor_activity(self, kill_event: asyncio.Event, user_sub: str) -> None:
         """监控用户活动状态，不活跃时终止工作流"""
         try:
             check_interval = 0.5  # 每0.5秒检查一次
@@ -67,56 +67,36 @@ class Scheduler:
                 await asyncio.sleep(check_interval)
         except asyncio.CancelledError:
             logger.info("[Scheduler] 活动监控任务已取消")
-        except Exception as e:
-            logger.error(f"[Scheduler] 活动监控过程中发生错误: {e}")
+        except Exception:
+            logger.exception("[Scheduler] 活动监控过程中发生错误")
+            kill_event.set()
 
 
-    async def get_llm_use_in_chat_with_rag(self) -> LLM:
+    async def get_chat_llm(self, llm_id: uuid.UUID) -> LLMData:
         """获取RAG大模型"""
-        try:
-            # 获取当前会话使用的大模型
-            llm_id = await LLMManager.get_llm_id_by_conversation_id(
-                self.task.ids.user_sub, self.task.ids.conversation_id,
-            )
-            if not llm_id:
-                logger.error("[Scheduler] 获取大模型ID失败")
-                return None
-            if llm_id == "empty":
-                return LLM(
-                    _id="empty",
-                    user_sub=self.task.ids.user_sub,
-                    openai_base_url=Config().get_config().llm.endpoint,
-                    openai_api_key=Config().get_config().llm.key,
-                    model_name=Config().get_config().llm.model,
-                    max_tokens=Config().get_config().llm.max_tokens,
-                )
-            llm = await LLMManager.get_llm_by_id(self.task.ids.user_sub, llm_id)
-            if not llm:
-                logger.error("[Scheduler] 获取大模型失败")
-                return None
-            return llm
-        except Exception:
-            logger.exception("[Scheduler] 获取大模型失败")
-            return None
-
-
-    async def get_kb_ids_use_in_chat_with_rag(self) -> list[str]:
-        """获取知识库ID列表"""
-        try:
-            return await KnowledgeBaseManager.get_kb_ids_by_conversation_id(
-                self.task.ids.user_sub, self.task.ids.conversation_id,
-            )
-        except Exception:
-            logger.exception("[Scheduler] 获取知识库ID失败")
-            await self.queue.close()
-            return []
+        # 获取当前会话使用的大模型
+        llm = await LLMManager.get_llm(llm_id)
+        if not llm:
+            err = "[Scheduler] 获取大模型ID失败"
+            logger.error(err)
+            raise ValueError(err)
+        return llm
 
 
     async def run(self) -> None:
         """运行调度器"""
+        task = await TaskManager.get_task_by_conversation_id(self.task_id)
+        if not task:
+            task = Task(
+                id=self.task_id,
+                ids=TaskIds(
+                    user_sub=self.post_body.user_sub,
+                    conversation_id=self.task_id,
+                ),
+            )
         try:
             # 获取当前问答可供关联的文档
-            docs, doc_ids = await get_docs(self.task.ids.user_sub, self.post_body)
+            docs, doc_ids = await get_docs(self.post_body)
         except Exception:
             logger.exception("[Scheduler] 获取文档失败")
             await self.queue.close()
@@ -134,8 +114,8 @@ class Scheduler:
         if self.task.state.app_id:
             rag_method = False
         if rag_method:
-            llm = await self.get_llm_use_in_chat_with_rag()
-            kb_ids = await self.get_kb_ids_use_in_chat_with_rag()
+            llm = await self.get_chat_llm()
+            kb_ids = await KnowledgeBaseManager.get_selected_kb(self.task.ids.user_sub)
             self.task = await push_init_message(self.task, self.queue, 3, is_flow=False)
             rag_data = RAGQueryReq(
                 kbIds=kb_ids,

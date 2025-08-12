@@ -29,24 +29,15 @@ class AppLoader:
     """应用加载器"""
 
     @staticmethod
-    async def load(app_id: uuid.UUID, hashes: dict[str, str]) -> None:  # noqa: C901
+    async def load(app_id: uuid.UUID, hashes: dict[str, str]) -> None:
         """
         从文件系统中加载应用
 
         :param app_id: 应用 ID
         """
         app_path = BASE_PATH / str(app_id)
-        metadata_path = app_path / "metadata.yaml"
-        metadata = await MetadataLoader().load_one(metadata_path)
-        if not metadata:
-            err = f"[AppLoader] 元数据不存在: {metadata_path}"
-            raise ValueError(err)
+        metadata = await AppLoader.read_metadata(app_id)
         metadata.hashes = hashes
-
-        if not isinstance(metadata, (AppMetadata, AgentAppMetadata)):
-            err = f"[AppLoader] 元数据类型错误: {metadata_path}"
-            raise TypeError(err)
-
         if metadata.app_type == AppType.FLOW and isinstance(metadata, AppMetadata):
             # 加载工作流
             flow_path = app_path / "flow"
@@ -88,6 +79,20 @@ class AppLoader:
                 logger.exception(err)
                 raise RuntimeError(err) from e
         await AppLoader._update_db(metadata)
+
+
+    @staticmethod
+    async def read_metadata(app_id: uuid.UUID) -> AppMetadata | AgentAppMetadata:
+        """读取应用元数据"""
+        metadata_path = BASE_PATH / str(app_id) / "metadata.yaml"
+        metadata = await MetadataLoader().load_one(metadata_path)
+        if not metadata:
+            err = f"[AppLoader] 元数据不存在: {metadata_path}"
+            raise ValueError(err)
+        if not isinstance(metadata, (AppMetadata, AgentAppMetadata)):
+            err = f"[AppLoader] 元数据类型错误: {metadata_path}"
+            raise TypeError(err)
+        return metadata
 
 
     @staticmethod

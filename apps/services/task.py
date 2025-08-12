@@ -4,13 +4,11 @@
 import logging
 import uuid
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from apps.common.postgres import postgres
-from apps.models.task import ExecutorCheckpoint, ExecutorHistory, Task
+from apps.models.task import ExecutorCheckpoint, ExecutorHistory, Task, TaskRuntime
 from apps.schemas.request_data import RequestData
-
-from .record import RecordManager
 
 logger = logging.getLogger(__name__)
 
@@ -19,59 +17,40 @@ class TaskManager:
     """从数据库中获取任务信息"""
 
     @staticmethod
-    async def get_task_by_conversation_id(conversation_id: str) -> Task | None:
-        """获取对话ID的最后一条问答组关联的任务"""
-        # 查询对话ID的最后一条问答组
-        last_group = await RecordManager.query_record_group_by_conversation_id(conversation_id, 1)
-        if not last_group or len(last_group) == 0:
-            logger.error("[TaskManager] 没有找到对话 %s 的问答组", conversation_id)
-            # 空对话或无效对话，新建Task
-            return None
+    async def get_task_by_conversation_id(conversation_id: str) -> Task:
+        """获取对话ID的最后一个任务"""
+        async with postgres.session() as session:
+            task = (await session.scalars(
+                select(Task).where(Task.conversationId == conversation_id).order_by(Task.updatedAt.desc()).limit(1),
+            )).one_or_none()
+            if not task:
+                # 任务不存在，新建Task
+                logger.info("[TaskManager] 新建任务", task_id)
+                return Task(
+                    conversationId=conversation_id,
 
-        last_group = last_group[0]
-        task_id = last_group.task_id
-
-        # 查询最后一条问答组关联的任务
-        task_collection = MongoDB().get_collection("task")
-        task = await task_collection.find_one({"_id": task_id})
-        if not task:
-            # 任务不存在，新建Task
-            logger.error("[TaskManager] 任务 %s 不存在", task_id)
-            return None
-
-        return Task.model_validate(task)
+                )
+            return task
 
 
     @staticmethod
     async def get_task_by_task_id(task_id: uuid.UUID) -> Task | None:
         """根据task_id获取任务"""
-        task_collection = MongoDB().get_collection("task")
-        task = await task_collection.find_one({"_id": task_id})
-        if not task:
-            return None
-        return Task.model_validate(task)
+        async with postgres.session() as session:
+            return (await session.scalars(
+                select(Task).where(Task.id == task_id),
+            )).one_or_none()
 
 
     @staticmethod
-    async def get_context_by_task_id(task_id: str, length: int | None = None) -> list[FlowStepHistory]:
+    async def get_context_by_task_id(task_id: str, length: int | None = None) -> list[ExecutorHistory]:
         """根据task_id获取flow信息"""
         async with postgres.session() as session:
-            executor_history_collection = session.query(ExecutorHistory)
-
-        flow_context = []
-        try:
-            async for history in flow_context_collection.find(
-                {"task_id": task_id},
-            ).sort(
-                "created_at", -1,
-            ).limit(length):
-                for i in range(len(flow_context)):
-                    flow_context.append(FlowStepHistory.model_validate(history))
-        except Exception:
-            logger.exception("[TaskManager] 获取task_id的flow信息失败")
-            return []
-        else:
-            return flow_context
+            return list((await session.scalars(
+                select(ExecutorHistory).where(
+                    ExecutorHistory.taskId == task_id,
+                ).order_by(ExecutorHistory.updatedAt.desc()).limit(length),
+            )).all())
 
 
     @staticmethod
@@ -94,7 +73,7 @@ class TaskManager:
         )
 
     @staticmethod
-    async def save_flow_context(task_id: str, flow_context: list[FlowStepHistory]) -> None:
+    async def save_flow_context(task_id: str, flow_context: list[ExecutorHistory]) -> None:
         """保存flow信息到flow_context"""
         flow_context_collection = MongoDB().get_collection("flow_context")
         try:
@@ -116,7 +95,7 @@ class TaskManager:
 
 
     @staticmethod
-    async def delete_task_by_task_id(task_id: str) -> None:
+    async def delete_task_by_task_id(task_id: uuid.UUID) -> None:
         """通过task_id删除Task信息"""
         async with postgres.session() as session:
             task = (await session.scalars(
@@ -127,7 +106,7 @@ class TaskManager:
 
 
     @staticmethod
-    async def delete_tasks_by_conversation_id(conversation_id: uuid.UUID) -> list[str]:
+    async def delete_tasks_by_conversation_id(conversation_id: uuid.UUID) -> list[uuid.UUID]:
         """通过ConversationID删除Task信息"""
         async with postgres.session() as session:
             task_ids = []
@@ -175,3 +154,21 @@ class TaskManager:
             {"$set": task.model_dump(by_alias=True, exclude_none=True)},
             upsert=True,
         )
+
+
+    @classmethod
+    async def update_task_token(cls, task_id: uuid.UUID, input_token: int, output_token: int) -> tuple[int, int]:
+        """更新任务的Token"""
+        async with postgres.session() as session:
+            sql = select(TaskRuntime.inputToken, TaskRuntime.outputToken).where(TaskRuntime.taskId == task_id)
+            row = (await session.execute(sql)).one()
+
+            new_input_token = row.inputToken + input_token
+            new_output_token = row.outputToken + output_token
+
+            sql = update(TaskRuntime).where(TaskRuntime.taskId == task_id).values(
+                inputToken=new_input_token, outputToken=new_output_token,
+            )
+            await session.execute(sql)
+            await session.commit()
+            return new_input_token, new_output_token

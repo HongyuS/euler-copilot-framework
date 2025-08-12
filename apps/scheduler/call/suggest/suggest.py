@@ -12,7 +12,6 @@ from pydantic import Field
 from pydantic.json_schema import SkipJsonSchema
 
 from apps.common.security import Security
-from apps.llm.function import FunctionLLM
 from apps.models.node import NodeInfo
 from apps.scheduler.call.core import CoreCall
 from apps.schemas.enum_var import CallOutputType
@@ -165,7 +164,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
                     },
                     preference=user_domain,
                 )
-                result = await FunctionLLM().call(
+                result = await self._json(
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant."},
                         {"role": "user", "content": prompt},
@@ -197,7 +196,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
                 },
                 preference=user_domain,
             )
-            result = await FunctionLLM().call(
+            result = await self._json(
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant."},
                     {"role": "user", "content": prompt},

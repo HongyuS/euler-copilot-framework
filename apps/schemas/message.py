@@ -12,7 +12,7 @@ from apps.schemas.enum_var import EventType, FlowStatus, StepStatus
 from .record import RecordMetadata
 
 
-class param(BaseModel):
+class FlowParams(BaseModel):
     """流执行过程中的参数补充"""
 
     content: dict[str, Any] = Field(default={}, description="流执行过程中的参数补充内容")
@@ -80,7 +80,8 @@ class DocumentAddContent(BaseModel):
     document_type: str = Field(description="文档MIME类型", alias="documentType", default="")
     document_size: float = Field(ge=0, description="文档大小，单位是KB，保留两位小数", alias="documentSize", default=0)
     created_at: float = Field(
-        description="文档创建时间，单位是秒", alias="createdAt", default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3)
+        description="文档创建时间，单位是秒", alias="createdAt",
+        default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3),
     )
 
 

@@ -8,6 +8,7 @@ from textwrap import dedent
 from apps.common.config import config
 from apps.common.queue import MessageQueue
 from apps.models.document import Document
+from apps.models.task import Task
 from apps.schemas.enum_var import EventType, FlowStatus
 from apps.schemas.message import (
     DocumentAddContent,
@@ -17,7 +18,6 @@ from apps.schemas.message import (
 )
 from apps.schemas.rag_data import RAGEventData, RAGQueryReq
 from apps.schemas.record import RecordDocument
-from apps.schemas.task import Task
 from apps.services.rag import RAG
 from apps.services.task import TaskManager
 

@@ -14,7 +14,6 @@ from apps.schemas.appcenter import AppFlowInfo, AppPermissionData
 from apps.schemas.enum_var import AppFilterType, AppType
 from apps.schemas.request_data import ChangeFavouriteAppRequest, CreateAppRequest
 from apps.schemas.response_data import (
-    AppMcpServiceInfo,
     BaseAppOperationMsg,
     BaseAppOperationRsp,
     ChangeFavouriteAppMsg,

@@ -17,7 +17,6 @@ from apps.schemas.record import (
     RecordGroupDocument,
 )
 from apps.schemas.request_data import RequestData
-from apps.schemas.task import Task
 from apps.services.appcenter import AppCenterManager
 from apps.services.document import DocumentManager
 from apps.services.record import RecordManager
@@ -28,24 +27,13 @@ logger = logging.getLogger(__name__)
 
 async def get_docs(post_body: RequestData) -> tuple[list[RecordDocument] | list[Document], list[str]]:
     """获取当前问答可供关联的文档"""
-    if not post_body.group_id:
-        err = "[Scheduler] 问答组ID不能为空！"
-        logger.error(err)
-        raise ValueError(err)
-
     doc_ids = []
 
-    docs = await DocumentManager.get_used_docs_by_record(post_body.group_id, "question")
-    if not docs:
-        # 是新提问
-        # 从Conversation中获取刚上传的文档
-        docs = await DocumentManager.get_unused_docs(post_body.conversation_id)
-        # 从最近10条Record中获取文档
-        docs += await DocumentManager.get_used_docs(post_body.conversation_id, 10, "question")
-        doc_ids += [doc.id for doc in docs]
-    else:
-        # 是重新生成
-        doc_ids += [doc.id for doc in docs]
+    # 从Conversation中获取刚上传的文档
+    docs = await DocumentManager.get_unused_docs(post_body.conversation_id)
+    # 从最近10条Record中获取文档
+    docs += await DocumentManager.get_used_docs(post_body.conversation_id, 10, "question")
+    doc_ids += [doc.id for doc in docs]
 
     return docs, doc_ids
 

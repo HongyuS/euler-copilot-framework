@@ -23,7 +23,10 @@ class Task(Base):
         UUID(as_uuid=True), ForeignKey("framework_conversation.id"), nullable=False,
     )
     """对话ID"""
-    checkpointId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("framework_executor_checkpoint.id"))  # noqa: N815
+    checkpointId: Mapped[uuid.UUID | None] = mapped_column(  # noqa: N815
+        UUID(as_uuid=True), ForeignKey("framework_executor_checkpoint.id"),
+        nullable=True, default=None,
+    )
     """检查点ID"""
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default_factory=uuid.uuid4)
     """任务ID"""

@@ -19,7 +19,6 @@ from apps.scheduler.call.choice.schema import (
 )
 from apps.scheduler.call.core import CoreCall
 from apps.schemas.enum_var import CallOutputType
-from apps.schemas.parameters import Type
 from apps.schemas.scheduler import (
     CallError,
     CallInfo,
@@ -110,10 +109,7 @@ class Choice(CoreCall, input_model=ChoiceInput, output_model=ChoiceOutput):
                                    f"右值类型不匹配：{condition.right.value} 应为 {right_value_type.value}")
                             logger.warning(msg)
                             continue
-                        if right_value_type == Type.STRING:
-                            condition.right.value = str(condition.right.value)
-                        else:
-                            condition.right.value = ast.literal_eval(condition.right.value)
+                        condition.right.value = ast.literal_eval(str(condition.right.value))
                         if not ConditionHandler.check_value_type(
                                 condition.right, condition.right.type,
                             ):
