@@ -3,9 +3,11 @@
 
 import asyncio
 import logging
+import uuid
 from collections.abc import AsyncGenerator
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from apps.common.queue import MessageQueue
@@ -155,9 +157,10 @@ async def chat(request: Request, post_body: RequestData) -> StreamingResponse:
 
 
 @router.post("/stop", response_model=ResponseData)
-async def stop_generation(request: Request) -> JSONResponse:
+async def stop_generation(taskId: Annotated[uuid.UUID, Query()]) -> JSONResponse:  # noqa: N803
     """停止生成"""
-    await Activity.remove_active(request.state.user_sub)
+    await Activity.remove_active(taskId)
+
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ResponseData(

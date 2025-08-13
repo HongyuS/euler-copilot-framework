@@ -6,7 +6,6 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from .flow import Step
-from .mcp import MCPPlan
 
 
 class CheckpointExtra(BaseModel):
@@ -19,8 +18,6 @@ class CheckpointExtra(BaseModel):
 
 class TaskExtra(BaseModel):
     """任务额外数据"""
-
-    temporary_plans: MCPPlan | None = Field(description="临时计划列表", default=None)
 
 
 class StepQueueItem(BaseModel):

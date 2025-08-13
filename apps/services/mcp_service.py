@@ -35,7 +35,6 @@ from apps.schemas.mcp import (
 )
 from apps.schemas.request_data import UpdateMCPServiceRequest
 from apps.schemas.response_data import MCPServiceCardItem
-from apps.services.user import UserManager
 
 logger = logging.getLogger(__name__)
 MCP_ICON_PATH = ICON_PATH / "mcp"
@@ -92,13 +91,13 @@ class MCPServiceManager:
 
 
     @staticmethod
-    async def fetch_mcp_services(
+    async def fetch_mcp_services(  # noqa: PLR0913
             search_type: SearchType,
             user_sub: str,
             keyword: str | None,
             page: int,
             *,
-            is_installed: bool | None = None,
+            is_install: bool | None = None,
             is_active: bool | None = None,
     ) -> list[MCPServiceCardItem]:
         """
@@ -110,7 +109,9 @@ class MCPServiceManager:
         :param page: int: 页码
         :return: MCP服务列表
         """
-        mcpservice_pools = await MCPServiceManager._search_mcpservice(search_type, keyword, page, is_active=is_active)
+        mcpservice_pools = await MCPServiceManager._search_mcpservice(
+            search_type, keyword, page, is_active=is_active, is_installed=is_install,
+        )
         return [
             MCPServiceCardItem(
                 mcpserviceId=item.id,
@@ -163,12 +164,14 @@ class MCPServiceManager:
 
 
     @staticmethod
-    async def _search_mcpservice(
+    async def _search_mcpservice(  # noqa: PLR0913
             search_type: SearchType,
             keyword: str | None,
             page: int,
+            user_sub: str,
             *,
             is_active: bool | None = None,
+            is_installed: bool | None = None,
     ) -> list[MCPInfo]:
         """
         基于输入条件搜索MCP服务
@@ -179,40 +182,36 @@ class MCPServiceManager:
         """
         # 分页查询
         skip = (page - 1) * SERVICE_PAGE_SIZE
-
         async with postgres.session() as session:
-            if not keyword:
-                result = list(
-                    (await session.scalars(select(MCPInfo).offset(skip).limit(SERVICE_PAGE_SIZE))).all(),
-                )
-            elif search_type == SearchType.ALL:
-                result = list(
-                    (await session.scalars(select(MCPInfo).where(
-                        or_(
-                            MCPInfo.name.like(f"%{keyword}%"),
-                            MCPInfo.description.like(f"%{keyword}%"),
-                            MCPInfo.author.like(f"%{keyword}%"),
-                        ),
-                    ).offset(skip).limit(SERVICE_PAGE_SIZE))).all(),
+            sql = select(MCPInfo)
+
+            if search_type == SearchType.ALL:
+                sql = sql.where(
+                    or_(
+                        MCPInfo.name.like(f"%{keyword}%"),
+                        MCPInfo.description.like(f"%{keyword}%"),
+                        MCPInfo.author.like(f"%{keyword}%"),
+                    ),
                 )
             elif search_type == SearchType.NAME:
-                result = list(
-                    (await session.scalars(
-                        select(MCPInfo).where(MCPInfo.name.like(f"%{keyword}%")).offset(skip).limit(SERVICE_PAGE_SIZE),
-                    )).all(),
-                )
+                sql = sql.where(MCPInfo.name.like(f"%{keyword}%"))
             elif search_type == SearchType.DESCRIPTION:
-                result = list(
-                    (await session.scalars(
-                        select(MCPInfo).where(MCPInfo.description.like(f"%{keyword}%")).offset(skip).limit(SERVICE_PAGE_SIZE),
-                    )).all(),
-                )
+                sql = sql.where(MCPInfo.description.like(f"%{keyword}%"))
             elif search_type == SearchType.AUTHOR:
-                result = list(
-                    (await session.scalars(
-                        select(MCPInfo).where(MCPInfo.author.like(f"%{keyword}%")).offset(skip).limit(SERVICE_PAGE_SIZE),
-                    )).all(),
-                )
+                sql = sql.where(MCPInfo.author.like(f"%{keyword}%"))
+
+            sql = sql.offset(skip).limit(SERVICE_PAGE_SIZE)
+
+            if is_installed is not None:
+                sql = sql.where(MCPInfo.id.in_(
+                    select(MCPActivated.mcpId).where(MCPActivated.userSub == user_sub),
+                ))
+            if is_active is not None:
+                sql = sql.where(MCPInfo.id.in_(
+                    select(MCPActivated.mcpId).where(MCPActivated.userSub == user_sub),
+                ))
+
+            result = list((await session.scalars(sql)).all())
 
         # 如果未找到，返回空列表
         if not result:
@@ -294,8 +293,13 @@ class MCPServiceManager:
             msg = "[MCPServiceManager] MCP服务ID为空"
             raise ValueError(msg)
 
-        mcp_collection = MongoDB().get_collection("mcp")
-        db_service = await mcp_collection.find_one({"_id": data.service_id, "author": user_sub})
+        async with postgres.session() as session:
+            db_service = (await session.scalars(select(MCPInfo).where(
+                and_(
+                    MCPInfo.id == data.service_id,
+                    MCPInfo.author == user_sub,
+                ),
+            ))).one_or_none()
         if not db_service:
             msg = "[MCPServiceManager] MCP服务未找到或无权限"
             raise ValueError(msg)

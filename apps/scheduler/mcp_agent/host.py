@@ -7,17 +7,13 @@ from typing import Any
 
 from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
-from mcp.types import TextContent
 
 from apps.llm.function import JsonGenerator
 from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
-from apps.scheduler.mcp_agent.prompt import REPAIR_PARAMS
-from apps.scheduler.pool.mcp.client import MCPClient
-from apps.scheduler.pool.mcp.pool import MCPPool
-from apps.schemas.enum_var import StepStatus
-from apps.schemas.mcp import MCPPlanItem, MCPTool
-from apps.schemas.task import FlowStepHistory, Task
-from apps.services.task import TaskManager
+from apps.scheduler.mcp_agent.base import McpBase
+from apps.scheduler.mcp_agent.prompt import GEN_PARAMS, REPAIR_PARAMS
+from apps.schemas.mcp import MCPTool
+from apps.schemas.task import Task
 
 
 def tojson_filter(value: Any) -> str:
@@ -35,7 +31,7 @@ _env = SandboxedEnvironment(
 )
 
 
-class MCPHost:
+class MCPHost(McpBase):
     """MCP宿主服务"""
 
     @staticmethod
@@ -45,34 +41,43 @@ class MCPHost:
             context_list=task.context,
         )
 
-    async def get_first_input_params(mcp_tool: MCPTool, query: str, task: Task) -> dict[str, Any]:
+    @staticmethod
+    async def _get_first_input_params(mcp_tool: MCPTool, goal: str, current_goal: str, task: Task,
+                                      resoning_llm: ReasoningLLM = ReasoningLLM()) -> dict[str, Any]:
         """填充工具参数"""
         # 更清晰的输入·指令，这样可以调用generate
-        llm_query = rf"""
-            请使用参数生成工具，生成满足以下目标的工具参数：
-
-            {query}
-        """
-
-        # 进行生成
-        json_generator = JsonGenerator(
-            llm_query,
-            [
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": await MCPHost.assemble_memory(task)},
-            ],
+        prompt = _env.from_string(GEN_PARAMS).render(
+            tool_name=mcp_tool.name,
+            tool_description=mcp_tool.description,
+            goal=goal,
+            current_goal=current_goal,
+            input_schema=mcp_tool.input_schema,
+            background_info=await MCPHost.assemble_memory(task),
+        )
+        logger.info("[MCPHost] 填充工具参数: %s", prompt)
+        result = await MCPHost.get_resoning_result(
+            prompt,
+            resoning_llm
+        )
+        # 使用JsonGenerator解析结果
+        result = await MCPHost._parse_result(
+            result,
             mcp_tool.input_schema,
         )
-        return await json_generator.generate()
+        return result
 
-    async def _fill_params(mcp_tool: MCPTool,
-                           current_input: dict[str, Any],
-                           error_message: str = "", params: dict[str, Any] = {},
-                           params_description: str = "") -> dict[str, Any]:
+    @staticmethod
+    async def _fill_params(  # noqa: PLR0913
+        goal: str, current_goal: str,
+        mcp_tool: MCPTool, current_input: dict[str, Any],
+        error_message: str = "", params: dict[str, Any] | None = None,
+        params_description: str = "") -> dict[str, Any]:
         llm_query = "请生成修复之后的工具参数"
         prompt = _env.from_string(REPAIR_PARAMS).render(
             tool_name=mcp_tool.name,
             tool_description=mcp_tool.description,
+            goal=goal,
+            current_goal=current_goal,
             input_schema=mcp_tool.input_schema,
             current_input=current_input,
             error_message=error_message,

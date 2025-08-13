@@ -75,6 +75,9 @@ class TaskManager:
     @staticmethod
     async def save_flow_context(task_id: str, flow_context: list[ExecutorHistory]) -> None:
         """保存flow信息到flow_context"""
+        if not flow_context:
+            return
+
         flow_context_collection = MongoDB().get_collection("flow_context")
         try:
             for history in flow_context:

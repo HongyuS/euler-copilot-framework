@@ -49,14 +49,14 @@ admin_router = APIRouter(
 
 
 @router.get("", response_model=GetMCPServiceListRsp | ResponseData)
-async def get_mcpservice_list(
+async def get_mcpservice_list(  # noqa: PLR0913
     request: Request,
     searchType: SearchType = SearchType.ALL,  # noqa: N803
     keyword: str | None = None,
     page: Annotated[int, Query(ge=1)] = 1,
     *,
-    is_installed: bool | None = None,
-    is_active: bool | None = None,
+    isInstall: bool | None = None,  # noqa: N803
+    isActive: bool | None = None,  # noqa: N803
 ) -> JSONResponse:
     """获取服务列表"""
     user_sub = request.state.user_sub
@@ -66,8 +66,8 @@ async def get_mcpservice_list(
             user_sub,
             keyword,
             page,
-            is_installed=is_installed,
-            is_active=is_active,
+            is_install=isInstall,
+            is_active=isActive,
         )
     except Exception as e:
         err = f"[MCPServiceCenter] 获取MCP服务列表失败: {e}"

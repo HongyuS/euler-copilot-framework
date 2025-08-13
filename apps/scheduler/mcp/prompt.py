@@ -13,6 +13,7 @@ CREATE_PLAN = dedent(r"""
     2. 计划中的每一个步骤必须且只能使用一个工具。
     3. 计划中的步骤必须具有清晰和逻辑的步骤，没有冗余或不必要的步骤。
     4. 计划中的最后一步必须是Final工具，以确保计划执行结束。
+    5.生成的计划必须要覆盖用户的目标，不能遗漏任何用户目标中的内容。
 
     # 生成计划时的注意事项：
 
@@ -174,8 +175,8 @@ FINAL_ANSWER = dedent(r"""
 MEMORY_TEMPLATE = dedent(r"""
     {% for ctx in context_list %}
     - 第{{ loop.index }}步：{{ ctx.step_description }}
-       - 调用工具 `{{ ctx.step_name }}`，并提供参数 `{{ ctx.input_data | tojson }}`。
-      - 执行状态：{{ ctx.status }}
+      - 调用工具 `{{ ctx.step_name }}`，并提供参数 `{{ ctx.input_data | tojson }}`。
+      - 执行状态：{{ ctx.step_status }}
       - 得到数据：`{{ ctx.output_data | tojson }}`
     {% endfor %}
 """)

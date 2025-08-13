@@ -68,10 +68,10 @@ TOOL_SELECT = dedent(r"""
     你的任务是：根据当前目标，附加信息，选择最合适的MCP工具。
     ## 选择MCP工具时的注意事项：
     1. 确保充分理解当前目标，选择实现目标所需的MCP工具。
-    2. 请在给定的MCP工具列表中选择，不要自己生成MCP工具。
+    2. 不要选择不存在的工具。
     3. 可以选择一些辅助工具，但必须确保这些工具与当前目标相关。
     4. 注意，返回的工具ID必须是MCP工具的ID，而不是名称。
-    5. 不要选择不存在的工具。
+    5. 可以多选择一些工具，用于应对不同的情况。
     必须按照以下格式生成选择结果，不要输出任何其他内容：
     ```json
     {
@@ -265,7 +265,9 @@ CREATE_PLAN = dedent(r"""
     1. 能够成功完成用户的目标
     2. 计划中的每一个步骤必须且只能使用一个工具。
     3. 计划中的步骤必须具有清晰和逻辑的步骤，没有冗余或不必要的步骤。
-    4. 计划中的最后一步必须是Final工具，以确保计划执行结束。
+    4. 不要选择不存在的工具。
+    5. 计划中的最后一步必须是Final工具，以确保计划执行结束。
+    6. 生成的计划必须要覆盖用户的目标，当然需要考虑一些意外情况，可以有一定的冗余步骤。
 
     # 生成计划时的注意事项：
 
@@ -327,17 +329,17 @@ CREATE_PLAN = dedent(r"""
                 "instruction": "需要一个支持Docker容器运行的MCP Server"
             },
             {
-                "content": "使用Result[0]中选择的MCP Server，生成Docker命令",
+                "content": "使用第一步选择的MCP Server，生成Docker命令",
                 "tool": "command_generator",
                 "instruction": "生成Docker命令：在后台运行alpine:latest容器，挂载/root到/data，执行top命令"
             },
             {
-                "content": "在Result[0]的MCP Server上执行Result[1]生成的命令",
+                "content": "执行第二步生成的Docker命令",
                 "tool": "command_executor",
                 "instruction": "执行Docker命令"
             },
             {
-                "content": "任务执行完成，容器已在后台运行，结果为Result[2]",
+                "content": "任务执行完成，容器已在后台运行",
                 "tool": "Final",
                 "instruction": ""
             }
@@ -364,7 +366,9 @@ RECREATE_PLAN = dedent(r"""
     2. 计划中的每一个步骤必须且只能使用一个工具。
     3. 计划中的步骤必须具有清晰和逻辑的步骤，没有冗余或不必要的步骤。
     4. 你的计划必须避免之前的错误，并且能够成功执行。
-    5. 计划中的最后一步必须是Final工具，以确保计划执行结束。
+    5. 不要选择不存在的工具。
+    6. 计划中的最后一步必须是Final工具，以确保计划执行结束。
+    7. 生成的计划必须要覆盖用户的目标，当然需要考虑一些意外情况，可以有一定的冗余步骤。
 
     # 生成计划时的注意事项：
 
@@ -413,12 +417,12 @@ RECREATE_PLAN = dedent(r"""
                 "instruction": "生成端口扫描命令：扫描192.168.1.1的开放端口"
             },
             {
-                "content": "在执行Result[0]生成的命令",
+                "content": "在执行第一步生成的命令",
                 "tool": "command_executor",
                 "instruction": "执行端口扫描命令"
             },
             {
-                "content": "任务执行完成，端口扫描结果为Result[2]",
+                "content": "任务执行完成",
                 "tool": "Final",
                 "instruction": ""
             }
@@ -450,27 +454,27 @@ RECREATE_PLAN = dedent(r"""
                 "instruction": "选择一个前机器支持哪些网络扫描工具"
             },
             {
-                "content": "执行Result[0]中生成的命令，查看当前机器支持哪些网络扫描工具",
+                "content": "执行第一步中生成的命令，查看当前机器支持哪些网络扫描工具",
                 "tool": "command_executor",
-                "instruction": "执行Result[0]中生成的命令"
+                "instruction": "执行第一步中生成的命令"
             },
             {
-                "content": "从Result[1]中选择一个网络扫描工具，生成端口扫描命令",
+                "content": "从第二步执行结果中选择一个网络扫描工具，生成端口扫描命令",
                 "tool": "tool_selector",
                 "instruction": "选择一个网络扫描工具，生成端口扫描命令"
             },
             {
-                "content": "基于result[2]中选择的网络扫描工具，生成端口扫描命令",
+                "content": "基于第三步中选择的网络扫描工具，生成端口扫描命令",
                 "tool": "command_generator",
                 "instruction": "生成端口扫描命令：扫描192.168.1.1的开放端口"
             },
             {
-                "content": "在Result[0]的MCP Server上执行Result[3]生成的命令",
+                "content": "执行第四步中生成的端口扫描命令",
                 "tool": "command_executor",
                 "instruction": "执行端口扫描命令"
             },
             {
-                "content": "任务执行完成，端口扫描结果为Result[4]",
+                "content": "任务执行完成",
                 "tool": "Final",
                 "instruction": ""
             }
@@ -502,6 +506,144 @@ RECREATE_PLAN = dedent(r"""
 
     # 重新生成的计划
 """)
+
+GEN_STEP = dedent(r"""
+    你是一个计划生成器。
+    请根据用户的目标、当前计划和历史，生成一个新的步骤。
+
+    # 一个好的计划步骤应该：
+    1.使用最适合的工具来完成当前步骤。
+    2.能够基于当前的计划和历史，完成阶段性的任务。
+    3.不要选择不存在的工具。
+    4.如果你认为当前已经达成了用户的目标，可以直接返回Final工具，表示计划执行结束。
+
+    # 样例 1
+    # 目标
+    我需要扫描当前mysql数据库，分析性能瓶颈, 并调优,我的ip是192.168.1.1，数据库端口是3306，用户名是root，密码是password
+    # 历史记录
+    第1步：生成端口扫描命令
+      - 调用工具 `command_generator`，并提供参数 `帮我生成一个mysql端口扫描命令`
+      - 执行状态：成功
+      - 得到数据：`{"command": "nmap -sS -p--open 192.168.1.1"}`
+    第2步：执行端口扫描命令
+        - 调用工具 `command_executor`，并提供参数 `{"command": "nmap -sS -p--open 192.168.1.1"}`
+        - 执行状态：成功
+        - 得到数据：`{"result": "success"}`
+    # 工具
+    <tools>
+    - <id>mcp_tool_1</id> <description>mysql_analyzer；用于分析数据库性能/description>
+    - <id>mcp_tool_2</id> <description>文件存储工具；用于存储文件</description>
+    - <id>mcp_tool_3</id> <description>mongoDB工具；用于操作MongoDB数据库</description>
+    - <id>Final</id> <description>结束步骤，当执行到这一步时，表示计划执行结束，所得到的结果将作为最终结果。</description>
+    </tools>
+    # 输出
+    ```json
+    {
+        "tool_id": "mcp_tool_1", // 选择的工具ID
+        "description": "扫描ip为192.168.1.1的MySQL数据库，端口为3306，用户名为root，密码为password的数据库性能",
+    }
+    ```
+    # 样例二
+    # 目标
+    计划从杭州到北京的旅游计划
+    # 历史记录
+    第1步：将杭州转换为经纬度坐标
+      - 调用工具 `maps_geo_planner`，并提供参数 `{"city_from": "杭州", "address": "西湖"}`
+      - 执行状态：成功
+      - 得到数据：`{"location": "123.456, 78.901"}`
+    第2步：查询杭州的天气
+        - 调用工具 `weather_query`，并提供参数 `{"location": "123.456, 78.901"}`
+        - 执行状态：成功
+        - 得到数据：`{"weather": "晴", "temperature": "25°C"}`
+    第3步：将北京转换为经纬度坐标
+        - 调用工具 `maps_geo_planner`，并提供参数 `{"city_from": "北京", "address": "天安门"}`
+        - 执行状态：成功
+        - 得到数据：`{"location": "123.456, 78.901"}`
+    第4步：查询北京的天气
+        - 调用工具 `weather_query`，并提供参数 `{"location": "123.456, 78.901"}`
+        - 执行状态：成功
+        - 得到数据：`{"weather": "晴", "temperature": "25°C"}`
+    # 工具
+    <tools>
+    - <id>mcp_tool_4</id> <description>maps_geo_planner；将详细的结构化地址转换为经纬度坐标。支持对地标性名胜景区、建筑物名称解析为经纬度坐标</description>
+    - <id>mcp_tool_5</id> <description>weather_query；天气查询，用于查询天气信息</description>
+    - <id>mcp_tool_6</id> <description>maps_direction_transit_integrated；根据用户起终点经纬度坐标规划综合各类公共（火车、公交、地铁）交通方式的通勤方案，并且返回通勤方案的数据，跨城场景下必须传起点城市与终点城市</description>
+    - <id>Final</id> <description>Final；结束步骤，当执行到这一步时，表示计划执行结束，所得到的结果将作为最终结果。</description>
+    </tools>
+    # 输出
+    ```json
+    {
+        "tool_id": "mcp_tool_6", // 选择的工具ID
+        "description": "规划从杭州到北京的综合公共交通方式的通勤方案"
+    }
+    ```
+    # 现在开始生成步骤：
+    # 目标
+    {{goal}}
+    # 历史记录
+    {{history}}
+    # 工具
+    <tools>
+    {% for tool in tools %}
+    - <id>{{tool.id}}</id> <description>{{tool.name}}；{{tool.description}}</description>
+    {% endfor %}
+    </tools>
+""")
+
+TOOL_SKIP = dedent(r"""
+    你是一个计划执行器。
+    你的任务是根据当前的计划和用户目标，判断当前步骤是否需要跳过。
+    如果需要跳过，请返回`true`，否则返回`false`。
+    必须按照以下格式回答：
+    ```json
+    {
+        "skip": true/false,
+    }
+    ```
+    注意：
+    1.你的判断要谨慎，在历史消息中有足够的上下文信息时，才可以判断是否跳过当前步骤。
+    # 样例
+    # 用户目标
+    我需要扫描当前mysql数据库，分析性能瓶颈, 并调优
+    # 历史
+    第1步：生成端口扫描命令
+      - 调用工具 `command_generator`，并提供参数 `{"command": "nmap -sS -p--open 192.168.1.1"}`
+        - 执行状态：成功
+        - 得到数据：`{"command": "nmap -sS -p--open 192.168.1.1"}`
+    第2步：执行端口扫描命令
+        - 调用工具 `command_executor`，并提供参数 `{"command": "nmap -sS -p--open 192.168.1.1"}`
+        - 执行状态：成功
+        - 得到数据：`{"result": "success"}`
+    第3步：分析端口扫描结果
+        - 调用工具 `mysql_analyzer`，并提供参数 `{"host": "192.168.1.1", "port": 3306, "username": "root", "password": "password"}`
+        - 执行状态：成功
+        - 得到数据：`{"performance": "good", "bottleneck": "none"}`
+    # 当前步骤
+    <step>
+        <step_id> step_4 </step_id>
+        <step_name> command_generator </step_name>
+        <step_instruction> 生成MySQL性能调优命令 </step_instruction>
+        <step_content> 生成MySQL性能调优命令：调优MySQL数据库性能 </step_content>
+    </step>
+    # 输出
+    ```json
+    {
+        "skip": true
+    }
+    ```
+    # 用户目标
+    {{goal}}
+    # 历史
+    {{history}}
+    # 当前步骤
+    <step>
+        <step_id> {{step_id}} </step_id>
+        <step_name> {{step_name}} </step_name>
+        <step_instruction> {{step_instruction}} </step_instruction>
+        <step_content> {{step_content}} </step_content>
+    </step>
+    # 输出
+    """)
 
 RISK_EVALUATE = dedent(r"""
     你是一个工具执行计划评估器。
@@ -614,6 +756,66 @@ TOOL_EXECUTE_ERROR_TYPE_ANALYSIS = dedent(r"""
         <name>{{tool_name}}</name>
         <description>{{tool_description}}</description>
     </tool>
+    # 工具入参
+    {{input_param}}
+    # 工具运行报错
+    {{error_message}}
+    # 输出
+    """)
+
+IS_PARAM_ERROR = dedent(r"""
+    你是一个计划执行专家，你的任务是判断当前的步骤执行失败是否是因为参数错误导致的，
+    如果是，请返回`true`，否则返回`false`。
+    必须按照以下格式回答：
+    ```json
+    {
+        "is_param_error": true/false,
+    }
+    ```
+    # 样例
+    # 用户目标
+    我需要扫描当前mysql数据库，分析性能瓶颈, 并调优
+    # 历史
+    第1步：生成端口扫描命令
+      - 调用工具 `command_generator`，并提供参数 `{"command": "nmap -sS -p--open 192.168.1.1"}`
+        - 执行状态：成功
+        - 得到数据：`{"command": "nmap -sS -p--open 192.168.1.1"}`
+    第2步：执行端口扫描命令
+        - 调用工具 `command_executor`，并提供参数 `{"command": "nmap -sS -p--open 192.168.1.1"}`
+        - 执行状态：成功
+        - 得到数据：`{"result": "success"}`
+    # 当前步骤
+    <step>
+        <step_id> step_3 </step_id>
+        <step_name> mysql_analyzer </step_name>
+        <step_instruction> 分析MySQL数据库性能 </step_instruction>
+    </step>
+    # 工具入参
+    {
+        "host": "192.0.0.1",
+        "port": 3306,
+        "username": "root",
+        "password": "password"
+    }
+    # 工具运行报错
+    执行MySQL性能分析命令时，出现了错误：`host is not correct`。
+
+    # 输出
+    ```json
+    {
+        "is_param_error": true
+    }
+    ```
+    # 用户目标
+    {{goal}}
+    # 历史
+    {{history}}
+    # 当前步骤
+    <step>
+        <step_id> {{step_id}} </step_id>
+        <step_name> {{step_name}} </step_name>
+        <step_instruction> {{step_instruction}} </step_instruction>
+    </step>
     # 工具入参
     {{input_param}}
     # 工具运行报错
@@ -771,9 +973,87 @@ GET_MISSING_PARAMS = dedent(r"""
     # 输出
     """)
 
+
+GEN_PARAMS = dedent(r"""
+    你是一个工具参数生成器。
+    你的任务是根据总的目标、阶段性的目标、工具信息、工具入参的schema和背景信息生成工具的入参。
+    注意：
+    1.生成的参数在格式上必须符合工具入参的schema。
+    2.总的目标、阶段性的目标和背景信息必须被充分理解，利用其中的信息来生成工具入参。
+    3.生成的参数必须符合阶段性目标。
+
+    # 样例
+    # 工具信息
+    < tool >
+    < name > mysql_analyzer < /name >
+    < description > 分析MySQL数据库性能 < /description >
+    < / tool >
+    # 总目标
+    我需要扫描当前mysql数据库，分析性能瓶颈, 并调优，ip地址是192.168.1.1，端口是3306，用户名是root，密码是password。
+    # 当前阶段目标
+    我要连接MySQL数据库，分析性能瓶颈，并调优。
+    # 工具入参的schema
+    {
+        "type": "object",
+        "properties": {
+            "host": {
+                "type": "string",
+                "description": "MySQL数据库的主机地址"
+            },
+            "port": {
+                "type": "integer",
+                "description": "MySQL数据库的端口号"
+            },
+            "username": {
+                "type": "string",
+                "description": "MySQL数据库的用户名"
+            },
+            "password": {
+                "type": "string",
+                "description": "MySQL数据库的密码"
+            }
+        },
+        "required": ["host", "port", "username", "password"]
+    }
+    # 背景信息
+    第1步：生成端口扫描命令
+      - 调用工具 `command_generator`，并提供参数 `帮我生成一个mysql端口扫描命令`
+      - 执行状态：成功
+      - 得到数据：`{"command": "nmap -sS -p--open 192.168.1.1"}`
+    第2步：执行端口扫描命令
+        - 调用工具 `command_executor`，并提供参数 `{"command": "nmap -sS -p--open 192.168.1.1"}`
+        - 执行状态：成功
+        - 得到数据：`{"result": "success"}`
+    # 输出
+    ```json
+    {
+        "host": "192.168.1.1",
+        "port": 3306,
+        "username": "root",
+        "password": "password"
+    }
+    ```
+    # 工具
+    <tool>
+        <name> {{tool_name}} </name>
+        <description> {{tool_description}} </description>
+    </tool>
+    # 总目标
+    {{goal}}
+    # 当前阶段目标
+    {{current_goal}}
+    # 工具入参scheme
+    {{input_schema}}
+    # 背景信息
+    {{background_info}}
+    # 输出
+    """)
+
 REPAIR_PARAMS = dedent(r"""
-    你是一个工具参数修复器。
-    你的任务是根据当前的工具信息、工具入参的schema、工具当前的入参、工具的报错、补充的参数和补充的参数描述，修复当前工具的入参。
+    你的任务是根据当前的工具信息、目标、工具入参的schema、工具当前的入参、工具的报错、补充的参数和补充的参数描述，修复当前工具的入参。
+
+    注意：
+    1.最终修复的参数要符合目标和工具入参的schema。
 
     # 样例
     # 工具信息
@@ -781,6 +1061,10 @@ REPAIR_PARAMS = dedent(r"""
         <name>mysql_analyzer</name>
         <description>分析MySQL数据库性能</description>
     </tool>
+    # 总目标
+    我需要扫描当前mysql数据库，分析性能瓶颈, 并调优
+    # 当前阶段目标
+    我要连接MySQL数据库，分析性能瓶颈，并调优。
     # 工具入参的schema
     {
         "type": "object",
@@ -834,6 +1118,10 @@ REPAIR_PARAMS = dedent(r"""
         <name>{{tool_name}}</name>
         <description>{{tool_description}}</description>
     </tool>
+    # 总目标
+    {{goal}}
+    # 当前阶段目标
+    {{current_goal}}
     # 工具入参scheme
     {{input_schema}}
     # 工具入参
@@ -860,10 +1148,6 @@ FINAL_ANSWER = dedent(r"""
 
     {{memory}}
 
-    # 其他背景信息：
-
-    {{status}}
-
     # 现在，请根据以上信息，向用户报告目标的完成情况：
 
 """)
@@ -871,7 +1155,7 @@ MEMORY_TEMPLATE = dedent(r"""
     {% for ctx in context_list %}
     - 第{{loop.index}}步：{{ctx.step_description}}
       - 调用工具 `{{ctx.step_id}}`，并提供参数 `{{ctx.input_data}}`
-      - 执行状态：{{ctx.status}}
+      - 执行状态：{{ctx.step_status}}
       - 得到数据：`{{ctx.output_data}}`
     {% endfor %}
 """)
