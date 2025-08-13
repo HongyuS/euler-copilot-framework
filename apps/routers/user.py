@@ -46,14 +46,9 @@ async def list_user(
 async def update_user_info(request: Request, data: UserUpdateRequest) -> JSONResponse:
     """更新用户信息接口"""
     # 更新用户信息
+    await UserManager.update_userinfo_by_user_sub(request.state.user_sub, data)
 
-    result = await UserManager.update_userinfo_by_user_sub(request.state.user_sub, data)
-    if not result:
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={"code": status.HTTP_200_OK, "message": "用户信息更新成功"},
-        )
     return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND,
-        content={"code": status.HTTP_404_NOT_FOUND, "message": "用户信息更新失败"},
+        status_code=status.HTTP_200_OK,
+        content={"code": status.HTTP_200_OK, "message": "用户信息更新成功"},
     )

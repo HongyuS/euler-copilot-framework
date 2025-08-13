@@ -410,17 +410,6 @@ class MCPLoader(metaclass=SingletonMeta):
 
         if mcp_env is not None:
             mcp_config.mcpServers[mcp_id].env.update(mcp_env)
-            user_config_path = user_path / "config.json"
-            # 更新用户配置
-            f = await user_config_path.open("w", encoding="utf-8", errors="ignore")
-            await f.write(
-                json.dumps(
-                    mcp_config.model_dump(by_alias=True, exclude_none=True),
-                    indent=4,
-                    ensure_ascii=False,
-                )
-            )
-            await f.aclose()
         if mcp_config.mcpType == MCPType.STDIO:
             index = None
             for i in range(len(mcp_config.config.args)):
@@ -434,6 +423,17 @@ class MCPLoader(metaclass=SingletonMeta):
                     mcp_config.config.args.append(str(user_path)+'/project')
             else:
                 mcp_config.config.args = ["--directory", str(user_path)+'/project'] + mcp_config.config.args
+        user_config_path = user_path / "config.json"
+        # 更新用户配置
+        f = await user_config_path.open("w", encoding="utf-8", errors="ignore")
+        await f.write(
+            json.dumps(
+                mcp_config.model_dump(by_alias=True, exclude_none=True),
+                indent=4,
+                ensure_ascii=False,
+            ),
+        )
+        await f.aclose()
         # 更新数据库
         async with postgres.session() as session:
             await session.merge(MCPActivated(
@@ -554,6 +554,7 @@ class MCPLoader(metaclass=SingletonMeta):
         async with postgres.session() as session:
             mcp_data = (await session.scalars(select(MCPInfo).where(MCPInfo.id == mcp_id))).one_or_none()
             if mcp_data:
+                logger.info("[MCPLoader] 更新MCP模板状态: %s -> %s", mcp_id, status)
                 mcp_data.status = status
                 await session.merge(mcp_data)
 

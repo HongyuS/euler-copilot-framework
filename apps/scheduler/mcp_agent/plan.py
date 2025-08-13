@@ -1,5 +1,6 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MCP 用户目标拆解与规划"""
+
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -14,19 +15,34 @@ from apps.scheduler.mcp_agent.prompt import (
     CREATE_PLAN,
     EVALUATE_GOAL,
     FINAL_ANSWER,
+    GEN_STEP,
     GENERATE_FLOW_NAME,
     GET_MISSING_PARAMS,
     GET_REPLAN_START_STEP_INDEX,
+    IS_PARAM_ERROR,
     RECREATE_PLAN,
     RISK_EVALUATE,
     TOOL_EXECUTE_ERROR_TYPE_ANALYSIS,
+    TOOL_SKIP,
 )
 from apps.scheduler.slot.slot import Slot
-from apps.schemas.mcp import GoalEvaluationResult, MCPPlan, MCPTool, RestartStepIndex, ToolExcutionErrorType, ToolRisk
+from apps.schemas.mcp import (
+    GoalEvaluationResult,
+    IsParamError,
+    MCPPlan,
+    MCPPlanItem,
+    MCPTool,
+    RestartStepIndex,
+    Step,
+    ToolExcutionErrorType,
+    ToolRisk,
+    ToolSkip,
+)
+from apps.schemas.task import Task
 
 _env = SandboxedEnvironment(
     loader=BaseLoader,
-    autoescape=True,
+    autoescape=False,
     trim_blocks=True,
     lstrip_blocks=True,
 )
@@ -126,6 +142,7 @@ class MCPPlanner(McpBase):
             max_steps: int = 10, reasoning_llm: ReasoningLLM = ReasoningLLM()) -> str:
         """获取推理大模型的结果"""
         # 格式化Prompt
+        tool_ids = [tool.id for tool in tool_list]
         if is_replan:
             template = _env.from_string(RECREATE_PLAN)
             prompt = template.render(
@@ -156,8 +173,53 @@ class MCPPlanner(McpBase):
         return MCPPlan.model_validate(plan)
 
     @staticmethod
+    async def create_next_step(
+            goal: str, history: str, tools: list[MCPTool],
+            reasoning_llm: ReasoningLLM = ReasoningLLM()) -> Step:
+        """创建下一步的执行步骤"""
+        # 获取推理结果
+        template = _env.from_string(GEN_STEP)
+        prompt = template.render(goal=goal, history=history, tools=tools)
+        result = await MCPPlanner.get_resoning_result(prompt, reasoning_llm)
+
+        # 解析为结构化数据
+        schema = Step.model_json_schema()
+        if "enum" not in schema["properties"]["tool_id"]:
+            schema["properties"]["tool_id"]["enum"] = []
+        for tool in tools:
+            schema["properties"]["tool_id"]["enum"].append(tool.id)
+        step = await MCPPlanner._parse_result(result, schema)
+        # 使用Step模型解析结果
+        return Step.model_validate(step)
+
+    @staticmethod
+    async def tool_skip(
+            task: Task, step_id: str, step_name: str, step_instruction: str, step_content: str,
+            reasoning_llm: ReasoningLLM = ReasoningLLM()) -> ToolSkip:
+        """判断当前步骤是否需要跳过"""
+        # 获取推理结果
+        template = _env.from_string(TOOL_SKIP)
+        from apps.scheduler.mcp_agent.host import MCPHost
+        history = await MCPHost.assemble_memory(task)
+        prompt = template.render(
+            step_id=step_id,
+            step_name=step_name,
+            step_instruction=step_instruction,
+            step_content=step_content,
+            history=history,
+            goal=task.runtime.question
+        )
+        result = await MCPPlanner.get_resoning_result(prompt, reasoning_llm)
+
+        # 解析为结构化数据
+        schema = ToolSkip.model_json_schema()
+        skip_result = await MCPPlanner._parse_result(result, schema)
+        # 使用ToolSkip模型解析结果
+        return ToolSkip.model_validate(skip_result)
+
+    @staticmethod
     async def get_tool_risk(
-            tool: MCPTool, input_parm: dict[str, Any],
+        tool: MCPTool, input_parm: dict[str, Any],
             additional_info: str = "", resoning_llm: ReasoningLLM = ReasoningLLM()) -> ToolRisk:
         """获取MCP工具的风险评估结果"""
         # 获取推理结果
@@ -232,6 +294,29 @@ class MCPPlanner(McpBase):
         return error_type
 
     @staticmethod
+    async def is_param_error(
+        goal: str, history: str, error_message: str, tool: MCPTool, step_description: str, input_params: dict
+        [str, Any],
+            reasoning_llm: ReasoningLLM = ReasoningLLM()) -> IsParamError:
+        """判断错误信息是否是参数错误"""
+        tmplate = _env.from_string(IS_PARAM_ERROR)
+        prompt = tmplate.render(
+            goal=goal,
+            history=history,
+            step_id=tool.id,
+            step_name=tool.name,
+            step_description=step_description,
+            input_params=input_params,
+            error_message=error_message,
+        )
+        result = await MCPPlanner.get_resoning_result(prompt, reasoning_llm)
+        # 解析为结构化数据
+        schema = IsParamError.model_json_schema()
+        is_param_error = await MCPPlanner._parse_result(result, schema)
+        # 使用IsParamError模型解析结果
+        return IsParamError.model_validate(is_param_error)
+
+    @staticmethod
     async def change_err_message_to_description(
             error_message: str, tool: MCPTool, input_params: dict[str, Any],
             reasoning_llm: ReasoningLLM = ReasoningLLM()) -> str:
@@ -270,16 +355,14 @@ class MCPPlanner(McpBase):
 
     @staticmethod
     async def generate_answer(
-            user_goal: str, plan: MCPPlan, memory: str, resoning_llm: ReasoningLLM = ReasoningLLM()) -> AsyncGenerator[
+            user_goal: str, memory: str, resoning_llm: ReasoningLLM = ReasoningLLM()) -> AsyncGenerator[
             str, None]:
         """生成最终回答"""
         template = _env.from_string(FINAL_ANSWER)
         prompt = template.render(
-            plan=plan.model_dump(exclude_none=True, by_alias=True),
             memory=memory,
             goal=user_goal,
         )
-
         async for chunk in resoning_llm.call(
             [{"role": "user", "content": prompt}],
             streaming=True,

@@ -12,12 +12,12 @@ from mcp.types import TextContent
 
 from apps.llm.function import JsonGenerator
 from apps.models.mcp import MCPTools
+from apps.models.task import ExecutorHistory
 from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
 from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.pool import MCPPool
 from apps.schemas.enum_var import FlowStatus, StepStatus
 from apps.schemas.mcp import MCPPlanItem
-from apps.schemas.task import FlowStepHistory
 from apps.services.mcp_service import MCPServiceManager
 from apps.services.task import TaskManager
 

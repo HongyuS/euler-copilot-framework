@@ -14,6 +14,7 @@ from apps.models.session import SessionActivity
 class Activity:
     """用户活动控制，限制单用户同一时间只能提问一个问题"""
 
+    # TODO：改为同一时间整个系统最多有n个task在执行，与用户无关
     @staticmethod
     async def is_active(user_sub: str) -> bool:
         """

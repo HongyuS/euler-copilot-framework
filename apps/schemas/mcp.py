@@ -81,6 +81,12 @@ class Risk(str, Enum):
     HIGH = "high"
 
 
+class ToolSkip(BaseModel):
+    """MCP工具跳过执行结果"""
+
+    skip: bool = Field(description="是否跳过当前步骤", default=False)
+
+
 class ToolRisk(BaseModel):
     """MCP工具风险评估结果"""
 
@@ -100,6 +106,12 @@ class ToolExcutionErrorType(BaseModel):
 
     type: ErrorType = Field(description="错误类型", default=ErrorType.MISSING_PARAM)
     reason: str = Field(description="错误原因", default="")
+
+
+class IsParamError(BaseModel):
+    """MCP工具参数错误"""
+
+    is_param_error: bool = Field(description="是否是参数错误", default=False)
 
 
 class MCPSelectResult(BaseModel):
@@ -133,3 +145,10 @@ class MCPPlan(BaseModel):
     """MCP 计划"""
 
     plans: list[MCPPlanItem] = Field(description="计划列表", default=[])
+
+
+class Step(BaseModel):
+    """MCP步骤"""
+
+    tool_id: str = Field(description="工具ID")
+    description: str = Field(description="步骤描述")
