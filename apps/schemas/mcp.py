@@ -59,32 +59,12 @@ class MCPServerConfig(MCPServerItem):
     author: str = Field(description="MCP 服务器上传者", default="")
 
 
-class GoalEvaluationResult(BaseModel):
-    """MCP 目标评估结果"""
-
-    can_complete: bool = Field(description="是否可以完成目标")
-    reason: str = Field(description="评估原因")
-
-
-class RestartStepIndex(BaseModel):
-    """MCP重新规划的步骤索引"""
-
-    start_index: int = Field(description="重新规划的起始步骤索引")
-    reasoning: str = Field(description="重新规划的原因")
-
-
 class Risk(str, Enum):
     """MCP工具风险类型"""
 
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
-
-
-class ToolSkip(BaseModel):
-    """MCP工具跳过执行结果"""
-
-    skip: bool = Field(description="是否跳过当前步骤", default=False)
 
 
 class ToolRisk(BaseModel):
@@ -94,42 +74,15 @@ class ToolRisk(BaseModel):
     reason: str = Field(description="风险原因", default="")
 
 
-class ErrorType(str, Enum):
-    """MCP工具错误类型"""
-
-    MISSING_PARAM = "missing_param"
-    DECORRECT_PLAN = "decorrect_plan"
-
-
-class ToolExcutionErrorType(BaseModel):
-    """MCP工具执行错误"""
-
-    type: ErrorType = Field(description="错误类型", default=ErrorType.MISSING_PARAM)
-    reason: str = Field(description="错误原因", default="")
-
-
 class IsParamError(BaseModel):
     """MCP工具参数错误"""
 
     is_param_error: bool = Field(description="是否是参数错误", default=False)
 
-
 class MCPSelectResult(BaseModel):
     """MCP选择结果"""
 
     mcp_id: str = Field(description="MCP Server的ID")
-
-
-class MCPToolSelectResult(BaseModel):
-    """MCP工具选择结果"""
-
-    name: str = Field(description="工具名称")
-
-
-class MCPToolIdsSelectResult(BaseModel):
-    """MCP工具ID选择结果"""
-
-    tool_ids: list[str] = Field(description="工具ID列表")
 
 
 class MCPPlanItem(BaseModel):
