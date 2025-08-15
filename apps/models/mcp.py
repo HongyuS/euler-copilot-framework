@@ -43,7 +43,7 @@ class MCPInfo(Base):
     """MCP 描述"""
     author: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), nullable=False)
     """MCP 创建者"""
-    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
     """MCP ID"""
     updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
@@ -68,7 +68,7 @@ class MCPActivated(Base):
 
     __tablename__ = "framework_mcp_activated"
     mcpId: Mapped[str] = mapped_column(  # noqa: N815
-        String(100), ForeignKey("framework_mcp.id"), index=True, nullable=False,
+        String(255), ForeignKey("framework_mcp.id"), index=True, nullable=False,
     )
     """MCP ID"""
     userSub: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), nullable=False)  # noqa: N815
@@ -82,7 +82,7 @@ class MCPTools(Base):
 
     __tablename__ = "framework_mcp_tools"
     mcpId: Mapped[str] = mapped_column(  # noqa: N815
-        String(100), ForeignKey("framework_mcp.id"), index=True, nullable=False,
+        String(255), ForeignKey("framework_mcp.id"), index=True, nullable=False,
     )
     """MCP ID"""
     toolName: Mapped[str] = mapped_column(String(255), nullable=False)  # noqa: N815

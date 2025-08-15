@@ -14,11 +14,11 @@ class FlowPoolVector(Base):
     """Flow向量数据"""
 
     __tablename__ = "framework_flow_vector"
-    appId: Mapped[uuid.UUID] = mapped_column(ForeignKey("framework_app.id"), nullable=False)  # noqa: N815
+    appId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("framework_app.id"), nullable=False)  # noqa: N815
     """所属App的ID"""
     embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=False)
     """向量数据"""
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("framework_flow.id"), primary_key=True)
+    id: Mapped[str] = mapped_column(String(255), ForeignKey("framework_flow.id"), primary_key=True)
     """Flow的ID"""
     __table_args__ = (
         Index(
@@ -37,7 +37,7 @@ class ServicePoolVector(Base):
     __tablename__ = "framework_service_vector"
     embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=False)
     """向量数据"""
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("framework_service.id"), primary_key=True)
+    id: Mapped[str] = mapped_column(String(255), ForeignKey("framework_service.id"), primary_key=True)
     """Service的ID"""
     __table_args__ = (
         Index(
@@ -56,9 +56,9 @@ class NodePoolVector(Base):
     __tablename__ = "framework_node_vector"
     embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=False)
     """向量数据"""
-    serviceId: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("framework_service.id"), nullable=True)  # noqa: N815
+    serviceId: Mapped[str | None] = mapped_column(String(255), ForeignKey("framework_service.id"), nullable=True)  # noqa: N815
     """Service的ID"""
-    id: Mapped[str] = mapped_column(String(36), ForeignKey("framework_node.id"), primary_key=True)
+    id: Mapped[str] = mapped_column(String(255), ForeignKey("framework_node.id"), primary_key=True)
     """Node的ID"""
     __table_args__ = (
         Index(

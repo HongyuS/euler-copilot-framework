@@ -44,7 +44,7 @@ class RecordMetadata(Base):
     """问答对元数据"""
 
     __tablename__ = "framework_record_metadata"
-    record_id: Mapped[uuid.UUID] = mapped_column(
+    recordId: Mapped[uuid.UUID] = mapped_column(  # noqa: N815
         UUID(as_uuid=True), ForeignKey("framework_record.id"), primary_key=True,
     )
     """问答对ID"""
@@ -72,7 +72,7 @@ class RecordFootNote(Base):
     __tablename__ = "framework_record_foot_note"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """主键ID"""
-    record_id: Mapped[uuid.UUID] = mapped_column(
+    recordId: Mapped[uuid.UUID] = mapped_column(  # noqa: N815
         UUID(as_uuid=True), ForeignKey("framework_record.id"), nullable=False,
     )
     """问答对ID"""
