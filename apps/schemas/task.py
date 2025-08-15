@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Task相关数据结构定义"""
 
+import uuid
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -23,7 +24,7 @@ class TaskExtra(BaseModel):
 class StepQueueItem(BaseModel):
     """步骤栈中的元素"""
 
-    step_id: str = Field(description="步骤ID")
+    step_id: uuid.UUID = Field(description="步骤ID")
     step: Step = Field(description="步骤")
     enable_filling: bool | None = Field(description="是否启用填充", default=None)
     to_user: bool | None = Field(description="是否输出给用户", default=None)

@@ -4,9 +4,10 @@
 import logging
 import uuid
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import and_, delete, select, update
 
 from apps.common.postgres import postgres
+from apps.models.conversation import Conversation
 from apps.models.task import ExecutorCheckpoint, ExecutorHistory, Task, TaskRuntime
 from apps.schemas.request_data import RequestData
 
@@ -17,19 +18,32 @@ class TaskManager:
     """从数据库中获取任务信息"""
 
     @staticmethod
-    async def get_task_by_conversation_id(conversation_id: str) -> Task:
+    async def get_task_by_conversation_id(conversation_id: uuid.UUID, user_sub: str) -> Task:
         """获取对话ID的最后一个任务"""
         async with postgres.session() as session:
+            # 检查user_sub是否匹配Conversation
+            conversation = (await session.scalars(
+                select(Conversation.id).where(
+                    and_(
+                        Conversation.id == conversation_id,
+                        Conversation.userSub == user_sub,
+                    ),
+                ),
+            )).one_or_none()
+            if not conversation:
+                err = f"对话不存在或无权访问: {conversation_id}"
+                raise RuntimeError(err)
+
             task = (await session.scalars(
                 select(Task).where(Task.conversationId == conversation_id).order_by(Task.updatedAt.desc()).limit(1),
             )).one_or_none()
             if not task:
                 # 任务不存在，新建Task
-                logger.info("[TaskManager] 新建任务", task_id)
                 return Task(
                     conversationId=conversation_id,
-
+                    userSub=user_sub,
                 )
+            logger.info("[TaskManager] 新建任务 %s", task.id)
             return task
 
 
@@ -39,6 +53,24 @@ class TaskManager:
         async with postgres.session() as session:
             return (await session.scalars(
                 select(Task).where(Task.id == task_id),
+            )).one_or_none()
+
+
+    @staticmethod
+    async def get_task_runtime_by_task_id(task_id: uuid.UUID) -> TaskRuntime | None:
+        """根据task_id获取任务运行时"""
+        async with postgres.session() as session:
+            return (await session.scalars(
+                select(TaskRuntime).where(TaskRuntime.taskId == task_id),
+            )).one_or_none()
+
+
+    @staticmethod
+    async def get_task_state_by_task_id(task_id: uuid.UUID) -> ExecutorCheckpoint | None:
+        """根据task_id获取任务状态"""
+        async with postgres.session() as session:
+            return (await session.scalars(
+                select(ExecutorCheckpoint).where(ExecutorCheckpoint.taskId == task_id),
             )).one_or_none()
 
 
@@ -160,14 +192,25 @@ class TaskManager:
 
 
     @classmethod
-    async def update_task_token(cls, task_id: uuid.UUID, input_token: int, output_token: int) -> tuple[int, int]:
+    async def update_task_token(
+        cls,
+        task_id: uuid.UUID,
+        input_token: int,
+        output_token: int,
+        *,
+        override: bool = False,
+    ) -> tuple[int, int]:
         """更新任务的Token"""
         async with postgres.session() as session:
             sql = select(TaskRuntime.inputToken, TaskRuntime.outputToken).where(TaskRuntime.taskId == task_id)
             row = (await session.execute(sql)).one()
 
-            new_input_token = row.inputToken + input_token
-            new_output_token = row.outputToken + output_token
+            if override:
+                new_input_token = input_token
+                new_output_token = output_token
+            else:
+                new_input_token = row.inputToken + input_token
+                new_output_token = row.outputToken + output_token
 
             sql = update(TaskRuntime).where(TaskRuntime.taskId == task_id).values(
                 inputToken=new_input_token, outputToken=new_output_token,

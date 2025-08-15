@@ -111,19 +111,19 @@ class Pool:
 
         # 批量删除App
         for app in changed_app:
-            await AppLoader.delete(app, is_reload=True)
+            await AppLoader.delete(uuid.UUID(app), is_reload=True)
         for app in deleted_app:
-            await AppLoader.delete(app)
+            await AppLoader.delete(uuid.UUID(app))
 
         # 批量加载App
         for app in changed_app:
             hash_key = Path("app/" + str(app)).as_posix()
             if hash_key in checker.hashes:
                 try:
-                    await AppLoader.load(app, checker.hashes[hash_key])
-                except Exception as e:
-                    await AppLoader.delete(app, is_reload=True)
-                    logger.warning("[Pool] 加载App %s 失败: %s", app, e)
+                    await AppLoader.load(uuid.UUID(app), checker.hashes[hash_key])
+                except Exception as e:  # noqa: BLE001
+                    await AppLoader.delete(uuid.UUID(app), is_reload=True)
+                    logger.warning("[Pool] 加载App %s 失败: %s", app, str(e))
 
         # 载入MCP
         logger.info("[Pool] 载入MCP")
@@ -138,7 +138,7 @@ class Pool:
             )).all())
 
 
-    async def get_flow(self, app_id: uuid.UUID, flow_id: uuid.UUID) -> Flow | None:
+    async def get_flow(self, app_id: uuid.UUID, flow_id: str) -> Flow | None:
         """从文件系统中获取单个Flow的全部数据"""
         logger.info("[Pool] 获取工作流 %s", flow_id)
         return await FlowLoader.load(app_id, flow_id)

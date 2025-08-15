@@ -8,11 +8,12 @@ from datetime import UTC, datetime
 
 from pydantic import Field
 
+from apps.models.task import ExecutorHistory, Task
 from apps.scheduler.call.llm.prompt import LLM_ERROR_PROMPT
-from apps.schemas.enum_var import EventType, FlowStatus, SpecialCallType, StepStatus
+from apps.schemas.enum_var import EventType, ExecutorStatus, SpecialCallType, StepStatus
 from apps.schemas.flow import Flow, Step
 from apps.schemas.request_data import RequestDataApp
-from apps.schemas.task import ExecutorState, StepQueueItem
+from apps.schemas.task import StepQueueItem
 from apps.services.task import TaskManager
 
 from .base import BaseExecutor
@@ -47,21 +48,25 @@ class FlowExecutor(BaseExecutor):
     flow_id: str = Field(description="Flow ID")
     question: str = Field(description="用户输入")
     post_body_app: RequestDataApp = Field(description="请求体中的app信息")
-    current_step: StepQueueItem = Field(description="当前执行的步骤")
+    current_step: StepQueueItem | None = Field(
+        description="当前执行的步骤",
+        exclude=True,
+        default=None,
+    )
 
 
-    async def load_state(self) -> None:
-        """从数据库中加载FlowExecutor的状态"""
+    async def init(self) -> None:
+        """初始化FlowExecutor"""
         logger.info("[FlowExecutor] 加载Executor状态")
         # 尝试恢复State
-        if self.task.state and self.task.state.flow_status != FlowStatus.INIT:
+        if self.task.state and self.task.state.flow_status != ExecutorStatus.INIT:
             self.task.context = await TaskManager.get_context_by_task_id(self.task.id)
         else:
             # 创建ExecutorState
-            self.task.state = ExecutorState(
-                flow_id=str(self.flow_id),
-                flow_name=self.flow.name,
-                flow_status=FlowStatus.RUNNING,
+            self.state = ExecutorHistory(
+                executorId=str(self.flow_id),
+                executorName=self.flow.name,
+                executorStatus=ExecutorStatus.RUNNING,
                 description=str(self.flow.description),
                 step_status=StepStatus.RUNNING,
                 app_id=str(self.post_body_app.app_id),
@@ -83,6 +88,8 @@ class FlowExecutor(BaseExecutor):
             step=self.current_step,
             background=self.background,
             question=self.question,
+            runtime=self.runtime,
+            state=self.state,
         )
 
         # 初始化步骤
@@ -106,7 +113,7 @@ class FlowExecutor(BaseExecutor):
             await self._invoke_runner()
 
 
-    async def _find_next_id(self, step_id: str) -> list[str]:
+    async def _find_next_id(self, step_id: uuid.UUID) -> list[uuid.UUID]:
         """查找下一个节点"""
         next_ids = []
         for edge in self.flow.edges:
@@ -118,19 +125,19 @@ class FlowExecutor(BaseExecutor):
     async def _find_flow_next(self) -> list[StepQueueItem]:
         """在当前步骤执行前，尝试获取下一步"""
         # 如果当前步骤为结束，则直接返回
-        if self.task.state.step_id == "end" or not self.task.state.step_id: # type: ignore[arg-type]
+        if self.state.stepId == "end" or not self.state.stepId:
             return []
         if self.current_step.step.type == SpecialCallType.CHOICE.value:
             # 如果是choice节点，获取分支ID
             branch_id = self.task.context[-1].output_data["branch_id"]
             if branch_id:
-                next_steps = await self._find_next_id(self.task.state.step_id + "." + branch_id)
+                next_steps = await self._find_next_id(self.state.stepId + "." + branch_id)
                 logger.info("[FlowExecutor] 分支ID：%s", branch_id)
             else:
                 logger.warning("[FlowExecutor] 没有找到分支ID，返回空列表")
                 return []
         else:
-            next_steps = await self._find_next_id(self.task.state.step_id)  # type: ignore[arg-type]
+            next_steps = await self._find_next_id(self.state.stepId)
         # 如果step没有任何出边，直接跳到end
         if not next_steps:
             return [
@@ -162,14 +169,14 @@ class FlowExecutor(BaseExecutor):
 
         # 获取首个步骤
         first_step = StepQueueItem(
-            step_id=self.task.state.step_id, # type: ignore[arg-type]
-            step=self.flow.steps[self.task.state.step_id], # type: ignore[arg-type]
+            step_id=self.state.stepId,
+            step=self.flow.steps[self.state.stepId],
         )
 
         # 头插开始前的系统步骤，并执行
         for step in FIXED_STEPS_BEFORE_START:
             self.step_queue.append(StepQueueItem(
-                step_id=str(uuid.uuid4()),
+                step_id=uuid.uuid4(),
                 step=step,
                 enable_filling=False,
                 to_user=False,
@@ -178,13 +185,13 @@ class FlowExecutor(BaseExecutor):
 
         # 插入首个步骤
         self.step_queue.append(first_step)
-        self.task.state.flow_status = FlowStatus.RUNNING  # type: ignore[arg-type]
+        self.state.executorStatus = ExecutorStatus.RUNNING
 
         # 运行Flow（未达终点）
         is_error = False
         while not self._reached_end:
             # 如果当前步骤出错，执行错误处理步骤
-            if self.task.state.step_status == StepStatus.ERROR: # type: ignore[arg-type]
+            if self.state.stepStatus == StepStatus.ERROR:
                 logger.warning("[FlowExecutor] Executor出错，执行错误处理步骤")
                 self.step_queue.clear()
                 self.step_queue.appendleft(StepQueueItem(
@@ -197,7 +204,7 @@ class FlowExecutor(BaseExecutor):
                         params={
                             "user_prompt": LLM_ERROR_PROMPT.replace(
                                 "{{ error_info }}",
-                                self.task.state.error_info["err_msg"], # type: ignore[arg-type]
+                                self.task.state.error_info["err_msg"],
                             ),
                         },
                     ),
@@ -221,20 +228,20 @@ class FlowExecutor(BaseExecutor):
 
         # 更新Task状态
         if is_error:
-            self.task.state.flow_status = FlowStatus.ERROR  # type: ignore[arg-type]
+            self.state.executorStatus = ExecutorStatus.ERROR
         else:
-            self.task.state.flow_status = FlowStatus.SUCCESS  # type: ignore[arg-type]
+            self.state.executorStatus = ExecutorStatus.SUCCESS
 
         # 尾插运行结束后的系统步骤
         for step in FIXED_STEPS_AFTER_END:
             self.step_queue.append(StepQueueItem(
-                step_id=str(uuid.uuid4()),
+                step_id=uuid.uuid4(),
                 step=step,
             ))
         await self._step_process()
 
         # FlowStop需要返回总时间，需要倒推最初的开始时间（当前时间减去当前已用总时间）
-        self.task.tokens.time = round(datetime.now(UTC).timestamp(), 2) - self.task.tokens.full_time
+        self.runtime.time = round(datetime.now(UTC).timestamp(), 2) - self.runtime.fullTime
         # 推送Flow停止消息
         if is_error:
             await self.push_message(EventType.FLOW_FAILED.value)

@@ -80,7 +80,7 @@ class MetadataLoader:
         self,
         metadata_type: MetadataType,
         metadata: dict[str, Any] | AppMetadata | ServiceMetadata | AgentAppMetadata,
-        resource_id: uuid.UUID,
+        resource_id: uuid.UUID | str,
     ) -> None:
         """保存单个元数据"""
         class_dict = {

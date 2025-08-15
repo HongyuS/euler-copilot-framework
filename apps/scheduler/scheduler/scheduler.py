@@ -21,7 +21,7 @@ from apps.scheduler.scheduler.message import (
     push_rag_message,
 )
 from apps.schemas.config import LLMConfig
-from apps.schemas.enum_var import AppType, EventType, FlowStatus
+from apps.schemas.enum_var import AppType, EventType, ExecutorStatus
 from apps.schemas.rag_data import RAGQueryReq
 from apps.schemas.request_data import RequestData
 from apps.schemas.scheduler import ExecutorBackground
@@ -153,21 +153,21 @@ class Scheduler:
         # 等待任一任务完成
         done, pending = await asyncio.wait(
             [main_task, monitor],
-            return_when=asyncio.FIRST_COMPLETED
+            return_when=asyncio.FIRST_COMPLETED,
         )
 
         # 如果是监控任务触发，终止主任务
         if kill_event.is_set():
             logger.warning("[Scheduler] 用户活动状态检测不活跃，正在终止工作流执行...")
             main_task.cancel()
-            need_change_cancel_flow_state = [FlowStatus.RUNNING, FlowStatus.WAITING]
+            need_change_cancel_flow_state = [ExecutorStatus.RUNNING, ExecutorStatus.WAITING]
             if self.task.state.flow_status in need_change_cancel_flow_state:
-                self.task.state.flow_status = FlowStatus.CANCELLED
+                self.task.state.flow_status = ExecutorStatus.CANCELLED
             try:
                 await main_task
                 logger.info("[Scheduler] 工作流执行已被终止")
-            except Exception as e:
-                logger.error(f"[Scheduler] 终止工作流时发生错误: {e}")
+            except Exception:
+                logger.exception("[Scheduler] 终止工作流时发生错误")
 
         # 更新Task，发送结束消息
         logger.info("[Scheduler] 发送结束消息")
@@ -192,19 +192,7 @@ class Scheduler:
         if not app_metadata:
             logger.error("[Scheduler] 未找到Agent应用")
             return
-        if app_metadata.llm_id == "empty":
-            llm = LLM(
-                _id="empty",
-                user_sub=self.task.ids.user_sub,
-                openai_base_url=Config().get_config().llm.endpoint,
-                openai_api_key=Config().get_config().llm.key,
-                model_name=Config().get_config().llm.model,
-                max_tokens=Config().get_config().llm.max_tokens,
-            )
-        else:
-            llm = await LLMManager.get_llm_by_id(
-                self.task.ids.user_sub, app_metadata.llm_id,
-            )
+        llm = await LLMManager.get_llm(app_metadata.llm_id)
         if not llm:
             logger.error("[Scheduler] 获取大模型失败")
             await self.queue.close()
@@ -217,10 +205,12 @@ class Scheduler:
                 max_tokens=llm.max_tokens,
             ),
         )
-        if background.conversation and self.task.state.flow_status == FlowStatus.INIT:
+        if background.conversation and self.task.state.flow_status == ExecutorStatus.INIT:
             try:
                 question_obj = QuestionRewrite()
-                post_body.question = await question_obj.generate(history=background.conversation, question=post_body.question, llm=reasion_llm)
+                post_body.question = await question_obj.generate(
+                    history=background.conversation, question=post_body.question, llm=reasion_llm,
+                )
             except Exception:
                 logger.exception("[Scheduler] 问题重写失败")
         if app_metadata.app_type == AppType.FLOW.value:
@@ -266,19 +256,16 @@ class Scheduler:
 
             # 开始运行
             logger.info("[Scheduler] 运行Executor")
-            await flow_exec.load_state()
+            await flow_exec.init()
             await flow_exec.run()
             self.task = flow_exec.task
         elif app_metadata.app_type == AppType.AGENT.value:
-            # 获取agent中对应的MCP server信息
-            servers_id = app_metadata.mcp_service
             # 初始化Executor
             agent_exec = MCPAgentExecutor(
                 task=self.task,
                 msg_queue=queue,
                 question=post_body.question,
                 history_len=app_metadata.history_len,
-                servers_id=servers_id,
                 background=background,
                 agent_id=app_info.app_id,
                 params=post_body.params,

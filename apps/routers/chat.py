@@ -15,7 +15,7 @@ from apps.common.wordscheck import WordsCheck
 from apps.dependency import verify_personal_token, verify_session
 from apps.scheduler.scheduler import Scheduler
 from apps.scheduler.scheduler.context import save_data
-from apps.schemas.enum_var import FlowStatus
+from apps.schemas.enum_var import ExecutorStatus
 from apps.schemas.request_data import RequestData, RequestDataApp
 from apps.schemas.response_data import ResponseData
 from apps.schemas.task import Task
@@ -100,7 +100,7 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
 
         # 获取最终答案
         task = scheduler.task
-        if task.state.flow_status == FlowStatus.ERROR:
+        if task.state.flow_status == ExecutorStatus.ERROR:
             logger.error("[Chat] 生成答案失败")
             yield "data: [ERROR]\n\n"
             await Activity.remove_active(user_sub)

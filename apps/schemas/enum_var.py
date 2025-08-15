@@ -25,8 +25,8 @@ class StepStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class FlowStatus(str, Enum):
-    """Flow状态"""
+class ExecutorStatus(str, Enum):
+    """执行器状态"""
 
     UNKNOWN = "unknown"
     INIT = "init"

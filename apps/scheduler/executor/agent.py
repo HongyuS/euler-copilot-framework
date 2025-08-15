@@ -13,7 +13,7 @@ from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.mcp_agent.host import MCPHost
 from apps.scheduler.mcp_agent.plan import MCPPlanner
 from apps.scheduler.pool.mcp.pool import MCPPool
-from apps.schemas.enum_var import EventType, FlowStatus, StepStatus
+from apps.schemas.enum_var import EventType, ExecutorStatus, StepStatus
 from apps.schemas.mcp import (
     MCPCollection,
     MCPTool,
@@ -70,7 +70,7 @@ class MCPAgentExecutor(BaseExecutor):
         """从数据库中加载FlowExecutor的状态"""
         logger.info("[FlowExecutor] 加载Executor状态")
         # 尝试恢复State
-        if self.task.state and self.task.state.flow_status != FlowStatus.INIT:
+        if self.task.state and self.task.state.flow_status != ExecutorStatus.INIT:
             self.task.context = await TaskManager.get_context_by_task_id(self.task.id)
 
     async def load_mcp(self) -> None:
@@ -137,7 +137,7 @@ class MCPAgentExecutor(BaseExecutor):
             EventType.STEP_WAITING_FOR_START, confirm_message.model_dump(exclude_none=True, by_alias=True),
         )
         await self.push_message(EventType.FLOW_STOP, {})
-        self.task.state.flow_status = FlowStatus.WAITING
+        self.task.state.flow_status = ExecutorStatus.WAITING
         self.task.state.step_status = StepStatus.WAITING
         self.task.context.append(
             FlowStepHistory(
@@ -157,7 +157,7 @@ class MCPAgentExecutor(BaseExecutor):
 
     async def run_step(self) -> None:
         """执行步骤"""
-        self.task.state.flow_status = FlowStatus.RUNNING
+        self.task.state.flow_status = ExecutorStatus.RUNNING
         self.task.state.step_status = StepStatus.RUNNING
         mcp_tool = self.tools[self.task.state.tool_id]
         mcp_client = await self.mcp_pool.get(mcp_tool.mcp_id, self.task.ids.user_sub)
@@ -231,7 +231,7 @@ class MCPAgentExecutor(BaseExecutor):
             EventType.STEP_WAITING_FOR_PARAM, data={"message": error_message, "params": params_with_null},
         )
         await self.push_message(EventType.FLOW_STOP, data={})
-        self.task.state.flow_status = FlowStatus.WAITING
+        self.task.state.flow_status = ExecutorStatus.WAITING
         self.task.state.step_status = StepStatus.PARAM
         self.task.context.append(
             FlowStepHistory(
@@ -284,7 +284,7 @@ class MCPAgentExecutor(BaseExecutor):
     async def error_handle_after_step(self) -> None:
         """步骤执行失败后的错误处理"""
         self.task.state.step_status = StepStatus.ERROR
-        self.task.state.flow_status = FlowStatus.ERROR
+        self.task.state.flow_status = ExecutorStatus.ERROR
         await self.push_message(EventType.FLOW_FAILED, data={})
         if len(self.task.context) and self.task.context[-1].step_id == self.task.state.step_id:
             del self.task.context[-1]
@@ -326,7 +326,7 @@ class MCPAgentExecutor(BaseExecutor):
                     if len(self.task.context) and self.task.context[-1].step_id == self.task.state.step_id:
                         del self.task.context[-1]
                 else:
-                    self.task.state.flow_status = FlowStatus.CANCELLED
+                    self.task.state.flow_status = ExecutorStatus.CANCELLED
                     self.task.state.step_status = StepStatus.CANCELLED
                     await self.push_message(EventType.STEP_CANCEL, data={})
                     await self.push_message(EventType.FLOW_CANCEL, data={})
@@ -402,7 +402,7 @@ class MCPAgentExecutor(BaseExecutor):
         # 初始化MCP服务
         await self.load_state()
         await self.load_mcp()
-        if self.task.state.flow_status == FlowStatus.INIT:
+        if self.task.state.flow_status == ExecutorStatus.INIT:
             # 初始化状态
             try:
                 self.task.state.flow_id = str(uuid.uuid4())
@@ -411,20 +411,20 @@ class MCPAgentExecutor(BaseExecutor):
                 await self.get_next_step()
             except Exception as e:
                 logger.exception("[MCPAgentExecutor] 初始化失败")
-                self.task.state.flow_status = FlowStatus.ERROR
+                self.task.state.flow_status = ExecutorStatus.ERROR
                 self.task.state.error_message = str(e)
                 await self.push_message(EventType.FLOW_FAILED, data={})
                 return
-        self.task.state.flow_status = FlowStatus.RUNNING
+        self.task.state.flow_status = ExecutorStatus.RUNNING
         await self.push_message(EventType.FLOW_START, data={})
         if self.task.state.tool_id == FINAL_TOOL_ID:
             # 如果已经是最后一步，直接结束
-            self.task.state.flow_status = FlowStatus.SUCCESS
+            self.task.state.flow_status = ExecutorStatus.SUCCESS
             await self.push_message(EventType.FLOW_SUCCESS, data={})
             await self.summarize()
             return
         try:
-            while self.task.state.flow_status == FlowStatus.RUNNING:
+            while self.task.state.flow_status == ExecutorStatus.RUNNING:
                 if self.task.state.tool_id == FINAL_TOOL_ID:
                     break
                 await self.work()
@@ -432,13 +432,13 @@ class MCPAgentExecutor(BaseExecutor):
             tool_id = self.task.state.tool_id
             if tool_id == FINAL_TOOL_ID:
                 # 如果已经是最后一步，直接结束
-                self.task.state.flow_status = FlowStatus.SUCCESS
+                self.task.state.flow_status = ExecutorStatus.SUCCESS
                 self.task.state.step_status = StepStatus.SUCCESS
                 await self.push_message(EventType.FLOW_SUCCESS, data={})
                 await self.summarize()
         except Exception as e:
             logger.exception("[MCPAgentExecutor] 执行过程中发生错误")
-            self.task.state.flow_status = FlowStatus.ERROR
+            self.task.state.flow_status = ExecutorStatus.ERROR
             self.task.state.error_message = str(e)
             self.task.state.step_status = StepStatus.ERROR
             await self.push_message(EventType.STEP_ERROR, data={})
