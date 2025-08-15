@@ -103,7 +103,7 @@ class CoreCall(BaseModel):
         history = {}
         history_order = []
         for item in executor.task.context:
-            item_obj = FlowStepHistory.model_validate(item)
+            item_obj = ExecutorHistory.model_validate(item)
             history[item_obj.step_id] = item_obj
             history_order.append(item_obj.step_id)
 
@@ -141,7 +141,7 @@ class CoreCall(BaseModel):
             logger.error(err)
             return None
 
-        data = history[split_path[0]].output_data
+        data = history[split_path[0]].outputData
         for key in split_path[1:]:
             if key not in data:
                 err = f"[CoreCall] 输出Key {key} 不存在"

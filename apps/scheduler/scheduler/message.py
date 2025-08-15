@@ -9,7 +9,7 @@ from apps.common.config import config
 from apps.common.queue import MessageQueue
 from apps.models.document import Document
 from apps.models.task import Task
-from apps.schemas.enum_var import EventType, FlowStatus
+from apps.schemas.enum_var import EventType, ExecutorStatus
 from apps.schemas.message import (
     DocumentAddContent,
     InitContent,
@@ -73,10 +73,10 @@ async def push_rag_message(
                 full_answer += content_obj.content
             elif content_obj.event_type == EventType.DOCUMENT_ADD.value:
                 task.runtime.documents.append(content_obj.content)
-        task.state.flow_status = FlowStatus.SUCCESS
+        task.state.flow_status = ExecutorStatus.SUCCESS
     except Exception as e:
         logger.error(f"[Scheduler] RAG服务发生错误: {e}")
-        task.state.flow_status = FlowStatus.ERROR
+        task.state.flow_status = ExecutorStatus.ERROR
     # 保存答案
     task.runtime.answer = full_answer
     task.tokens.full_time = round(datetime.now(UTC).timestamp(), 2) - task.tokens.time

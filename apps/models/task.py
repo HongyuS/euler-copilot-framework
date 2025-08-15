@@ -8,7 +8,7 @@ from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from apps.schemas.enum_var import FlowStatus, Language, StepStatus
+from apps.schemas.enum_var import ExecutorStatus, Language, StepStatus
 
 from .base import Base
 
@@ -64,7 +64,7 @@ class TaskRuntime(Base):
     """中间推理"""
     filledSlot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default={})  # noqa: N815
     """计划"""
-    document: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default={})
+    document: Mapped[list[dict[uuid.UUID, Any]]] = mapped_column(JSONB, nullable=False, default={})
     """关联文档"""
     language: Mapped[Language] = mapped_column(Enum(Language), nullable=False, default=Language.ZH)
     """语言"""
@@ -80,11 +80,11 @@ class ExecutorCheckpoint(Base):
     """任务ID"""
     appId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)  # noqa: N815
     """应用ID"""
-    executorId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)  # noqa: N815
+    executorId: Mapped[str] = mapped_column(String(255), nullable=False)  # noqa: N815
     """执行器ID（例如工作流ID）"""
     executorName: Mapped[str] = mapped_column(String(255), nullable=False)  # noqa: N815
     """执行器名称（例如工作流名称）"""
-    executorStatus: Mapped[FlowStatus] = mapped_column(Enum(FlowStatus), nullable=False)  # noqa: N815
+    executorStatus: Mapped[ExecutorStatus] = mapped_column(Enum(ExecutorStatus), nullable=False)  # noqa: N815
     """执行器状态"""
     # 步骤级数据
     stepId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)  # noqa: N815
@@ -101,6 +101,8 @@ class ExecutorCheckpoint(Base):
     """步骤描述"""
     data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default={})
     """步骤额外数据"""
+    errorMessage: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default={})  # noqa: N815
+    """错误信息"""
 
 
 class ExecutorHistory(Base):
@@ -110,11 +112,11 @@ class ExecutorHistory(Base):
 
     taskId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("framework_task.id"), nullable=False)  # noqa: N815
     """任务ID"""
-    executorId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)  # noqa: N815
+    executorId: Mapped[str] = mapped_column(String(255), nullable=False)  # noqa: N815
     """执行器ID（例如工作流ID）"""
     executorName: Mapped[str] = mapped_column(String(255))  # noqa: N815
     """执行器名称（例如工作流名称）"""
-    executorStatus: Mapped[FlowStatus] = mapped_column(Enum(FlowStatus), nullable=False)  # noqa: N815
+    executorStatus: Mapped[ExecutorStatus] = mapped_column(Enum(ExecutorStatus), nullable=False)  # noqa: N815
     """执行器状态"""
     stepId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)  # noqa: N815
     """步骤ID"""

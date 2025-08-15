@@ -1,10 +1,8 @@
 """大模型信息 数据库表"""
 
-import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, Integer, String
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from apps.common.config import config
@@ -17,7 +15,7 @@ class LLMData(Base):
     """大模型信息"""
 
     __tablename__ = "framework_llm"
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default_factory=uuid.uuid4)
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
     """大模型ID"""
     icon: Mapped[str] = mapped_column(String(1000), default=llm_provider_dict["ollama"]["icon"], nullable=False)
     """LLM图标路径"""

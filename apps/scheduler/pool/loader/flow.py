@@ -59,7 +59,7 @@ class FlowLoader:
 
 
     @staticmethod
-    async def _process_edges(flow_yaml: dict[str, Any], flow_id: uuid.UUID, app_id: uuid.UUID) -> dict[str, Any]:
+    async def _process_edges(flow_yaml: dict[str, Any], flow_id: str, app_id: uuid.UUID) -> dict[str, Any]:
         """处理工作流边的转换"""
         logger.info("[FlowLoader] 应用 %s：解析工作流 %s 的边", flow_id, app_id)
         try:
@@ -78,7 +78,7 @@ class FlowLoader:
 
 
     @staticmethod
-    async def _process_steps(flow_yaml: dict[str, Any], flow_id: uuid.UUID, app_id: uuid.UUID) -> dict[str, Any]:
+    async def _process_steps(flow_yaml: dict[str, Any], flow_id: str, app_id: uuid.UUID) -> dict[str, Any]:
         """处理工作流步骤的转换"""
         logger.info("[FlowLoader] 应用 %s：解析工作流 %s 的步骤", flow_id, app_id)
         for key, step in flow_yaml["steps"].items():
@@ -110,7 +110,7 @@ class FlowLoader:
 
 
     @staticmethod
-    async def load(app_id: uuid.UUID, flow_id: uuid.UUID) -> Flow:
+    async def load(app_id: uuid.UUID, flow_id: str) -> Flow:
         """从文件系统中加载【单个】工作流"""
         logger.info("[FlowLoader] 应用 %s：加载工作流 %s...", flow_id, app_id)
 
@@ -157,7 +157,7 @@ class FlowLoader:
 
 
     @staticmethod
-    async def save(app_id: uuid.UUID, flow_id: uuid.UUID, flow: Flow) -> None:
+    async def save(app_id: uuid.UUID, flow_id: str, flow: Flow) -> None:
         """保存工作流"""
         flow_path = BASE_PATH / str(app_id) / "flow" / f"{flow_id}.yaml"
         if not await flow_path.parent.exists():
@@ -189,7 +189,7 @@ class FlowLoader:
 
 
     @staticmethod
-    async def delete(app_id: uuid.UUID, flow_id: uuid.UUID) -> None:
+    async def delete(app_id: uuid.UUID, flow_id: str) -> None:
         """删除指定工作流文件"""
         flow_path = BASE_PATH / str(app_id) / "flow" / f"{flow_id}.yaml"
         # 确保目标为文件且存在

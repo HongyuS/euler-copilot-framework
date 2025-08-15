@@ -16,7 +16,7 @@ from apps.models.task import ExecutorHistory
 from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
 from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.pool import MCPPool
-from apps.schemas.enum_var import FlowStatus, StepStatus
+from apps.schemas.enum_var import ExecutorStatus, StepStatus
 from apps.schemas.mcp import MCPPlanItem
 from apps.services.mcp_service import MCPServiceManager
 from apps.services.task import TaskManager
@@ -102,7 +102,7 @@ class MCPHost:
             task_id=self._task_id,
             flow_id=self._runtime_id,
             flow_name=self._runtime_name,
-            flow_status=FlowStatus.RUNNING,
+            flow_status=ExecutorStatus.RUNNING,
             step_id=tool.id,
             step_name=tool.toolName,
             # description是规划的实际内容

@@ -1,11 +1,10 @@
 """节点 数据库表"""
 
-import uuid
 from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import DateTime, ForeignKey, String
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -19,8 +18,8 @@ class NodeInfo(Base):
     """节点名称"""
     description: Mapped[str] = mapped_column(String(2000), nullable=False)
     """节点描述"""
-    serviceId: Mapped[uuid.UUID | None] = mapped_column(  # noqa: N815
-        UUID(as_uuid=True), ForeignKey("framework_service.id"), nullable=True,
+    serviceId: Mapped[str | None] = mapped_column(  # noqa: N815
+        String(255), ForeignKey("framework_service.id"), nullable=True,
     )
     """所属服务ID"""
     callId: Mapped[str] = mapped_column(String(50), nullable=False)  # noqa: N815
@@ -31,7 +30,7 @@ class NodeInfo(Base):
     """Node的输入Schema；用于描述Call的参数中特定的字段"""
     overrideOutput: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)  # noqa: N815
     """Node的输出Schema；用于描述Call的输出中特定的字段"""
-    id: Mapped[str] = mapped_column(String(50), primary_key=True, default_factory=lambda: str(uuid.uuid4()))
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
     """节点ID"""
     updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),

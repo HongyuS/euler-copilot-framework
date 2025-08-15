@@ -14,6 +14,8 @@ class Flow(Base):
     """Flow"""
 
     __tablename__ = "framework_flow"
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    """Flow的ID"""
     appId: Mapped[uuid.UUID] = mapped_column(  # noqa: N815
         UUID(as_uuid=True),
         ForeignKey("framework_app.id"),
@@ -31,10 +33,6 @@ class Flow(Base):
     """是否经过调试"""
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     """是否启用"""
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default_factory=uuid.uuid4,
-    )
-    """Flow的ID"""
     updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
         default_factory=lambda: datetime.now(tz=UTC),

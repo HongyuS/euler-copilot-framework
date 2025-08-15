@@ -16,6 +16,8 @@ class Service(Base):
     """插件"""
 
     __tablename__ = "framework_service"
+    id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    """插件ID"""
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     """插件名称"""
     description: Mapped[str] = mapped_column(String(2000), nullable=False)
@@ -29,8 +31,6 @@ class Service(Base):
         nullable=False,
     )
     """插件更新时间"""
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default_factory=uuid.uuid4)
-    """插件ID"""
     iconPath: Mapped[str] = mapped_column(String(255), default="", nullable=False)  # noqa: N815
     """插件图标路径"""
     permission: Mapped[PermissionType] = mapped_column(
@@ -43,7 +43,7 @@ class ServiceACL(Base):
     """插件权限"""
 
     __tablename__ = "framework_service_acl"
-    serviceId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("framework_service.id"), nullable=False)  # noqa: N815
+    serviceId: Mapped[str] = mapped_column(String(255), ForeignKey("framework_service.id"), nullable=False)  # noqa: N815
     """关联的插件ID"""
     userSub: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), nullable=False)  # noqa: N815
     """用户名"""
@@ -59,7 +59,7 @@ class ServiceHashes(Base):
     __tablename__ = "framework_service_hashes"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """主键ID"""
-    serviceId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("framework_service.id"), nullable=False)  # noqa: N815
+    serviceId: Mapped[str] = mapped_column(String(255), ForeignKey("framework_service.id"), nullable=False)  # noqa: N815
     """关联的插件ID"""
     filePath: Mapped[str] = mapped_column(String(255), nullable=False)  # noqa: N815
     """文件路径"""

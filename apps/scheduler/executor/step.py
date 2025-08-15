@@ -6,10 +6,11 @@ import logging
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import ConfigDict
 
+from apps.models.task import ExecutorHistory
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.call.empty import Empty
 from apps.scheduler.call.facts.facts import FactsCall
@@ -24,10 +25,13 @@ from apps.schemas.enum_var import (
 )
 from apps.schemas.message import TextAddContent
 from apps.schemas.scheduler import CallError, CallOutputChunk
-from apps.schemas.task import FlowStepHistory, StepQueueItem
 from apps.services.node import NodeManager
+from apps.services.task import TaskManager
 
 from .base import BaseExecutor
+
+if TYPE_CHECKING:
+    from apps.schemas.task import StepQueueItem
 
 logger = logging.getLogger(__name__)
 
@@ -35,17 +39,12 @@ logger = logging.getLogger(__name__)
 class StepExecutor(BaseExecutor):
     """工作流中步骤相关函数"""
 
-    step: StepQueueItem
+    step: "StepQueueItem"
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         extra="allow",
     )
-
-    def __init__(self, **kwargs: Any) -> None:
-        """初始化"""
-        super().__init__(**kwargs)
-        self.validate_flow_state(self.task)
 
     @staticmethod
     async def check_cls(call_cls: Any) -> bool:
@@ -87,8 +86,9 @@ class StepExecutor(BaseExecutor):
         logger.info("[StepExecutor] 初始化步骤 %s", self.step.step.name)
 
         # State写入ID和运行状态
-        self.task.state.step_id = self.step.step_id # type: ignore[arg-type]
-        self.task.state.step_name = self.step.step.name # type: ignore[arg-type]
+        self.state.stepId = self.step.step_id
+        self.state.stepDescription = self.step.step.description
+        self.state.stepName = self.step.step.name
 
         # 获取并验证Call类
         node_id = self.step.step.node
@@ -128,14 +128,14 @@ class StepExecutor(BaseExecutor):
             return
 
         # 暂存旧数据
-        current_step_id = self.task.state.step_id # type: ignore[arg-type]
-        current_step_name = self.task.state.step_name # type: ignore[arg-type]
+        current_step_id = self.state.stepId
+        current_step_name = self.state.stepName
 
         # 更新State
-        self.task.state.step_id = str(uuid.uuid4()) # type: ignore[arg-type]
-        self.task.state.step_name = "自动参数填充" # type: ignore[arg-type]
-        self.task.state.step_status = StepStatus.RUNNING # type: ignore[arg-type]
-        self.task.tokens.time = round(datetime.now(UTC).timestamp(), 2)
+        self.state.stepId = uuid.uuid4()
+        self.state.stepName = "自动参数填充"
+        self.state.stepStatus = StepStatus.RUNNING
+        self.runtime.time = round(datetime.now(UTC).timestamp(), 2)
 
         # 初始化填参
         slot_obj = await Slot.instance(
@@ -152,24 +152,30 @@ class StepExecutor(BaseExecutor):
         iterator = slot_obj.exec(self, slot_obj.input)
         async for chunk in iterator:
             result: SlotOutput = SlotOutput.model_validate(chunk.content)
-        self.task.tokens.input_tokens += slot_obj.tokens.input_tokens
-        self.task.tokens.output_tokens += slot_obj.tokens.output_tokens
+        await TaskManager.update_task_token(
+            self.task.id,
+            input_token=slot_obj.tokens.input_tokens,
+            output_token=slot_obj.tokens.output_tokens,
+        )
 
         # 如果没有填全，则状态设置为待填参
         if result.remaining_schema:
-            self.task.state.step_status = StepStatus.PARAM # type: ignore[arg-type]
+            self.state.stepStatus = StepStatus.PARAM
         else:
-            self.task.state.step_status = StepStatus.SUCCESS # type: ignore[arg-type]
+            self.state.stepStatus = StepStatus.SUCCESS
         await self.push_message(EventType.STEP_OUTPUT.value, result.model_dump(by_alias=True, exclude_none=True))
 
         # 更新输入
         self.obj.input.update(result.slot_data)
 
         # 恢复State
-        self.task.state.step_id = current_step_id # type: ignore[arg-type]
-        self.task.state.step_name = current_step_name # type: ignore[arg-type]
-        self.task.tokens.input_tokens += self.obj.tokens.input_tokens
-        self.task.tokens.output_tokens += self.obj.tokens.output_tokens
+        self.state.stepId = current_step_id
+        self.state.stepName = current_step_name
+        await TaskManager.update_task_token(
+            self.task.id,
+            input_token=self.obj.tokens.input_tokens,
+            output_token=self.obj.tokens.output_tokens,
+        )
 
 
     async def _process_chunk(
@@ -197,7 +203,7 @@ class StepExecutor(BaseExecutor):
             if to_user:
                 if isinstance(chunk.content, str):
                     await self.push_message(EventType.TEXT_ADD.value, chunk.content)
-                    self.task.runtime.answer += chunk.content
+                    self.runtime.fullAnswer += chunk.content
                 else:
                     await self.push_message(self.step.step.type, chunk.content)
 
@@ -206,15 +212,14 @@ class StepExecutor(BaseExecutor):
 
     async def run(self) -> None:
         """运行单个步骤"""
-        self.validate_flow_state(self.task)
         logger.info("[StepExecutor] 运行步骤 %s", self.step.step.name)
 
         # 进行自动参数填充
         await self._run_slot_filling()
 
         # 更新状态
-        self.task.state.step_status = StepStatus.RUNNING # type: ignore[arg-type]
-        self.task.tokens.time = round(datetime.now(UTC).timestamp(), 2)
+        self.state.stepStatus = StepStatus.RUNNING
+        self.runtime.time = round(datetime.now(UTC).timestamp(), 2)
         # 推送输入
         await self.push_message(EventType.STEP_INPUT.value, self.obj.input)
 
@@ -225,25 +230,27 @@ class StepExecutor(BaseExecutor):
             content = await self._process_chunk(iterator, to_user=self.obj.to_user)
         except Exception as e:
             logger.exception("[StepExecutor] 运行步骤失败，进行异常处理步骤")
-            self.task.state.step_status = StepStatus.ERROR # type: ignore[arg-type]
+            self.state.stepStatus = StepStatus.ERROR
             await self.push_message(EventType.STEP_OUTPUT.value, {})
             if isinstance(e, CallError):
-                self.task.state.error_info = { # type: ignore[arg-type]
+                self.state.errorMessage = {
                     "err_msg": e.message,
                     "data": e.data,
                 }
             else:
-                self.task.state.error_info = { # type: ignore[arg-type]
-                    "err_msg": str(e),
+                self.state.errorMessage = {
                     "data": {},
                 }
             return
 
         # 更新执行状态
-        self.task.state.step_status = StepStatus.SUCCESS # type: ignore[arg-type]
-        self.task.tokens.input_tokens += self.obj.tokens.input_tokens
-        self.task.tokens.output_tokens += self.obj.tokens.output_tokens
-        self.task.tokens.full_time += round(datetime.now(UTC).timestamp(), 2) - self.task.tokens.time
+        self.state.stepStatus = StepStatus.SUCCESS
+        await TaskManager.update_task_token(
+            self.task.id,
+            input_token=self.obj.tokens.input_tokens,
+            output_token=self.obj.tokens.output_tokens,
+        )
+        self.runtime.fullTime = round(datetime.now(UTC).timestamp(), 2) - self.runtime.time
 
         # 更新history
         if isinstance(content, str):
@@ -252,16 +259,17 @@ class StepExecutor(BaseExecutor):
             output_data = content
 
         # 更新context
-        history = FlowStepHistory(
-            task_id=self.task.id,
-            flow_id=self.task.state.flow_id, # type: ignore[arg-type]
-            flow_name=self.task.state.flow_name, # type: ignore[arg-type]
-            step_id=self.step.step_id,
-            step_name=self.step.step.name,
-            step_description=self.step.step.description,
-            step_status=self.task.state.step_status,
-            input_data=self.obj.input,
-            output_data=output_data,
+        history = ExecutorHistory(
+            taskId=self.task.id,
+            executorId=self.state.executorId,
+            executorName=self.state.executorName,
+            executorStatus=self.state.executorStatus,
+            stepId=self.step.step_id,
+            stepName=self.step.step.name,
+            stepDescription=self.step.step.description,
+            stepStatus=self.state.stepStatus,
+            inputData=self.obj.input,
+            outputData=output_data,
         )
         self.task.context.append(history)
 

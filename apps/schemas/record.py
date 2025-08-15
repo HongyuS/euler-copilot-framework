@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from apps.schemas.enum_var import CommentType, FlowStatus, StepStatus
+from apps.schemas.enum_var import CommentType, ExecutorStatus, StepStatus
 
 
 class RecordDocument(BaseModel):
@@ -111,7 +111,7 @@ class FlowHistory(BaseModel):
 
     flow_id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
     flow_name: str = Field(default="", description="Flow名称")
-    flow_staus: FlowStatus = Field(default=FlowStatus.SUCCESS, description="Flow执行状态")
+    flow_staus: ExecutorStatus = Field(default=ExecutorStatus.SUCCESS, description="Flow执行状态")
     history_ids: list[str] = Field(default=[], description="Flow执行历史ID列表")
 
 

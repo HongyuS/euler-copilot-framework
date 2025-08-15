@@ -11,7 +11,7 @@ from sqlalchemy import and_, select
 from apps.common.postgres import postgres
 from apps.models.conversation import Conversation
 from apps.models.record import Record as PgRecord
-from apps.schemas.enum_var import FlowStatus
+from apps.schemas.enum_var import ExecutorStatus
 from apps.schemas.record import Record
 
 logger = logging.getLogger(__name__)
@@ -117,8 +117,8 @@ class RecordManager:
     async def update_record_flow_status_to_cancelled_by_task_ids(task_ids: list[str]) -> None:
         """更新Record关联的Flow状态"""
         try:
-                {"records.task_id": {"$in": task_ids}, "records.flow.flow_status": {"$nin": [FlowStatus.ERROR.value, FlowStatus.SUCCESS.value]}},
-                {"$set": {"records.$[elem].flow.flow_status": FlowStatus.CANCELLED}},
+                {"records.task_id": {"$in": task_ids}, "records.flow.flow_status": {"$nin": [ExecutorStatus.ERROR.value, ExecutorStatus.SUCCESS.value]}},
+                {"$set": {"records.$[elem].flow.flow_status": ExecutorStatus.CANCELLED}},
                 array_filters=[{"elem.flow.flow_id": {"$in": task_ids}}],
             )
         except Exception:

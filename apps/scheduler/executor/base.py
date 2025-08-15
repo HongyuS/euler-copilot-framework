@@ -3,15 +3,17 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict
 
-from apps.common.queue import MessageQueue
-from apps.models.task import Task
 from apps.schemas.enum_var import EventType
 from apps.schemas.message import TextAddContent
-from apps.schemas.scheduler import ExecutorBackground
+
+if TYPE_CHECKING:
+    from apps.common.queue import MessageQueue
+    from apps.models.task import ExecutorCheckpoint, Task, TaskRuntime
+    from apps.schemas.scheduler import ExecutorBackground
 
 logger = logging.getLogger(__name__)
 
@@ -19,23 +21,17 @@ logger = logging.getLogger(__name__)
 class BaseExecutor(BaseModel, ABC):
     """Executor基类"""
 
-    task: Task
-    msg_queue: MessageQueue
-    background: ExecutorBackground
+    task: "Task"
+    runtime: "TaskRuntime"
+    state: "ExecutorCheckpoint"
+    msg_queue: "MessageQueue"
+    background: "ExecutorBackground"
     question: str
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         extra="allow",
     )
-
-    @staticmethod
-    def validate_flow_state(task: Task) -> None:
-        """验证flow_state是否存在"""
-        if not task.state:
-            err = "[Executor] 当前ExecutorState为空"
-            logger.error(err)
-            raise ValueError(err)
 
     async def push_message(self, event_type: str, data: dict[str, Any] | str | None = None) -> None:
         """
@@ -55,7 +51,7 @@ class BaseExecutor(BaseModel, ABC):
         await self.msg_queue.push_output(
             self.task,
             event_type=event_type,
-            data=data, # type: ignore[arg-type]
+            data=data,
         )
 
     @abstractmethod

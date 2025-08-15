@@ -55,7 +55,7 @@ class FileChecker:
         return self.hashes[path_diff.as_posix()] != previous_hashes
 
 
-    async def diff(self, check_type: MetadataType) -> tuple[list[uuid.UUID], list[uuid.UUID]]:
+    async def diff(self, check_type: MetadataType) -> tuple[list[str], list[str]]:
         """生成更新列表和删除列表"""
         async with postgres.session() as session:
             # 判断类型

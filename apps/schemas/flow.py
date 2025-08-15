@@ -19,9 +19,9 @@ from .flow_topology import PositionItem
 class Edge(BaseModel):
     """Flow中Edge的数据"""
 
-    id: str = Field(description="边的ID")
-    edge_from: str = Field(description="边的来源节点ID")
-    edge_to: str = Field(description="边的目标节点ID")
+    id: uuid.UUID = Field(description="边的ID")
+    edge_from: uuid.UUID = Field(description="边的来源节点ID")
+    edge_to: uuid.UUID = Field(description="边的目标节点ID")
     edge_type: EdgeType | None = Field(description="边的类型", default=EdgeType.NORMAL)
 
 
@@ -52,7 +52,7 @@ class Flow(BaseModel):
     focus_point: PositionItem | None = Field(description="当前焦点节点", default=PositionItem(x=0, y=0))
     debug: bool = Field(description="是否经过调试", default=False)
     on_error: FlowError = FlowError(use_llm=True)
-    steps: dict[str, Step] = Field(description="节点列表", default={})
+    steps: dict[uuid.UUID, Step] = Field(description="节点列表", default={})
     edges: list[Edge] = Field(description="边列表", default=[])
 
 
@@ -113,6 +113,7 @@ class ServiceApiConfig(BaseModel):
 class ServiceMetadata(MetadataBase):
     """Service的元数据"""
 
+    id: str = Field(description="Service的ID")
     type: MetadataType = MetadataType.SERVICE
     api: ServiceApiConfig = Field(description="API配置")
     permission: Permission | None = Field(description="服务权限配置", default=None)

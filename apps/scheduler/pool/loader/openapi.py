@@ -2,7 +2,6 @@
 """OpenAPI文档载入器"""
 
 import logging
-import uuid
 from hashlib import shake_128
 from typing import Any
 
@@ -122,7 +121,7 @@ class OpenAPILoader:
 
     async def _process_spec(
         self,
-        service_id: uuid.UUID,
+        service_id: str,
         yaml_filename: str,
         spec: ReducedOpenAPISpec,
         server: str,
@@ -170,7 +169,7 @@ class OpenAPILoader:
         """加载字典形式的OpenAPI文档"""
         spec = reduce_openapi_spec(yaml_dict)
         try:
-            await self._process_spec(uuid.UUID("00000000-0000-0000-0000-000000000000"), "temp.yaml", spec, spec.servers)
+            await self._process_spec("temp", "temp.yaml", spec, spec.servers)
         except Exception:
             err = "[OpenAPILoader] 处理OpenAPI文档失败"
             logger.exception(err)
@@ -179,7 +178,7 @@ class OpenAPILoader:
         return spec
 
 
-    async def load_one(self, service_id: uuid.UUID, yaml_path: Path, server: str) -> list[NodeInfo]:
+    async def load_one(self, service_id: str, yaml_path: Path, server: str) -> list[NodeInfo]:
         """加载单个OpenAPI文档，可以直接指定路径"""
         try:
             spec = await self._read_yaml(yaml_path)

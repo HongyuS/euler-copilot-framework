@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.schemas.enum_var import EventType, FlowStatus, StepStatus
+from apps.schemas.enum_var import EventType, ExecutorStatus, StepStatus
 
 from .record import RecordMetadata
 
@@ -33,7 +33,7 @@ class MessageFlow(BaseModel):
     app_id: str = Field(description="插件ID", alias="appId")
     flow_id: str = Field(description="Flow ID", alias="flowId")
     flow_name: str = Field(description="Flow名称", alias="flowName")
-    flow_status: FlowStatus = Field(description="Flow状态", alias="flowStatus", default=FlowStatus.UNKNOWN)
+    flow_status: ExecutorStatus = Field(description="Flow状态", alias="flowStatus", default=ExecutorStatus.UNKNOWN)
     step_id: str = Field(description="当前步骤ID", alias="stepId")
     step_name: str = Field(description="当前步骤名称", alias="stepName")
     sub_step_id: str | None = Field(description="当前子步骤ID", alias="subStepId", default=None)

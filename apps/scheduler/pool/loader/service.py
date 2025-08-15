@@ -3,7 +3,6 @@
 
 import logging
 import shutil
-import uuid
 
 from anyio import Path
 from sqlalchemy import delete
@@ -28,7 +27,7 @@ class ServiceLoader:
     """Service 加载器"""
 
     @staticmethod
-    async def load(service_id: uuid.UUID, hashes: dict[str, str]) -> None:
+    async def load(service_id: str, hashes: dict[str, str]) -> None:
         """加载单个Service"""
         service_path = BASE_PATH / str(service_id)
         # 载入元数据
@@ -55,7 +54,7 @@ class ServiceLoader:
 
 
     @staticmethod
-    async def save(service_id: uuid.UUID, metadata: ServiceMetadata, data: dict) -> None:
+    async def save(service_id: str, metadata: ServiceMetadata, data: dict) -> None:
         """在文件系统上保存Service，并更新数据库"""
         service_path = BASE_PATH / str(service_id)
         # 创建文件夹
@@ -75,7 +74,7 @@ class ServiceLoader:
 
 
     @staticmethod
-    async def delete(service_id: uuid.UUID, *, is_reload: bool = False) -> None:
+    async def delete(service_id: str, *, is_reload: bool = False) -> None:
         """删除Service，并更新数据库"""
         async with postgres.session() as session:
             await session.execute(delete(Service).where(Service.id == service_id))
