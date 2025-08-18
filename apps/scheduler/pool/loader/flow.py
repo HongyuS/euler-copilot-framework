@@ -18,7 +18,7 @@ from apps.models.app import App, AppHashes
 from apps.models.flow import Flow as FlowInfo
 from apps.models.vectors import FlowPoolVector
 from apps.scheduler.util import yaml_enum_presenter, yaml_str_presenter
-from apps.schemas.enum_var import EdgeType
+from apps.schemas.enum_var import EdgeType, NodeType
 from apps.schemas.flow import Flow
 from apps.services.node import NodeManager
 
@@ -86,26 +86,18 @@ class FlowLoader:
                 err = f"[FlowLoader] 步骤名称不能以下划线开头：{key}"
                 logger.error(err)
                 raise ValueError(err)
-            if key == "start":
-                step["name"] = "开始"
-                step["description"] = "开始节点"
-                step["type"] = "start"
-            elif key == "end":
-                step["name"] = "结束"
-                step["description"] = "结束节点"
-                step["type"] = "end"
-            else:
-                node_info = await NodeManager.get_node(step["node"])
-                try:
-                    step["type"] = node_info.callId
-                except ValueError as e:
-                    logger.warning("[FlowLoader] 获取节点call_id失败：%s，错误信息：%s", node_info.id, e)
-                    step["type"] = "Empty"
-                step["name"] = (
-                    node_info.name
-                    if "name" not in step or step["name"] == ""
-                    else step["name"]
-                )
+            if step["type"]==NodeType.START.value or step["type"]==NodeType.END.value:
+                continue
+            try:
+                step["type"] = await NodeManager.get_node_call_id(step["node"])
+            except ValueError as e:
+                logger.warning("[FlowLoader] 获取节点call_id失败：%s，错误信息：%s", step["node"], e)
+                step["type"] = "Empty"
+            step["name"] = (
+                (await NodeManager.get_node_name(step["node"]))
+                if "name" not in step or step["name"] == ""
+                else step["name"]
+            )
         return flow_yaml
 
 

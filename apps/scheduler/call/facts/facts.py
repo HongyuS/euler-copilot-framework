@@ -10,7 +10,7 @@ from pydantic import Field
 
 from apps.models.node import NodeInfo
 from apps.scheduler.call.core import CoreCall
-from apps.schemas.enum_var import CallOutputType
+from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.scheduler import CallInfo, CallOutputChunk, CallVars
 from apps.services.user_tag import UserTagManager
 
@@ -33,9 +33,16 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
 
 
     @classmethod
-    def info(cls) -> CallInfo:
+    def info(cls, language: LanguageType = LanguageType.CHINESE) -> CallInfo:
         """返回Call的名称和描述"""
-        return CallInfo(name="提取事实", description="从对话上下文和文档片段中提取事实。")
+        i18n_info = {
+            LanguageType.CHINESE: CallInfo(name="提取事实", description="从对话上下文和文档片段中提取事实。"),
+            LanguageType.ENGLISH: CallInfo(
+                name="Fact Extraction",
+                description="Extract facts from the conversation context and document snippets.",
+            ),
+        }
+        return i18n_info[language]
 
 
     @classmethod
@@ -79,7 +86,7 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
         )
 
         # 提取事实信息
-        facts_tpl = env.from_string(FACTS_PROMPT)
+        facts_tpl = env.from_string(FACTS_PROMPT[self._sys_vars.language])
         facts_prompt = facts_tpl.render(conversation=data.message)
         facts_obj: FactsGen = await self._json([
             {"role": "system", "content": "You are a helpful assistant."},
@@ -87,7 +94,7 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
         ], FactsGen) # type: ignore[arg-type]
 
         # 更新用户画像
-        domain_tpl = env.from_string(DOMAIN_PROMPT)
+        domain_tpl = env.from_string(DOMAIN_PROMPT[self._sys_vars.language])
         domain_prompt = domain_tpl.render(conversation=data.message)
         domain_list: DomainGen = await self._json([
             {"role": "system", "content": "You are a helpful assistant."},

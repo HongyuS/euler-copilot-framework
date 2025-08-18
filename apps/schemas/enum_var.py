@@ -197,8 +197,8 @@ class AgentState(str, Enum):
     ERROR = "ERROR"
 
 
-class Language(str, Enum):
+class LanguageType(str, Enum):
     """语言"""
 
-    ZH = "zh"
-    EN = "en"
+    CHINESE = "zh"
+    ENGLISH = "en"

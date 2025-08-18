@@ -10,7 +10,7 @@ from pydantic import Field
 
 from apps.models.task import ExecutorHistory, Task
 from apps.scheduler.call.llm.prompt import LLM_ERROR_PROMPT
-from apps.schemas.enum_var import EventType, ExecutorStatus, SpecialCallType, StepStatus
+from apps.schemas.enum_var import EventType, ExecutorStatus, LanguageType, SpecialCallType, StepStatus
 from apps.schemas.flow import Flow, Step
 from apps.schemas.request_data import RequestDataApp
 from apps.schemas.task import StepQueueItem
@@ -22,21 +22,37 @@ from .step import StepExecutor
 logger = logging.getLogger(__name__)
 # 开始前的固定步骤
 FIXED_STEPS_BEFORE_START = [
-    Step(
-        name="理解上下文",
-        description="使用大模型，理解对话上下文",
-        node=SpecialCallType.SUMMARY.value,
-        type=SpecialCallType.SUMMARY.value,
-    ),
+    {
+        LanguageType.CHINESE: Step(
+            name="理解上下文",
+            description="使用大模型，理解对话上下文",
+            node=SpecialCallType.SUMMARY.value,
+            type=SpecialCallType.SUMMARY.value,
+        ),
+        LanguageType.ENGLISH: Step(
+            name="Understand context",
+            description="Use large model to understand the context of the dialogue",
+            node=SpecialCallType.SUMMARY.value,
+            type=SpecialCallType.SUMMARY.value,
+        ),
+    },
 ]
 # 结束后的固定步骤
 FIXED_STEPS_AFTER_END = [
-    Step(
-        name="记忆存储",
-        description="理解对话答案，并存储到记忆中",
-        node=SpecialCallType.FACTS.value,
-        type=SpecialCallType.FACTS.value,
-    ),
+    {
+        LanguageType.CHINESE: Step(
+            name="记忆存储",
+            description="理解对话答案，并存储到记忆中",
+            node=SpecialCallType.FACTS.value,
+            type=SpecialCallType.FACTS.value,
+        ),
+        LanguageType.ENGLISH: Step(
+            name="Memory storage",
+            description="Understand the answer of the dialogue and store it in the memory",
+            node=SpecialCallType.FACTS.value,
+            type=SpecialCallType.FACTS.value,
+        ),
+    },
 ]
 
 
@@ -59,7 +75,11 @@ class FlowExecutor(BaseExecutor):
         """初始化FlowExecutor"""
         logger.info("[FlowExecutor] 加载Executor状态")
         # 尝试恢复State
-        if self.task.state and self.task.state.flow_status != ExecutorStatus.INIT:
+        if (
+            self.task.state
+            and self.task.state.flow_status != FlowStatus.INIT
+            and self.task.state.flow_status != FlowStatus.UNKNOWN
+        ):
             self.task.context = await TaskManager.get_context_by_task_id(self.task.id)
         else:
             # 创建ExecutorState
@@ -71,7 +91,7 @@ class FlowExecutor(BaseExecutor):
                 step_status=StepStatus.RUNNING,
                 app_id=str(self.post_body_app.app_id),
                 step_id="start",
-                step_name="开始",
+                step_name="开始" if self.task.language == LanguageType.CHINESE else "Start",
             )
         self.validate_flow_state(self.task)
         # 是否到达Flow结束终点（变量）
@@ -175,12 +195,14 @@ class FlowExecutor(BaseExecutor):
 
         # 头插开始前的系统步骤，并执行
         for step in FIXED_STEPS_BEFORE_START:
-            self.step_queue.append(StepQueueItem(
-                step_id=uuid.uuid4(),
-                step=step,
-                enable_filling=False,
-                to_user=False,
-            ))
+            self.step_queue.append(
+                StepQueueItem(
+                    step_id=uuid.uuid4(),
+                    step=step.get(self.task.language, step[LanguageType.CHINESE]),
+                    enable_filling=False,
+                    to_user=False,
+                ),
+            )
         await self._step_process()
 
         # 插入首个步骤
@@ -194,23 +216,29 @@ class FlowExecutor(BaseExecutor):
             if self.state.stepStatus == StepStatus.ERROR:
                 logger.warning("[FlowExecutor] Executor出错，执行错误处理步骤")
                 self.step_queue.clear()
-                self.step_queue.appendleft(StepQueueItem(
-                    step_id=str(uuid.uuid4()),
-                    step=Step(
-                        name="错误处理",
-                        description="错误处理",
-                        node=SpecialCallType.LLM.value,
-                        type=SpecialCallType.LLM.value,
-                        params={
-                            "user_prompt": LLM_ERROR_PROMPT.replace(
-                                "{{ error_info }}",
-                                self.task.state.error_info["err_msg"],
+                self.step_queue.appendleft(
+                    StepQueueItem(
+                        step_id=str(uuid.uuid4()),
+                        step=Step(
+                            name=(
+                                "错误处理" if self.task.language == LanguageType.CHINESE else "Error Handling"
                             ),
-                        },
+                            description=(
+                                "错误处理" if self.task.language == LanguageType.CHINESE else "Error Handling"
+                            ),
+                            node=SpecialCallType.LLM.value,
+                            type=SpecialCallType.LLM.value,
+                            params={
+                                "user_prompt": LLM_ERROR_PROMPT[self.task.language].replace(
+                                    "{{ error_info }}",
+                                    self.task.state.error_info["err_msg"],  # type: ignore[arg-type]
+                                ),
+                            },
+                        ),
+                        enable_filling=False,
+                        to_user=False,
                     ),
-                    enable_filling=False,
-                    to_user=False,
-                ))
+                )
                 is_error = True
                 # 错误处理后结束
                 self._reached_end = True
@@ -234,10 +262,12 @@ class FlowExecutor(BaseExecutor):
 
         # 尾插运行结束后的系统步骤
         for step in FIXED_STEPS_AFTER_END:
-            self.step_queue.append(StepQueueItem(
-                step_id=uuid.uuid4(),
-                step=step,
-            ))
+            self.step_queue.append(
+                StepQueueItem(
+                    step_id=uuid.uuid4(),
+                    step=step.get(self.task.language, step[LanguageType.CHINESE]),
+                ),
+            )
         await self._step_process()
 
         # FlowStop需要返回总时间，需要倒推最初的开始时间（当前时间减去当前已用总时间）

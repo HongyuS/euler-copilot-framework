@@ -17,7 +17,7 @@ from apps.llm.reasoning import ReasoningLLM
 from apps.models.llm import LLMData
 from apps.models.node import NodeInfo
 from apps.models.task import ExecutorHistory
-from apps.schemas.enum_var import CallOutputType
+from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.scheduler import (
     CallError,
     CallIds,
@@ -86,7 +86,7 @@ class CoreCall(BaseModel):
 
 
     @classmethod
-    def info(cls) -> CallInfo:
+    def info(cls, language: LanguageType = LanguageType.CHINESE) -> CallInfo:
         """返回Call的名称和描述"""
         err = "[CoreCall] 必须手动实现info方法"
         raise NotImplementedError(err)
@@ -108,6 +108,7 @@ class CoreCall(BaseModel):
             history_order.append(item_obj.step_id)
 
         return CallVars(
+            language=executor.task.language,
             ids=CallIds(
                 task_id=executor.task.id,
                 flow_id=executor.task.state.flow_id,
