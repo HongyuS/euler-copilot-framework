@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .enum_var import CallOutputType
+from .enum_var import CallOutputType, LanguageType
 from .task import FlowStepHistory
 
 
@@ -35,6 +35,7 @@ class CallVars(BaseModel):
     history: dict[str, FlowStepHistory] = Field(description="Executor中历史工具的结构化数据", default={})
     history_order: list[str] = Field(description="Executor中历史工具的顺序", default=[])
     ids: CallIds = Field(description="Call的ID")
+    language: LanguageType = Field(description="语言", default=LanguageType.CHINESE)
 
 
 class CallTokens(BaseModel):

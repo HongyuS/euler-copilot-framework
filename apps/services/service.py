@@ -396,7 +396,7 @@ class ServiceCenterManager:
     @staticmethod
     async def get_service_metadata(
         user_sub: str,
-        service_id: uuid.UUID,
+        service_id: str,
     ) -> ServiceMetadata:
         """获取服务元数据"""
         async with postgres.session() as session:

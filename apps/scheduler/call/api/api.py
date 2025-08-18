@@ -14,7 +14,7 @@ from pydantic.json_schema import SkipJsonSchema
 
 from apps.common.oidc import oidc_provider
 from apps.scheduler.call.core import CoreCall
-from apps.schemas.enum_var import CallOutputType, ContentType, HTTPMethod
+from apps.schemas.enum_var import CallOutputType, ContentType, HTTPMethod, LanguageType
 from apps.schemas.scheduler import (
     CallError,
     CallInfo,

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from apps.llm.function import JsonGenerator
 from apps.llm.reasoning import ReasoningLLM
 from apps.llm.token import TokenCalculator
+from apps.schemas.enum_var import LanguageType
 
 from .core import CorePattern
 
@@ -23,67 +24,131 @@ class QuestionRewriteResult(BaseModel):
 class QuestionRewrite(CorePattern):
     """问题补全与重写"""
 
-    system_prompt: str = "You are a helpful assistant."
-    """系统提示词"""
+    @staticmethod
+    def _default() -> tuple[dict[LanguageType, str], dict[LanguageType, str]]:
+        """默认的Prompt内容"""
+        return {
+            LanguageType.CHINESE: r"You are a helpful assistant.",
+            LanguageType.ENGLISH: r"You are a helpful assistant.",
+        }, {
+            LanguageType.CHINESE: r"""
+                <instructions>
+                  <instruction>
+                    根据历史对话，推断用户的实际意图并补全用户的提问内容,历史对话被包含在<history>标签中，用户意图被包含在<question>标签中。
+                    要求：
+                      1. 请使用JSON格式输出，参考下面给出的样例；不要包含任何XML标签，不要包含任何解释说明；
+                      2. 若用户当前提问内容与对话上文不相关，或你认为用户的提问内容已足够完整，请直接输出用户的提问内容。
+                      3. 补全内容必须精准、恰当，不要编造任何内容。
+                      4. 请输出补全后的问题，不要输出其他内容。
+                      输出格式样例：
+                      {{
+                        "question": "补全后的问题"
+                      }}
+                  </instruction>
 
-    user_prompt: str = r"""
-        <instructions>
-          <instruction>
-            根据历史对话，推断用户的实际意图并补全用户的提问内容,历史对话被包含在<history>标签中，用户意图被包含在<question>标签中。
-            要求：
-              1. 请使用JSON格式输出，参考下面给出的样例；不要包含任何XML标签，不要包含任何解释说明；
-              2. 若用户当前提问内容与对话上文不相关，或你认为用户的提问内容已足够完整，请直接输出用户的提问内容。
-              3. 补全内容必须精准、恰当，不要编造任何内容。
-              4. 请输出补全后的问题，不要输出其他内容。
-              输出格式样例：
-              {{
-                "question": "补全后的问题"
-              }}
-          </instruction>
+                  <example>
+                    <history>
+                      <qa>
+                        <question>
+                          openEuler的优势有哪些？
+                        </question>
+                        <answer>
+                          openEuler的优势包括开源、社区支持、以及对云计算和边缘计算的优化。
+                        </answer>
+                      </qa>
+                    </history>
 
-          <example>
-            <history>
-              <qa>
+                    <question>
+                      详细点？
+                    </question>
+                    <output>
+                      {{
+                        "question": "详细说明openEuler操作系统的优势和应用场景"
+                      }}
+                    </output>
+                  </example>
+                </instructions>
+
+                <history>
+                  {history}
+                </history>
                 <question>
-                  openEuler的优势有哪些？
+                  {question}
                 </question>
-                <answer>
-                  openEuler的优势包括开源、社区支持、以及对云计算和边缘计算的优化。
-                </answer>
-              </qa>
-            </history>
 
-            <question>
-              详细点？
-            </question>
-            <output>
-              {{
-                "question": "详细说明openEuler操作系统的优势和应用场景"
-              }}
-            </output>
-          </example>
-        </instructions>
+                现在，请输出补全后的问题：
+                <output>
+            """,
+            LanguageType.ENGLISH: r"""
+                <instructions>
+                  <instruction>
+                    Based on the historical dialogue, infer the user's actual intent and complete the user's question. \
+The historical dialogue is contained within the <history> tags, and the user's intent is contained within the \
+<question> tags.
+                    Requirements:
+                      1. Please output in JSON format, referring to the example provided below; do not include any XML \
+tags or any explanatory notes;
+                      2. If the user's current question is unrelated to the previous dialogue or you believe the \
+user's question is already complete enough, directly output the user's question.
+                      3. The completed content must be precise and appropriate; do not fabricate any content.
+                      4. Output only the completed question; do not include any other content.
+                      Example output format:
+                      {{
+                        "question": "The completed question"
+                      }}
+                  </instruction>
 
-        <history>
-          {history}
-        </history>
-        <question>
-          {question}
-        </question>
+                  <example>
+                    <history>
+                      <qa>
+                        <question>
+                          What are the features of openEuler?
+                        </question>
+                        <answer>
+                          Compared to other operating systems, openEuler's features include support for multiple \
+hardware architectures and providing a stable, secure, and efficient operating system platform.
+                        </answer>
+                      </qa>
+                      <qa>
+                        <question>
+                          What are the advantages of openEuler?
+                        </question>
+                        <answer>
+                          The advantages of openEuler include being open-source, having community support, \
+and optimizations for cloud and edge computing.
+                        </answer>
+                      </qa>
+                    </history>
 
-        现在，请输出补全后的问题：
-        <output>
-    """
-    """用户提示词"""
+                    <question>
+                      More details?
+                    </question>
+                    <output>
+                      {{
+                        "question":  "What are the features of openEuler? Please elaborate on its advantages and \
+application scenarios."
+                      }}
+                    </output>
+                  </example>
+                </instructions>
+                <history>
+                  {history}
+                </history>
+                <question>
+                  {question}
+                </question>
+        """,
+        }
 
     async def generate(self, **kwargs) -> str:  # noqa: ANN003
         """问题补全与重写"""
         history = kwargs.get("history", [])
         question = kwargs["question"]
+        language = kwargs.get("language", LanguageType.CHINESE)
 
         messages = [
-            {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": self.user_prompt.format(history="", question=question)},
+            {"role": "system", "content": self.system_prompt[language]},
+            {"role": "user", "content": self.user_prompt[language].format(history="", question=question)},
         ]
         llm = kwargs.get("llm")
         if not llm:
@@ -95,8 +160,8 @@ class QuestionRewrite(CorePattern):
             return question
         index = 0
         qa = ""
-        while index < len(history)-1 and leave_tokens > 0:
-            q = history[index-1].get("content", "")
+        while index < len(history) - 1 and leave_tokens > 0:
+            q = history[index - 1].get("content", "")
             a = history[index].get("content", "")
             sub_qa = f"<qa>\n<question>\n{q}\n</question>\n<answer>\n{a}\n</answer>\n</qa>"
             leave_tokens -= TokenCalculator().calculate_token_length(
@@ -109,7 +174,7 @@ class QuestionRewrite(CorePattern):
                 qa = sub_qa + qa
             index += 2
 
-        messages[1]["content"] = self.user_prompt.format(history=qa, question=question)
+        messages[1]["content"] = self.user_prompt[language].format(history=qa, question=question)
         result = ""
         async for chunk in llm.call(messages, streaming=False):
             result += chunk

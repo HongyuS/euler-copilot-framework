@@ -4,7 +4,7 @@
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from apps.schemas.enum_var import CallOutputType
+from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.scheduler import CallInfo, CallOutputChunk, CallVars
 
 from .core import CoreCall, DataBase
@@ -14,14 +14,18 @@ class Empty(CoreCall, input_model=DataBase, output_model=DataBase):
     """空Call"""
 
     @classmethod
-    def info(cls) -> CallInfo:
+    def info(cls, language: LanguageType = LanguageType.CHINESE) -> CallInfo:
         """
         返回Call的名称和描述
 
         :return: Call的名称和描述
         :rtype: CallInfo
         """
-        return CallInfo(name="空白", description="空白节点，用于占位")
+        i18n_info = {
+            LanguageType.CHINESE: CallInfo(name="空白", description="空白节点，用于占位"),
+            LanguageType.ENGLISH: CallInfo(name="Empty", description="Empty node, used for placeholder"),
+        }
+        return i18n_info[language]
 
 
     async def _init(self, call_vars: CallVars) -> DataBase:

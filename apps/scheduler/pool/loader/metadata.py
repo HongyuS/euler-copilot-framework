@@ -63,8 +63,7 @@ class MetadataLoader:
                     raise RuntimeError(err) from e
         elif metadata_type == MetadataType.SERVICE.value:
             try:
-                service_id = uuid.UUID(file_path.parent.name)
-                metadata = ServiceMetadata(id=service_id, **metadata_dict)
+                metadata = ServiceMetadata(id=file_path.parent.name, **metadata_dict)
             except Exception as e:
                 err = "[MetadataLoader] Service metadata.yaml格式错误"
                 logger.exception(err)
