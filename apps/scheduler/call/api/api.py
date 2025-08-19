@@ -61,9 +61,15 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
     query: dict[str, Any] = Field(description="已知的部分请求参数", default={})
 
     @classmethod
-    def info(cls) -> CallInfo:
+    def info(cls, language: LanguageType = LanguageType.CHINESE) -> CallInfo:
         """返回Call的名称和描述"""
-        return CallInfo(name="API调用", description="向某一个API接口发送HTTP请求，获取数据。")
+        i18n_info = {
+            LanguageType.CHINESE: CallInfo(name="API调用", description="向某一个API接口发送HTTP请求，获取数据。"),
+            LanguageType.ENGLISH: CallInfo(
+                name="API Call", description="Send an HTTP request to an API to obtain data.",
+            ),
+        }
+        return i18n_info[language]
 
     async def _init(self, call_vars: CallVars) -> APIInput:
         """初始化API调用工具"""

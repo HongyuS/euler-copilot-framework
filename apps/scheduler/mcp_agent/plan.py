@@ -20,7 +20,9 @@ from apps.scheduler.mcp_agent.prompt import (
     RISK_EVALUATE,
 )
 from apps.scheduler.slot.slot import Slot
+from apps.schemas.enum_var import LanguageType
 from apps.schemas.mcp import (
+    FlowName,
     IsParamError,
     MCPTool,
     Step,
@@ -42,22 +44,23 @@ class MCPPlanner(MCPBase):
     goal: str
     llm: ReasoningLLM
 
-    def __init__(self, goal: str, llm: ReasoningLLM) -> None:
+    def __init__(self, goal: str, llm: ReasoningLLM, language: LanguageType) -> None:
         """初始化MCPPlanner"""
         super().__init__()
         self.goal = goal
         self.llm = llm
+        self.language = language
 
-    async def get_flow_name(self) -> str:
+    async def get_flow_name(self) -> FlowName:
         """获取当前流程的名称"""
-        template = _env.from_string(GENERATE_FLOW_NAME)
+        template = _env.from_string(GENERATE_FLOW_NAME[self.language])
         prompt = template.render(goal=self.goal)
         return await self.get_resoning_result(prompt)
 
     async def create_next_step(self, history: str, tools: list[MCPTool]) -> Step:
         """创建下一步的执行步骤"""
         # 获取推理结果
-        template = _env.from_string(GEN_STEP)
+        template = _env.from_string(GEN_STEP[self.language])
         prompt = template.render(goal=self.goal, history=history, tools=tools)
         result = await self.get_resoning_result(prompt)
 
@@ -80,7 +83,7 @@ class MCPPlanner(MCPBase):
     ) -> ToolRisk:
         """获取MCP工具的风险评估结果"""
         # 获取推理结果
-        template = _env.from_string(RISK_EVALUATE)
+        template = _env.from_string(RISK_EVALUATE[self.language])
         prompt = template.render(
             tool_name=tool.name,
             tool_description=tool.description,
@@ -104,7 +107,7 @@ class MCPPlanner(MCPBase):
         input_params: dict[str, Any],
     ) -> IsParamError:
         """判断错误信息是否是参数错误"""
-        tmplate = _env.from_string(IS_PARAM_ERROR)
+        tmplate = _env.from_string(IS_PARAM_ERROR[self.language])
         prompt = tmplate.render(
             goal=self.goal,
             history=history,
@@ -125,7 +128,7 @@ class MCPPlanner(MCPBase):
         self, error_message: str, tool: MCPTool, input_params: dict[str, Any],
     ) -> str:
         """将错误信息转换为工具描述"""
-        template = _env.from_string(CHANGE_ERROR_MESSAGE_TO_DESCRIPTION)
+        template = _env.from_string(CHANGE_ERROR_MESSAGE_TO_DESCRIPTION[self.language])
         prompt = template.render(
             error_message=error_message,
             tool_name=tool.name,
@@ -138,7 +141,7 @@ class MCPPlanner(MCPBase):
     async def get_missing_param(self, tool: MCPTool, input_param: dict[str, Any], error_message: str) -> dict[str, Any]:
         """获取缺失的参数"""
         slot = Slot(schema=tool.input_schema)
-        template = _env.from_string(GET_MISSING_PARAMS)
+        template = _env.from_string(GET_MISSING_PARAMS[self.language])
         schema_with_null = slot.add_null_to_basic_types()
         prompt = template.render(
             tool_name=tool.name,
@@ -155,7 +158,7 @@ class MCPPlanner(MCPBase):
         self, memory: str,
     ) -> AsyncGenerator[str, None]:
         """生成最终回答"""
-        template = _env.from_string(FINAL_ANSWER)
+        template = _env.from_string(FINAL_ANSWER[self.language])
         prompt = template.render(
             memory=memory,
             goal=self.goal,

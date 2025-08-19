@@ -9,7 +9,7 @@ from anyio import Path
 from pydantic import Field
 
 from apps.scheduler.call.core import CoreCall
-from apps.schemas.enum_var import CallOutputType
+from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.scheduler import (
     CallError,
     CallInfo,
@@ -28,9 +28,13 @@ class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
 
 
     @classmethod
-    def info(cls) -> CallInfo:
+    def info(cls, language: LanguageType = LanguageType.CHINESE) -> CallInfo:
         """返回Call的名称和描述"""
-        return CallInfo(name="图表", description="将SQL查询出的数据转换为图表")
+        i18n_info = {
+            LanguageType.CHINESE: CallInfo(name="图表", description="将SQL查询出的数据转换为图表"),
+            LanguageType.ENGLISH: CallInfo(name="Graph", description="Convert the data queried by SQL into a chart."),
+        }
+        return i18n_info[language]
 
 
     async def _init(self, call_vars: CallVars) -> RenderInput:

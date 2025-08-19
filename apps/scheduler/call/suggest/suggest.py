@@ -14,7 +14,7 @@ from pydantic.json_schema import SkipJsonSchema
 from apps.common.security import Security
 from apps.models.node import NodeInfo
 from apps.scheduler.call.core import CoreCall
-from apps.schemas.enum_var import CallOutputType
+from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.record import RecordContent
 from apps.schemas.scheduler import (
     CallError,
@@ -51,9 +51,16 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
 
 
     @classmethod
-    def info(cls) -> CallInfo:
+    def info(cls, language: LanguageType = LanguageType.CHINESE) -> CallInfo:
         """返回Call的名称和描述"""
-        return CallInfo(name="问题推荐", description="在答案下方显示推荐的下一个问题")
+        i18n_info = {
+            LanguageType.CHINESE: CallInfo(name="问题推荐", description="在答案下方显示推荐的下一个问题"),
+            LanguageType.ENGLISH: CallInfo(
+                name="Question Suggestion",
+                description="Display the suggested next question under the answer",
+            ),
+        }
+        return i18n_info[language]
 
 
     @classmethod
@@ -142,7 +149,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
         # 已推送问题数量
         pushed_questions = 0
         # 初始化Prompt
-        prompt_tpl = self._env.from_string(SUGGEST_PROMPT)
+        prompt_tpl = self._env.from_string(SUGGEST_PROMPT[self._sys_vars.language])
 
         # 先处理configs
         for config in self.configs:

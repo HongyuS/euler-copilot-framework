@@ -12,7 +12,7 @@ from pydantic import Field
 from apps.models.node import NodeInfo
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.slot.slot import Slot as SlotProcessor
-from apps.schemas.enum_var import CallOutputType
+from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.scheduler import CallInfo, CallOutputChunk, CallVars
 
 from .prompt import SLOT_GEN_PROMPT
@@ -33,9 +33,16 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
 
 
     @classmethod
-    def info(cls) -> CallInfo:
+    def info(cls, language: LanguageType = LanguageType.CHINESE) -> CallInfo:
         """返回Call的名称和描述"""
-        return CallInfo(name="参数自动填充", description="根据步骤历史，自动填充参数")
+        i18n_info = {
+            LanguageType.CHINESE: CallInfo(name="参数自动填充", description="根据步骤历史，自动填充参数"),
+            LanguageType.ENGLISH: CallInfo(
+                name="Parameter Auto-Filling",
+                description="Automatically fill parameters based on step history.",
+            ),
+        }
+        return i18n_info[language]
 
 
     async def _llm_slot_fill(self, remaining_schema: dict[str, Any]) -> tuple[str, dict[str, Any]]:
@@ -46,7 +53,7 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
             trim_blocks=True,
             lstrip_blocks=True,
         )
-        template = env.from_string(SLOT_GEN_PROMPT)
+        template = env.from_string(SLOT_GEN_PROMPT[self._sys_vars.language])
 
         conversation = [
             {"role": "system", "content": "You are a helpful assistant."},

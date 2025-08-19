@@ -10,7 +10,7 @@ from pydantic import Field
 
 from apps.scheduler.call.core import CallError, CoreCall
 from apps.scheduler.mcp import MCPHost, MCPPlanner, MCPSelector
-from apps.schemas.enum_var import CallOutputType
+from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.mcp import MCPPlanItem
 from apps.schemas.scheduler import (
     CallInfo,
@@ -26,6 +26,36 @@ from .schema import (
 )
 
 logger = logging.getLogger(__name__)
+MCP_GENERATE: dict[str, dict[LanguageType, str]] = {
+    "START": {
+        LanguageType.CHINESE: "[MCP] 开始生成计划...\n\n\n\n",
+        LanguageType.ENGLISH: "[MCP] Start generating plan...\n\n\n\n",
+    },
+    "END": {
+        LanguageType.CHINESE: "[MCP] 计划生成完成：\n\n{plan_str}\n\n\n\n",
+        LanguageType.ENGLISH: "[MCP] Plan generation completed: \n\n{plan_str}\n\n\n\n",
+    },
+}
+MCP_SUMMARY: dict[str, dict[LanguageType, str]] = {
+    "START": {
+        LanguageType.CHINESE: "[MCP] 正在总结任务结果...\n\n",
+        LanguageType.ENGLISH: "[MCP] Start summarizing task results...\n\n",
+    },
+    "END": {
+        LanguageType.CHINESE: "[MCP] 任务完成\n\n---\n\n{answer}\n\n",
+        LanguageType.ENGLISH: "[MCP] Task summary completed\n\n{answer}\n\n",
+    },
+}
+MCP_TOOL: dict[str, dict[LanguageType, str]] = {
+    "BEGIN": {
+        LanguageType.CHINESE: "[MCP] 正在调用工具 {tool_name}...\n\n",
+        LanguageType.ENGLISH: "[MCP] Calling tool {tool_name}...\n\n",
+    },
+    "END": {
+        LanguageType.CHINESE: "[MCP] 工具 {tool_name} 调用完成\n\n",
+        LanguageType.ENGLISH: "[MCP] Tool {tool_name} call completed\n\n",
+    },
+}
 
 
 class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
@@ -38,20 +68,30 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
 
 
     @classmethod
-    def info(cls) -> CallInfo:
+    def info(cls, language: LanguageType = LanguageType.CHINESE) -> CallInfo:
         """
         返回Call的名称和描述
 
         :return: Call的名称和描述
         :rtype: CallInfo
         """
-        return CallInfo(name="MCP", description="调用MCP Server，执行工具")
+        i18n_info = {
+            LanguageType.CHINESE: CallInfo(name="MCP", description="调用MCP Server，执行工具"),
+            LanguageType.ENGLISH: CallInfo(name="MCP", description="Call MCP Server to execute tools"),
+        }
+        return i18n_info[language]
 
 
     async def _init(self, call_vars: CallVars) -> MCPInput:
         """初始化MCP"""
         # 获取MCP交互类
-        self._host = MCPHost(call_vars.ids.user_sub, call_vars.ids.task_id, call_vars.ids.flow_id, self.description)
+        self._host = MCPHost(
+            call_vars.ids.user_sub,
+            call_vars.ids.task_id,
+            call_vars.ids.flow_id,
+            self.description,
+            language=self._sys_vars.language,
+        )
         self._tool_list = await self._host.get_tool_list(self.mcp_list)
         self._call_vars = call_vars
 
@@ -85,12 +125,12 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
     async def _generate_plan(self) -> AsyncGenerator[CallOutputChunk, None]:
         """生成执行计划"""
         # 开始提示
-        yield self._create_output("[MCP] 开始生成计划...\n\n\n\n", MCPMessageType.PLAN_BEGIN)
+        yield self._create_output(MCP_GENERATE["START"][self._sys_vars.language], MCPMessageType.PLAN_BEGIN)
 
         # 选择工具并生成计划
         selector = MCPSelector()
         top_tool = await selector.select_top_tool(self._call_vars.question, self.mcp_list)
-        planner = MCPPlanner(self._call_vars.question)
+        planner = MCPPlanner(self._call_vars.question, language=self._sys_vars.language)
         self._plan = await planner.create_plan(top_tool, self.max_steps)
 
         # 输出计划
@@ -99,7 +139,7 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
             plan_str += f"[+] {plan_item.content}； {plan_item.tool}[{plan_item.instruction}]\n\n"
 
         yield self._create_output(
-            f"[MCP] 计划生成完成：\n\n{plan_str}\n\n\n\n",
+            MCP_GENERATE["END"][self._sys_vars.language].format(plan_str=plan_str),
             MCPMessageType.PLAN_END,
             data=self._plan.model_dump(),
         )
@@ -120,7 +160,7 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
 
         # 提示开始调用
         yield self._create_output(
-            f"[MCP] 正在调用工具 {tool.toolName}...\n\n",
+            MCP_TOOL["BEGIN"][self._sys_vars.language].format(tool_name=tool.toolName),
             MCPMessageType.TOOL_BEGIN,
         )
 
@@ -135,7 +175,7 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
         # 提示调用完成
         logger.info("[MCP] 工具 %s 调用完成, 结果: %s", tool.toolName, result)
         yield self._create_output(
-            f"[MCP] 工具 {tool.toolName} 调用完成\n\n",
+            MCP_TOOL["END"][self._sys_vars.language].format(tool_name=tool.toolName),
             MCPMessageType.TOOL_END,
             data={
                 "data": result,
@@ -147,17 +187,17 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
         """生成总结"""
         # 提示开始总结
         yield self._create_output(
-            "[MCP] 正在总结任务结果...\n\n",
+            MCP_SUMMARY["START"][self._sys_vars.language],
             MCPMessageType.FINISH_BEGIN,
         )
 
         # 生成答案
-        planner = MCPPlanner(self._call_vars.question)
+        planner = MCPPlanner(self._call_vars.question, language=self._sys_vars.language)
         answer = await planner.generate_answer(self._plan, await self._host.assemble_memory())
 
         # 输出结果
         yield self._create_output(
-            f"[MCP] 任务完成\n\n---\n\n{answer}\n\n",
+            MCP_SUMMARY["END"][self._sys_vars.language].format(answer=answer),
             MCPMessageType.FINISH_END,
             data=MCPOutput(
                 message=answer,

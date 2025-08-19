@@ -70,6 +70,8 @@ class ParameterManager:
         pre_step_params = []
         for i in range(1, len(q)):
             step_id = q[i]
+            if step_id == "start" or step_id == "end":
+                continue
             node_id: str | None = step_id_to_node_id.get(step_id)
             node_name: str | None = step_id_to_node_name.get(step_id)
             if node_id is None or node_name is None:

@@ -12,7 +12,7 @@ from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
 from apps.scheduler.call.core import CoreCall
-from apps.schemas.enum_var import CallOutputType
+from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.scheduler import (
     CallError,
     CallInfo,
@@ -40,9 +40,19 @@ class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
 
 
     @classmethod
-    def info(cls) -> CallInfo:
+    def info(cls, language: LanguageType = LanguageType.CHINESE) -> CallInfo:
         """返回Call的名称和描述"""
-        return CallInfo(name="大模型", description="以指定的提示词和上下文信息调用大模型，并获得输出。")
+        i18n_info = {
+            LanguageType.CHINESE: CallInfo(
+                name="大模型",
+                description="以指定的提示词和上下文信息调用大模型，并获得输出。",
+            ),
+            LanguageType.ENGLISH: CallInfo(
+                name="LLM",
+                description="Call an LLM with specified prompts and context information and get output.",
+            ),
+        }
+        return i18n_info[language]
 
 
     async def _prepare_message(self, call_vars: CallVars) -> list[dict[str, Any]]:
@@ -61,7 +71,7 @@ class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
             step_history += [call_vars.history[ids]]
 
         if self.enable_context:
-            context_tmpl = env.from_string(LLM_CONTEXT_PROMPT)
+            context_tmpl = env.from_string(LLM_CONTEXT_PROMPT[self._sys_vars.language])
             context_prompt = context_tmpl.render(
                 summary=call_vars.summary,
                 history_data=step_history,

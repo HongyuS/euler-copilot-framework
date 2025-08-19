@@ -3,6 +3,7 @@
 
 import json
 import logging
+import re
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Any
@@ -14,8 +15,9 @@ from apps.common.config import config
 from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.llm.reasoning import ReasoningLLM
 from apps.llm.token import TokenCalculator
+from apps.models.llm import LLMData
 from apps.schemas.config import LLMConfig
-from apps.schemas.enum_var import EventType
+from apps.schemas.enum_var import EventType, LanguageType
 from apps.schemas.rag_data import RAGQueryReq
 from apps.services.session import SessionManager
 
@@ -27,60 +29,106 @@ class RAG:
 
     system_prompt: str = "You are a helpful assistant."
     """系统提示词"""
-    user_prompt = """'
-    <instructions>
-            你是openEuler社区的智能助手。请结合给出的背景信息, 回答用户的提问，\
-并且基于给出的背景信息在相关句子后进行脚注。
-            一个例子将在<example>中给出。
-            上下文背景信息将在<bac_info>中给出。
-            用户的提问将在<user_question>中给出。
-            注意：
-            1.输出不要包含任何XML标签，不要编造任何信息。若你认为用户提问与背景信息无关，请忽略背景信息直接作答。
-            2.脚注的格式为[[1]]，[[2]]，[[3]]等，脚注的内容为提供的文档的id。
-            3.脚注只出现在回答的句子的末尾，例如句号、问号等标点符号后面。
-            4.不要对脚注本身进行解释或说明。
-            5.请不要使用<example></example>中的文档的id作为脚注。
-    </instructions>
-    <example>
+    user_prompt: dict[LanguageType, str] = {
+        LanguageType.CHINESE: r"""
+        <instructions>
+                你是openEuler社区的智能助手。请结合给出的背景信息, 回答用户的提问，并且基于给出的背景信息在相关句子后进行脚注。
+                一个例子将在<example>中给出。
+                上下文背景信息将在<bac_info>中给出。
+                用户的提问将在<user_question>中给出。
+                注意：
+                1.输出不要包含任何XML标签，不要编造任何信息。若你认为用户提问与背景信息无关，请忽略背景信息直接作答。
+                2.脚注的格式为[[1]]，[[2]]，[[3]]等，脚注的内容为提供的文档的id。
+                3.脚注只出现在回答的句子的末尾，例如句号、问号等标点符号后面。
+                4.不要对脚注本身进行解释或说明。
+                5.请不要使用<example></example>中的文档的id作为脚注。
+        </instructions>
+        <example>
+            <bac_info>
+                    <document id = 1 name = example_doc>
+                        <chunk>
+                            openEuler社区是一个开源操作系统社区，致力于推动Linux操作系统的发展。
+                        </chunk>
+                        <chunk>
+                            openEuler社区的目标是为用户提供一个稳定、安全、高效的操作系统平台，并且支持多种硬件架构。
+                        </chunk>
+                    </document>
+                    <document id = 2 name = another_example_doc>
+                        <chunk>
+                            openEuler社区的成员来自世界各地，包括开发者、用户和企业。
+                        </chunk>
+                        <chunk>
+                            openEuler社区的成员共同努力，推动开源操作系统的发展，并且为用户提供支持和帮助。
+                        </chunk>
+                    </document>
+            </bac_info>
+            <user_question>
+                    openEuler社区的目标是什么？
+            </user_question>
+            <answer>
+                    openEuler社区是一个开源操作系统社区，致力于推动Linux操作系统的发展。[[1]]
+                    openEuler社区的目标是为用户提供一个稳定、安全、高效的操作系统平台，并且支持多种硬件架构。[[1]]
+            </answer>
+        </example>
+        
         <bac_info>
-                <document id = 1 name = example_doc>
-                    <chunk>
-                        openEuler社区是一个开源操作系统社区，致力于推动Linux操作系统的发展。
-                    </chunk>
-                    <chunk>
-                        openEuler社区的目标是为用户提供一个稳定、安全、高效的操作系统平台，并且支持多种硬件架构。
-                    </chunk>
-                </document>
-                <document id = 2 name = another_example_doc>
-                    <chunk>
-                        openEuler社区的成员来自世界各地，包括开发者、用户和企业。
-                    </chunk>
-                    <chunk>
-                        openEuler社区的成员共同努力，推动开源操作系统的发展，并且为用户提供支持和帮助。
-                    </chunk>
-                </document>
+                {bac_info}
         </bac_info>
         <user_question>
-                openEuler社区的目标是什么？
+                {user_question}
         </user_question>
-        <answer>
-                openEuler社区是一个开源操作系统社区，致力于推动Linux操作系统的发展。[[1]]
-                openEuler社区的目标是为用户提供一个稳定、安全、高效的操作系统平台，并且支持多种硬件架构。[[1]]
-        </answer>
-    </example>
+        """,
+        LanguageType.ENGLISH: r"""
+        <instructions>
+                You are a helpful assistant of openEuler community. Please answer the user's question based on the given background information and add footnotes after the related sentences.
+                An example will be given in <example>.
+                The background information will be given in <bac_info>.
+                The user's question will be given in <user_question>.
+                Note:
+                1. Do not include any XML tags in the output, and do not make up any information. If you think the user's question is unrelated to the background information, please ignore the background information and directly answer.
+                2. Your response should not exceed 250 words.
+        </instructions>
+        <example>
+            <bac_info>
+                    <document id = 1 name = example_doc>
+                        <chunk>
+                            openEuler community is an open source operating system community, committed to promoting the development of the Linux operating system.
+                        </chunk>
+                        <chunk>
+                            openEuler community aims to provide users with a stable, secure, and efficient operating system platform, and support multiple hardware architectures.
+                        </chunk>
+                    </document>
+                    <document id = 2 name = another_example_doc>        
+                        <chunk>
+                            Members of the openEuler community come from all over the world, including developers, users, and enterprises.
+                        </chunk>
+                        <chunk>
+                            Members of the openEuler community work together to promote the development of open source operating systems, and provide support and assistance to users.
+                        </chunk>
+                    </document>
+            </bac_info>
+            <user_question>
+                    What is the goal of openEuler community?
+            </user_question>
+            <answer>
+                    openEuler community is an open source operating system community, committed to promoting the development of the Linux operating system. [[1]]
+                    openEuler community aims to provide users with a stable, secure, and efficient operating system platform, and support multiple hardware architectures. [[1]]
+            </answer>   
+        </example>  
 
-    <bac_info>
-            {bac_info}
-    </bac_info>
-    <user_question>
-            {user_question}
-    </user_question>
-    """
+        <bac_info>
+                {bac_info}
+        </bac_info>
+        <user_question>
+                {user_question}
+        </user_question>
+        """,
+    }
 
     @staticmethod
-    async def get_doc_info_from_rag(user_sub: str, max_tokens: int,
-                                    doc_ids: list[str],
-                                    data: RAGQueryReq) -> list[dict[str, Any]]:
+    async def get_doc_info_from_rag(
+        user_sub: str, max_tokens: int, doc_ids: list[str], data: RAGQueryReq,
+    ) -> list[dict[str, Any]]:
         """获取RAG服务的文档信息"""
         session_id = await SessionManager.get_session_by_user_sub(user_sub)
         url = config.rag.rag_service.rstrip("/") + "/chunk/search"
@@ -125,9 +173,7 @@ class RAG:
         return doc_chunk_list
 
     @staticmethod
-    async def assemble_doc_info(
-        doc_chunk_list: list[dict[str, Any]], max_tokens: int,
-    ) -> tuple[str, list[dict[str, Any]]]:
+    async def assemble_doc_info(doc_chunk_list: list[dict[str, Any]], max_tokens: int) -> str:
         """组装文档信息"""
         bac_info = ""
         doc_info_list = []
@@ -140,20 +186,36 @@ class RAG:
                 doc_cnt += 1
                 doc_id_map[doc_chunk["docId"]] = doc_cnt
             doc_index = doc_id_map[doc_chunk["docId"]]
-            leave_tokens -= token_calculator.calculate_token_length(messages=[
-                {"role": "user", "content": f"""<document id="{doc_index}"  name="{doc_chunk["docName"]}">"""},
-                {"role": "user", "content": "</document>"},
+            leave_tokens -= token_calculator.calculate_token_length(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": f"""<document id="{doc_index}"  name="{doc_chunk["docName"]}">""",
+                    },
+                    {"role": "user", "content": "</document>"},
+                ],
+                pure_text=True,
+            )
+        tokens_of_chunk_element = token_calculator.calculate_token_length(
+            messages=[
+                {"role": "user", "content": "<chunk>"},
+                {"role": "user", "content": "</chunk>"},
             ],
-                pure_text=True)
-        tokens_of_chunk_element = token_calculator.calculate_token_length(messages=[
-            {"role": "user", "content": "<chunk>"},
-            {"role": "user", "content": "</chunk>"},
-        ], pure_text=True)
+            pure_text=True,
+        )
         doc_cnt = 0
         doc_id_map = {}
         for doc_chunk in doc_chunk_list:
             if doc_chunk["docId"] not in doc_id_map:
                 doc_cnt += 1
+                t = doc_chunk.get("docCreatedAt", None)
+                if isinstance(t, str):
+                    t = datetime.strptime(t, "%Y-%m-%d %H:%M").replace(
+                        tzinfo=UTC,
+                    )
+                    t = round(t.replace(tzinfo=UTC).timestamp(), 3)
+                else:
+                    t = round(datetime.now(UTC).timestamp(), 3)
                 doc_info_list.append({
                     "id": doc_chunk["docId"],
                     "order": doc_cnt,
@@ -162,15 +224,13 @@ class RAG:
                     "extension": doc_chunk.get("docExtension", ""),
                     "abstract": doc_chunk.get("docAbstract", ""),
                     "size": doc_chunk.get("docSize", 0),
-                    "created_at": doc_chunk.get("docCreatedAt", round(datetime.now(UTC).timestamp(), 3)),
+                    "created_at": t,
                 })
                 doc_id_map[doc_chunk["docId"]] = doc_cnt
             doc_index = doc_id_map[doc_chunk["docId"]]
             if bac_info:
                 bac_info += "\n\n"
-            bac_info += f"""
-            <document id="{doc_index}"  name="{doc_chunk["docName"]}">
-            """
+            bac_info += f"""<document id="{doc_index}"  name="{doc_chunk["docName"]}">"""
             for chunk in doc_chunk["chunks"]:
                 if leave_tokens <= tokens_of_chunk_element:
                     break
@@ -183,16 +243,21 @@ class RAG:
                     {"role": "user", "content": "</chunk>"},
                 ], pure_text=True)
                 bac_info += f"""
-                <chunk>
-                    {chunk_text}
-                </chunk>
+                    <chunk>
+                        {chunk_text}
+                    </chunk>
                 """
             bac_info += "</document>"
         return bac_info, doc_info_list
 
     @staticmethod
     async def chat_with_llm_base_on_rag(
-        user_sub: str, llm: LLM, history: list[dict[str, str]], doc_ids: list[str], data: RAGQueryReq,
+        user_sub: str,
+        llm: LLM,
+        history: list[dict[str, str]],
+        doc_ids: list[str],
+        data: RAGQueryReq,
+        language: LanguageType = LanguageType.CHINESE,
     ) -> AsyncGenerator[str, None]:
         """获取RAG服务的结果"""
         reasion_llm = ReasoningLLM(
@@ -206,7 +271,9 @@ class RAG:
         if history:
             try:
                 question_obj = QuestionRewrite()
-                data.query = await question_obj.generate(history=history, question=data.query, llm=reasion_llm)
+                data.query = await question_obj.generate(
+                    history=history, question=data.query, llm=reasion_llm, language=language,
+                )
             except Exception:
                 logger.exception("[RAG] 问题重写失败")
         doc_chunk_list = await RAG.get_doc_info_from_rag(
@@ -221,7 +288,7 @@ class RAG:
             },
             {
                 "role": "user",
-                "content": RAG.user_prompt.format(
+                "content": RAG.user_prompt[language].format(
                     bac_info=bac_info,
                     user_question=data.query,
                 ),
@@ -258,7 +325,7 @@ class RAG:
             result_only=False,
             model=llm.model_name,
         ):
-            current_chunk = buffer + chunk
+            chunk = buffer + chunk
             # 防止脚注被截断
             if len(chunk) >= 2 and chunk[-2:] != "]]":
                 index = len(chunk) - 1
@@ -266,12 +333,20 @@ class RAG:
                     index -= 1
                 if index >= 0:
                     buffer = chunk[index + 1:]
-                    current_chunk = chunk[:index + 1]
+                    chunk = chunk[:index + 1]
             else:
                 buffer = ""
+            # 匹配脚注
+            footnotes = re.findall(r"\[\[\d+\]\]", chunk)
+            # 去除编号大于doc_cnt的脚注
+            footnotes = [fn for fn in footnotes if int(fn[2:-2]) > doc_cnt]
+            footnotes = list(set(footnotes))  # 去重
+            if footnotes:
+                for fn in footnotes:
+                    chunk = chunk.replace(fn, "")
             output_tokens += TokenCalculator().calculate_token_length(
                 messages=[
-                    {"role": "assistant", "content": current_chunk},
+                    {"role": "assistant", "content": chunk},
                 ],
                 pure_text=True,
             )
@@ -280,7 +355,7 @@ class RAG:
                 + json.dumps(
                     {
                         "event_type": EventType.TEXT_ADD.value,
-                        "content": current_chunk,
+                        "content": chunk,
                         "input_tokens": input_tokens,
                         "output_tokens": output_tokens,
                     },
