@@ -128,7 +128,7 @@ class DeleteConversationRsp(ResponseData):
 class AddConversationMsg(BaseModel):
     """POST /api/conversation Result数据结构"""
 
-    conversation_id: str = Field(alias="conversationId")
+    conversation_id: uuid.UUID = Field(alias="conversationId")
 
 
 class AddConversationRsp(ResponseData):
@@ -468,6 +468,10 @@ class GetMCPServiceDetailMsg(BaseModel):
     description: str = Field(description="MCP服务描述")
     overview: str = Field(description="MCP服务概述")
     tools: list[MCPTool] = Field(description="MCP服务Tools列表", default=[])
+    status: MCPInstallStatus = Field(
+        description="MCP服务状态",
+        default=MCPInstallStatus.INIT,
+    )
 
 
 class EditMCPServiceMsg(BaseModel):

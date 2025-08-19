@@ -68,13 +68,16 @@ class ConversationManager:
 
     @staticmethod
     async def add_conversation_by_user_sub(
-        user_sub: str, app_id: uuid.UUID | None = None, *, debug: bool = False,
+        title: str, user_sub: str, app_id: uuid.UUID | None = None,
+        *,
+        debug: bool = False,
     ) -> Conversation | None:
         """通过用户ID新建对话"""
         conv = Conversation(
             userSub=user_sub,
             appId=app_id,
             isTemporary=debug,
+            title=title,
         )
         # 使用PostgreSQL实现新建对话，并根据debug和usage进行更新
         try:

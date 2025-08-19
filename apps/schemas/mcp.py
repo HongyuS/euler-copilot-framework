@@ -2,6 +2,7 @@
 """MCP 相关数据结构"""
 
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -20,7 +21,7 @@ class MCPStatus(str, Enum):
 class MCPBasicConfig(BaseModel):
     """MCP 基本配置"""
 
-    env: dict[str, str] = Field(description="MCP 服务器环境变量", default={})
+    env: dict[str, Any] = Field(description="MCP 服务器环境变量", default={})
     autoApprove: list[str] = Field(description="自动批准的MCP权限列表", default=[])  # noqa: N815
     autoInstall: bool = Field(description="是否自动安装MCP服务器", default=True)  # noqa: N815
     timeout: int = Field(description="MCP 服务器超时时间（秒）", default=60, alias="timeout")
@@ -36,7 +37,7 @@ class MCPServerStdioConfig(MCPBasicConfig):
 class MCPServerSSEConfig(MCPBasicConfig):
     """MCP 服务器配置"""
 
-    url: str = Field(description="MCP 服务器地址", default="")
+    url: str = Field(description="MCP 服务器地址", default="http://example.com/sse", pattern=r"^https?://.+/sse$")
 
 
 class MCPServerItem(BaseModel):
@@ -57,6 +58,12 @@ class MCPServerConfig(MCPServerItem):
     description: str = Field(description="MCP 服务器自然语言描述", default="")
     mcpType: MCPType = Field(description="MCP 服务器类型", default=MCPType.STDIO)  # noqa: N815
     author: str = Field(description="MCP 服务器上传者", default="")
+
+
+class FlowName(BaseModel):
+    """MCP 流程名称"""
+
+    flow_name: str = Field(description="MCP 流程名称", default="")
 
 
 class Risk(str, Enum):

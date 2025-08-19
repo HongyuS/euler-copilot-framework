@@ -213,6 +213,7 @@ async def get_service_detail(
             name=data.name,
             description=data.description,
             overview=config.overview,
+            status=data.status,
             tools=data.tools,
         )
 

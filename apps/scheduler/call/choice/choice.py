@@ -18,7 +18,7 @@ from apps.scheduler.call.choice.schema import (
     Logic,
 )
 from apps.scheduler.call.core import CoreCall
-from apps.schemas.enum_var import CallOutputType
+from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.scheduler import (
     CallError,
     CallInfo,
@@ -33,13 +33,21 @@ class Choice(CoreCall, input_model=ChoiceInput, output_model=ChoiceOutput):
     """Choice工具"""
 
     to_user: bool = Field(default=False)
-    choices: list[ChoiceBranch] = Field(description="分支", default=[ChoiceBranch(),
-                                        ChoiceBranch(conditions=[Condition()], is_default=False)])
+    choices: list[ChoiceBranch] = Field(
+        description="分支", default=[
+            ChoiceBranch(),
+            ChoiceBranch(conditions=[Condition()], is_default=False),
+        ],
+    )
 
     @classmethod
-    def info(cls) -> CallInfo:
+    def info(cls, language: LanguageType = LanguageType.CHINESE) -> CallInfo:
         """返回Call的名称和描述"""
-        return CallInfo(name="选择器", description="使用大模型或使用程序做出判断")
+        i18n_info = {
+            LanguageType.CHINESE: CallInfo(name="选择器", description="使用大模型或使用程序做出判断"),
+            LanguageType.ENGLISH: CallInfo(name="Choice", description="Use LLM or code to make a decision"),
+        }
+        return i18n_info[language]
 
     async def _prepare_message(self, call_vars: CallVars) -> list[ChoiceBranch]:  # noqa: C901, PLR0912, PLR0915
         """替换choices中的系统变量"""

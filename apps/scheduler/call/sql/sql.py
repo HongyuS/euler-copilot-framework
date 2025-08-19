@@ -11,7 +11,7 @@ from pydantic import Field
 
 from apps.common.config import config
 from apps.scheduler.call.core import CoreCall
-from apps.schemas.enum_var import CallOutputType
+from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.scheduler import (
     CallError,
     CallInfo,
@@ -22,6 +22,16 @@ from apps.schemas.scheduler import (
 from .schema import SQLInput, SQLOutput
 
 logger = logging.getLogger(__name__)
+MESSAGE = {
+    "invaild": {
+        LanguageType.CHINESE: "SQL查询错误：无法生成有效的SQL语句！",
+        LanguageType.ENGLISH: "SQL query error: Unable to generate valid SQL statements!",
+    },
+    "fail": {
+        LanguageType.CHINESE: "SQL查询错误：SQL语句执行失败！",
+        LanguageType.ENGLISH: "SQL query error: SQL statement execution failed!",
+    },
+}
 
 
 class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
@@ -34,9 +44,19 @@ class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
 
 
     @classmethod
-    def info(cls) -> CallInfo:
+    def info(cls, language: LanguageType = LanguageType.CHINESE) -> CallInfo:
         """返回Call的名称和描述"""
-        return CallInfo(name="SQL查询", description="使用大模型生成SQL语句，用于查询数据库中的结构化数据")
+        i18n_info = {
+            LanguageType.CHINESE: CallInfo(
+                name="SQL查询",
+                description="使用大模型生成SQL语句，用于查询数据库中的结构化数据",
+            ),
+            LanguageType.ENGLISH: CallInfo(
+                name="SQL Query",
+                description="Use LLM to generate SQL statements, for querying structured data in the database",
+            ),
+        }
+        return i18n_info[language]
 
 
     async def _init(self, call_vars: CallVars) -> SQLInput:
@@ -123,7 +143,7 @@ class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
         sql_list = await self._generate_sql(data)
         if not sql_list:
             raise CallError(
-                message="SQL查询错误：无法生成有效的SQL语句！",
+                message=MESSAGE["invaild"][self._sys_vars.language],
                 data={},
             )
 
@@ -131,7 +151,7 @@ class SQL(CoreCall, input_model=SQLInput, output_model=SQLOutput):
         sql_exec_results, sql_exec = await self._execute_sql(sql_list)
         if sql_exec_results is None or sql_exec is None:
             raise CallError(
-                message="SQL查询错误：SQL语句执行失败！",
+                message=MESSAGE["fail"][self._sys_vars.language],
                 data={},
             )
 

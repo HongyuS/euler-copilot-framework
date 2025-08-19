@@ -10,7 +10,7 @@ from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
 from apps.scheduler.call.core import CoreCall
-from apps.schemas.enum_var import CallOutputType
+from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.scheduler import (
     CallInfo,
     CallOutputChunk,
@@ -28,9 +28,19 @@ class Convert(CoreCall, input_model=ConvertInput, output_model=ConvertOutput):
 
 
     @classmethod
-    def info(cls) -> CallInfo:
+    def info(cls, language: LanguageType = LanguageType.CHINESE) -> CallInfo:
         """返回Call的名称和描述"""
-        return CallInfo(name="模板转换", description="使用jinja2语法和jsonnet语法，将自然语言信息和原始数据进行格式化。")
+        i18n_info = {
+            LanguageType.CHINESE: CallInfo(
+                name="模板转换",
+                description="使用jinja2语法和jsonnet语法，将自然语言信息和原始数据进行格式化。",
+            ),
+            LanguageType.ENGLISH: CallInfo(
+                name="Convert",
+                description="Use jinja2 and jsonnet syntax to format natural language information and original data.",
+            ),
+        }
+        return i18n_info[language]
 
     async def _init(self, call_vars: CallVars) -> ConvertInput:
         """初始化工具"""

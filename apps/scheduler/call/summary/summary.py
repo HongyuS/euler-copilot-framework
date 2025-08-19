@@ -9,7 +9,7 @@ from pydantic import Field
 from apps.llm.patterns.executor import ExecutorSummary
 from apps.models.node import NodeInfo
 from apps.scheduler.call.core import CoreCall, DataBase
-from apps.schemas.enum_var import CallOutputType
+from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.scheduler import (
     CallInfo,
     CallOutputChunk,
@@ -30,9 +30,16 @@ class Summary(CoreCall, input_model=DataBase, output_model=SummaryOutput):
     context: ExecutorBackground = Field(description="对话上下文")
 
     @classmethod
-    def info(cls) -> CallInfo:
+    def info(cls, language: LanguageType = LanguageType.CHINESE) -> CallInfo:
         """返回Call的名称和描述"""
-        return CallInfo(name="理解上下文", description="使用大模型，理解对话上下文")
+        i18n_info = {
+            LanguageType.CHINESE: CallInfo(name="理解上下文", description="使用大模型，理解对话上下文"),
+            LanguageType.ENGLISH: CallInfo(
+                name="Understand Context",
+                description="Use LLM to understand the conversation context",
+            ),
+        }
+        return i18n_info[language]
 
     @classmethod
     async def instance(cls, executor: "StepExecutor", node: NodeInfo | None, **kwargs: Any) -> Self:
@@ -56,7 +63,7 @@ class Summary(CoreCall, input_model=DataBase, output_model=SummaryOutput):
     async def _exec(self, _input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """执行工具"""
         summary_obj = ExecutorSummary()
-        summary = await summary_obj.generate(background=self.context)
+        summary = await summary_obj.generate(background=self.context, language=self._sys_vars.language)
         self.tokens.input_tokens += summary_obj.input_tokens
         self.tokens.output_tokens += summary_obj.output_tokens
 

@@ -12,7 +12,7 @@ from pydantic import Field
 from apps.common.config import config
 from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.scheduler.call.core import CoreCall
-from apps.schemas.enum_var import CallOutputType
+from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.scheduler import (
     CallError,
     CallInfo,
@@ -39,9 +39,18 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
     tokens_limit: int = Field(description="token限制", default=8192)
 
     @classmethod
-    def info(cls) -> CallInfo:
+    def info(cls, language: LanguageType = LanguageType.CHINESE) -> CallInfo:
         """返回Call的名称和描述"""
-        return CallInfo(name="知识库", description="查询知识库，从文档中获取必要信息")
+        i18n_info = {
+            LanguageType.CHINESE: CallInfo(
+                name="知识库", description="查询知识库，从文档中获取必要信息",
+            ),
+            LanguageType.ENGLISH: CallInfo(
+                name="Knowledge Base",
+                description="Query the knowledge base and obtain necessary information from documents.",
+            ),
+        }
+        return i18n_info[language]
 
     async def _init(self, call_vars: CallVars) -> RAGInput:
         """初始化RAG工具"""

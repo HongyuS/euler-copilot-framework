@@ -110,7 +110,7 @@ class ConditionHandler(BaseModel):
         left = condition.left
         operate = condition.operate
         right = condition.right
-        value_type = condition.left.type
+        value_type = left.type
 
         result = False
         if value_type == Type.STRING and isinstance(operate, StringOperate):

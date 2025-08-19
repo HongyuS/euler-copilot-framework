@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 
 async def create_new_conversation(
-    user_sub: str, app_id: uuid.UUID | None = None,
+    title: str, user_sub: str, app_id: uuid.UUID | None = None,
     *,
     debug: bool = False,
 ) -> Conversation:
@@ -52,7 +52,8 @@ async def create_new_conversation(
         err = "Invalid app_id."
         raise RuntimeError(err)
     new_conv = await ConversationManager.add_conversation_by_user_sub(
-        user_sub,
+        title=title,
+        user_sub=user_sub,
         app_id=app_id,
         debug=debug,
     )
@@ -96,18 +97,19 @@ async def get_conversation_list(request: Request) -> JSONResponse:
 @router.post("", response_model=AddConversationRsp)
 async def add_conversation(
     request: Request,
-    app_id: Annotated[str, Query(..., alias="appId")] = "",
+    title: str,
+    appId: Annotated[uuid.UUID | None, Query()] = None,  # noqa: N803
     *,
     debug: Annotated[bool, Query()] = False,
 ) -> JSONResponse:
     """手动创建新对话"""
     # 尝试创建新对话
     try:
-        app_id = app_id if app_id else ""
         debug = debug if debug is not None else False
         new_conv = await create_new_conversation(
-            request.state.user_sub,
-            app_id=app_id,
+            title=title,
+            user_sub=request.state.user_sub,
+            app_id=appId,
             debug=debug,
         )
     except RuntimeError as e:
@@ -151,15 +153,15 @@ async def update_conversation(
         )
 
     # 更新Conversation数据
-    change_status = await ConversationManager.update_conversation_by_conversation_id(
-        user_sub,
-        conversation_id,
-        {
-            "title": post_body.title,
-        },
-    )
-
-    if not change_status:
+    try:
+        await ConversationManager.update_conversation_by_conversation_id(
+            user_sub,
+            conversation_id,
+            {
+                "title": post_body.title,
+            },
+        )
+    except Exception as e:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
