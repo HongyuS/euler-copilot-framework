@@ -229,7 +229,7 @@ class MCPAgentExecutor(BaseExecutor):
             language=self.task.language,
         )
         await self.push_message(
-            EventType.STEP_WAITING_FOR_PARAM, data={"message": error_message, "params": params_with_null}
+            EventType.STEP_WAITING_FOR_PARAM, data={"message": error_message, "params": params_with_null},
         )
         await self.push_message(EventType.FLOW_STOP, data={})
         self.task.state.flow_status = FlowStatus.WAITING
@@ -248,9 +248,9 @@ class MCPAgentExecutor(BaseExecutor):
                 output_data={},
                 ex_data={
                     "message": error_message,
-                    "params": params_with_null
-                }
-            )
+                    "params": params_with_null,
+                },
+            ),
         )
 
     async def get_next_step(self) -> None:
@@ -311,7 +311,7 @@ class MCPAgentExecutor(BaseExecutor):
                 flow_status=self.task.state.flow_status,
                 input_data={},
                 output_data={},
-            )
+            ),
         )
 
     async def work(self) -> None:
@@ -319,7 +319,7 @@ class MCPAgentExecutor(BaseExecutor):
         if self.task.state.step_status == StepStatus.INIT:
             await self.push_message(
                 EventType.STEP_INIT,
-                data={}
+                data={},
             )
             await self.get_tool_input_param(is_first=True)
             user_info = await UserManager.get_userinfo_by_user_sub(self.task.ids.user_sub)
@@ -341,16 +341,15 @@ class MCPAgentExecutor(BaseExecutor):
                     self.task.state.step_status = StepStatus.CANCELLED
                     await self.push_message(
                         EventType.STEP_CANCEL,
-                        data={}
+                        data={},
                     )
                     await self.push_message(
                         EventType.FLOW_CANCEL,
-                        data={}
+                        data={},
                     )
                     if len(self.task.context) and self.task.context[-1].step_id == self.task.state.step_id:
                         self.task.context[-1].step_status = StepStatus.CANCELLED
-            if self.task.state.step_status == StepStatus.PARAM:
-                await self.get_tool_input_param(is_first=False)
+                    return
             max_retry = 5
             for i in range(max_retry):
                 if i != 0:
@@ -435,7 +434,7 @@ class MCPAgentExecutor(BaseExecutor):
                                     output_data={
                                         "message": self.task.state.error_message,
                                     },
-                                )
+                                ),
                             )
                         await self.get_next_step()
         elif self.task.state.step_status == StepStatus.SUCCESS:
@@ -451,7 +450,7 @@ class MCPAgentExecutor(BaseExecutor):
         ):
             await self.push_message(
                 EventType.TEXT_ADD,
-                data=chunk
+                data=chunk,
             )
             self.task.runtime.answer += chunk
 
@@ -475,20 +474,20 @@ class MCPAgentExecutor(BaseExecutor):
                 self.task.state.error_message = str(e)
                 await self.push_message(
                     EventType.FLOW_FAILED,
-                    data={}
+                    data={},
                 )
                 return
         self.task.state.flow_status = FlowStatus.RUNNING
         await self.push_message(
             EventType.FLOW_START,
-            data={}
+            data={},
         )
         if self.task.state.tool_id == FINAL_TOOL_ID:
             # 如果已经是最后一步，直接结束
             self.task.state.flow_status = FlowStatus.SUCCESS
             await self.push_message(
                 EventType.FLOW_SUCCESS,
-                data={}
+                data={},
             )
             await self.summarize()
             return
@@ -505,7 +504,7 @@ class MCPAgentExecutor(BaseExecutor):
                 self.task.state.step_status = StepStatus.SUCCESS
                 await self.push_message(
                     EventType.FLOW_SUCCESS,
-                    data={}
+                    data={},
                 )
                 await self.summarize()
         except Exception as e:
@@ -515,11 +514,11 @@ class MCPAgentExecutor(BaseExecutor):
             self.task.state.step_status = StepStatus.ERROR
             await self.push_message(
                 EventType.STEP_ERROR,
-                data={}
+                data={},
             )
             await self.push_message(
                 EventType.FLOW_FAILED,
-                data={}
+                data={},
             )
             if len(self.task.context) and self.task.context[-1].step_id == self.task.state.step_id:
                 del self.task.context[-1]
@@ -535,7 +534,7 @@ class MCPAgentExecutor(BaseExecutor):
                     flow_status=self.task.state.flow_status,
                     input_data={},
                     output_data={},
-                )
+                ),
             )
         finally:
             for mcp_service in self.mcp_list:
