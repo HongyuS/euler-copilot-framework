@@ -482,13 +482,13 @@ class MCPServiceManager:
         db_service = await service_collection.find_one({"_id": service_id, "author": user_sub})
         db_service = MCPCollection.model_validate(db_service)
         if install:
-            if db_service.status == MCPInstallStatus.INSTALLING or db_service.status == MCPInstallStatus.READY:
-                err = "[MCPServiceManager] MCP服务已处于安装中或已准备就绪"
-                raise Exception(err)
+            if db_service.status == MCPInstallStatus.INSTALLING:
+                err = "[MCPServiceManager] MCP服务已处于安装中"
+                raise RuntimeError(err)
             mcp_config = await MCPLoader.get_config(service_id)
             await MCPLoader.init_one_template(mcp_id=service_id, config=mcp_config)
         else:
             if db_service.status != MCPInstallStatus.INSTALLING:
                 err = "[MCPServiceManager] 只能卸载处于安装中的MCP服务"
-                raise Exception(err)
+                raise RuntimeError(err)
             await MCPLoader.cancel_installing_task([service_id])

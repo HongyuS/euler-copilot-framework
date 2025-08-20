@@ -55,7 +55,9 @@ class MCPPlanner(MCPBase):
         """获取当前流程的名称"""
         template = _env.from_string(GENERATE_FLOW_NAME[self.language])
         prompt = template.render(goal=self.goal)
-        return await self.get_resoning_result(prompt)
+        result = await self.get_resoning_result(prompt)
+        result = await self._parse_result(result, FlowName.model_json_schema())
+        return FlowName.model_validate(result)
 
     async def create_next_step(self, history: str, tools: list[MCPTool]) -> Step:
         """创建下一步的执行步骤"""

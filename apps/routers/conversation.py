@@ -97,8 +97,8 @@ async def get_conversation_list(request: Request) -> JSONResponse:
 @router.post("", response_model=AddConversationRsp)
 async def add_conversation(
     request: Request,
-    title: str,
     appId: Annotated[uuid.UUID | None, Query()] = None,  # noqa: N803
+    title: str = "New Chat",
     *,
     debug: Annotated[bool, Query()] = False,
 ) -> JSONResponse:
