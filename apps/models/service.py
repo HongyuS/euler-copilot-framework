@@ -1,10 +1,8 @@
 """插件 数据库表"""
 
-import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from apps.schemas.enum_var import PermissionType

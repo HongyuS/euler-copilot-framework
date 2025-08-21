@@ -1,13 +1,8 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MCP基类"""
 
-import json
 import logging
-from typing import Any
 
-from jsonschema import validate
-
-from apps.llm.function import JsonGenerator
 from apps.llm.reasoning import ReasoningLLM
 
 logger = logging.getLogger(__name__)
@@ -30,43 +25,8 @@ class MCPBase:
             message,
             streaming=False,
             temperature=0.07,
-            result_only=True,
+            result_only=False,
         ):
             result += chunk
 
         return result
-
-    @staticmethod
-    async def _parse_result(
-        result: str,
-        schema: dict[str, Any], left_str: str = "{", right_str: str = "}",
-    ) -> dict[str, Any]:
-        """解析推理结果"""
-        left_index = result.find(left_str)
-        right_index = result.rfind(right_str)
-        flag = True
-        if left_str == -1 or right_str == -1:
-            flag = False
-
-        if left_index > right_index:
-            flag = False
-        if flag:
-            try:
-                tmp_js = json.loads(result[left_index : right_index + 1])
-                validate(instance=tmp_js, schema=schema)
-            except Exception:
-                logger.exception("[McpBase] 解析结果失败")
-                flag = False
-        if not flag:
-            json_generator = JsonGenerator(
-                "Please provide a JSON response based on the above information and schema.\n\n",
-                [
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": result},
-                ],
-                schema,
-            )
-            json_result = await json_generator.generate()
-        else:
-            json_result = json.loads(result[left_index : right_index + 1])
-        return json_result

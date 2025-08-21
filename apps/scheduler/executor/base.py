@@ -12,7 +12,7 @@ from apps.schemas.message import TextAddContent
 
 if TYPE_CHECKING:
     from apps.common.queue import MessageQueue
-    from apps.models.task import ExecutorCheckpoint, Task, TaskRuntime
+    from apps.models.task import ExecutorCheckpoint, ExecutorHistory, Task, TaskRuntime
     from apps.schemas.scheduler import ExecutorBackground
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,9 @@ class BaseExecutor(BaseModel, ABC):
     task: "Task"
     runtime: "TaskRuntime"
     state: "ExecutorCheckpoint"
+    context: list["ExecutorHistory"]
     msg_queue: "MessageQueue"
+
     background: "ExecutorBackground"
     question: str
 

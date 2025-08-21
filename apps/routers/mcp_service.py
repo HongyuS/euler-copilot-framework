@@ -198,11 +198,7 @@ async def get_service_detail(
             name=data.name,
             description=data.description,
             overview=config.overview,
-            data=json.dumps(
-                config.config.model_dump(by_alias=True, exclude_none=True),
-                indent=4,
-                ensure_ascii=False,
-            ),
+            data=config.config.model_dump(by_alias=True, exclude_none=True),
             mcpType=config.mcpType,
         )
     else:

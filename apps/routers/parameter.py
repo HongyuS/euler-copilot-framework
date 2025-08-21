@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import verify_personal_token, verify_session
+from apps.schemas.parameters import Type
 from apps.schemas.response_data import GetOperaRsp, GetParamsRsp
 from apps.services.appcenter import AppCenterManager
 from apps.services.flow import FlowManager
@@ -57,7 +58,7 @@ async def get_parameters(
 
 
 @router.get("/operate", response_model=GetOperaRsp)
-async def get_operate_parameters(paramType: str) -> JSONResponse:  # noqa: N803
+async def get_operate_parameters(paramType: Type) -> JSONResponse:  # noqa: N803
     """Get parameters for node choice."""
     result = await ParameterManager.get_operate_and_bind_type(paramType)
     return JSONResponse(

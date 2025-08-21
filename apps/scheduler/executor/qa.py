@@ -11,4 +11,3 @@ class QAExecutor(BaseExecutor):
     async def run(self) -> None:
         """运行QA"""
         pass
-

@@ -271,7 +271,7 @@ class StepExecutor(BaseExecutor):
             inputData=self.obj.input,
             outputData=output_data,
         )
-        self.task.context.append(history)
+        self.context.append(history)
 
         # 推送输出
         await self.push_message(EventType.STEP_OUTPUT.value, output_data)

@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from apps.common.security import Security
 from apps.dependency import verify_personal_token, verify_session
+from apps.models.task import ExecutorHistory
 from apps.schemas.record import (
     RecordContent,
     RecordData,
@@ -22,7 +23,6 @@ from apps.schemas.response_data import (
     RecordListRsp,
     ResponseData,
 )
-from apps.schemas.task import FlowStepHistory
 from apps.services.conversation import ConversationManager
 from apps.services.document import DocumentManager
 from apps.services.record import RecordManager
@@ -67,7 +67,6 @@ async def get_record(request: Request, conversationId: Annotated[uuid.UUID, Path
 
             tmp_record = RecordData(
                 id=record.id,
-                groupId=record_group.id,
                 taskId=record.task_id,
                 conversationId=conversationId,
                 content=record_data,

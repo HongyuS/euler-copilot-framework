@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Path, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import verify_personal_token, verify_session
-from apps.exceptions import InstancePermissionError, ServiceIDError
+from apps.exceptions import InstancePermissionError
 from apps.schemas.enum_var import SearchType
 from apps.schemas.request_data import ChangeFavouriteServiceRequest, UpdateServiceRequest
 from apps.schemas.response_data import (
@@ -135,15 +135,6 @@ async def update_service(request: Request, data: UpdateServiceRequest) -> JSONRe
     else:
         try:
             service_id = await ServiceCenterManager.update_service(request.state.user_sub, data.service_id, data.data)
-        except ServiceIDError:
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content=ResponseData(
-                    code=status.HTTP_400_BAD_REQUEST,
-                    message="Service ID错误",
-                    result={},
-                ).model_dump(exclude_none=True, by_alias=True),
-            )
         except InstancePermissionError:
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,

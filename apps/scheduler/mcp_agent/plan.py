@@ -9,6 +9,7 @@ from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 
 from apps.llm.reasoning import ReasoningLLM
+from apps.models.mcp import MCPTools
 from apps.scheduler.mcp_agent.base import MCPBase
 from apps.scheduler.mcp_agent.prompt import (
     CHANGE_ERROR_MESSAGE_TO_DESCRIPTION,
@@ -24,7 +25,6 @@ from apps.schemas.enum_var import LanguageType
 from apps.schemas.mcp import (
     FlowName,
     IsParamError,
-    MCPTool,
     Step,
     ToolRisk,
 )
@@ -59,7 +59,7 @@ class MCPPlanner(MCPBase):
         result = await self._parse_result(result, FlowName.model_json_schema())
         return FlowName.model_validate(result)
 
-    async def create_next_step(self, history: str, tools: list[MCPTool]) -> Step:
+    async def create_next_step(self, history: str, tools: list[MCPTools]) -> Step:
         """创建下一步的执行步骤"""
         # 获取推理结果
         template = _env.from_string(GEN_STEP[self.language])
@@ -79,7 +79,7 @@ class MCPPlanner(MCPBase):
 
     async def get_tool_risk(
         self,
-        tool: MCPTool,
+        tool: MCPTools,
         input_param: dict[str, Any],
         additional_info: str = "",
     ) -> ToolRisk:
@@ -104,7 +104,7 @@ class MCPPlanner(MCPBase):
         self,
         history: str,
         error_message: str,
-        tool: MCPTool,
+        tool: MCPTools,
         step_description: str,
         input_params: dict[str, Any],
     ) -> IsParamError:
@@ -127,7 +127,7 @@ class MCPPlanner(MCPBase):
         return IsParamError.model_validate(is_param_error)
 
     async def change_err_message_to_description(
-        self, error_message: str, tool: MCPTool, input_params: dict[str, Any],
+        self, error_message: str, tool: MCPTools, input_params: dict[str, Any],
     ) -> str:
         """将错误信息转换为工具描述"""
         template = _env.from_string(CHANGE_ERROR_MESSAGE_TO_DESCRIPTION[self.language])
@@ -140,7 +140,7 @@ class MCPPlanner(MCPBase):
         )
         return await self.get_resoning_result(prompt)
 
-    async def get_missing_param(self, tool: MCPTool, input_param: dict[str, Any], error_message: str) -> dict[str, Any]:
+    async def get_missing_param(self, tool: MCPTools, input_param: dict[str, Any], error_message: str) -> dict[str, Any]:
         """获取缺失的参数"""
         slot = Slot(schema=tool.input_schema)
         template = _env.from_string(GET_MISSING_PARAMS[self.language])
