@@ -75,7 +75,7 @@ class TaskManager:
 
 
     @staticmethod
-    async def get_context_by_task_id(task_id: str, length: int | None = None) -> list[ExecutorHistory]:
+    async def get_context_by_task_id(task_id: uuid.UUID, length: int | None = None) -> list[ExecutorHistory]:
         """根据task_id获取flow信息"""
         async with postgres.session() as session:
             return list((await session.scalars(
@@ -179,7 +179,7 @@ class TaskManager:
 
 
     @classmethod
-    async def save_task(cls, task_id: str, task: Task) -> None:
+    async def save_task(cls, task_id: uuid.UUID, task: Task) -> None:
         """保存任务块"""
         task_collection = MongoDB().get_collection("task")
 

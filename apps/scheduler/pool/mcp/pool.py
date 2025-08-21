@@ -22,7 +22,7 @@ class MCPPool(metaclass=SingletonMeta):
         self.pool = {}
 
 
-    async def _init_mcp(self, mcp_id: str, user_sub: str) -> MCPClient | None:
+    async def init_mcp(self, mcp_id: str, user_sub: str) -> MCPClient | None:
         """初始化MCP池"""
         config_path = MCP_USER_PATH / user_sub / mcp_id / "config.json"
 
@@ -75,7 +75,7 @@ class MCPPool(metaclass=SingletonMeta):
                 return None
 
             # 初始化进程
-            item = await self._init_mcp(mcp_id, user_sub)
+            item = await self.init_mcp(mcp_id, user_sub)
             if item is None:
                 return None
 

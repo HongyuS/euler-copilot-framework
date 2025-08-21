@@ -66,6 +66,8 @@ GEN_STEP: dict[LanguageType, str] = {
             2.能够基于当前的计划和历史，完成阶段性的任务。
             3.不要选择不存在的工具。
             4.如果你认为当前已经达成了用户的目标，可以直接返回Final工具，表示计划执行结束。
+            5.tool_id中的工具ID必须是当前工具集合中存在的工具ID，而不是工具的名称。
+            6.工具在<tools> </tools> XML标签中给出,工具的id在<tools> </tools> 下的<id> </id> XML标签中给出。
 
             # 样例 1
             # 目标
@@ -82,16 +84,16 @@ GEN_STEP: dict[LanguageType, str] = {
                 - 得到数据：`{"result": "success"}`
             # 工具
             <tools>
-                - <id>mcp_tool_1</id> <description>mysql_analyzer；用于分析数据库性能/description>
-                - <id>mcp_tool_2</id> <description>文件存储工具；用于存储文件</description>
-                - <id>mcp_tool_3</id> <description>mongoDB工具；用于操作MongoDB数据库</description>
+                - <id>mcp_tool_1</id> <description>mysql分析工具，用于分析数据库性能/description>
+                - <id>mcp_tool_2</id> <description>文件存储工具，用于存储文件</description>
+                - <id>mcp_tool_3</id> <description>mongoDB工具，用于操作MongoDB数据库</description>
                 - <id>Final</id> <description>结束步骤，当执行到这一步时，表示计划执行结束，所得到的结果将作为最终\
 结果。</description>
             </tools>
             # 输出
             ```json
             {
-                "tool_id": "mcp_tool_1", // 选择的工具ID
+                "tool_id": "mcp_tool_1",
                 "description": "扫描ip为192.168.1.1的MySQL数据库，端口为3306，用户名为root，密码为password的数据库性能",
             }
             ```
@@ -100,19 +102,19 @@ GEN_STEP: dict[LanguageType, str] = {
             计划从杭州到北京的旅游计划
             # 历史记录
             第1步：将杭州转换为经纬度坐标
-              - 调用工具 `maps_geo_planner`，并提供参数 `{"city_from": "杭州", "address": "西湖"}`
-              - 执行状态：成功
-              - 得到数据：`{"location": "123.456, 78.901"}`
+                - 调用工具 `经纬度工具`，并提供参数 `{"city_from": "杭州", "address": "西湖"}`
+                - 执行状态：成功
+                - 得到数据：`{"location": "123.456, 78.901"}`
             第2步：查询杭州的天气
-                - 调用工具 `weather_query`，并提供参数 `{"location": "123.456, 78.901"}`
+                - 调用工具 `天气查询工具`，并提供参数 `{"location": "123.456, 78.901"}`
                 - 执行状态：成功
                 - 得到数据：`{"weather": "晴", "temperature": "25°C"}`
             第3步：将北京转换为经纬度坐标
-                - 调用工具 `maps_geo_planner`，并提供参数 `{"city_from": "北京", "address": "天安门"}`
+                - 调用工具 `经纬度工具`，并提供参数 `{"city_from": "北京", "address": "天安门"}`
                 - 执行状态：成功
                 - 得到数据：`{"location": "123.456, 78.901"}`
             第4步：查询北京的天气
-                - 调用工具 `weather_query`，并提供参数 `{"location": "123.456, 78.901"}`
+                - 调用工具 `天气查询工具`，并提供参数 `{"location": "123.456, 78.901"}`
                 - 执行状态：成功
                 - 得到数据：`{"weather": "晴", "temperature": "25°C"}`
             # 工具
@@ -128,7 +130,7 @@ GEN_STEP: dict[LanguageType, str] = {
             # 输出
             ```json
             {
-                "tool_id": "mcp_tool_6", // 选择的工具ID
+                "tool_id": "mcp_tool_6",
                 "description": "规划从杭州到北京的综合公共交通方式的通勤方案"
             }
             ```
@@ -140,7 +142,7 @@ GEN_STEP: dict[LanguageType, str] = {
             # 工具
             <tools>
             {% for tool in tools %}
-                - <id>{{tool.id}}</id> <description>{{tool.name}}；{{tool.description}}</description>
+                - <id>{{tool.id}}</id> <description>{{tool.description}}</description>
             {% endfor %}
             </tools>
         """,
@@ -183,7 +185,7 @@ final result. </description>
             # Output
             ```json
             {
-                "tool_id": "mcp_tool_1", // Selected tool ID
+                "tool_id": "mcp_tool_1",
                 "description": "Scan the database performance of the MySQL database with IP address 192.168.1.1, \
 port 3306, username root, and password password",
             }
@@ -225,7 +227,7 @@ is complete, and the resulting result is used as the final result. </description
             # Output
             ```json
             {
-                "tool_id": "mcp_tool_6", // Selected tool ID
+                "tool_id": "mcp_tool_6",
                 "description": "Plan a comprehensive public transportation commute from Hangzhou to Beijing"
             }
             ```
@@ -237,7 +239,7 @@ is complete, and the resulting result is used as the final result. </description
             # Tools
             <tools>
             {% for tool in tools %}
-                - <id>{{tool.id}}</id> <description>{{tool.name}}; {{tool.description}}</description>
+                - <id>{{tool.id}}</id> <description>{{tool.description}}</description>
             {% endfor %}
             </tools>
         """,

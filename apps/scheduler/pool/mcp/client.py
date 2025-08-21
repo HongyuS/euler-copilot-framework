@@ -136,8 +136,9 @@ class MCPClient:
         )
         if self.error_sign.is_set():
             self.status = MCPStatus.ERROR
-            logger.error("[MCPClient] MCP %s：初始化失败", mcp_id)
-            raise Exception(f"MCP {mcp_id} 初始化失败")
+            err_msg = f"[MCPClient] MCP {mcp_id} 初始化失败"
+            logger.error(err_msg)
+            raise RuntimeError(err_msg)
 
         # 获取工具列表
         self.tools = (await self.client.list_tools()).tools

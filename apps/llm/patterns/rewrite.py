@@ -2,7 +2,10 @@
 """问题改写"""
 
 import logging
+from textwrap import dedent
 
+from jinja2 import BaseLoader
+from jinja2.sandbox import SandboxedEnvironment
 from pydantic import BaseModel, Field
 
 from apps.llm.function import JsonGenerator
@@ -13,6 +16,12 @@ from apps.schemas.enum_var import LanguageType
 from .core import CorePattern
 
 logger = logging.getLogger(__name__)
+_env = SandboxedEnvironment(
+    loader=BaseLoader,
+    autoescape=False,
+    trim_blocks=True,
+    lstrip_blocks=True,
+)
 
 
 class QuestionRewriteResult(BaseModel):
@@ -31,7 +40,7 @@ class QuestionRewrite(CorePattern):
             LanguageType.CHINESE: r"You are a helpful assistant.",
             LanguageType.ENGLISH: r"You are a helpful assistant.",
         }, {
-            LanguageType.CHINESE: r"""
+            LanguageType.CHINESE: dedent(r"""
                 <instructions>
                   <instruction>
                     根据历史对话，推断用户的实际意图并补全用户的提问内容,历史对话被包含在<history>标签中，用户意图被包含在<question>标签中。
@@ -41,9 +50,11 @@ class QuestionRewrite(CorePattern):
                       3. 补全内容必须精准、恰当，不要编造任何内容。
                       4. 请输出补全后的问题，不要输出其他内容。
                       输出格式样例：
-                      {{
-                        "question": "补全后的问题"
-                      }}
+                      ```json
+                        {
+                            "question": "补全后的问题"
+                        }
+                      ```
                   </instruction>
 
                   <example>
@@ -62,24 +73,26 @@ class QuestionRewrite(CorePattern):
                       详细点？
                     </question>
                     <output>
-                      {{
-                        "question": "详细说明openEuler操作系统的优势和应用场景"
-                      }}
+                      ```json
+                        {
+                            "question": "详细说明openEuler操作系统的优势和应用场景"
+                        }
+                      ```
                     </output>
                   </example>
                 </instructions>
 
                 <history>
-                  {history}
+                  {{history}}
                 </history>
                 <question>
-                  {question}
+                  {{question}}
                 </question>
 
                 现在，请输出补全后的问题：
                 <output>
-            """,
-            LanguageType.ENGLISH: r"""
+            """).strip("\n"),
+            LanguageType.ENGLISH: dedent(r"""
                 <instructions>
                   <instruction>
                     Based on the historical dialogue, infer the user's actual intent and complete the user's question. \
@@ -93,9 +106,11 @@ user's question is already complete enough, directly output the user's question.
                       3. The completed content must be precise and appropriate; do not fabricate any content.
                       4. Output only the completed question; do not include any other content.
                       Example output format:
-                      {{
-                        "question": "The completed question"
-                      }}
+                      ```json
+                        {
+                            "question": "The completed question"
+                        }
+                      ```
                   </instruction>
 
                   <example>
@@ -124,20 +139,22 @@ and optimizations for cloud and edge computing.
                       More details?
                     </question>
                     <output>
-                      {{
-                        "question":  "What are the features of openEuler? Please elaborate on its advantages and \
+                      ```json
+                        {
+                            "question":  "What are the features of openEuler? Please elaborate on its advantages and \
 application scenarios."
-                      }}
+                        }
+                      ```
                     </output>
                   </example>
                 </instructions>
                 <history>
-                  {history}
+                  {{history}}
                 </history>
                 <question>
-                  {question}
+                  {{question}}
                 </question>
-        """,
+            """).strip("\n"),
         }
 
     async def generate(self, **kwargs) -> str:  # noqa: ANN003
@@ -148,7 +165,9 @@ application scenarios."
 
         messages = [
             {"role": "system", "content": self.system_prompt[language]},
-            {"role": "user", "content": self.user_prompt[language].format(history="", question=question)},
+            {"role": "user", "content": _env.from_string(
+                self.user_prompt[language],
+            ).render(history="", question=question)},
         ]
         llm = kwargs.get("llm")
         if not llm:
@@ -181,6 +200,9 @@ application scenarios."
         self.input_tokens = llm.input_tokens
         self.output_tokens = llm.output_tokens
 
+        tmp_js = await JsonGenerator.parse_result_by_stack(result, QuestionRewriteResult.model_json_schema())
+        if tmp_js is not None:
+            return tmp_js["question"]
         messages += [{"role": "assistant", "content": result}]
         json_gen = JsonGenerator(
             query="根据给定的背景信息，生成预测问题",

@@ -7,8 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from apps.models.blacklist import Blacklist
-from apps.models.mcp import MCPInstallStatus
-from apps.templates.generate_llm_operator_config import llm_provider_dict
+from apps.models.mcp import MCPInstallStatus, MCPTools
 
 from .appcenter import AppCenterCardItem, AppData
 from .enum_var import DocumentStatus
@@ -467,7 +466,7 @@ class GetMCPServiceDetailMsg(BaseModel):
     name: str = Field(..., description="MCP服务名称")
     description: str = Field(description="MCP服务描述")
     overview: str = Field(description="MCP服务概述")
-    tools: list[MCPTool] = Field(description="MCP服务Tools列表", default=[])
+    tools: list[MCPTools] = Field(description="MCP服务Tools列表", default=[])
     status: MCPInstallStatus = Field(
         description="MCP服务状态",
         default=MCPInstallStatus.INIT,
@@ -482,7 +481,7 @@ class EditMCPServiceMsg(BaseModel):
     name: str = Field(..., description="MCP服务名称")
     description: str = Field(description="MCP服务描述")
     overview: str = Field(description="MCP服务概述")
-    data: str = Field(description="MCP服务配置")
+    data: dict[str, Any] = Field(description="MCP服务配置")
     mcp_type: MCPType = Field(alias="mcpType", description="MCP 类型")
 
 

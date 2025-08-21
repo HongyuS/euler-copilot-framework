@@ -234,6 +234,63 @@ class FunctionLLM:
 class JsonGenerator:
     """JSON生成器"""
 
+    @staticmethod
+    async def parse_result_by_stack(result: str, schema: dict[str, Any]) -> str:  # noqa: C901, PLR0912
+        """解析推理结果"""
+        validator = Draft7Validator(schema)
+        left_index = result.find("{")
+        right_index = result.rfind("}")
+        if left_index != -1 and right_index != -1 and left_index < right_index:
+            try:
+                tmp_js = json.loads(result[left_index:right_index + 1])
+                validator.validate(tmp_js)
+            except Exception:
+                logger.exception("[JsonGenerator] 解析结果失败")
+            else:
+                return tmp_js
+        stack = []
+        json_candidates = []
+        # 定义括号匹配关系
+        bracket_map = {")": "(", "]": "[", "}": "{"}
+
+        for i, char in enumerate(result):
+            # 遇到左括号则入栈
+            if char in bracket_map.values():
+                stack.append((char, i))
+            # 遇到右括号且栈不为空时检查匹配
+            elif char in bracket_map and stack:
+                if not stack:
+                    continue
+                top_char, top_index = stack[-1]
+                # 检查是否匹配当前右括号
+                if top_char == bracket_map[char]:
+                    stack.pop()
+                    # 当栈为空且当前是右花括号时，认为找到一个完整JSON
+                    if not stack and char == "}":
+                        json_str = result[top_index:i+1]
+                        json_candidates.append(json_str)
+                else:
+                    # 如果不匹配，清空栈
+                    stack.clear()
+        # 移除重复项并保持顺序
+        seen = set()
+        unique_jsons = []
+        for json_str in json_candidates[::]:
+            if json_str not in seen:
+                seen.add(json_str)
+                unique_jsons.append(json_str)
+
+        for json_str in unique_jsons:
+            try:
+                tmp_js = json.loads(json_str)
+                validator.validate(tmp_js)
+            except Exception:
+                logger.exception("[JsonGenerator] 解析结果失败")
+            else:
+                return tmp_js
+
+        return ""
+
     def __init__(self, query: str, conversation: list[dict[str, str]], schema: dict[str, Any]) -> None:
         """初始化JSON生成器"""
         self._query = query
@@ -282,12 +339,10 @@ class JsonGenerator:
         """生成JSON"""
         Draft7Validator.check_schema(self._schema)
         validator = Draft7Validator(self._schema)
-        logger.info("[JSONGenerator] Schema：%s", self._schema)
 
         while self._count < JSON_GEN_MAX_TRIAL:
             self._count += 1
             result = await self._single_trial()
-            logger.info("[JSONGenerator] 得到：%s", result)
             try:
                 validator.validate(result)
             except Exception as err:  # noqa: BLE001

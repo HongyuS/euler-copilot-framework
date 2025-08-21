@@ -9,18 +9,15 @@ from mcp.types import TextContent
 from pydantic import Field
 
 from apps.llm.reasoning import ReasoningLLM
+from apps.models.mcp import MCPInfo, MCPTools
+from apps.models.task import ExecutorHistory
 from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.mcp_agent.host import MCPHost
 from apps.scheduler.mcp_agent.plan import MCPPlanner
 from apps.scheduler.pool.mcp.pool import MCPPool
-from apps.schemas.enum_var import EventType, FlowStatus, LanguageType, StepStatus
-from apps.schemas.mcp import (
-    MCPCollection,
-    MCPTool,
-    Step,
-)
+from apps.schemas.enum_var import EventType, ExecutorStatus, LanguageType, StepStatus
+from apps.schemas.mcp import Step
 from apps.schemas.message import FlowParams
-from apps.schemas.task import FlowStepHistory
 from apps.services.appcenter import AppCenterManager
 from apps.services.mcp_service import MCPServiceManager
 from apps.services.task import TaskManager
@@ -36,13 +33,13 @@ class MCPAgentExecutor(BaseExecutor):
     servers_id: list[str] = Field(description="MCP server id")
     agent_id: str = Field(default="", description="Agent ID")
     agent_description: str = Field(default="", description="Agent描述")
-    mcp_list: list[MCPCollection] = Field(description="MCP服务器列表", default=[])
+    mcp_list: list[MCPInfo] = Field(description="MCP服务器列表", default=[])
     mcp_pool: MCPPool = Field(description="MCP池", default=MCPPool())
-    tools: dict[str, MCPTool] = Field(
+    tools: dict[str, MCPTools] = Field(
         description="MCP工具列表，key为tool_id",
         default={},
     )
-    tool_list: list[MCPTool] = Field(
+    tool_list: list[MCPTools] = Field(
         description="MCP工具列表，包含所有MCP工具",
         default=[],
     )
@@ -55,19 +52,18 @@ class MCPAgentExecutor(BaseExecutor):
         default=ReasoningLLM(),
         description="推理大模型",
     )
+    step_cnt: int = Field(default=0, description="当前已执行步骤数")
 
-    async def update_tokens(self) -> None:
-        """更新令牌数"""
-        self.task.tokens.input_tokens = self.resoning_llm.input_tokens
-        self.task.tokens.output_tokens = self.resoning_llm.output_tokens
-        await TaskManager.save_task(self.task.id, self.task)
+    async def init(self) -> None:
+        """初始化MCP Agent"""
+        self.planner = MCPPlanner(self.runtime.userInput, self.resoning_llm, self.runtime.language)
 
     async def load_state(self) -> None:
         """从数据库中加载FlowExecutor的状态"""
-        logger.info("[FlowExecutor] 加载Executor状态")
+        logger.info("[MCPAgentExecutor] 加载Executor状态")
         # 尝试恢复State
-        if self.task.state and self.task.state.flow_status != FlowStatus.INIT:
-            self.task.context = await TaskManager.get_context_by_task_id(self.task.id)
+        if self.state and self.state.executorStatus != ExecutorStatus.INIT:
+            self.context = await TaskManager.get_context_by_task_id(self.task.id)
 
     async def load_mcp(self) -> None:
         """加载MCP服务器列表"""
@@ -77,32 +73,35 @@ class MCPAgentExecutor(BaseExecutor):
         mcp_ids = app.mcp_service
         for mcp_id in mcp_ids:
             mcp_service = await MCPServiceManager.get_mcp_service(mcp_id)
-            if self.task.ids.user_sub not in mcp_service.activated:
+            if self.task.userSub not in mcp_service.activated:
                 logger.warning(
                     "[MCPAgentExecutor] 用户 %s 未启用MCP %s",
-                    self.task.ids.user_sub,
+                    self.task.userSub,
                     mcp_id,
                 )
                 continue
 
             self.mcp_list.append(mcp_service)
-            await self.mcp_pool._init_mcp(mcp_id, self.task.ids.user_sub)
+            await self.mcp_pool.init_mcp(mcp_id, self.task.userSub)
             for tool in mcp_service.tools:
                 self.tools[tool.id] = tool
             self.tool_list.extend(mcp_service.tools)
-        self.tools[FINAL_TOOL_ID] = MCPTool(
-            id=FINAL_TOOL_ID, name="Final Tool", description="结束流程的工具", mcp_id="", input_schema={},
+        self.tools[FINAL_TOOL_ID] = MCPTools(
+            id=FINAL_TOOL_ID, mcpId="", toolName="Final Tool", description="结束流程的工具",
+            inputSchema={}, outputSchema={},
         )
-        self.tool_list.append(
-            MCPTool(id=FINAL_TOOL_ID, name="Final Tool", description="结束流程的工具", mcp_id="", input_schema={}),
+        self.tool_list.append(MCPTools(
+            id=FINAL_TOOL_ID, mcpId="", toolName="Final Tool", description="结束流程的工具",
+            inputSchema={}, outputSchema={}),
         )
 
-    async def get_tool_input_param(self, is_first: bool) -> None:
+    async def get_tool_input_param(self, *, is_first: bool) -> None:
+        """获取工具输入参数"""
         if is_first:
             # 获取第一个输入参数
             mcp_tool = self.tools[self.task.state.tool_id]
-            self.task.state.current_input = await MCPHost._get_first_input_params(
-                mcp_tool, self.task.runtime.question, self.task.state.step_description, self.task
+            self.state.currentInput = await MCPHost._get_first_input_params(
+                mcp_tool, self.runtime.userInput, self.state.stepDescription, self.task,
             )
         else:
             # 获取后续输入参数
@@ -113,15 +112,15 @@ class MCPAgentExecutor(BaseExecutor):
                 params = {}
                 params_description = ""
             mcp_tool = self.tools[self.task.state.tool_id]
-            self.task.state.current_input = await MCPHost._fill_params(
+            self.state.currentInput = await MCPHost.fill_params(
                 mcp_tool,
-                self.task.runtime.question,
-                self.task.state.step_description,
-                self.task.state.current_input,
-                self.task.state.error_message,
+                self.runtime.userInput,
+                self.state.stepDescription,
+                self.state.currentInput,
+                self.state.errorMessage,
                 params,
                 params_description,
-                self.task.language,
+                self.runtime.language,
             )
 
     async def confirm_before_step(self) -> None:
@@ -139,7 +138,7 @@ class MCPAgentExecutor(BaseExecutor):
         self.task.state.flow_status = FlowStatus.WAITING
         self.task.state.step_status = StepStatus.WAITING
         self.task.context.append(
-            FlowStepHistory(
+            ExecutorHistory(
                 task_id=self.task.id,
                 step_id=self.task.state.step_id,
                 step_name=self.task.state.step_name,
@@ -169,8 +168,7 @@ class MCPAgentExecutor(BaseExecutor):
             self.task.state.step_status = StepStatus.ERROR
             return
         except Exception as e:
-            import traceback
-            logger.exception("[MCPAgentExecutor] 执行步骤 %s 时发生错误: %s", mcp_tool.name, traceback.format_exc())
+            logger.exception("[MCPAgentExecutor] 执行步骤 %s 时发生错误", mcp_tool.name)
             self.task.state.step_status = StepStatus.ERROR
             self.task.state.error_message = str(e)
             return
@@ -180,8 +178,11 @@ class MCPAgentExecutor(BaseExecutor):
             for output in output_params.content:
                 if isinstance(output, TextContent):
                     err += output.text
-            self.task.state.step_status = StepStatus.ERROR
-            self.task.state.error_message = err
+            self.state.stepStatus = StepStatus.ERROR
+            self.state.errorMessage = {
+                "err_msg": err,
+                "data": {},
+            }
             return
         message = ""
         for output in output_params.content:
@@ -192,59 +193,55 @@ class MCPAgentExecutor(BaseExecutor):
         }
 
         await self.update_tokens()
-        await self.push_message(EventType.STEP_INPUT, self.task.state.current_input)
+        await self.push_message(EventType.STEP_INPUT, self.state.currentInput)
         await self.push_message(EventType.STEP_OUTPUT, output_params)
-        self.task.context.append(
-            FlowStepHistory(
-                task_id=self.task.id,
-                step_id=self.task.state.step_id,
-                step_name=self.task.state.step_name,
-                step_description=self.task.state.step_description,
-                step_status=StepStatus.SUCCESS,
-                flow_id=self.task.state.flow_id,
-                flow_name=self.task.state.flow_name,
-                flow_status=self.task.state.flow_status,
-                input_data=self.task.state.current_input,
-                output_data=output_params,
-            )
+        self.context.append(
+            ExecutorHistory(
+                taskId=self.task.id,
+                stepId=self.state.stepId,
+                stepName=self.state.stepName,
+                stepDescription=self.state.stepDescription,
+                stepStatus=StepStatus.SUCCESS,
+                executorId=self.state.executorId,
+                executorName=self.state.executorName,
+                executorStatus=self.state.executorStatus,
+                inputData=self.state.currentInput,
+                outputData=output_params,
+            ),
         )
-        self.task.state.step_status = StepStatus.SUCCESS
+        self.state.stepStatus = StepStatus.SUCCESS
 
     async def generate_params_with_null(self) -> None:
         """生成参数补充"""
-        mcp_tool = self.tools[self.task.state.tool_id]
-        params_with_null = await MCPPlanner.get_missing_param(
+        mcp_tool = self.tools[self.state.toolId]
+        params_with_null = await self.planner.get_missing_param(
             mcp_tool,
-            self.task.state.current_input,
-            self.task.state.error_message,
-            self.resoning_llm,
-            self.task.language,
+            self.state.currentInput,
+            self.state.errorMessage,
         )
         await self.update_tokens()
-        error_message = await MCPPlanner.change_err_message_to_description(
-            error_message=self.task.state.error_message,
+        error_message = await self.planner.change_err_message_to_description(
+            error_message=self.state.errorMessage,
             tool=mcp_tool,
             input_params=self.task.state.current_input,
-            reasoning_llm=self.resoning_llm,
-            language=self.task.language,
         )
         await self.push_message(
             EventType.STEP_WAITING_FOR_PARAM, data={"message": error_message, "params": params_with_null},
         )
         await self.push_message(EventType.FLOW_STOP, data={})
-        self.task.state.flow_status = FlowStatus.WAITING
-        self.task.state.step_status = StepStatus.PARAM
-        self.task.context.append(
-            FlowStepHistory(
-                task_id=self.task.id,
-                step_id=self.task.state.step_id,
-                step_name=self.task.state.step_name,
-                step_description=self.task.state.step_description,
-                step_status=self.task.state.step_status,
-                flow_id=self.task.state.flow_id,
-                flow_name=self.task.state.flow_name,
-                flow_status=self.task.state.flow_status,
-                input_data={},
+        self.state.executorStatus = ExecutorStatus.WAITING
+        self.state.stepStatus = StepStatus.PARAM
+        self.context.append(
+            ExecutorHistory(
+                taskId=self.task.id,
+                stepId=self.state.stepId,
+                stepName=self.state.stepName,
+                stepDescription=self.state.stepDescription,
+                stepStatus=self.state.stepStatus,
+                executorId=self.state.executorId,
+                executorName=self.state.executorName,
+                executorStatus=self.state.executorStatus,
+                inputData={},
                 output_data={},
                 ex_data={
                     "message": error_message,
@@ -255,50 +252,46 @@ class MCPAgentExecutor(BaseExecutor):
 
     async def get_next_step(self) -> None:
         """获取下一步"""
-        if self.task.state.step_cnt < self.max_steps:
-            self.task.state.step_cnt += 1
+        if self.step_cnt < self.max_steps:
+            self.step_cnt += 1
             history = await MCPHost.assemble_memory(self.task)
             max_retry = 3
             step = None
-            for i in range(max_retry):
+            for _ in range(max_retry):
                 try:
-                    step = await MCPPlanner.create_next_step(self.task.runtime.question, history, self.tool_list, language=self.task.language)
-                    if step.tool_id in self.tools.keys():
+                    step = await self.planner.create_next_step(history, self.tool_list)
+                    if step.tool_id in self.tools:
                         break
-                except Exception as e:
-                    logger.warning("[MCPAgentExecutor] 获取下一步失败，重试中: %s", str(e))
-            if step is None or step.tool_id not in self.tools.keys():
+                except Exception:
+                    logger.exception("[MCPAgentExecutor] 获取下一步失败，重试中...")
+            if step is None or step.tool_id not in self.tools:
                 step = Step(
                     tool_id=FINAL_TOOL_ID,
-                    description=FINAL_TOOL_ID
+                    description=FINAL_TOOL_ID,
                 )
             tool_id = step.tool_id
-            if tool_id == FINAL_TOOL_ID:
-                step_name = FINAL_TOOL_ID
-            else:
-                step_name = self.tools[tool_id].name
+            step_name = FINAL_TOOL_ID if tool_id == FINAL_TOOL_ID else self.tools[tool_id].name
             step_description = step.description
-            self.task.state.step_id = str(uuid.uuid4())
-            self.task.state.tool_id = tool_id
-            self.task.state.step_name = step_name
-            self.task.state.step_description = step_description
-            self.task.state.step_status = StepStatus.INIT
-            self.task.state.current_input = {}
+            self.state.stepId = uuid.uuid4()
+            self.state.toolId = tool_id
+            self.state.stepName = step_name
+            self.state.stepDescription = step_description
+            self.state.stepStatus = StepStatus.INIT
+            self.state.currentInput = {}
         else:
             # 没有下一步了，结束流程
-            self.task.state.tool_id = FINAL_TOOL_ID
-        return
+            self.state.toolId = FINAL_TOOL_ID
 
     async def error_handle_after_step(self) -> None:
         """步骤执行失败后的错误处理"""
-        self.task.state.step_status = StepStatus.ERROR
-        self.task.state.flow_status = FlowStatus.ERROR
+        self.state.stepStatus = StepStatus.ERROR
+        self.state.executorStatus = ExecutorStatus.ERROR
         await self.push_message(
             EventType.FLOW_FAILED,
-            data={}
+            data={},
         )
-        if len(self.task.context) and self.task.context[-1].step_id == self.task.state.step_id:
-            del self.task.context[-1]
+        if len(self.context) and self.context[-1].step_id == self.state.step_id:
+            del self.context[-1]
         self.task.context.append(
             FlowStepHistory(
                 task_id=self.task.id,
@@ -316,26 +309,26 @@ class MCPAgentExecutor(BaseExecutor):
 
     async def work(self) -> None:
         """执行当前步骤"""
-        if self.task.state.step_status == StepStatus.INIT:
+        if self.state.stepStatus == StepStatus.INIT:
             await self.push_message(
                 EventType.STEP_INIT,
                 data={},
             )
             await self.get_tool_input_param(is_first=True)
-            user_info = await UserManager.get_userinfo_by_user_sub(self.task.ids.user_sub)
+            user_info = await UserManager.get_userinfo_by_user_sub(self.task.userSub)
             if not user_info.auto_execute:
                 # 等待用户确认
                 await self.confirm_before_step()
                 return
-            self.task.state.step_status = StepStatus.RUNNING
-        elif self.task.state.step_status in [StepStatus.PARAM, StepStatus.WAITING, StepStatus.RUNNING]:
-            if self.task.state.step_status == StepStatus.PARAM:
-                if len(self.task.context) and self.task.context[-1].step_id == self.task.state.step_id:
-                    del self.task.context[-1]
-            elif self.task.state.step_status == StepStatus.WAITING:
+            self.state.stepStatus = StepStatus.RUNNING
+        elif self.state.stepStatus in [StepStatus.PARAM, StepStatus.WAITING, StepStatus.RUNNING]:
+            if self.state.stepStatus == StepStatus.PARAM:
+                if len(self.context) and self.context[-1].stepId == self.state.stepId:
+                    del self.context[-1]
+            elif self.state.stepStatus == StepStatus.WAITING:
                 if self.params:
-                    if len(self.task.context) and self.task.context[-1].step_id == self.task.state.step_id:
-                        del self.task.context[-1]
+                    if len(self.context) and self.context[-1].stepId == self.state.stepId:
+                        del self.context[-1]
                 else:
                     self.task.state.flow_status = FlowStatus.CANCELLED
                     self.task.state.step_status = StepStatus.CANCELLED
