@@ -36,7 +36,7 @@ class User(Base):
     """用户个人令牌"""
     selectedKB: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID), default=[], nullable=False)  # noqa: N815
     """用户选择的知识库的ID"""
-    defaultLLM: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), default=None, nullable=True)  # noqa: N815
+    defaultLLM: Mapped[str | None] = mapped_column(String(255), default=None, nullable=True)  # noqa: N815
     """用户选择的大模型ID"""
     autoExecute: Mapped[bool | None] = mapped_column(Boolean, default=False, nullable=True)  # noqa: N815
     """Agent是否自动执行"""

@@ -2,7 +2,9 @@
 """MCP基类"""
 
 import logging
+from typing import Any
 
+from apps.llm.function import JsonGenerator
 from apps.llm.reasoning import ReasoningLLM
 
 logger = logging.getLogger(__name__)
@@ -30,3 +32,19 @@ class MCPBase:
             result += chunk
 
         return result
+
+    @staticmethod
+    async def _parse_result(result: str, schema: dict[str, Any]) -> dict[str, Any]:
+        """解析推理结果"""
+        json_result = await JsonGenerator.parse_result_by_stack(result, schema)
+        if json_result is not None:
+            return json_result
+        json_generator = JsonGenerator(
+            "Please provide a JSON response based on the above information and schema.\n\n",
+            [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": result},
+            ],
+            schema,
+        )
+        return await json_generator.generate()

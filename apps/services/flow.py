@@ -161,7 +161,7 @@ class FlowManager:
 
 
     @staticmethod
-    async def get_flow_by_app_and_flow_id(app_id: uuid.UUID, flow_id: uuid.UUID) -> FlowItem | None:
+    async def get_flow_by_app_and_flow_id(app_id: uuid.UUID, flow_id: str) -> FlowItem | None:
         """
         通过appId flowId获取flow config的路径和focus，并通过flow config的路径获取flow config，并将其转换为flow item。
 
@@ -282,7 +282,7 @@ class FlowManager:
 
     @staticmethod
     async def put_flow_by_app_and_flow_id(
-        app_id: uuid.UUID, flow_id: uuid.UUID, flow_item: FlowItem,
+        app_id: uuid.UUID, flow_id: str, flow_item: FlowItem,
     ) -> None:
         """
         存储/更新flow的数据库数据和配置文件
@@ -345,7 +345,7 @@ class FlowManager:
 
 
     @staticmethod
-    async def delete_flow_by_app_and_flow_id(app_id: uuid.UUID, flow_id: uuid.UUID) -> None:
+    async def delete_flow_by_app_and_flow_id(app_id: uuid.UUID, flow_id: str) -> None:
         """
         删除flow的数据库数据和配置文件
 
@@ -375,7 +375,7 @@ class FlowManager:
 
 
     @staticmethod
-    async def update_flow_debug_by_app_and_flow_id(app_id: uuid.UUID, flow_id: uuid.UUID, *, debug: bool) -> bool:
+    async def update_flow_debug_by_app_and_flow_id(app_id: uuid.UUID, flow_id: str, *, debug: bool) -> bool:
         """
         更新flow的debug状态
 

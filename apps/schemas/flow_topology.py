@@ -46,8 +46,8 @@ class PositionItem(BaseModel):
 class NodeItem(BaseModel):
     """请求/响应中的节点变量类"""
 
-    step_id: str = Field(alias="stepId", default="")
-    service_id: str = Field(alias="serviceId", default="")
+    step_id: uuid.UUID = Field(alias="stepId", default=uuid.uuid4())
+    service_id: uuid.UUID = Field(alias="serviceId", default=uuid.uuid4())
     node_id: str = Field(alias="nodeId", default="")
     name: str = Field(default="")
     call_id: str = Field(alias="callId", default=SpecialCallType.EMPTY.value)
@@ -69,7 +69,7 @@ class EdgeItem(BaseModel):
 class FlowItem(BaseModel):
     """请求/响应中的流变量类"""
 
-    flow_id: uuid.UUID = Field(alias="flowId", default=uuid.UUID("00000000-0000-0000-0000-000000000000"))
+    flow_id: str = Field(alias="flowId", default="")
     name: str = Field(default="工作流名称")
     description: str = Field(default="工作流描述")
     enable: bool = Field(default=True)

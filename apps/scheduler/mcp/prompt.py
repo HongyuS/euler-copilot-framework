@@ -175,6 +175,225 @@ additional content:
     ),
 }
 
+CREATE_PLAN: dict[str, str] = {
+    LanguageType.CHINESE: dedent(
+        r"""
+            你是一个计划生成器。
+            请分析用户的目标，并生成一个计划。你后续将根据这个计划，一步一步地完成用户的目标。
+
+            # 一个好的计划应该：
+
+            1. 能够成功完成用户的目标
+            2. 计划中的每一个步骤必须且只能使用一个工具。
+            3. 计划中的步骤必须具有清晰和逻辑的步骤，没有冗余或不必要的步骤。
+            4. 计划中的最后一步必须是Final工具，以确保计划执行结束。
+            5.生成的计划必须要覆盖用户的目标，不能遗漏任何用户目标中的内容。
+
+            # 生成计划时的注意事项：
+
+            - 每一条计划包含3个部分：
+                - 计划内容：描述单个计划步骤的大致内容
+                - 工具ID：必须从下文的工具列表中选择
+                - 工具指令：改写用户的目标，使其更符合工具的输入要求
+            - 必须按照如下格式生成计划，不要输出任何额外数据：
+
+            ```json
+            {
+                "plans": [
+                    {
+                        "content": "计划内容",
+                        "tool": "工具ID",
+                        "instruction": "工具指令"
+                    }
+                ]
+            }
+            ```
+
+            - 在生成计划之前，请一步一步思考，解析用户的目标，并指导你接下来的生成。思考过程应按步骤顺序放置在\
+<thinking></thinking> XML标签中。
+            - 计划内容中，可以使用"Result[]"来引用之前计划步骤的结果。例如："Result[3]"表示引用第三条计划执行后的结果。
+            - 计划不得多于{{ max_num }}条，且每条计划内容应少于150字。
+
+            # 工具
+
+            你可以访问并使用一些工具，这些工具将在<tools></tools> XML标签中给出。
+
+            <tools>
+                {% for tool in tools %}
+                - <id>{{ tool.id }}</id><description>{{tool.name}}；{{ tool.description }}</description>
+                {% endfor %}
+                - <id>Final</id><description>结束步骤，当执行到这一步时，表示计划执行结束，所得到的结果将作为最终\
+结果。</description>
+            </tools>
+
+            # 样例
+
+            ## 目标
+
+            在后台运行一个新的alpine:latest容器，将主机/root文件夹挂载至/data，并执行top命令。
+
+            ## 计划
+
+            <thinking>
+            1. 这个目标需要使用Docker来完成,首先需要选择合适的MCP Server
+            2. 目标可以拆解为以下几个部分:
+               - 运行alpine:latest容器
+               - 挂载主机目录
+               - 在后台运行
+               - 执行top命令
+            3. 需要先选择MCP Server,然后生成Docker命令,最后执行命令
+            </thinking>
+
+            ```json
+            {
+                "plans": [
+                    {
+                        "content": "选择一个支持Docker的MCP Server",
+                        "tool": "mcp_selector",
+                        "instruction": "需要一个支持Docker容器运行的MCP Server"
+                    },
+                    {
+                        "content": "使用Result[0]中选择的MCP Server，生成Docker命令",
+                        "tool": "command_generator",
+                        "instruction": "生成Docker命令：在后台运行alpine:latest容器，挂载/root到/data，执行top命令"
+                    },
+                    {
+                        "content": "在Result[0]的MCP Server上执行Result[1]生成的命令",
+                        "tool": "command_executor",
+                        "instruction": "执行Docker命令"
+                    },
+                    {
+                        "content": "任务执行完成，容器已在后台运行，结果为Result[2]",
+                        "tool": "Final",
+                        "instruction": ""
+                    }
+                ]
+            }
+            ```
+
+            # 现在开始生成计划：
+
+            ## 目标
+
+            {{goal}}
+
+            # 计划
+        """,
+    ),
+    LanguageType.ENGLISH: dedent(
+        r"""
+            You are a plan generator.
+            Please analyze the user's goal and generate a plan. You will then follow this plan to achieve the user's \
+goal step by step.
+
+            # A good plan should:
+
+            1. Be able to successfully achieve the user's goal.
+            2. Each step in the plan must use only one tool.
+            3. The steps in the plan must have clear and logical steps, without redundant or unnecessary steps.
+            4. The last step in the plan must be a Final tool to ensure that the plan is executed.
+
+            # Things to note when generating plans:
+
+            - Each plan contains three parts:
+                - Plan content: Describes the general content of a single plan step
+                - Tool ID: Must be selected from the tool list below
+                - Tool instructions: Rewrite the user's goal to make it more consistent with the tool's input \
+requirements
+            - Plans must be generated in the following format. Do not output any additional data:
+
+            ```json
+            {
+                "plans": [
+                    {
+                        "content":"Plan content",
+                        "tool":"Tool ID",
+                        "instruction":"Tool instructions"
+                    }
+                ]
+            }
+            ```
+
+            - Before generating a plan, please think step by step, analyze the user's goal, and guide your next \
+steps. The thought process should be placed in sequential steps within <thinking></thinking> XML tags.
+            - In the plan content, you can use "Result[]" to reference the results of the previous plan steps. \
+For example: "Result[3]" refers to the result after the third plan is executed.
+            - The plan should not have more than {{ max_num }} items, and each plan content should be less than \
+150 words.
+
+            # Tools
+
+            You can access and use some tools, which will be given in the <tools></tools> XML tags.
+
+            <tools>
+                {% for tool in tools %}
+                - <id>{{ tool.id }}</id><description>{{tool.name}}; {{ tool.description }}</description>
+                {% endfor %}
+                - <id>Final</id><description>End step. When this step is executed, \
+                Indicates that the plan execution is completed and the result obtained will be used as the final \
+result. </description>
+            </tools>
+
+            # Example
+
+            ## Target
+
+            Run a new alpine:latest container in the background, mount the host/root folder to /data, and execute the \
+top command.
+
+            ## Plan
+
+            <thinking>
+            1. This goal needs to be completed using Docker. First, you need to select a suitable MCP Server.
+            2. The goal can be broken down into the following parts:
+                - Run the alpine:latest container
+                - Mount the host directory
+                - Run in the background
+                - Execute the top command
+            3. You need to select an MCP Server first, then generate the Docker command, and finally execute the \
+command.
+            </thinking>
+
+            ```json
+            {
+                "plans": [
+                    {
+                        "content": "Select an MCP Server that supports Docker",
+                        "tool": "mcp_selector",
+                        "instruction": "You need an MCP Server that supports running Docker containers"
+                    },
+                    {
+                        "content": "Use the MCP Server selected in Result[0] to generate Docker commands",
+                        "tool": "command_generator",
+                        "instruction": "Generate Docker command: Run the alpine:latest container in the background, \
+mount /root to /data, and execute the top command"
+                    },
+                    {
+                        "content": "Execute the command generated by Result[1] on the MCP Server of Result[0]",
+                        "tool": "command_executor",
+                        "instruction": "Execute Docker command"
+                    },
+                    {
+                        "content": "Task execution completed, the container is running in the background, the result \
+is Result[2]",
+                        "tool": "Final",
+                        "instruction": ""
+                    }
+                ]
+            }
+            ```
+
+            # Now start generating the plan:
+
+            ## Goal
+
+            {{goal}}
+
+            # Plan
+        """,
+    ),
+}
+
 EVALUATE_PLAN: dict[LanguageType, str] = {
     LanguageType.CHINESE: dedent(
         r"""

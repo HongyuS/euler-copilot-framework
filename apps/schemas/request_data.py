@@ -147,6 +147,7 @@ class PutFlowReq(BaseModel):
 class UpdateLLMReq(BaseModel):
     """更新大模型请求体"""
 
+    llm_id: str | None = Field(default=None, description="大模型ID", alias="id")
     icon: str = Field(description="图标", default="")
     openai_base_url: str = Field(default="", description="OpenAI API Base URL", alias="openaiBaseUrl")
     openai_api_key: str = Field(default="", description="OpenAI API Key", alias="openaiApiKey")

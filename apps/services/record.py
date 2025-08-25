@@ -80,9 +80,14 @@ class RecordManager:
         order: Literal["desc", "asc"] = "desc",
     ) -> list[Record]:
         """查询ConversationID的最后n条问答对"""
-        sort_order = -1 if order == "desc" else 1
-
         async with postgres.session() as session:
+            sql = select(PgRecord).where(
+                PgRecord.conversationId == conversation_id,
+                PgRecord.userSub == user_sub,
+            ).order_by(PgRecord.createdAt.desc() if order == "desc" else PgRecord.createdAt.asc())
+            if total_pairs is not None:
+                sql = sql.limit(total_pairs)
+            result = await session.scalars(sql)
             # 得到conversation的全部record_group id
             record_groups = await record_group_collection.aggregate(
                 [

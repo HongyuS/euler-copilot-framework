@@ -10,12 +10,12 @@ from jinja2.sandbox import SandboxedEnvironment
 
 from apps.llm.function import JsonGenerator
 from apps.llm.reasoning import ReasoningLLM
-from apps.models.task import TaskRuntime
+from apps.models.mcp import MCPTools
+from apps.models.task import ExecutorHistory, TaskRuntime
 from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
 from apps.scheduler.mcp_agent.base import MCPBase
 from apps.scheduler.mcp_agent.prompt import GEN_PARAMS, REPAIR_PARAMS
 from apps.schemas.enum_var import LanguageType
-from apps.schemas.mcp import MCPTool
 
 logger = logging.getLogger(__name__)
 _env = SandboxedEnvironment(
@@ -48,36 +48,36 @@ class MCPHost(MCPBase):
         self.llm = llm
 
     @staticmethod
-    async def assemble_memory(runtime: TaskRuntime) -> str:
+    async def assemble_memory(runtime: TaskRuntime, context: list[ExecutorHistory]) -> str:
         """组装记忆"""
         return _env.from_string(MEMORY_TEMPLATE[runtime.language]).render(
-            context_list=runtime.context,
+            context_list=context,
         )
 
     async def get_first_input_params(
-        self, mcp_tool: MCPTool, current_goal: str, runtime: TaskRuntime,
+        self, mcp_tool: MCPTools, current_goal: str, runtime: TaskRuntime, context: list[ExecutorHistory],
     ) -> dict[str, Any]:
         """填充工具参数"""
         # 更清晰的输入·指令，这样可以调用generate
         prompt = _env.from_string(GEN_PARAMS[runtime.language]).render(
-            tool_name=mcp_tool.name,
+            tool_name=mcp_tool.toolName,
             tool_description=mcp_tool.description,
             goal=self.goal,
             current_goal=current_goal,
-            input_schema=mcp_tool.input_schema,
-            background_info=await MCPHost.assemble_memory(runtime),
+            input_schema=mcp_tool.inputSchema,
+            background_info=await self.assemble_memory(runtime, context),
         )
         logger.info("[MCPHost] 填充工具参数: %s", prompt)
         result = await self.get_resoning_result(prompt)
         # 使用JsonGenerator解析结果
         return await MCPHost._parse_result(
             result,
-            mcp_tool.input_schema,
+            mcp_tool.inputSchema,
         )
 
     async def fill_params(  # noqa: D102, PLR0913
         self,
-        mcp_tool: MCPTool,
+        mcp_tool: MCPTools,
         current_goal: str,
         current_input: dict[str, Any],
         language: LanguageType,
@@ -87,11 +87,11 @@ class MCPHost(MCPBase):
     ) -> dict[str, Any]:
         llm_query = LLM_QUERY_FIX[language]
         prompt = _env.from_string(REPAIR_PARAMS[language]).render(
-            tool_name=mcp_tool.name,
+            tool_name=mcp_tool.toolName,
             goal=self.goal,
             current_goal=current_goal,
             tool_description=mcp_tool.description,
-            input_schema=mcp_tool.input_schema,
+            input_schema=mcp_tool.inputSchema,
             current_input=current_input,
             error_message=error_message,
             params=params,
@@ -104,6 +104,6 @@ class MCPHost(MCPBase):
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": prompt},
             ],
-            mcp_tool.input_schema,
+            mcp_tool.inputSchema,
         )
         return await json_generator.generate()

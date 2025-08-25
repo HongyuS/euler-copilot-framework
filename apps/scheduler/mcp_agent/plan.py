@@ -87,7 +87,7 @@ class MCPPlanner(MCPBase):
         # 获取推理结果
         template = _env.from_string(RISK_EVALUATE[self.language])
         prompt = template.render(
-            tool_name=tool.name,
+            tool_name=tool.toolName,
             tool_description=tool.description,
             input_param=input_param,
             additional_info=additional_info,
@@ -114,7 +114,7 @@ class MCPPlanner(MCPBase):
             goal=self.goal,
             history=history,
             step_id=tool.id,
-            step_name=tool.name,
+            step_name=tool.toolName,
             step_description=step_description,
             input_params=input_params,
             error_message=error_message,
@@ -133,20 +133,22 @@ class MCPPlanner(MCPBase):
         template = _env.from_string(CHANGE_ERROR_MESSAGE_TO_DESCRIPTION[self.language])
         prompt = template.render(
             error_message=error_message,
-            tool_name=tool.name,
+            tool_name=tool.toolName,
             tool_description=tool.description,
-            input_schema=tool.input_schema,
+            input_schema=tool.inputSchema,
             input_params=input_params,
         )
         return await self.get_resoning_result(prompt)
 
-    async def get_missing_param(self, tool: MCPTools, input_param: dict[str, Any], error_message: str) -> dict[str, Any]:
+    async def get_missing_param(
+        self, tool: MCPTools, input_param: dict[str, Any], error_message: str,
+    ) -> dict[str, Any]:
         """获取缺失的参数"""
-        slot = Slot(schema=tool.input_schema)
+        slot = Slot(schema=tool.inputSchema)
         template = _env.from_string(GET_MISSING_PARAMS[self.language])
         schema_with_null = slot.add_null_to_basic_types()
         prompt = template.render(
-            tool_name=tool.name,
+            tool_name=tool.toolName,
             tool_description=tool.description,
             input_param=input_param,
             schema=schema_with_null,

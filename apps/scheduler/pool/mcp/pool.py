@@ -3,9 +3,12 @@
 
 import logging
 
+from sqlalchemy import and_, select
+
+from apps.common.postgres import postgres
 from apps.common.singleton import SingletonMeta
 from apps.constants import MCP_PATH
-from apps.models.mcp import MCPType
+from apps.models.mcp import MCPActivated, MCPType
 from apps.schemas.mcp import MCPServerConfig
 
 from .client import MCPClient
@@ -39,7 +42,7 @@ class MCPPool(metaclass=SingletonMeta):
             logger.warning("[MCPPool] 用户 %s 的MCP %s 类型错误", user_sub, mcp_id)
             return None
 
-        await client.init(user_sub, mcp_id, config.config)
+        await client.init(user_sub, mcp_id, config.mcpServers[mcp_id])
         if user_sub not in self.pool:
             self.pool[user_sub] = {}
         self.pool[user_sub][mcp_id] = client
@@ -59,10 +62,16 @@ class MCPPool(metaclass=SingletonMeta):
 
     async def _validate_user(self, mcp_id: str, user_sub: str) -> bool:
         """验证用户是否已激活"""
-        mongo = MongoDB()
-        mcp_collection = mongo.get_collection("mcp")
-        mcp_db_result = await mcp_collection.find_one({"_id": mcp_id, "activated": user_sub})
-        return mcp_db_result is not None
+        async with postgres.session() as session:
+            result = (await session.scalars(
+                select(MCPActivated).where(
+                    and_(
+                        MCPActivated.mcpId == mcp_id,
+                        MCPActivated.userSub == user_sub,
+                    ),
+                ).limit(1),
+            )).one_or_none()
+            return result is not None
 
 
     async def get(self, mcp_id: str, user_sub: str) -> MCPClient | None:

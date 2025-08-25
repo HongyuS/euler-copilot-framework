@@ -2,7 +2,6 @@
 """大模型管理"""
 
 import logging
-import uuid
 
 from sqlalchemy import select
 
@@ -41,7 +40,7 @@ class LLMManager:
 
 
     @staticmethod
-    async def get_user_default_llm(user_sub: str) -> uuid.UUID | None:
+    async def get_user_default_llm(user_sub: str) -> str | None:
         """
         通过用户ID获取大模型ID
 
@@ -60,7 +59,7 @@ class LLMManager:
 
 
     @staticmethod
-    async def get_llm(llm_id: uuid.UUID) -> LLMData | None:
+    async def get_llm(llm_id: str) -> LLMData | None:
         """
         通过ID获取大模型
 
@@ -81,7 +80,7 @@ class LLMManager:
 
 
     @staticmethod
-    async def list_llm(llm_id: uuid.UUID | None) -> list[LLMProviderInfo]:
+    async def list_llm(llm_id: str | None) -> list[LLMProviderInfo]:
         """
         获取大模型列表
 
@@ -119,7 +118,7 @@ class LLMManager:
 
 
     @staticmethod
-    async def update_llm(llm_id: uuid.UUID | None, req: UpdateLLMReq) -> uuid.UUID:
+    async def update_llm(llm_id: str, req: UpdateLLMReq) -> str:
         """
         创建大模型
 
@@ -144,6 +143,7 @@ class LLMManager:
                 await session.commit()
             else:
                 llm = LLMData(
+                    id=llm_id,
                     icon=req.icon,
                     openaiBaseUrl=req.openai_base_url,
                     openaiAPIKey=req.openai_api_key,
@@ -156,7 +156,7 @@ class LLMManager:
 
 
     @staticmethod
-    async def delete_llm(user_sub: str, llm_id: uuid.UUID | None) -> None:
+    async def delete_llm(user_sub: str, llm_id: str | None) -> None:
         """
         删除大模型
 
@@ -192,7 +192,7 @@ class LLMManager:
     @staticmethod
     async def update_user_default_llm(
         user_sub: str,
-        llm_id: uuid.UUID,
+        llm_id: str,
     ) -> None:
         """更新用户的默认LLM"""
         async with postgres.session() as session:
