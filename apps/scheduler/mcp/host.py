@@ -102,18 +102,18 @@ class MCPHost:
             }
 
         # 创建context；注意用法
-        context = FlowStepHistory(
-            task_id=self._task_id,
-            flow_id=self._runtime_id,
-            flow_name=self._runtime_name,
-            flow_status=ExecutorStatus.RUNNING,
-            step_id=tool.id,
-            step_name=tool.toolName,
+        context = ExecutorHistory(
+            taskId=self._task_id,
+            executorId=self._runtime_id,
+            executorName=self._runtime_name,
+            executorStatus=ExecutorStatus.RUNNING,
+            stepId=tool.id,
+            stepName=tool.toolName,
             # description是规划的实际内容
-            step_description=plan_item.content,
-            step_status=StepStatus.SUCCESS,
-            input_data=input_data,
-            output_data=output_data,
+            stepDescription=plan_item.content,
+            stepStatus=StepStatus.SUCCESS,
+            inputData=input_data,
+            outputData=output_data,
         )
 
         # 保存到task
@@ -122,7 +122,7 @@ class MCPHost:
             logger.error("任务 %s 不存在", self._task_id)
             return {}
         self._context_list.append(context.id)
-        task.context.append(context.model_dump(exclude_none=True, by_alias=True))
+        context.append(context.model_dump(exclude_none=True, by_alias=True))
         await TaskManager.save_task(self._task_id, task)
 
         return output_data

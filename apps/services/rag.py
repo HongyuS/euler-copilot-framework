@@ -70,7 +70,7 @@ class RAG:
                     openEuler社区的目标是为用户提供一个稳定、安全、高效的操作系统平台，并且支持多种硬件架构。[[1]]
             </answer>
         </example>
-        
+
         <bac_info>
                 {bac_info}
         </bac_info>
@@ -173,7 +173,10 @@ class RAG:
         return doc_chunk_list
 
     @staticmethod
-    async def assemble_doc_info(doc_chunk_list: list[dict[str, Any]], max_tokens: int) -> str:
+    async def assemble_doc_info(
+        doc_chunk_list: list[dict[str, Any]],
+        max_tokens: int,
+    ) -> tuple[str, list[dict[str, Any]]]:
         """组装文档信息"""
         bac_info = ""
         doc_info_list = []
@@ -251,9 +254,9 @@ class RAG:
         return bac_info, doc_info_list
 
     @staticmethod
-    async def chat_with_llm_base_on_rag(
+    async def chat_with_llm_base_on_rag(  # noqa: C901, PLR0913
         user_sub: str,
-        llm: LLM,
+        llm: LLMData,
         history: list[dict[str, str]],
         doc_ids: list[str],
         data: RAGQueryReq,
@@ -262,10 +265,10 @@ class RAG:
         """获取RAG服务的结果"""
         reasion_llm = ReasoningLLM(
             LLMConfig(
-                endpoint=llm.openai_base_url,
-                key=llm.openai_api_key,
-                model=llm.model_name,
-                max_tokens=llm.max_tokens,
+                endpoint=llm.openaiBaseUrl,
+                key=llm.openaiAPIKey,
+                model=llm.modelName,
+                max_tokens=llm.maxToken,
             ),
         )
         if history:
@@ -277,9 +280,9 @@ class RAG:
             except Exception:
                 logger.exception("[RAG] 问题重写失败")
         doc_chunk_list = await RAG.get_doc_info_from_rag(
-            user_sub=user_sub, max_tokens=llm.max_tokens, doc_ids=doc_ids, data=data)
+            user_sub=user_sub, max_tokens=llm.maxToken, doc_ids=doc_ids, data=data)
         bac_info, doc_info_list = await RAG.assemble_doc_info(
-            doc_chunk_list=doc_chunk_list, max_tokens=llm.max_tokens)
+            doc_chunk_list=doc_chunk_list, max_tokens=llm.maxToken)
         messages = [
             *history,
             {
@@ -296,7 +299,7 @@ class RAG:
         ]
         input_tokens = TokenCalculator().calculate_token_length(messages=messages)
         output_tokens = 0
-        doc_cnt = 0
+        doc_cnt: int = 0
         for doc_info in doc_info_list:
             doc_cnt = max(doc_cnt, doc_info["order"])
             yield (
@@ -313,40 +316,41 @@ class RAG:
                 + "\n\n"
             )
         max_footnote_length = 4
-        while doc_cnt > 0:
-            doc_cnt //= 10
+        tmp_doc_cnt = doc_cnt
+        while tmp_doc_cnt > 0:
+            tmp_doc_cnt //= 10
             max_footnote_length += 1
         buffer = ""
         async for chunk in reasion_llm.call(
             messages,
-            max_tokens=llm.max_tokens,
+            max_tokens=llm.maxToken,
             streaming=True,
             temperature=0.7,
             result_only=False,
-            model=llm.model_name,
+            model=llm.modelName,
         ):
-            chunk = buffer + chunk
+            tmp_chunk = buffer + chunk
             # 防止脚注被截断
-            if len(chunk) >= 2 and chunk[-2:] != "]]":
-                index = len(chunk) - 1
-                while index >= max(0, len(chunk) - max_footnote_length) and chunk[index] != "]":
+            if len(tmp_chunk) >= 2 and tmp_chunk[-2:] != "]]":
+                index = len(tmp_chunk) - 1
+                while index >= max(0, len(tmp_chunk) - max_footnote_length) and tmp_chunk[index] != "]":
                     index -= 1
                 if index >= 0:
-                    buffer = chunk[index + 1:]
-                    chunk = chunk[:index + 1]
+                    buffer = tmp_chunk[index + 1:]
+                    tmp_chunk = tmp_chunk[:index + 1]
             else:
                 buffer = ""
             # 匹配脚注
-            footnotes = re.findall(r"\[\[\d+\]\]", chunk)
+            footnotes = re.findall(r"\[\[\d+\]\]", tmp_chunk)
             # 去除编号大于doc_cnt的脚注
             footnotes = [fn for fn in footnotes if int(fn[2:-2]) > doc_cnt]
             footnotes = list(set(footnotes))  # 去重
             if footnotes:
                 for fn in footnotes:
-                    chunk = chunk.replace(fn, "")
+                    tmp_chunk = tmp_chunk.replace(fn, "")
             output_tokens += TokenCalculator().calculate_token_length(
                 messages=[
-                    {"role": "assistant", "content": chunk},
+                    {"role": "assistant", "content": tmp_chunk},
                 ],
                 pure_text=True,
             )
@@ -355,7 +359,7 @@ class RAG:
                 + json.dumps(
                     {
                         "event_type": EventType.TEXT_ADD.value,
-                        "content": chunk,
+                        "content": tmp_chunk,
                         "input_tokens": input_tokens,
                         "output_tokens": output_tokens,
                     },

@@ -93,6 +93,7 @@ class ReasoningLLM:
 
     input_tokens: int = 0
     output_tokens: int = 0
+    timeout: float = 30.0
 
     def __init__(self, llm_config: LLMConfig | None = None) -> None:
         """判断配置文件里用了哪种大模型；初始化大模型客户端"""
@@ -108,12 +109,14 @@ class ReasoningLLM:
         if not self._config.key:
             self._client = AsyncOpenAI(
                 base_url=self._config.endpoint,
+                timeout=self.timeout,
             )
             return
 
         self._client = AsyncOpenAI(
             api_key=self._config.key,
             base_url=self._config.endpoint,
+            timeout=self.timeout,
         )
 
     @staticmethod

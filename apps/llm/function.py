@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 class FunctionLLM:
     """用于FunctionCall的模型"""
 
+    timeout: float = 30.0
+
     def __init__(self) -> None:
         """
         初始化用于FunctionCall的模型
@@ -48,20 +50,28 @@ class FunctionLLM:
         }
 
         if self._config.backend == "ollama" and not self._config.api_key:
-            self._client = ollama.AsyncClient(host=self._config.endpoint)
+            self._client = ollama.AsyncClient(
+                host=self._config.endpoint,
+                timeout=self.timeout,
+            )
         elif self._config.backend == "ollama" and self._config.api_key:
             self._client = ollama.AsyncClient(
                 host=self._config.endpoint,
                 headers={
                     "Authorization": f"Bearer {self._config.api_key}",
                 },
+                timeout=self.timeout,
             )
         elif self._config.backend != "ollama" and not self._config.api_key:
-            self._client = openai.AsyncOpenAI(base_url=self._config.endpoint)
+            self._client = openai.AsyncOpenAI(
+                base_url=self._config.endpoint,
+                timeout=self.timeout,
+            )
         elif self._config.backend != "ollama" and self._config.api_key:
             self._client = openai.AsyncOpenAI(
                 base_url=self._config.endpoint,
                 api_key=self._config.api_key,
+                timeout=self.timeout,
             )
 
 
@@ -235,7 +245,7 @@ class JsonGenerator:
     """JSON生成器"""
 
     @staticmethod
-    async def parse_result_by_stack(result: str, schema: dict[str, Any]) -> str:  # noqa: C901, PLR0912
+    async def parse_result_by_stack(result: str, schema: dict[str, Any]) -> dict[str, Any]:  # noqa: C901, PLR0912
         """解析推理结果"""
         validator = Draft7Validator(schema)
         left_index = result.find("{")
@@ -289,7 +299,7 @@ class JsonGenerator:
             else:
                 return tmp_js
 
-        return ""
+        return {}
 
     def __init__(self, query: str, conversation: list[dict[str, str]], schema: dict[str, Any]) -> None:
         """初始化JSON生成器"""

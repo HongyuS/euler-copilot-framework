@@ -12,34 +12,42 @@ from apps.schemas.mcp import (
 )
 
 logger = logging.getLogger(__name__)
-DEFAULT_STDIO = MCPServerConfig(
-    name="MCP服务_" + uuid.uuid4().hex[:6],
-    description="MCP服务描述",
-    mcpType=MCPType.STDIO,
-    config=MCPServerStdioConfig(
-        command="uvx",
-        args=[
-            "your_package",
-        ],
-        env={
-            "EXAMPLE_ENV": "example_value",
-        },
-    ),
-)
-"""默认的Stdio协议MCP Server配置"""
 
-DEFAULT_SSE = MCPServerConfig(
-    name="MCP服务_" + uuid.uuid4().hex[:6],
-    description="MCP服务描述",
-    mcpType=MCPType.SSE,
-    config=MCPServerSSEConfig(
-        url="http://test.domain/sse",
-        env={
-            "EXAMPLE_HEADER": "example_value",
-        },
-    ),
+def _default_stdio_config(hex_id: str) -> MCPServerConfig:
+    """默认的Stdio协议MCP Server配置"""
+    return MCPServerConfig(
+        name="MCP服务_" + hex_id,
+        description="MCP服务描述",
+        mcpType=MCPType.STDIO,
+        mcpServers={
+            f"MCP_{hex_id}": MCPServerStdioConfig(
+            command="uvx",
+            args=[
+                "your_package",
+            ],
+            env={
+                "EXAMPLE_ENV": "example_value",
+            },
+        ),
+    },
 )
-"""默认的SSE协议MCP Server配置"""
+
+
+def _default_sse_config(hex_id: str) -> MCPServerConfig:
+    """默认的SSE协议MCP Server配置"""
+    return MCPServerConfig(
+        name="MCP服务_" + hex_id,
+        description="MCP服务描述",
+        mcpType=MCPType.SSE,
+        mcpServers={
+            f"MCP_{hex_id}": MCPServerSSEConfig(
+                url="http://test.domain/sse",
+                env={
+                    "EXAMPLE_HEADER": "example_value",
+                },
+            ),
+        },
+    )
 
 
 async def get_default(mcp_type: MCPType) -> MCPServerConfig:
@@ -51,10 +59,12 @@ async def get_default(mcp_type: MCPType) -> MCPServerConfig:
     :rtype: MCPConfig
     :raises ValueError: 未找到默认的 MCP 配置
     """
+    random_id = uuid.uuid4().hex[:6]
+
     if mcp_type == MCPType.STDIO:
-        return DEFAULT_STDIO
+        return _default_stdio_config(random_id)
     if mcp_type == MCPType.SSE:
-        return DEFAULT_SSE
+        return _default_sse_config(random_id)
     err = f"未找到默认的 MCP 配置: {mcp_type}"
     logger.error(err)
     raise ValueError(err)

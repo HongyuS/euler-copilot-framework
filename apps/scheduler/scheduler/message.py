@@ -61,13 +61,15 @@ async def push_init_message(
 async def push_rag_message(
         task: Task, queue: MessageQueue, user_sub: str, llm: LLM, history: list[dict[str, str]],
         doc_ids: list[str],
-        rag_data: RAGQueryReq,) -> None:
+        rag_data: RAGQueryReq) -> None:
     """推送RAG消息"""
     full_answer = ""
 
     try:
         async for chunk in RAG.chat_with_llm_base_on_rag(user_sub, llm, history, doc_ids, rag_data):
             task, content_obj = await _push_rag_chunk(task, queue, chunk)
+            if not content_obj:
+                continue
             if content_obj.event_type == EventType.TEXT_ADD.value:
                 # 如果是文本消息，直接拼接到答案中
                 full_answer += content_obj.content
@@ -83,20 +85,24 @@ async def push_rag_message(
     await TaskManager.save_task(task.id, task)
 
 
-async def _push_rag_chunk(task: Task, queue: MessageQueue, content: str) -> tuple[Task, RAGEventData]:
+async def _push_rag_chunk(task: Task, queue: MessageQueue, content: str) -> tuple[Task, RAGEventData | None]:
     """推送RAG单个消息块"""
     # 如果是换行
     if not content or not content.rstrip().rstrip("\n"):
-        return task, ""
+        return task, None
 
     try:
         content_obj = RAGEventData.model_validate_json(dedent(content[6:]).rstrip("\n"))
         # 如果是空消息
         if not content_obj.content:
-            return task, ""
+            return task, None
 
-        task.tokens.input_tokens = content_obj.input_tokens
-        task.tokens.output_tokens = content_obj.output_tokens
+        await TaskManager.update_task_token(
+            task.id,
+            content_obj.input_tokens,
+            content_obj.output_tokens,
+            override=True,
+        )
 
         await TaskManager.save_task(task.id, task)
         # 推送消息
@@ -118,11 +124,11 @@ async def _push_rag_chunk(task: Task, queue: MessageQueue, content: str) -> tupl
                     documentAbstract=content_obj.content.get("abstract", ""),
                     documentType=content_obj.content.get("extension", ""),
                     documentSize=content_obj.content.get("size", 0),
-                    createdAt=round(datetime.now(tz=UTC).timestamp(), 3),
+                    createdAt=round(content_obj.content.get("created_at", datetime.now(tz=UTC).timestamp()), 3),
                 ).model_dump(exclude_none=True, by_alias=True),
             )
     except Exception:
         logger.exception("[Scheduler] RAG服务返回错误数据")
-        return task, ""
+        return task, None
     else:
         return task, content_obj

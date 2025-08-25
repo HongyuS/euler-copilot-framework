@@ -1,8 +1,10 @@
 """插件 数据库表"""
 
+import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from apps.schemas.enum_var import PermissionType
@@ -14,14 +16,14 @@ class Service(Base):
     """插件"""
 
     __tablename__ = "framework_service"
-    id: Mapped[str] = mapped_column(String(255), primary_key=True)
-    """插件ID"""
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     """插件名称"""
     description: Mapped[str] = mapped_column(String(2000), nullable=False)
     """插件描述"""
     author: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), nullable=False)
     """插件作者"""
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    """插件ID"""
     updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True),
         default_factory=lambda: datetime.now(tz=UTC),
@@ -41,7 +43,7 @@ class ServiceACL(Base):
     """插件权限"""
 
     __tablename__ = "framework_service_acl"
-    serviceId: Mapped[str] = mapped_column(String(255), ForeignKey("framework_service.id"), nullable=False)  # noqa: N815
+    serviceId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("framework_service.id"), nullable=False)  # noqa: N815
     """关联的插件ID"""
     userSub: Mapped[str] = mapped_column(String(50), ForeignKey("framework_user.userSub"), nullable=False)  # noqa: N815
     """用户名"""
@@ -57,7 +59,7 @@ class ServiceHashes(Base):
     __tablename__ = "framework_service_hashes"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
     """主键ID"""
-    serviceId: Mapped[str] = mapped_column(String(255), ForeignKey("framework_service.id"), nullable=False)  # noqa: N815
+    serviceId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("framework_service.id"), nullable=False)  # noqa: N815
     """关联的插件ID"""
     filePath: Mapped[str] = mapped_column(String(255), nullable=False)  # noqa: N815
     """文件路径"""
