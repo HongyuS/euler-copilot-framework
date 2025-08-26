@@ -6,8 +6,9 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from apps.models.task import ExecutorHistory
+
 from .enum_var import CallOutputType, LanguageType
-from .task import FlowStepHistory
 
 
 class CallInfo(BaseModel):
@@ -21,7 +22,7 @@ class CallIds(BaseModel):
     """Call的ID，来自于Task"""
 
     task_id: uuid.UUID = Field(description="任务ID")
-    flow_id: uuid.UUID = Field(description="Flow ID")
+    executor_id: str = Field(description="Flow ID")
     session_id: str = Field(description="当前用户的Session ID")
     app_id: uuid.UUID = Field(description="当前应用的ID")
     user_sub: str = Field(description="当前用户的用户ID")
@@ -32,7 +33,7 @@ class CallVars(BaseModel):
 
     summary: str = Field(description="上下文信息")
     question: str = Field(description="改写后的用户输入")
-    history: dict[str, FlowStepHistory] = Field(description="Executor中历史工具的结构化数据", default={})
+    history: dict[str, ExecutorHistory] = Field(description="Executor中历史工具的结构化数据", default={})
     history_order: list[str] = Field(description="Executor中历史工具的顺序", default=[])
     ids: CallIds = Field(description="Call的ID")
     language: LanguageType = Field(description="语言", default=LanguageType.CHINESE)

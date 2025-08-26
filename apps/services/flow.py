@@ -179,7 +179,7 @@ class FlowManager:
                 raise ValueError(err)
 
             flow_config = await FlowLoader.load(app_id, flow_id)
-            focus_point = flow_config.focus_point or PositionItem(x=0, y=0)
+            focus_point = flow_config.focusPoint or PositionItem(x=0, y=0)
             flow_item = FlowItem(
                 flowId=flow_id,
                 name=flow_config.name,
@@ -309,7 +309,7 @@ class FlowManager:
                 description=flow_item.description,
                 steps={},
                 edges=[],
-                focus_point=flow_item.focus_point,
+                focusPoint=flow_item.focus_point,
                 connectivity=flow_item.connectivity,
                 debug=False,
             )

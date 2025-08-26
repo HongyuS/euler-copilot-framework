@@ -10,6 +10,7 @@ from apps.models.llm import LLMData
 from apps.models.user import User
 from apps.schemas.request_data import (
     UpdateLLMReq,
+    UpdateUserSpecialLLMReq,
 )
 from apps.schemas.response_data import LLMProvider, LLMProviderInfo
 from apps.templates.generate_llm_operator_config import llm_provider_dict
@@ -204,3 +205,17 @@ class LLMManager:
                 raise ValueError(err)
             user.defaultLLM = llm_id
             await session.commit()
+
+
+    @staticmethod
+    async def update_user_special_llm(
+        user_sub: str,
+        req: UpdateUserSpecialLLMReq,
+    ) -> None:
+        """更新用户的特殊LLM（Function Call、Embedding等）"""
+        async with postgres.session() as session:
+            user = (await session.scalars(
+                select(User).where(User.userSub == user_sub),
+            )).one_or_none()
+            if not user:
+                pass

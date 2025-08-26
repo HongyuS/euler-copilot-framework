@@ -88,15 +88,21 @@ class FlowLoader:
                 raise ValueError(err)
             if step["type"]==NodeType.START.value or step["type"]==NodeType.END.value:
                 continue
+            node_data = await NodeManager.get_node(step["node"])
             try:
-                step["type"] = await NodeManager.get_node_call_id(step["node"])
+                step["type"] = node_data.callId
             except ValueError as e:
                 logger.warning("[FlowLoader] 获取节点call_id失败：%s，错误信息：%s", step["node"], e)
                 step["type"] = "Empty"
             step["name"] = (
-                (await NodeManager.get_node_name(step["node"]))
+                node_data.name
                 if "name" not in step or step["name"] == ""
                 else step["name"]
+            )
+            step["description"] = (
+                node_data.description
+                if "description" not in step or step["description"] == ""
+                else step["description"]
             )
         return flow_yaml
 

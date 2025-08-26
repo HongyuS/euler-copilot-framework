@@ -503,14 +503,20 @@ class MCPLoader(metaclass=SingletonMeta):
         :param list[str] cancel_mcp_list: 需要取消的MCP列表
         :return: 无
         """
-        mongo = MongoDB()
-        mcp_collection = mongo.get_collection("mcp")
-        # 更新数据库状态
-        cancel_mcp_list = await mcp_collection.distinct("_id", {"_id": {"$in": cancel_mcp_list}, "status": MCPInstallStatus.INSTALLING})
-        await mcp_collection.update_many(
-            {"_id": {"$in": cancel_mcp_list}, "status": MCPInstallStatus.INSTALLING},
-            {"$set": {"status": MCPInstallStatus.CANCELLED}},
-        )
+        async with postgres.session() as session:
+            result = await session.scalars(
+                select(MCPInfo).where(
+                    and_(
+                        MCPInfo.status == MCPInstallStatus.INSTALLING,
+                        MCPInfo.id.in_(cancel_mcp_list),
+                    ),
+                ),
+            )
+            result = result.all()
+            for mcp in result:
+                mcp.status = MCPInstallStatus.CANCELLED
+            await session.commit()
+
         for mcp_id in cancel_mcp_list:
             ProcessHandler.remove_task(mcp_id)
         logger.info("[MCPLoader] 取消这些正在安装的MCP模板任务: %s", cancel_mcp_list)

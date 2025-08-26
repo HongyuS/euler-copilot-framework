@@ -26,5 +26,3 @@ class SlotConstParser:
     @classmethod
     def keyword_validate(cls, validator: Validator, keyword: str, instance: Any, schema: dict[str, Any]) -> bool:
         """生成对应类型的验证器"""
-        ...
-

@@ -77,5 +77,5 @@ class Summary(CoreCall, input_model=DataBase, output_model=SummaryOutput):
             if not isinstance(content, str):
                 err = "[SummaryCall] 工具输出格式错误"
                 raise TypeError(err)
-            executor.task.runtime.summary = content
+            executor.runtime.reasoning = content
             yield chunk

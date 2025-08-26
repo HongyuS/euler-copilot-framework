@@ -607,7 +607,7 @@ class ParamsNode(BaseModel):
 class StepParams(BaseModel):
     """参数数据结构"""
 
-    step_id: str = Field(..., description="步骤ID", alias="stepId")
+    step_id: uuid.UUID = Field(..., description="步骤ID", alias="stepId")
     name: str = Field(..., description="Step名称")
     params_node: ParamsNode | None = Field(
         default=None, description="参数节点", alias="paramsNode")

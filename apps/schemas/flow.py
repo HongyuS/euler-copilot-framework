@@ -43,15 +43,29 @@ class FlowError(BaseModel):
     output_format: str | None = Field(description="错误处理节点的输出格式", default=None)
 
 
+class FlowBasicConfig(BaseModel):
+    """Flow的基本配置"""
+
+    startStep: uuid.UUID = Field(description="开始节点ID")  # noqa: N815
+    endStep: uuid.UUID = Field(description="结束节点ID")  # noqa: N815
+    focusPoint: PositionItem | None = Field(description="当前焦点节点", default=PositionItem(x=0, y=0))  # noqa: N815
+
+
+class FlowCheckStatus(BaseModel):
+    """Flow的配置检查状态"""
+
+    debug: bool = Field(description="是否经过调试", default=False)
+    connectivity: bool = Field(default=False, description="图的开始节点和结束节点是否联通，并且除结束节点都有出边")
+
+
 class Flow(BaseModel):
     """Flow（工作流）的数据格式"""
 
     name: str = Field(description="Flow的名称", min_length=1)
-    description: str = Field(description="Flow的描述 ")
-    connectivity: bool = Field(default=False, description="图的开始节点和结束节点是否联通，并且除结束节点都有出边")
-    focus_point: PositionItem | None = Field(description="当前焦点节点", default=PositionItem(x=0, y=0))
-    debug: bool = Field(description="是否经过调试", default=False)
-    on_error: FlowError = FlowError(use_llm=True)
+    description: str = Field(description="Flow的描述")
+    checkStatus: FlowCheckStatus = Field(description="Flow的配置检查状态")  # noqa: N815
+    basicConfig: FlowBasicConfig = Field(description="Flow的基本配置")  # noqa: N815
+    onError: FlowError = FlowError(use_llm=True)  # noqa: N815
     steps: dict[uuid.UUID, Step] = Field(description="节点列表", default={})
     edges: list[Edge] = Field(description="边列表", default=[])
 
@@ -113,7 +127,7 @@ class ServiceApiConfig(BaseModel):
 class ServiceMetadata(MetadataBase):
     """Service的元数据"""
 
-    id: str = Field(description="Service的ID")
+    id: uuid.UUID = Field(description="Service的ID")
     type: MetadataType = MetadataType.SERVICE
     api: ServiceApiConfig = Field(description="API配置")
     permission: Permission | None = Field(description="服务权限配置", default=None)

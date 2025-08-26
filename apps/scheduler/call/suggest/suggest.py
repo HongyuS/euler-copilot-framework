@@ -69,11 +69,11 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
         context = [
             {
                 "role": "user",
-                "content": executor.task.runtime.question,
+                "content": executor.runtime.userInput,
             },
             {
                 "role": "assistant",
-                "content": executor.task.runtime.answer,
+                "content": executor.runtime.fullAnswer,
             },
         ]
         obj = cls(
@@ -81,7 +81,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
             description=executor.step.step.description,
             node=node,
             context=context,
-            conversation_id=executor.task.ids.conversation_id,
+            conversation_id=executor.task.conversationId,
             **kwargs,
         )
         await obj._set_input(executor)
@@ -95,7 +95,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
             self.conversation_id,
         )
         self._app_id = call_vars.ids.app_id
-        self._flow_id = call_vars.ids.flow_id
+        self._flow_id = call_vars.ids.executor_id
         app_metadata = await AppCenterManager.fetch_app_data_by_id(self._app_id)
         self._env = SandboxedEnvironment(
             loader=BaseLoader(),

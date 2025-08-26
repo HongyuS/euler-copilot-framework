@@ -115,12 +115,9 @@ class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
         """运行LLM Call"""
         data = LLMInput(**input_data)
         try:
-            llm = ReasoningLLM()
-            async for chunk in llm.call(messages=data.message):
+            async for chunk in self._llm(messages=data.message, streaming=True):
                 if not chunk:
                     continue
                 yield CallOutputChunk(type=CallOutputType.TEXT, content=chunk)
-            self.tokens.input_tokens = llm.input_tokens
-            self.tokens.output_tokens = llm.output_tokens
         except Exception as e:
             raise CallError(message=f"大模型调用失败：{e!s}", data={}) from e

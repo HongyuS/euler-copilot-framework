@@ -47,7 +47,7 @@ class AppLoader:
             async for flow_file in flow_path.rglob("*.yaml"):
                 if flow_file.stem not in flow_ids:
                     logger.warning("[AppLoader] 工作流 %s 不在元数据中", flow_file)
-                flow = await FlowLoader.load(app_id, uuid.UUID(flow_file.stem))
+                flow = await FlowLoader.load(app_id, flow_file.stem)
                 if not flow:
                     err = f"[AppLoader] 工作流 {flow_file} 加载失败"
                     raise ValueError(err)

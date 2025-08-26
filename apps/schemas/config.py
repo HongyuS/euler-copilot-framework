@@ -88,27 +88,6 @@ class PostgresConfig(BaseModel):
     database: str = Field(description="Postgres数据库名")
 
 
-class LLMConfig(BaseModel):
-    """LLM配置"""
-
-    key: str = Field(description="LLM API密钥")
-    endpoint: str = Field(description="LLM API URL地址")
-    model: str = Field(description="LLM API 模型名")
-    max_tokens: int | None = Field(description="LLM API 最大Token数", default=None)
-    temperature: float | None = Field(description="LLM API 温度", default=None)
-
-
-class FunctionCallConfig(BaseModel):
-    """Function Call配置"""
-
-    backend: str = Field(description="Function Call 后端")
-    model: str = Field(description="Function Call 模型名")
-    endpoint: str = Field(description="Function Call API URL地址")
-    api_key: str = Field(description="Function Call API密钥")
-    max_tokens: int | None = Field(description="Function Call 最大Token数", default=None)
-    temperature: float | None = Field(description="Function Call 温度", default=None)
-
-
 class SecurityConfig(BaseModel):
     """安全配置"""
 
@@ -142,8 +121,6 @@ class ConfigModel(BaseModel):
     minio: MinioConfig
     mongodb: MongoDBConfig
     postgres: PostgresConfig
-    llm: LLMConfig
-    function_call: FunctionCallConfig
     security: SecurityConfig
     check: CheckConfig
     extra: ExtraConfig
