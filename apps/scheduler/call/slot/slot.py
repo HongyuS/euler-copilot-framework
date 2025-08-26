@@ -9,6 +9,7 @@ from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
+from apps.llm.function import FunctionLLM
 from apps.models.node import NodeInfo
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.slot.slot import Slot as SlotProcessor
@@ -71,13 +72,7 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
         ]
 
         # 使用大模型进行尝试
-        reasoning = ReasoningLLM()
-        answer = ""
-        async for chunk in reasoning.call(messages=conversation, streaming=False):
-            answer += chunk
-        self.tokens.input_tokens += reasoning.input_tokens
-        self.tokens.output_tokens += reasoning.output_tokens
-
+        answer = await self._llm(messages=conversation, streaming=False)
         answer = await FunctionLLM.process_response(answer)
         try:
             data = json.loads(answer)
@@ -91,12 +86,7 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
             {"role": "user", "content": self._question},
             {"role": "assistant", "content": answer},
         ]
-        json_gen = JsonGenerator(
-            query=self._question,
-            conversation=conversation,
-            schema=remaining_schema,
-        )
-        return await json_gen.generate()
+        return await self._json(messages=conversation, schema=remaining_schema)
 
     @classmethod
     async def instance(cls, executor: "StepExecutor", node: NodeInfo | None, **kwargs: Any) -> Self:
@@ -105,7 +95,7 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
             name=executor.step.step.name,
             description=executor.step.step.description,
             facts=executor.background.facts,
-            summary=executor.task.runtime.summary,
+            summary=executor.runtime.reasoning,
             node=node,
             **kwargs,
         )

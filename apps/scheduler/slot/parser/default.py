@@ -26,5 +26,3 @@ class SlotDefaultParser:
     @classmethod
     def keyword_validate(cls, validator: Validator, keyword: str, instance: Any, schema: dict[str, Any]) -> bool:
         """给字段设置默认值"""
-        ...
-

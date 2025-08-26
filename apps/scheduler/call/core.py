@@ -14,7 +14,6 @@ from pydantic.json_schema import SkipJsonSchema
 
 from apps.llm.function import FunctionLLM
 from apps.llm.reasoning import ReasoningLLM
-from apps.models.llm import LLMData
 from apps.models.node import NodeInfo
 from apps.models.task import ExecutorHistory
 from apps.schemas.enum_var import CallOutputType, LanguageType
@@ -26,6 +25,7 @@ from apps.schemas.scheduler import (
     CallTokens,
     CallVars,
 )
+from apps.services.llm import LLMManager
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor
@@ -95,31 +95,30 @@ class CoreCall(BaseModel):
     @staticmethod
     def _assemble_call_vars(executor: "StepExecutor") -> CallVars:
         """组装CallVars"""
-        if not executor.task.state:
+        if not executor.state:
             err = "[CoreCall] 当前ExecutorState为空"
             logger.error(err)
             raise ValueError(err)
 
         history = {}
         history_order = []
-        for item in executor.task.context:
-            item_obj = ExecutorHistory.model_validate(item)
-            history[item_obj.step_id] = item_obj
-            history_order.append(item_obj.step_id)
+        for item in executor.context:
+            history[item.stepId] = item
+            history_order.append(item.stepId)
 
         return CallVars(
-            language=executor.task.language,
+            language=executor.runtime.language,
             ids=CallIds(
                 task_id=executor.task.id,
-                flow_id=executor.task.state.flow_id,
-                session_id=executor.task.ids.session_id,
-                user_sub=executor.task.ids.user_sub,
-                app_id=executor.task.state.app_id,
+                executor_id=executor.state.executorId,
+                session_id=executor.task.sessionId,
+                user_sub=executor.task.userSub,
+                app_id=executor.state.appId,
             ),
             question=executor.question,
             history=history,
             history_order=history_order,
-            summary=executor.task.runtime.summary,
+            summary=executor.runtime.reasoning,
         )
 
 
@@ -195,18 +194,53 @@ class CoreCall(BaseModel):
         await self._after_exec(input_data)
 
 
-    async def _llm(self, messages: list[dict[str, Any]]) -> str:
+    async def _llm(self, messages: list[dict[str, Any]], *, streaming: bool = False) -> AsyncGenerator[str, None]:
         """Call可直接使用的LLM非流式调用"""
-        result = ""
-        llm = ReasoningLLM()
-        async for chunk in llm.call(messages, streaming=False):
-            result += chunk
-        self.input_tokens = llm.input_tokens
-        self.output_tokens = llm.output_tokens
-        return result
+        user_sub = self._sys_vars.ids.user_sub
+        llm_id = await LLMManager.get_user_default_llm(user_sub)
+        if not llm_id:
+            err = f"[CoreCall] 用户{user_sub}未设置默认LLM"
+            logger.error(err)
+            raise CallError(
+                message=err,
+                data={
+                    "user_sub": user_sub,
+                },
+            )
+
+        llm_data = await LLMManager.get_llm(llm_id)
+        if not llm_data:
+            err = f"[CoreCall] LLM{llm_id}不存在"
+            logger.error(err)
+
+        llm = ReasoningLLM(llm_config=llm_data)
+        if streaming:
+            async for chunk in llm.call(messages, streaming=streaming):
+                yield chunk
+        else:
+            result = ""
+            async for chunk in llm.call(messages, streaming=streaming):
+                result += chunk
+            yield result
+
+        self.tokens.input_tokens += llm.input_tokens
+        self.tokens.output_tokens += llm.output_tokens
 
 
     async def _json(self, messages: list[dict[str, Any]], schema: dict[str, Any]) -> dict[str, Any]:
         """Call可直接使用的JSON生成"""
+        user_sub = self._sys_vars.ids.user_sub
+        llm_id = await LLMManager.get_user_default_llm(user_sub)
+        if not llm_id:
+            err = f"[CoreCall] 用户{user_sub}未设置默认LLM"
+            logger.error(err)
+            raise CallError(
+                message=err,
+                data={
+                    "user_sub": user_sub,
+                },
+            )
+        llm_data = await LLMManager.get_llm(llm_id)
+
         json = FunctionLLM()
         return await json.call(messages=messages, schema=schema)

@@ -37,7 +37,7 @@ class ServicePoolVector(Base):
     __tablename__ = "framework_service_vector"
     embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=False)
     """向量数据"""
-    id: Mapped[str] = mapped_column(String(255), ForeignKey("framework_service.id"), primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("framework_service.id"), primary_key=True)
     """Service的ID"""
     __table_args__ = (
         Index(
@@ -56,7 +56,9 @@ class NodePoolVector(Base):
     __tablename__ = "framework_node_vector"
     embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=False)
     """向量数据"""
-    serviceId: Mapped[str | None] = mapped_column(String(255), ForeignKey("framework_service.id"), nullable=True)  # noqa: N815
+    serviceId: Mapped[uuid.UUID | None] = mapped_column(  # noqa: N815
+        UUID(as_uuid=True), ForeignKey("framework_service.id"), nullable=True,
+    )
     """Service的ID"""
     id: Mapped[str] = mapped_column(String(255), ForeignKey("framework_node.id"), primary_key=True)
     """Node的ID"""

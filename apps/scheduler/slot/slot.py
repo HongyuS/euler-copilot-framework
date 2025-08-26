@@ -155,7 +155,7 @@ class Slot:
         return _process_json_value(json_data, self._schema)
 
     @staticmethod
-    def _generate_example(schema_node: dict) -> Any:  # noqa: PLR0911
+    def _generate_example(schema_node: dict) -> Any:  # noqa: C901, PLR0911, PLR0912
         """根据schema生成示例值"""
         if "anyOf" in schema_node or "oneOf" in schema_node:
             # 如果有anyOf，随机返回一个示例
@@ -185,10 +185,9 @@ class Slot:
         if "type" not in schema_node:
             return None
         type_value = schema_node["type"]
-        if isinstance(type_value, list):
+        if isinstance(type_value, list) and len(type_value) > 1:
             # 如果是多类型，随机返回一个示例
-            if len(type_value) > 1:
-                type_value = type_value[0]
+            type_value = type_value[0]
         # 处理类型为 object 的节点
         if type_value == "object":
             data = {}
@@ -197,20 +196,20 @@ class Slot:
                 data[name] = Slot._generate_example(schema)
             return data
         # 处理类型为 array 的节点
-        elif type_value == "array":
+        if type_value == "array":
             items_schema = schema_node.get("items", {})
             return [Slot._generate_example(items_schema)]
 
         # 处理类型为 string 的节点
-        elif type_value == "string":
+        if type_value == "string":
             return ""
 
         # 处理类型为 number 或 integer 的节点
-        elif type_value in ["number", "integer"]:
+        if type_value in ["number", "integer"]:
             return 0
 
         # 处理类型为 boolean 的节点
-        elif type_value == "boolean":
+        if type_value == "boolean":
             return False
 
         # 处理其他类型或未定义类型
@@ -220,74 +219,67 @@ class Slot:
         """创建一个空的槽位"""
         return self._generate_example(self._schema)
 
+    def _extract_type_desc(self, schema_node: dict[str, Any]) -> dict[str, Any]:  # noqa: C901, PLR0912
+        # 处理组合关键字
+        special_keys = ["anyOf", "allOf", "oneOf"]
+        for key in special_keys:
+            if key in schema_node:
+                data = {
+                    "type": key,
+                    "description": schema_node.get("description", ""),
+                    "items": {},
+                }
+                for type_index, item in enumerate(schema_node[key]):
+                    if isinstance(item, dict):
+                        data["items"][f"item_{type_index}"] = self._extract_type_desc(item)
+                    else:
+                        data["items"][f"item_{type_index}"] = {"type": item, "description": ""}
+                return data
+        # 处理基本类型
+        type_val = schema_node.get("type", "")
+        description = schema_node.get("description", "")
+
+        # 处理多类型数组
+        if isinstance(type_val, list):
+            if len(type_val) > 1:
+                data = {"type": "union", "description": description, "items": {}}
+                type_index = 0
+                for t in type_val:
+                    if t == "object":
+                        tmp_dict = {}
+                        for key, val in schema_node.get("properties", {}).items():
+                            tmp_dict[key] = self._extract_type_desc(val)
+                        data["items"][f"item_{type_index}"] = tmp_dict
+                    elif t == "array":
+                        items_schema = schema_node.get("items", {})
+                        data["items"][f"item_{type_index}"] = self._extract_type_desc(items_schema)
+                    else:
+                        data["items"][f"item_{type_index}"] = {"type": t, "description": description}
+                    type_index += 1
+                return data
+            type_val = type_val[0] if len(type_val) == 1 else ""
+
+        data = {"type": type_val, "description": description, "items": {}}
+
+        # 递归处理对象和数组
+        if type_val == "object":
+            for key, val in schema_node.get("properties", {}).items():
+                data["items"][key] = self._extract_type_desc(val)
+        elif type_val == "array":
+            items_schema = schema_node.get("items", {})
+            if isinstance(items_schema, list):
+                item_index = 0
+                for item_index, item in enumerate(items_schema):
+                    data["items"][f"item_{item_index}"] = self._extract_type_desc(item)
+            else:
+                data["items"]["item"] = self._extract_type_desc(items_schema)
+        if data["items"] == {}:
+            del data["items"]
+        return data
+
     def extract_type_desc_from_schema(self) -> dict[str, str]:
         """从JSON Schema中提取类型描述"""
-
-        def _extract_type_desc(schema_node: dict[str, Any]) -> dict[str, Any]:
-            # 处理组合关键字
-            special_keys = ["anyOf", "allOf", "oneOf"]
-            for key in special_keys:
-                if key in schema_node:
-                    data = {
-                        "type": key,
-                        "description": schema_node.get("description", ""),
-                        "items": {},
-                    }
-                    type_index = 0
-                    for item in schema_node[key]:
-                        if isinstance(item, dict):
-                            data["items"][f"item_{type_index}"] = _extract_type_desc(item)
-                        else:
-                            data["items"][f"item_{type_index}"] = {"type": item, "description": ""}
-                        type_index += 1
-                    return data
-            # 处理基本类型
-            type_val = schema_node.get("type", "")
-            description = schema_node.get("description", "")
-
-            # 处理多类型数组
-            if isinstance(type_val, list):
-                if len(type_val) > 1:
-                    data = {"type": "union", "description": description, "items": {}}
-                    type_index = 0
-                    for t in type_val:
-                        if t == "object":
-                            tmp_dict = {}
-                            for key, val in schema_node.get("properties", {}).items():
-                                tmp_dict[key] = _extract_type_desc(val)
-                            data["items"][f"item_{type_index}"] = tmp_dict
-                        elif t == "array":
-                            items_schema = schema_node.get("items", {})
-                            data["items"][f"item_{type_index}"] = _extract_type_desc(items_schema)
-                        else:
-                            data["items"][f"item_{type_index}"] = {"type": t, "description": description}
-                        type_index += 1
-                    return data
-                elif len(type_val) == 1:
-                    type_val = type_val[0]
-                else:
-                    type_val = ""
-
-            data = {"type": type_val, "description": description, "items": {}}
-
-            # 递归处理对象和数组
-            if type_val == "object":
-                for key, val in schema_node.get("properties", {}).items():
-                    data["items"][key] = _extract_type_desc(val)
-            elif type_val == "array":
-                items_schema = schema_node.get("items", {})
-                if isinstance(items_schema, list):
-                    item_index = 0
-                    for item in items_schema:
-                        data["items"][f"item_{item_index}"] = _extract_type_desc(item)
-                        item_index += 1
-                else:
-                    data["items"]["item"] = _extract_type_desc(items_schema)
-            if data["items"] == {}:
-                del data["items"]
-            return data
-
-        return _extract_type_desc(self._schema)
+        return self._extract_type_desc(self._schema)
 
     def get_params_node_from_schema(self, root: str = "") -> ParamsNode:
         """从JSON Schema中提取ParamsNode"""
@@ -328,8 +320,8 @@ class Slot:
                               subParams=sub_params)
         try:
             return _extract_params_node(self._schema, name=root, path=root)
-        except Exception as e:
-            logger.error(f"[Slot] 提取ParamsNode失败: {e!s}\n{traceback.format_exc()}")
+        except Exception:
+            logger.exception("[Slot] 提取ParamsNode失败")
             return None
 
     def _flatten_schema(self, schema: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
@@ -484,49 +476,44 @@ class Slot:
         return {}
 
     def add_null_to_basic_types(self) -> dict[str, Any]:
-        """
-        递归地为 JSON Schema 中的基础类型（bool、number等）添加 null 选项
-        """
+        """递归地为 JSON Schema 中的基础类型（bool、number等）添加 null 选项"""
         def add_null_to_basic_types(schema: dict[str, Any]) -> dict[str, Any]:
             """
-                递归地为 JSON Schema 中的基础类型（bool、number等）添加 null 选项
+            递归地为 JSON Schema 中的基础类型（bool、number等）添加 null 选项
 
-                参数:
-                schema (dict): 原始 JSON Schema
-
-                返回:
-                dict: 修改后的 JSON Schema
+            :param schema: 原始 JSON Schema
+            :return: 修改后的 JSON Schema
             """
             # 如果不是字典类型（schema），直接返回
             if not isinstance(schema, dict):
                 return schema
 
             # 处理当前节点的 type 字段
-            if 'type' in schema:
+            if "type" in schema:
                 # 处理单一类型字符串
-                if isinstance(schema['type'], str):
-                    if schema['type'] in ['boolean', 'number', 'string', 'integer']:
-                        schema['type'] = [schema['type'], 'null']
+                if isinstance(schema["type"], str):
+                    if schema["type"] in ["boolean", "number", "string", "integer"]:
+                        schema["type"] = [schema["type"], "null"]
 
                 # 处理类型数组
-                elif isinstance(schema['type'], list):
-                    for i, t in enumerate(schema['type']):
-                        if isinstance(t, str) and t in ['boolean', 'number', 'string', 'integer']:
-                            if 'null' not in schema['type']:
-                                schema['type'].append('null')
+                elif isinstance(schema["type"], list):
+                    for i, t in enumerate(schema["type"]):
+                        if isinstance(t, str) and t in ["boolean", "number", "string", "integer"]:
+                            if "null" not in schema["type"]:
+                                schema["type"].append("null")
                             break
 
             # 递归处理 properties 字段（对象类型）
-            if 'properties' in schema:
-                for prop, prop_schema in schema['properties'].items():
-                    schema['properties'][prop] = add_null_to_basic_types(prop_schema)
+            if "properties" in schema:
+                for prop, prop_schema in schema["properties"].items():
+                    schema["properties"][prop] = add_null_to_basic_types(prop_schema)
 
             # 递归处理 items 字段（数组类型）
-            if 'items' in schema:
-                schema['items'] = add_null_to_basic_types(schema['items'])
+            if "items" in schema:
+                schema["items"] = add_null_to_basic_types(schema["items"])
 
             # 递归处理 anyOf, oneOf, allOf 字段
-            for keyword in ['anyOf', 'oneOf', 'allOf']:
+            for keyword in ["anyOf", "oneOf", "allOf"]:
                 if keyword in schema:
                     schema[keyword] = [add_null_to_basic_types(sub_schema) for sub_schema in schema[keyword]]
 

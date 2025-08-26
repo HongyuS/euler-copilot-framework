@@ -24,7 +24,7 @@ router = APIRouter(
 
 @router.get("", response_model=GetParamsRsp)
 async def get_parameters(
-    request: Request, appId: uuid.UUID, flowId: uuid.UUID, stepId: uuid.UUID,  # noqa: N803
+    request: Request, appId: uuid.UUID, flowId: str, stepId: uuid.UUID,  # noqa: N803
 ) -> JSONResponse:
     """Get parameters for node choice."""
     if not await AppCenterManager.validate_user_app_access(request.state.user_sub, appId):

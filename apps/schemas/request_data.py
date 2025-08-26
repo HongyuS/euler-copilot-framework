@@ -155,6 +155,13 @@ class UpdateLLMReq(BaseModel):
     max_tokens: int = Field(default=8192, description="最大token数", alias="maxTokens")
 
 
+class UpdateUserSpecialLLMReq(BaseModel):
+    """更新用户特殊LLM请求体"""
+
+    function_call_llm_id: str = Field(description="Function Call LLM ID", alias="functionCallLlmId")
+    embedding_llm_id: str = Field(description="Embedding LLM ID", alias="embeddingLlmId")
+
+
 class DeleteLLMReq(BaseModel):
     """删除大模型请求体"""
 

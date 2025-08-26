@@ -1,10 +1,11 @@
 """节点 数据库表"""
 
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import DateTime, ForeignKey, String
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -18,8 +19,8 @@ class NodeInfo(Base):
     """节点名称"""
     description: Mapped[str] = mapped_column(String(2000), nullable=False)
     """节点描述"""
-    serviceId: Mapped[str | None] = mapped_column(  # noqa: N815
-        String(255), ForeignKey("framework_service.id"), nullable=True,
+    serviceId: Mapped[uuid.UUID | None] = mapped_column(  # noqa: N815
+        UUID(as_uuid=True), ForeignKey("framework_service.id"), nullable=True,
     )
     """所属服务ID"""
     callId: Mapped[str] = mapped_column(String(50), nullable=False)  # noqa: N815

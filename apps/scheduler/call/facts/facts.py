@@ -49,7 +49,7 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
     async def instance(cls, executor: "StepExecutor", node: NodeInfo | None, **kwargs: Any) -> Self:
         """初始化工具"""
         obj = cls(
-            answer=executor.task.runtime.answer,
+            answer=executor.runtime.fullAnswer,
             name=executor.step.step.name,
             description=executor.step.step.description,
             node=node,
@@ -120,5 +120,5 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
             if not isinstance(content, dict):
                 err = "[FactsCall] 工具输出格式错误"
                 raise TypeError(err)
-            executor.task.runtime.facts = FactsOutput.model_validate(content).facts
+            executor.runtime.fact = FactsOutput.model_validate(content).facts
             yield chunk

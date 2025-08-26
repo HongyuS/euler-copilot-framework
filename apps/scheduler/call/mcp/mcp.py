@@ -88,7 +88,7 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
         self._host = MCPHost(
             call_vars.ids.user_sub,
             call_vars.ids.task_id,
-            call_vars.ids.flow_id,
+            call_vars.ids.executor_id,
             self.description,
             language=self._sys_vars.language,
         )

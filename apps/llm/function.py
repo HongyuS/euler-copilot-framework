@@ -13,8 +13,8 @@ from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 from jsonschema import Draft7Validator
 
-from apps.common.config import config
 from apps.constants import JSON_GEN_MAX_TRIAL, REASONING_END_TOKEN
+from apps.models.llm import FunctionCallBackend, LLMData
 
 from .prompt import JSON_GEN_BASIC
 
@@ -26,7 +26,7 @@ class FunctionLLM:
 
     timeout: float = 30.0
 
-    def __init__(self) -> None:
+    def __init__(self, llm_config: LLMData | None = None) -> None:
         """
         初始化用于FunctionCall的模型
 
@@ -38,39 +38,44 @@ class FunctionLLM:
         - structured_output
         """
         # 暂存config；这里可以替代为从其他位置获取
-        self._config = config.function_call
-        if not self._config.model:
+        if not llm_config:
+            err = "未设置大模型配置"
+            logger.error(err)
+            raise RuntimeError(err)
+        self._config: LLMData = llm_config
+
+        if not self._config.modelName:
             err_msg = "[FunctionCall] 未设置FuntionCall所用模型！"
             logger.error(err_msg)
             raise ValueError(err_msg)
 
         self._params = {
-            "model": self._config.model,
+            "model": self._config.modelName,
             "messages": [],
         }
 
-        if self._config.backend == "ollama" and not self._config.api_key:
+        if self._config.functionCallBackend == FunctionCallBackend.OLLAMA and not self._config.openaiAPIKey:
             self._client = ollama.AsyncClient(
-                host=self._config.endpoint,
+                host=self._config.openaiBaseUrl,
                 timeout=self.timeout,
             )
-        elif self._config.backend == "ollama" and self._config.api_key:
+        elif self._config.functionCallBackend == FunctionCallBackend.OLLAMA and self._config.openaiAPIKey:
             self._client = ollama.AsyncClient(
-                host=self._config.endpoint,
+                host=self._config.openaiBaseUrl,
                 headers={
-                    "Authorization": f"Bearer {self._config.api_key}",
+                    "Authorization": f"Bearer {self._config.openaiAPIKey}",
                 },
                 timeout=self.timeout,
             )
-        elif self._config.backend != "ollama" and not self._config.api_key:
+        elif self._config.functionCallBackend != FunctionCallBackend.OLLAMA and not self._config.openaiAPIKey:
             self._client = openai.AsyncOpenAI(
-                base_url=self._config.endpoint,
+                base_url=self._config.openaiBaseUrl,
                 timeout=self.timeout,
             )
-        elif self._config.backend != "ollama" and self._config.api_key:
+        elif self._config.functionCallBackend != FunctionCallBackend.OLLAMA and self._config.openaiAPIKey:
             self._client = openai.AsyncOpenAI(
-                base_url=self._config.endpoint,
-                api_key=self._config.api_key,
+                base_url=self._config.openaiBaseUrl,
+                api_key=self._config.openaiAPIKey,
                 timeout=self.timeout,
             )
 
@@ -98,14 +103,14 @@ class FunctionLLM:
             "temperature": temperature,
         })
 
-        if self._config.backend == "vllm":
+        if self._config.functionCallBackend == FunctionCallBackend.VLLM:
             self._params["extra_body"] = {"guided_json": schema}
 
-        elif self._config.backend == "json_mode":
+        elif self._config.functionCallBackend == FunctionCallBackend.JSON_MODE:
             logger.warning("[FunctionCall] json_mode无法确保输出格式符合要求，使用效果将受到影响")
             self._params["response_format"] = {"type": "json_object"}
 
-        elif self._config.backend == "structured_output":
+        elif self._config.functionCallBackend == FunctionCallBackend.STRUCTURED_OUTPUT:
             self._params["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
@@ -116,7 +121,7 @@ class FunctionLLM:
                 },
             }
 
-        elif self._config.backend == "function_call":
+        elif self._config.functionCallBackend == FunctionCallBackend.FUNCTION_CALL:
             logger.warning("[FunctionCall] function_call无法确保一定调用工具，使用效果将受到影响")
             self._params["tools"] = [
                 {
@@ -220,14 +225,19 @@ class FunctionLLM:
         """
         # 检查max_tokens和temperature是否设置
         if max_tokens is None:
-            max_tokens = self._config.max_tokens
+            max_tokens = self._config.maxToken
         if temperature is None:
             temperature = self._config.temperature
 
-        if self._config.backend == "ollama":
+        if self._config.functionCallBackend == FunctionCallBackend.OLLAMA:
             json_str = await self._call_ollama(messages, schema, max_tokens, temperature)
 
-        elif self._config.backend in ["function_call", "json_mode", "response_format", "vllm"]:
+        elif self._config.functionCallBackend in [
+            FunctionCallBackend.FUNCTION_CALL,
+            FunctionCallBackend.JSON_MODE,
+            FunctionCallBackend.STRUCTURED_OUTPUT,
+            FunctionCallBackend.VLLM,
+        ]:
             json_str = await self._call_openai(messages, schema, max_tokens, temperature)
 
         else:
@@ -301,11 +311,12 @@ class JsonGenerator:
 
         return {}
 
-    def __init__(self, query: str, conversation: list[dict[str, str]], schema: dict[str, Any]) -> None:
+    def __init__(self, config: LLMData, query: str, conversation: list[dict[str, str]], schema: dict[str, Any]) -> None:
         """初始化JSON生成器"""
         self._query = query
         self._conversation = conversation
         self._schema = schema
+        self._config = config
 
         self._trial = {}
         self._count = 0
@@ -321,7 +332,7 @@ class JsonGenerator:
     async def _assemble_message(self) -> str:
         """组装消息"""
         # 检查类型
-        function_call = config.function_call.backend == "function_call"
+        function_call = self._config.functionCallBackend == FunctionCallBackend.FUNCTION_CALL
 
         # 渲染模板
         template = self._env.from_string(JSON_GEN_BASIC)

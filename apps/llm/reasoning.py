@@ -8,9 +8,8 @@ from dataclasses import dataclass
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionChunk
 
-from apps.common.config import config
 from apps.constants import REASONING_BEGIN_TOKEN, REASONING_END_TOKEN
-from apps.schemas.config import LLMConfig
+from apps.models.llm import LLMData
 
 from .token import TokenCalculator
 
@@ -95,27 +94,27 @@ class ReasoningLLM:
     output_tokens: int = 0
     timeout: float = 30.0
 
-    def __init__(self, llm_config: LLMConfig | None = None) -> None:
+    def __init__(self, llm_config: LLMData | None = None) -> None:
         """判断配置文件里用了哪种大模型；初始化大模型客户端"""
         if not llm_config:
-            self._config: LLMConfig = config.llm
-            self._init_client()
-        else:
-            self._config: LLMConfig = llm_config
-            self._init_client()
+            err = "未设置大模型配置"
+            logger.error(err)
+            raise RuntimeError(err)
+        self._config: LLMData = llm_config
+        self._init_client()
 
     def _init_client(self) -> None:
         """初始化OpenAI客户端"""
-        if not self._config.key:
+        if not self._config.openaiAPIKey:
             self._client = AsyncOpenAI(
-                base_url=self._config.endpoint,
+                base_url=self._config.openaiBaseUrl,
                 timeout=self.timeout,
             )
             return
 
         self._client = AsyncOpenAI(
-            api_key=self._config.key,
-            base_url=self._config.endpoint,
+            api_key=self._config.openaiAPIKey,
+            base_url=self._config.openaiBaseUrl,
             timeout=self.timeout,
         )
 
@@ -141,11 +140,11 @@ class ReasoningLLM:
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         """创建流式响应"""
         if model is None:
-            model = self._config.model
+            model = self._config.modelName
         return await self._client.chat.completions.create(
             model=model,
             messages=messages,  # type: ignore[]
-            max_tokens=max_tokens or self._config.max_tokens,
+            max_tokens=max_tokens or self._config.maxToken,
             temperature=temperature or self._config.temperature,
             stream=True,
             stream_options={"include_usage": True},
@@ -164,11 +163,11 @@ class ReasoningLLM:
         """调用大模型，分为流式和非流式两种"""
         # 检查max_tokens和temperature
         if max_tokens is None:
-            max_tokens = self._config.max_tokens
+            max_tokens = self._config.maxToken
         if temperature is None:
             temperature = self._config.temperature
         if model is None:
-            model = self._config.model
+            model = self._config.modelName
         msg_list = self._validate_messages(messages)
         stream = await self._create_stream(msg_list, max_tokens, temperature, model)
         reasoning = ReasoningContent()

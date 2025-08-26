@@ -1,8 +1,6 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """FastAPI 大模型相关接口"""
 
-import uuid
-
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
@@ -55,7 +53,7 @@ async def list_llm_provider() -> JSONResponse:
 @router.get("", response_model=ListLLMRsp,
     responses={status.HTTP_404_NOT_FOUND: {"model": ResponseData}},
 )
-async def list_llm(llmId: uuid.UUID | None = None) -> JSONResponse:  # noqa: N803
+async def list_llm(llmId: str | None = None) -> JSONResponse:  # noqa: N803
     """获取大模型列表"""
     llm_list = await LLMManager.list_llm(llmId)
     return JSONResponse(
@@ -73,7 +71,7 @@ async def list_llm(llmId: uuid.UUID | None = None) -> JSONResponse:  # noqa: N80
 )
 async def create_llm(
     req: UpdateLLMReq,
-    llmId: uuid.UUID | None = None,  # noqa: N803
+    llmId: str | None = None,  # noqa: N803
 ) -> JSONResponse:
     """创建或更新大模型配置"""
     try:
@@ -100,7 +98,7 @@ async def create_llm(
 @admin_router.delete("",
     responses={status.HTTP_404_NOT_FOUND: {"model": ResponseData}},
 )
-async def delete_llm(request: Request, llmId: uuid.UUID) -> JSONResponse:  # noqa: N803
+async def delete_llm(request: Request, llmId: str) -> JSONResponse:  # noqa: N803
     """删除大模型配置"""
     try:
         await LLMManager.delete_llm(request.state.user_sub, llmId)
@@ -128,7 +126,7 @@ async def delete_llm(request: Request, llmId: uuid.UUID) -> JSONResponse:  # noq
 )
 async def update_user_llm(
     request: Request,
-    llmId: uuid.UUID,  # noqa: N803
+    llmId: str,  # noqa: N803
 ) -> JSONResponse:
     """更新用户所选的大模型"""
     try:
