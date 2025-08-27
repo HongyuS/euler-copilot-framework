@@ -3,6 +3,7 @@
 
 import collections
 import logging
+import uuid
 from typing import TYPE_CHECKING
 
 from apps.exceptions import FlowBranchValidationError, FlowEdgeValidationError, FlowNodeValidationError
@@ -94,7 +95,7 @@ class FlowService:
         return flow_item
 
     @staticmethod
-    async def _validate_node_ids(nodes: list[NodeItem]) -> tuple[str, str]:
+    async def _validate_node_ids(nodes: list[NodeItem]) -> tuple[uuid.UUID, uuid.UUID]:
         """验证节点ID的唯一性并获取起始和终止节点ID，当节点ID重复或起始/终止节点数量不为1时抛出异常"""
         ids = set()
         start_cnt = 0
@@ -128,7 +129,7 @@ class FlowService:
         return start_id, end_id
 
     @staticmethod
-    async def validate_flow_illegal(flow_item: FlowItem) -> tuple[str, str]:
+    async def validate_flow_illegal(flow_item: FlowItem) -> tuple[uuid.UUID, uuid.UUID]:
         """验证流程图是否合法；当流程图不合法时抛出异常"""
         # 验证节点ID并获取起始和终止节点
         start_id, end_id = await FlowService._validate_node_ids(flow_item.nodes)

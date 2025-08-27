@@ -57,7 +57,7 @@ async def init_task(post_body: RequestData, user_sub: str, session_id: str) -> T
         if not post_body.task_id:
             err = "[Chat] task_id 不可为空！"
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="task_id cannot be empty")
-        task = await TaskManager.get_task_by_task_id(post_body.task_id)
+        task = await TaskManager.get_task_data_by_task_id(post_body.task_id)
         post_body.app = RequestDataApp(appId=task.state.app_id)
         post_body.conversation_id = task.ids.conversation_id
         post_body.language = task.language

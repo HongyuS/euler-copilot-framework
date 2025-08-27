@@ -111,18 +111,18 @@ class Pool:
 
         # 批量删除App
         for app in changed_app:
-            await AppLoader.delete(uuid.UUID(app), is_reload=True)
+            await AppLoader.delete(app, is_reload=True)
         for app in deleted_app:
-            await AppLoader.delete(uuid.UUID(app))
+            await AppLoader.delete(app)
 
         # 批量加载App
         for app in changed_app:
             hash_key = Path("app/" + str(app)).as_posix()
             if hash_key in checker.hashes:
                 try:
-                    await AppLoader.load(uuid.UUID(app), checker.hashes[hash_key])
+                    await AppLoader.load(app, checker.hashes[hash_key])
                 except Exception as e:  # noqa: BLE001
-                    await AppLoader.delete(uuid.UUID(app), is_reload=True)
+                    await AppLoader.delete(app, is_reload=True)
                     logger.warning("[Pool] 加载App %s 失败: %s", app, str(e))
 
         # 载入MCP

@@ -88,18 +88,20 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
         # 提取事实信息
         facts_tpl = env.from_string(FACTS_PROMPT[self._sys_vars.language])
         facts_prompt = facts_tpl.render(conversation=data.message)
-        facts_obj: FactsGen = await self._json([
+        facts_obj = await self._json([
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": facts_prompt},
-        ], FactsGen) # type: ignore[arg-type]
+        ], FactsGen.model_json_schema())
+        facts_obj = FactsGen.model_validate(facts_obj)
 
         # 更新用户画像
         domain_tpl = env.from_string(DOMAIN_PROMPT[self._sys_vars.language])
         domain_prompt = domain_tpl.render(conversation=data.message)
-        domain_list: DomainGen = await self._json([
+        domain_list = await self._json([
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": domain_prompt},
-        ], DomainGen) # type: ignore[arg-type]
+        ], DomainGen.model_json_schema())
+        domain_list = DomainGen.model_validate(domain_list)
 
         for domain in domain_list.keywords:
             await UserTagManager.update_user_domain_by_user_sub_and_domain_name(data.user_sub, domain)

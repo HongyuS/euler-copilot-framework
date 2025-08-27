@@ -17,8 +17,8 @@ from apps.schemas.scheduler import (
     CallVars,
 )
 
+from .prompt import GENERATE_STYLE_PROMPT
 from .schema import RenderFormat, RenderInput, RenderOutput
-from .style import RenderStyle
 
 
 class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
@@ -88,10 +88,7 @@ class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
         self._option_template["dataset"]["source"] = processed_data
 
         try:
-            style_obj = RenderStyle()
             llm_output = await style_obj.generate(question=data.question)
-            self.tokens.input_tokens += style_obj.input_tokens
-            self.tokens.output_tokens += style_obj.output_tokens
 
             add_style = llm_output.get("additional_style", "")
             self._parse_options(column_num, llm_output["chart_type"], add_style, llm_output["scale_type"])

@@ -1,11 +1,19 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """图表工具的输入输出"""
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 from apps.scheduler.call.core import DataBase
+
+
+class RenderStyleResult(BaseModel):
+    """选择图表样式结果"""
+
+    chart_type: Literal["bar", "pie", "line", "scatter"] = Field(description="图表类型")
+    additional_style: Literal["normal", "stacked", "ring"] | None = Field(description="图表样式")
+    scale_type: Literal["linear", "log"] = Field(description="图表比例")
 
 
 class RenderAxis(BaseModel):

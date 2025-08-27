@@ -56,7 +56,7 @@ class LLMManager:
                 logger.error("[LLMManager] 用户 %s 不存在", user_sub)
                 return None
 
-            return user.defaultLLM
+            return user.reasoningLLM
 
 
     @staticmethod
@@ -186,7 +186,7 @@ class LLMManager:
             if not user:
                 err = f"[LLMManager] 用户 {user_sub} 不存在"
                 raise ValueError(err)
-            user.defaultLLM = None
+            user.reasoningLLM = None
             await session.commit()
 
 
@@ -203,7 +203,7 @@ class LLMManager:
             if not user:
                 err = f"[LLMManager] 用户 {user_sub} 不存在"
                 raise ValueError(err)
-            user.defaultLLM = llm_id
+            user.reasoningLLM = llm_id
             await session.commit()
 
 

@@ -29,26 +29,13 @@ class TokenCalculator(metaclass=SingletonMeta):
 
         return result
 
-    @staticmethod
-    def get_k_tokens_words_from_content(content: str, k: int | None = None) -> str:
+    def get_k_tokens_words_from_content(self, content: str, k: int | None = None) -> str:
         """获取k个token的词"""
         if k is None:
             return content
         if k <= 0:
             return ""
 
-        if TokenCalculator().calculate_token_length(messages=[
-            {"role": "user", "content": content},
-        ], pure_text=True) <= k:
-            return content
-        left = 0
-        right = len(content)
-        while left + 1 < right:
-            mid = (left + right) // 2
-            if TokenCalculator().calculate_token_length(messages=[
-                {"role": "user", "content": content[:mid]},
-            ], pure_text=True) <= k:
-                left = mid
-            else:
-                right = mid
-        return content[:left]
+        encodings = self._encoder.encode(content)
+        encodings = encodings[:k]
+        return self._encoder.decode(encodings, errors="ignore")

@@ -158,7 +158,7 @@ class ConversationManager:
             await session.delete(conv)
             await session.commit()
 
-        await TaskManager.delete_task_history_checkpoint_by_conversation_id(conversation_id)
+        await TaskManager.delete_tasks_by_conversation_id(conversation_id)
 
 
     @staticmethod

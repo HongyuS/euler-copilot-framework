@@ -5,7 +5,7 @@ import logging
 from typing import Any
 
 from apps.llm.function import JsonGenerator
-from apps.llm.reasoning import ReasoningLLM
+from apps.models.llm import LLMData
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,14 @@ logger = logging.getLogger(__name__)
 class MCPBase:
     """MCP基类"""
 
-    llm: ReasoningLLM
+    user_sub: str
+
+    def __init__(self, user_sub: str) -> None:
+        """初始化MCP基类"""
+        self.user_sub = user_sub
+
+    async def init(self) -> None:
+        pass
 
     async def get_resoning_result(self, prompt: str) -> str:
         """获取推理结果"""

@@ -6,7 +6,18 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from apps.models.task import ExecutorCheckpoint, ExecutorHistory, Task, TaskRuntime
+
 from .flow import Step
+
+
+class TaskData(BaseModel):
+    """任务数据"""
+
+    metadata: Task = Field(description="任务")
+    runtime: TaskRuntime = Field(description="任务运行时数据")
+    state: ExecutorCheckpoint | None = Field(description="执行状态")
+    context: list[ExecutorHistory] = Field(description="执行历史")
 
 
 class CheckpointExtra(BaseModel):
@@ -15,11 +26,6 @@ class CheckpointExtra(BaseModel):
     current_input: dict[str, Any] = Field(description="当前输入数据", default={})
     error_message: str = Field(description="错误信息", default="")
     retry_times: int = Field(description="当前步骤重试次数", default=0)
-
-
-class TaskExtra(BaseModel):
-    """任务额外数据"""
-
 
 class StepQueueItem(BaseModel):
     """步骤栈中的元素"""
