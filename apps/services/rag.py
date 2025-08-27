@@ -16,12 +16,13 @@ from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.llm.reasoning import ReasoningLLM
 from apps.llm.token import TokenCalculator
 from apps.models.llm import LLMData
-from apps.schemas.config import LLMConfig
 from apps.schemas.enum_var import EventType, LanguageType
 from apps.schemas.rag_data import RAGQueryReq
+from apps.services.llm import LLMManager
 from apps.services.session import SessionManager
 
 logger = logging.getLogger(__name__)
+CHUNK_ELEMENT_TOKENS = 5
 
 
 class RAG:
@@ -127,7 +128,7 @@ class RAG:
 
     @staticmethod
     async def get_doc_info_from_rag(
-        user_sub: str, max_tokens: int, doc_ids: list[str], data: RAGQueryReq,
+        user_sub: str, max_tokens: int | None, doc_ids: list[str], data: RAGQueryReq,
     ) -> list[dict[str, Any]]:
         """获取RAG服务的文档信息"""
         session_id = await SessionManager.get_session_by_user_sub(user_sub)
@@ -182,32 +183,8 @@ class RAG:
         doc_info_list = []
         doc_cnt = 0
         doc_id_map = {}
-        leave_tokens = max_tokens
-        token_calculator = TokenCalculator()
-        for doc_chunk in doc_chunk_list:
-            if doc_chunk["docId"] not in doc_id_map:
-                doc_cnt += 1
-                doc_id_map[doc_chunk["docId"]] = doc_cnt
-            doc_index = doc_id_map[doc_chunk["docId"]]
-            leave_tokens -= token_calculator.calculate_token_length(
-                messages=[
-                    {
-                        "role": "user",
-                        "content": f"""<document id="{doc_index}"  name="{doc_chunk["docName"]}">""",
-                    },
-                    {"role": "user", "content": "</document>"},
-                ],
-                pure_text=True,
-            )
-        tokens_of_chunk_element = token_calculator.calculate_token_length(
-            messages=[
-                {"role": "user", "content": "<chunk>"},
-                {"role": "user", "content": "</chunk>"},
-            ],
-            pure_text=True,
-        )
-        doc_cnt = 0
-        doc_id_map = {}
+        remaining_tokens = max_tokens * 0.8
+
         for doc_chunk in doc_chunk_list:
             if doc_chunk["docId"] not in doc_id_map:
                 doc_cnt += 1
@@ -231,16 +208,18 @@ class RAG:
                 })
                 doc_id_map[doc_chunk["docId"]] = doc_cnt
             doc_index = doc_id_map[doc_chunk["docId"]]
+
             if bac_info:
                 bac_info += "\n\n"
             bac_info += f"""<document id="{doc_index}"  name="{doc_chunk["docName"]}">"""
+
             for chunk in doc_chunk["chunks"]:
-                if leave_tokens <= tokens_of_chunk_element:
+                if remaining_tokens <= CHUNK_ELEMENT_TOKENS:
                     break
                 chunk_text = chunk["text"]
-                chunk_text = TokenCalculator.get_k_tokens_words_from_content(
-                    content=chunk_text, k=leave_tokens)
-                leave_tokens -= token_calculator.calculate_token_length(messages=[
+                chunk_text = TokenCalculator().get_k_tokens_words_from_content(
+                    content=chunk_text, k=remaining_tokens)
+                remaining_tokens -= TokenCalculator().calculate_token_length(messages=[
                     {"role": "user", "content": "<chunk>"},
                     {"role": "user", "content": chunk_text},
                     {"role": "user", "content": "</chunk>"},
@@ -256,21 +235,20 @@ class RAG:
     @staticmethod
     async def chat_with_llm_base_on_rag(  # noqa: C901, PLR0913
         user_sub: str,
-        llm: LLMData,
+        llm_id: str,
         history: list[dict[str, str]],
         doc_ids: list[str],
         data: RAGQueryReq,
         language: LanguageType = LanguageType.CHINESE,
     ) -> AsyncGenerator[str, None]:
         """获取RAG服务的结果"""
-        reasion_llm = ReasoningLLM(
-            LLMConfig(
-                endpoint=llm.openaiBaseUrl,
-                key=llm.openaiAPIKey,
-                model=llm.modelName,
-                max_tokens=llm.maxToken,
-            ),
-        )
+        llm_config = await LLMManager.get_llm(llm_id)
+        if not llm_config:
+            err = "[RAG] 未设置问答所用LLM"
+            logger.error(err)
+            raise RuntimeError(err)
+        reasion_llm = ReasoningLLM(llm_config)
+
         if history:
             try:
                 question_obj = QuestionRewrite()
@@ -280,9 +258,11 @@ class RAG:
             except Exception:
                 logger.exception("[RAG] 问题重写失败")
         doc_chunk_list = await RAG.get_doc_info_from_rag(
-            user_sub=user_sub, max_tokens=llm.maxToken, doc_ids=doc_ids, data=data)
+            user_sub=user_sub, max_tokens=llm_config.maxToken, doc_ids=doc_ids, data=data,
+        )
         bac_info, doc_info_list = await RAG.assemble_doc_info(
-            doc_chunk_list=doc_chunk_list, max_tokens=llm.maxToken)
+            doc_chunk_list=doc_chunk_list, max_tokens=llm_config.maxToken,
+        )
         messages = [
             *history,
             {
@@ -323,11 +303,11 @@ class RAG:
         buffer = ""
         async for chunk in reasion_llm.call(
             messages,
-            max_tokens=llm.maxToken,
+            max_tokens=llm_config.maxToken,
             streaming=True,
             temperature=0.7,
             result_only=False,
-            model=llm.modelName,
+            model=llm_config.modelName,
         ):
             tmp_chunk = buffer + chunk
             # 防止脚注被截断

@@ -28,7 +28,7 @@ class MCPHost:
     """MCP宿主服务"""
 
     def __init__(
-            self, user_sub: str, task_id: uuid.UUID, runtime_id: uuid.UUID, runtime_name: str,
+            self, user_sub: str, task_id: uuid.UUID, runtime_id: str, runtime_name: str,
             language: LanguageType,
     ) -> None:
         """初始化MCP宿主"""
@@ -63,7 +63,7 @@ class MCPHost:
 
     async def assemble_memory(self) -> str:
         """组装记忆"""
-        task = await TaskManager.get_task_by_task_id(self._task_id)
+        task = await TaskManager.get_task_data_by_task_id(self._task_id)
         if not task:
             logger.error("任务 %s 不存在", self._task_id)
             return ""
@@ -107,7 +107,7 @@ class MCPHost:
             executorId=self._runtime_id,
             executorName=self._runtime_name,
             executorStatus=ExecutorStatus.RUNNING,
-            stepId=tool.id,
+            stepId=uuid.uuid4(),
             stepName=tool.toolName,
             # description是规划的实际内容
             stepDescription=plan_item.content,
@@ -117,12 +117,12 @@ class MCPHost:
         )
 
         # 保存到task
-        task = await TaskManager.get_task_by_task_id(self._task_id)
+        task = await TaskManager.get_task_data_by_task_id(self._task_id)
         if not task:
             logger.error("任务 %s 不存在", self._task_id)
             return {}
         self._context_list.append(context.id)
-        context.append(context.model_dump(exclude_none=True, by_alias=True))
+        context.append(context)
         await TaskManager.save_task(self._task_id, task)
 
         return output_data

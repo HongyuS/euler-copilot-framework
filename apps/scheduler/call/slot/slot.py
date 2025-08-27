@@ -72,7 +72,9 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
         ]
 
         # 使用大模型进行尝试
-        answer = await self._llm(messages=conversation, streaming=False)
+        answer = ""
+        async for chunk in self._llm(messages=conversation, streaming=True):
+            answer += chunk
         answer = await FunctionLLM.process_response(answer)
         try:
             data = json.loads(answer)

@@ -9,7 +9,7 @@ from sqlalchemy import and_, delete, select, update
 from apps.common.postgres import postgres
 from apps.models.conversation import Conversation
 from apps.models.task import ExecutorCheckpoint, ExecutorHistory, Task, TaskRuntime
-from apps.schemas.request_data import RequestData
+from apps.schemas.task import TaskData
 
 logger = logging.getLogger(__name__)
 
@@ -48,115 +48,65 @@ class TaskManager:
 
 
     @staticmethod
-    async def get_task_by_task_id(task_id: uuid.UUID) -> Task | None:
+    async def get_task_data_by_task_id(task_id: uuid.UUID, context_length: int | None = None) -> TaskData | None:
         """根据task_id获取任务"""
         async with postgres.session() as session:
-            return (await session.scalars(
+            task_data = (await session.scalars(
                 select(Task).where(Task.id == task_id),
             )).one_or_none()
+            if not task_data:
+                logger.error("[TaskManager] 任务不存在 %s", task_id)
+                return None
 
-
-    @staticmethod
-    async def get_task_runtime_by_task_id(task_id: uuid.UUID) -> TaskRuntime | None:
-        """根据task_id获取任务运行时"""
-        async with postgres.session() as session:
-            return (await session.scalars(
+            runtime = (await session.scalars(
                 select(TaskRuntime).where(TaskRuntime.taskId == task_id),
             )).one_or_none()
+            if not runtime:
+                runtime = TaskRuntime(
+                    taskId=task_id,
+                    inputToken=0,
+                    outputToken=0,
+                )
 
-
-    @staticmethod
-    async def get_task_state_by_task_id(task_id: uuid.UUID) -> ExecutorCheckpoint | None:
-        """根据task_id获取任务状态"""
-        async with postgres.session() as session:
-            return (await session.scalars(
+            state = (await session.scalars(
                 select(ExecutorCheckpoint).where(ExecutorCheckpoint.taskId == task_id),
             )).one_or_none()
 
-
-    @staticmethod
-    async def get_context_by_task_id(task_id: uuid.UUID, length: int | None = None) -> list[ExecutorHistory]:
-        """根据task_id获取flow信息"""
-        async with postgres.session() as session:
-            return list((await session.scalars(
+            if context_length == 0:
+                context = []
+            else:
+                context = list((await session.scalars(
                 select(ExecutorHistory).where(
                     ExecutorHistory.taskId == task_id,
-                ).order_by(ExecutorHistory.updatedAt.desc()).limit(length),
+                ).order_by(ExecutorHistory.updatedAt.desc()).limit(context_length),
             )).all())
 
-
-    @staticmethod
-    async def init_new_task(
-        user_sub: str,
-        session_id: str | None = None,
-        post_body: RequestData | None = None,
-    ) -> Task:
-        """获取任务块"""
-        return Task(
-            _id=str(uuid.uuid4()),
-            ids=TaskIds(
-                user_sub=user_sub if user_sub else "",
-                session_id=session_id if session_id else "",
-                conversation_id=post_body.conversation_id,
-            ),
-            question=post_body.question if post_body else "",
-            tokens=TaskTokens(),
-            runtime=TaskRuntime(),
-        )
-
-    @staticmethod
-    async def save_flow_context(task_id: str, flow_context: list[ExecutorHistory]) -> None:
-        """保存flow信息到flow_context"""
-        if not flow_context:
-            return
-
-        flow_context_collection = MongoDB().get_collection("flow_context")
-        try:
-            for history in flow_context:
-                # 查找是否存在
-                current_context = await flow_context_collection.find_one({
-                    "task_id": task_id,
-                    "_id": history.id,
-                })
-                if current_context:
-                    await flow_context_collection.update_one(
-                        {"_id": current_context["_id"]},
-                        {"$set": history.model_dump(exclude_none=True, by_alias=True)},
-                    )
-                else:
-                    await flow_context_collection.insert_one(history.model_dump(exclude_none=True, by_alias=True))
-        except Exception:
-            logger.exception("[TaskManager] 保存flow执行记录失败")
+            return TaskData(
+                metadata=task_data,
+                runtime=runtime,
+                state=state,
+                context=context,
+            )
 
 
     @staticmethod
     async def delete_task_by_task_id(task_id: uuid.UUID) -> None:
         """通过task_id删除Task信息"""
         async with postgres.session() as session:
-            task = (await session.scalars(
-                select(Task).where(Task.id == task_id),
-            )).one_or_none()
-            if task:
-                await session.delete(task)
-
-
-    @staticmethod
-    async def delete_tasks_by_conversation_id(conversation_id: uuid.UUID) -> list[uuid.UUID]:
-        """通过ConversationID删除Task信息"""
-        async with postgres.session() as session:
-            task_ids = []
-            tasks = (await session.scalars(
-                select(Task).where(Task.conversationId == conversation_id),
-            )).all()
-            for task in tasks:
-                task_ids.append(str(task.id))
-                await session.delete(task)
+            await session.execute(
+                delete(Task).where(Task.id == task_id),
+            )
+            await session.execute(
+                delete(TaskRuntime).where(TaskRuntime.taskId == task_id),
+            )
+            await session.execute(
+                delete(ExecutorCheckpoint).where(ExecutorCheckpoint.taskId == task_id),
+            )
             await session.commit()
-            return task_ids
 
 
     @staticmethod
-    async def delete_task_history_checkpoint_by_conversation_id(conversation_id: uuid.UUID) -> None:
+    async def delete_tasks_by_conversation_id(conversation_id: uuid.UUID) -> None:
         """通过ConversationID删除Task信息"""
         # 删除Task
         task_ids = []
@@ -172,6 +122,29 @@ class TaskManager:
             await session.execute(
                 delete(ExecutorCheckpoint).where(ExecutorCheckpoint.taskId.in_(task_ids)),
             )
+            await session.execute(
+                delete(TaskRuntime).where(TaskRuntime.taskId.in_(task_ids)),
+            )
+            await session.commit()
+
+
+    @staticmethod
+    async def delete_task_context_by_task_id(task_id: uuid.UUID) -> None:
+        """通过task_id删除TaskContext信息"""
+        async with postgres.session() as session:
+            await session.execute(
+                delete(ExecutorHistory).where(ExecutorHistory.taskId == task_id),
+            )
+            await session.commit()
+
+
+    @staticmethod
+    async def delete_task_context_by_conversation_id(conversation_id: uuid.UUID) -> None:
+        """通过ConversationID删除TaskContext信息"""
+        async with postgres.session() as session:
+            task_ids = list((await session.scalars(
+                select(Task.id).where(Task.conversationId == conversation_id),
+            )).all())
             await session.execute(
                 delete(ExecutorHistory).where(ExecutorHistory.taskId.in_(task_ids)),
             )

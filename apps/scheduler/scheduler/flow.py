@@ -42,28 +42,3 @@ class FlowChooser:
 
         await TaskManager.update_task_token(self.task_id, select_obj.input_tokens, select_obj.output_tokens)
         return top_flow
-
-
-    async def choose_flow(self) -> RequestDataApp | None:
-        """
-        依据用户的输入和选择，构造对应的Flow。
-
-        - 当用户没有选择任何app时，直接进行智能问答
-        - 当用户选择了特定的app时，在plugin内挑选最适合的flow
-        """
-        if not self._user_selected or not self._user_selected.app_id:
-            return None
-
-        if self._user_selected.flow_id:
-            return self._user_selected
-
-        top_flow = await self.get_top_flow()
-        # FIXME KnowledgeBase不是UUID，要改个值
-        if top_flow == "KnowledgeBase":
-            return None
-
-        return RequestDataApp(
-            appId=self._user_selected.app_id,
-            flowId=top_flow,
-            params=None,
-        )

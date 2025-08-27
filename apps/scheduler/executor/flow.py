@@ -89,8 +89,8 @@ class FlowExecutor(BaseExecutor):
                 executorName=self.flow.name,
                 executorStatus=ExecutorStatus.RUNNING,
                 stepStatus=StepStatus.RUNNING,
-                stepId="start",
-                stepName="开始" if self.runtime.language == LanguageType.CHINESE else "Start",
+                stepId=self.flow.basicConfig.startStep,
+                stepName=self.flow.steps[self.flow.basicConfig.startStep].name,
             )
         # 是否到达Flow结束终点（变量）
         self._reached_end: bool = False
@@ -106,9 +106,6 @@ class FlowExecutor(BaseExecutor):
             step=self.current_step,
             background=self.background,
             question=self.question,
-            runtime=self.runtime,
-            state=self.state,
-            context=self.context,
         )
 
         # 初始化步骤
@@ -161,8 +158,8 @@ class FlowExecutor(BaseExecutor):
         if not next_steps:
             return [
                 StepQueueItem(
-                    step_id="end",
-                    step=self.flow.steps["end"],
+                    step_id=self.flow.basicConfig.endStep,
+                    step=self.flow.steps[self.flow.basicConfig.endStep],
                 ),
             ]
 
@@ -197,7 +194,7 @@ class FlowExecutor(BaseExecutor):
             self.step_queue.append(
                 StepQueueItem(
                     step_id=uuid.uuid4(),
-                    step=step.get(self.runtime.language, step[LanguageType.CHINESE]),
+                    step=step.get(self.task.runtime.language, step[LanguageType.CHINESE]),
                     enable_filling=False,
                     to_user=False,
                 ),
@@ -220,15 +217,15 @@ class FlowExecutor(BaseExecutor):
                         step_id=uuid.uuid4(),
                         step=Step(
                             name=(
-                                "错误处理" if self.runtime.language == LanguageType.CHINESE else "Error Handling"
+                                "错误处理" if self.task.runtime.language == LanguageType.CHINESE else "Error Handling"
                             ),
                             description=(
-                                "错误处理" if self.runtime.language == LanguageType.CHINESE else "Error Handling"
+                                "错误处理" if self.task.runtime.language == LanguageType.CHINESE else "Error Handling"
                             ),
                             node=SpecialCallType.LLM.value,
                             type=SpecialCallType.LLM.value,
                             params={
-                                "user_prompt": LLM_ERROR_PROMPT[self.runtime.language].replace(
+                                "user_prompt": LLM_ERROR_PROMPT[self.task.runtime.language].replace(
                                     "{{ error_info }}",
                                     self.state.errorMessage["err_msg"],
                                 ),
@@ -264,13 +261,13 @@ class FlowExecutor(BaseExecutor):
             self.step_queue.append(
                 StepQueueItem(
                     step_id=uuid.uuid4(),
-                    step=step.get(self.runtime.language, step[LanguageType.CHINESE]),
+                    step=step.get(self.task.runtime.language, step[LanguageType.CHINESE]),
                 ),
             )
         await self._step_process()
 
         # FlowStop需要返回总时间，需要倒推最初的开始时间（当前时间减去当前已用总时间）
-        self.runtime.time = round(datetime.now(UTC).timestamp(), 2) - self.runtime.fullTime
+        self.task.runtime.time = round(datetime.now(UTC).timestamp(), 2) - self.task.runtime.fullTime
         # 推送Flow停止消息
         if is_error:
             await self.push_message(EventType.FLOW_FAILED.value)
