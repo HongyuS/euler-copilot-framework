@@ -44,11 +44,10 @@ class MCPPlanner(MCPBase):
     goal: str
     llm: ReasoningLLM
 
-    def __init__(self, goal: str, llm: ReasoningLLM, language: LanguageType) -> None:
+    def __init__(self, user_sub: str, goal: str, language: LanguageType) -> None:
         """初始化MCPPlanner"""
-        super().__init__()
+        super().__init__(user_sub)
         self.goal = goal
-        self.llm = llm
         self.language = language
 
     async def get_flow_name(self) -> FlowName:

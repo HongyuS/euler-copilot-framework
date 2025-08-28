@@ -39,6 +39,15 @@ class FunctionCallBackend(str, PyEnum):
     """Structured Output"""
 
 
+class EmbeddingBackend(str, PyEnum):
+    """Embedding后端"""
+
+    OPENAI = "openai"
+    """OpenAI"""
+    TEI = "tei"
+    """TEI"""
+
+
 class LLMData(Base):
     """大模型信息"""
 
@@ -63,6 +72,10 @@ class LLMData(Base):
         Enum(FunctionCallBackend), default=None, nullable=True,
     )
     """Function Call后端"""
+    embeddingBackend: Mapped[EmbeddingBackend | None] = mapped_column(  # noqa: N815
+        Enum(EmbeddingBackend), default=None, nullable=True,
+    )
+    """Embedding后端"""
     createdAt: Mapped[DateTime] = mapped_column(  # noqa: N815
         DateTime,
         default_factory=lambda: datetime.now(tz=UTC),

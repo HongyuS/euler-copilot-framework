@@ -36,8 +36,6 @@ class User(Base):
     """用户个人令牌"""
     selectedKB: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID), default=[], nullable=False)  # noqa: N815
     """用户选择的知识库的ID"""
-    reasoningLLM: Mapped[str | None] = mapped_column(String(255), default=None, nullable=True)  # noqa: N815
-    """用户选择的问答模型ID"""
     functionLLM: Mapped[str | None] = mapped_column(String(255), default=None, nullable=True)  # noqa: N815
     """用户选择的函数模型ID"""
     embeddingLLM: Mapped[str | None] = mapped_column(String(255), default=None, nullable=True)  # noqa: N815

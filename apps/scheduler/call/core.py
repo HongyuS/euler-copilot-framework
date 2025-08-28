@@ -95,30 +95,30 @@ class CoreCall(BaseModel):
     @staticmethod
     def _assemble_call_vars(executor: "StepExecutor") -> CallVars:
         """组装CallVars"""
-        if not executor.state:
+        if not executor.task.state:
             err = "[CoreCall] 当前ExecutorState为空"
             logger.error(err)
             raise ValueError(err)
 
         history = {}
         history_order = []
-        for item in executor.context:
+        for item in executor.task.context:
             history[item.stepId] = item
             history_order.append(item.stepId)
 
         return CallVars(
-            language=executor.runtime.language,
+            language=executor.task.runtime.language,
             ids=CallIds(
-                task_id=executor.task.id,
-                executor_id=executor.state.executorId,
-                session_id=executor.task.sessionId,
-                user_sub=executor.task.userSub,
-                app_id=executor.state.appId,
+                task_id=executor.task.metadata.id,
+                executor_id=executor.task.state.executorId,
+                session_id=executor.task.runtime.sessionId,
+                user_sub=executor.task.metadata.userSub,
+                app_id=executor.task.state.appId,
             ),
             question=executor.question,
             history=history,
             history_order=history_order,
-            summary=executor.runtime.reasoning,
+            summary=executor.task.runtime.reasoning,
         )
 
 
@@ -164,7 +164,6 @@ class CoreCall(BaseModel):
         await obj._set_input(executor)
         return obj
 
-
     async def _set_input(self, executor: "StepExecutor") -> None:
         """获取Call的输入"""
         self._sys_vars = self._assemble_call_vars(executor)
@@ -197,7 +196,7 @@ class CoreCall(BaseModel):
     async def _llm(self, messages: list[dict[str, Any]], *, streaming: bool = False) -> AsyncGenerator[str, None]:
         """Call可直接使用的LLM非流式调用"""
         user_sub = self._sys_vars.ids.user_sub
-        llm_id = await LLMManager.get_user_default_llm(user_sub)
+        llm_id = await LLMManager.get_user_selected_llm(user_sub)
         if not llm_id:
             err = f"[CoreCall] 用户{user_sub}未设置默认LLM"
             logger.error(err)
@@ -230,7 +229,7 @@ class CoreCall(BaseModel):
     async def _json(self, messages: list[dict[str, Any]], schema: dict[str, Any]) -> dict[str, Any]:
         """Call可直接使用的JSON生成"""
         user_sub = self._sys_vars.ids.user_sub
-        llm_id = await LLMManager.get_user_default_llm(user_sub)
+        llm_id = await LLMManager.get_user_selected_llm(user_sub)
         if not llm_id:
             err = f"[CoreCall] 用户{user_sub}未设置默认LLM"
             logger.error(err)

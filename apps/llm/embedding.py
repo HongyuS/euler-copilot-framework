@@ -3,38 +3,144 @@
 import logging
 
 import httpx
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import Column, ForeignKey, Index, String, text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import declarative_base
 
-from apps.common.config import config
+from apps.common.postgres import postgres
+from apps.models.llm import EmbeddingBackend, LLMData
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
+_VectorBase = declarative_base()
+_flow_pool_vector_table = {
+    "__tablename__": "framework_flow_vector",
+    "appId": Column(UUID(as_uuid=True), ForeignKey("framework_app.id"), nullable=False),
+    "id": Column(String(255), ForeignKey("framework_flow.id"), primary_key=True),
+    "__table_args__": (
+        Index(
+            "hnsw_index",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 200},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    ),
+}
+_service_pool_vector_table = {
+    "__tablename__": "framework_service_vector",
+    "id": Column(UUID(as_uuid=True), ForeignKey("framework_service.id"), primary_key=True),
+    "__table_args__": (
+        Index(
+            "hnsw_index",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 200},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    ),
+}
+_node_pool_vector_table = {
+    "__tablename__": "framework_node_vector",
+    "id": Column(String(255), ForeignKey("framework_node.id"), primary_key=True),
+    "serviceId": Column(UUID(as_uuid=True), ForeignKey("framework_service.id"), nullable=True),
+    "__table_args__": (
+        Index(
+            "hnsw_index",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 200},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    ),
+}
+_mcp_vector_table = {
+    "__tablename__": "framework_mcp_vector",
+    "id": Column(String(255), ForeignKey("framework_mcp.id"), primary_key=True),
+    "__table_args__": (
+        Index(
+            "hnsw_index",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 200},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    ),
+}
+_mcp_tool_vector_table = {
+    "__tablename__": "framework_mcp_tool_vector",
+    "id": Column(String(255), ForeignKey("framework_mcp_tool.id"), primary_key=True),
+    "mcpId": Column(String(255), ForeignKey("framework_mcp.id"), nullable=False),
+    "__table_args__": (
+        Index(
+            "hnsw_index",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 200},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    ),
+}
 
 
 class Embedding:
     """Embedding模型"""
 
-    # TODO: 应当自动检测向量维度
-    @classmethod
-    async def _get_embedding_dimension(cls) -> int:
+    async def _get_embedding_dimension(self) -> int:
         """获取Embedding的维度"""
-        embedding = await cls.get_embedding(["测试文本"])
+        embedding = await self.get_embedding(["测试文本"])
         return len(embedding[0])
 
+    async def _delete_vector(self) -> None:
+        """删除所有Vector表"""
+        async with postgres.session() as session:
+            await session.execute(text("DROP TABLE IF EXISTS framework_flow_vector"))
+            await session.execute(text("DROP TABLE IF EXISTS framework_service_vector"))
+            await session.execute(text("DROP TABLE IF EXISTS framework_node_vector"))
+            await session.execute(text("DROP TABLE IF EXISTS framework_mcp_vector"))
+            await session.execute(text("DROP TABLE IF EXISTS framework_mcp_tool_vector"))
+            await session.commit()
 
-    @classmethod
-    async def _get_openai_embedding(cls, text: list[str]) -> list[list[float]]:
+    async def _create_vector_table(self, dim: int) -> None:
+        """根据检测出的维度创建Vector表"""
+        if dim <= 0:
+            err = "[Embedding] 检测到的Embedding维度为0，无法创建Vector表"
+            _logger.error(err)
+            raise RuntimeError(err)
+        # 给所有的Dict加入embedding字段
+        for table in [
+            _flow_pool_vector_table,
+            _service_pool_vector_table,
+            _node_pool_vector_table,
+            _mcp_vector_table,
+            _mcp_tool_vector_table,
+        ]:
+            table["embedding"] = Column(Vector(dim), nullable=False)
+        # 创建表
+        _VectorBase.metadata.create_all(_VectorBase.metadata)
+
+    async def __init__(self, llm_config: LLMData | None = None) -> None:
+        """初始化Embedding模型"""
+        if not llm_config or not llm_config.embeddingBackend:
+            err = "[Embedding] 未设置Embedding模型"
+            _logger.error(err)
+            raise RuntimeError(err)
+        self._config: LLMData = llm_config
+
+    async def _get_openai_embedding(self, text: list[str]) -> list[list[float]]:
         """访问OpenAI兼容的Embedding API，获得向量化数据"""
-        api = config.embedding.endpoint + "/embeddings"
+        api = self._config.openaiBaseUrl + "/embeddings"
         data = {
             "input": text,
-            "model": config.embedding.model,
+            "model": self._config.modelName,
             "encoding_format": "float",
         }
 
         headers = {
             "Content-Type": "application/json",
         }
-        if config.embedding.api_key:
-            headers["Authorization"] = f"Bearer {config.embedding.api_key}"
+        if self._config.openaiAPIKey:
+            headers["Authorization"] = f"Bearer {self._config.openaiAPIKey}"
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -47,15 +153,14 @@ class Embedding:
             return [item["embedding"] for item in json["data"]]
 
 
-    @classmethod
-    async def _get_tei_embedding(cls, text: list[str]) -> list[list[float]]:
+    async def _get_tei_embedding(self, text: list[str]) -> list[list[float]]:
         """访问TEI兼容的Embedding API，获得向量化数据"""
-        api = config.embedding.endpoint + "/embed"
+        api = self._config.openaiBaseUrl + "/embed"
         headers = {
             "Content-Type": "application/json",
         }
-        if config.embedding.api_key:
-            headers["Authorization"] = f"Bearer {config.embedding.api_key}"
+        if self._config.openaiAPIKey:
+            headers["Authorization"] = f"Bearer {self._config.openaiAPIKey}"
 
         async with httpx.AsyncClient() as client:
             result = []
@@ -73,8 +178,7 @@ class Embedding:
             return result
 
 
-    @classmethod
-    async def get_embedding(cls, text: list[str]) -> list[list[float]]:
+    async def get_embedding(self, text: list[str]) -> list[list[float]]:
         """
         访问OpenAI兼容的Embedding API，获得向量化数据
 
@@ -82,13 +186,13 @@ class Embedding:
         :return: 文本对应的向量（顺序与text一致，也为List）
         """
         try:
-            if config.embedding.type == "openai":
-                return await cls._get_openai_embedding(text)
-            if config.embedding.type == "mindie":
-                return await cls._get_tei_embedding(text)
+            if self._config.embeddingBackend == EmbeddingBackend.OPENAI:
+                return await self._get_openai_embedding(text)
+            if self._config.embeddingBackend == EmbeddingBackend.TEI:
+                return await self._get_tei_embedding(text)
 
-            logger.error("不支持的Embedding API类型: %s", config.embedding.type)
+            _logger.error("[Embedding] 不支持的Embedding API类型: %s", self._config.modelName)
             return [[0.0] * 1024 for _ in range(len(text))]
         except Exception:
-            logger.exception("获取Embedding失败")
+            _logger.exception("[Embedding] 获取Embedding失败")
             return [[0.0] * 1024 for _ in range(len(text))]
