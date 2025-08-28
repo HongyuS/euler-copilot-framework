@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from apps.common.postgres import postgres
 from apps.models.tag import Tag
+from apps.models.user import UserTag
 from apps.schemas.request_data import PostTagData
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,24 @@ class TagManager:
         """
         async with postgres.session() as session:
             return (await session.scalars(select(Tag).where(Tag.name == name).limit(1))).one_or_none()
+
+
+    @staticmethod
+    async def get_tag_by_user_sub(user_sub: str) -> list[Tag]:
+        """
+        根据用户sub获取用户标签信息
+
+        :param user_sub: 用户sub
+        :return: 用户标签信息
+        """
+        tags = []
+        async with postgres.session() as session:
+            user_tags = (await session.scalars(select(UserTag).where(UserTag.userSub == user_sub))).all()
+            for user_tag in user_tags:
+                tag = (await session.scalars(select(Tag).where(Tag.id == user_tag.tag))).one_or_none()
+                if tag:
+                    tags.append(tag)
+            return list(tags)
 
 
     @staticmethod

@@ -6,9 +6,20 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from apps.llm.embedding import Embedding
+from apps.llm.function import FunctionLLM
+from apps.llm.reasoning import ReasoningLLM
 from apps.models.task import ExecutorHistory
 
 from .enum_var import CallOutputType, LanguageType
+
+
+class LLMConfig(BaseModel):
+    """LLM配置"""
+
+    reasoning: ReasoningLLM = Field(description="推理LLM")
+    function: FunctionLLM = Field(description="函数LLM")
+    embedding: Embedding = Field(description="Embedding")
 
 
 class CallInfo(BaseModel):

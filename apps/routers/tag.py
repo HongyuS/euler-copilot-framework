@@ -31,8 +31,16 @@ router = APIRouter(
 @router.get("")
 async def get_user_tag(
     request: Request,
+    *,
+    user_only: bool = False,
 ) -> JSONResponse:
     """获取所有标签；传入user_sub的时候获取特定用户的标签信息，不传则获取所有标签"""
+    if user_only:
+        return JSONResponse(status_code=status.HTTP_200_OK, content=ResponseData(
+            code=status.HTTP_200_OK,
+            message="[Tag] Get user tag success.",
+            result=await TagManager.get_tag_by_user_sub(request.state.user_sub),
+        ).model_dump(exclude_none=True, by_alias=True))
     return JSONResponse(status_code=status.HTTP_200_OK, content=ResponseData(
         code=status.HTTP_200_OK,
         message="[Tag] Get all tag success.",

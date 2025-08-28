@@ -38,17 +38,12 @@ class FunctionLLM:
         - structured_output
         """
         # 暂存config；这里可以替代为从其他位置获取
-        if not llm_config:
-            err = "未设置大模型配置"
+        if not llm_config or not llm_config.functionCallBackend:
+            err = "[FunctionLLM] 未设置FunctionCall模型"
             logger.error(err)
             raise RuntimeError(err)
+
         self._config: LLMData = llm_config
-
-        if not self._config.modelName:
-            err_msg = "[FunctionCall] 未设置FuntionCall所用模型！"
-            logger.error(err_msg)
-            raise ValueError(err_msg)
-
         self._params = {
             "model": self._config.modelName,
             "messages": [],

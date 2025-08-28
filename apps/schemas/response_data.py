@@ -632,3 +632,16 @@ class GetOperaRsp(ResponseData):
     """GET /api/operate 返回数据结构"""
 
     result: list[OperateAndBindType] = Field(..., title="Result")
+
+
+class UserSelectedLLMData(BaseModel):
+    """用户选择的LLM数据结构"""
+
+    functionLLM: str | None = Field(default=None, description="函数模型ID")  # noqa: N815
+    embeddingLLM: str | None = Field(default=None, description="向量模型ID")  # noqa: N815
+
+
+class UserSelectedLLMRsp(ResponseData):
+    """GET /api/user/llm 返回数据结构"""
+
+    result: UserSelectedLLMData = Field(..., title="Result")

@@ -12,7 +12,11 @@ from apps.schemas.request_data import (
     UpdateLLMReq,
     UpdateUserSpecialLLMReq,
 )
-from apps.schemas.response_data import LLMProvider, LLMProviderInfo
+from apps.schemas.response_data import (
+    LLMProvider,
+    LLMProviderInfo,
+    UserSelectedLLMData,
+)
 from apps.templates.generate_llm_operator_config import llm_provider_dict
 
 logger = logging.getLogger(__name__)
@@ -41,7 +45,7 @@ class LLMManager:
 
 
     @staticmethod
-    async def get_user_default_llm(user_sub: str) -> str | None:
+    async def get_user_selected_llm(user_sub: str) -> UserSelectedLLMData | None:
         """
         通过用户ID获取大模型ID
 
@@ -56,7 +60,10 @@ class LLMManager:
                 logger.error("[LLMManager] 用户 %s 不存在", user_sub)
                 return None
 
-            return user.reasoningLLM
+            return UserSelectedLLMData(
+                functionLLM=user.functionLLM,
+                embeddingLLM=user.embeddingLLM,
+            )
 
 
     @staticmethod

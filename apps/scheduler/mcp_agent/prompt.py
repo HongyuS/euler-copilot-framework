@@ -679,7 +679,7 @@ GET_MISSING_PARAMS: dict[LanguageType, str] = {
                 "required": ["host", "port", "username", "password"]
             }
             # 运行报错
-            执行端口扫描命令时，出现了错误：`password is not correct`。
+            {"err_msg": "执行端口扫描命令时，出现了错误：`password is not correct`。", "data": {} }
             # 输出
             ```json
             {
@@ -763,8 +763,9 @@ input parameters, input parameter schema, and runtime errors, and output a JSON-
                     },
                 "required": ["host", "port", "username", "password"]
             }
-            # Run error
-            When executing the port scan command, an error occurred: `password is not correct`.
+            # Error info
+            {"err_msg": "When executing the port scan command, an error occurred: `password is not correct`.", \
+"data": {} }
             # Output
             ```json
             {
@@ -783,7 +784,7 @@ input parameters, input parameter schema, and runtime errors, and output a JSON-
             {{input_param}}
             # Tool input parameter schema (some fields can be null)
             {{input_schema}}
-            # Run error
+            # Error info
             {{error_message}}
             # Output
         """,
