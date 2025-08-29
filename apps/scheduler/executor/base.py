@@ -1,21 +1,22 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Executor基类"""
 
-import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
+from apps.common.security import Security
 from apps.schemas.enum_var import EventType
 from apps.schemas.message import TextAddContent
+from apps.schemas.record import RecordContent
+from apps.schemas.scheduler import ExecutorBackground
+from apps.services.record import RecordManager
 
 if TYPE_CHECKING:
     from apps.common.queue import MessageQueue
-    from apps.schemas.scheduler import ExecutorBackground
+    from apps.schemas.scheduler import LLMConfig
     from apps.schemas.task import TaskData
-
-logger = logging.getLogger(__name__)
 
 
 class BaseExecutor(BaseModel, ABC):
@@ -23,8 +24,9 @@ class BaseExecutor(BaseModel, ABC):
 
     task: "TaskData"
     msg_queue: "MessageQueue"
+    llm: "LLMConfig"
 
-    background: "ExecutorBackground"
+    background: "ExecutorBackground" = Field(default=ExecutorBackground())
     question: str
 
     model_config = ConfigDict(
@@ -32,7 +34,30 @@ class BaseExecutor(BaseModel, ABC):
         extra="allow",
     )
 
-    async def push_message(self, event_type: str, data: dict[str, Any] | str | None = None) -> None:
+
+    @abstractmethod
+    async def init(self) -> None:
+        """初始化Executor"""
+        raise NotImplementedError
+
+    async def _load_history(self, n: int = 3) -> None:
+        """加载历史记录"""
+        # 获取最后n+5条Record
+        records = await RecordManager.query_record_by_conversation_id(
+            self.task.metadata.userSub, self.task.metadata.conversationId, n + 5,
+        )
+        # 组装问答
+        context = []
+        facts = []
+        for record in records:
+            record_data = RecordContent.model_validate_json(Security.decrypt(record.content, record.key))
+            context.append({"role": "user", "content": record_data.question})
+            context.append({"role": "assistant", "content": record_data.answer})
+            facts.extend(record_data.facts)
+        self.background.conversation = context
+        self.background.facts = facts
+
+    async def _push_message(self, event_type: str, data: dict[str, Any] | str | None = None) -> None:
         """
         统一的消息推送接口
 

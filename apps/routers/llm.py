@@ -130,7 +130,7 @@ async def update_user_llm(
 ) -> JSONResponse:
     """更新用户所选的大模型"""
     try:
-        await LLMManager.update_user_default_llm(request.state.user_sub, llmId)
+        await LLMManager.update_user_selected_llm(request.state.user_sub, llmId)
     except ValueError as e:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

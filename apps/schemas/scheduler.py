@@ -18,8 +18,8 @@ class LLMConfig(BaseModel):
     """LLM配置"""
 
     reasoning: ReasoningLLM = Field(description="推理LLM")
-    function: FunctionLLM = Field(description="函数LLM")
-    embedding: Embedding = Field(description="Embedding")
+    function: FunctionLLM | None = Field(description="函数LLM")
+    embedding: Embedding | None = Field(description="Embedding")
 
 
 class CallInfo(BaseModel):
@@ -60,8 +60,8 @@ class CallTokens(BaseModel):
 class ExecutorBackground(BaseModel):
     """Executor的背景信息"""
 
-    conversation: list[dict[str, str]] = Field(description="对话记录")
-    facts: list[str] = Field(description="当前Executor的背景信息")
+    conversation: list[dict[str, str]] = Field(description="对话记录", default=[])
+    facts: list[str] = Field(description="当前Executor的背景信息", default=[])
 
 
 class CallError(Exception):

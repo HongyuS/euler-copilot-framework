@@ -16,7 +16,6 @@ from apps.common.singleton import SingletonMeta
 from apps.constants import MCP_PATH
 from apps.llm.embedding import Embedding
 from apps.models.mcp import MCPActivated, MCPInfo, MCPInstallStatus, MCPTools, MCPType
-from apps.models.vectors import MCPToolVector, MCPVector
 from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.install import install_npx, install_uvx
 from apps.schemas.mcp import (

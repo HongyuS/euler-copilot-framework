@@ -16,7 +16,6 @@ from apps.common.postgres import postgres
 from apps.llm.embedding import Embedding
 from apps.models.app import App, AppHashes
 from apps.models.flow import Flow as FlowInfo
-from apps.models.vectors import FlowPoolVector
 from apps.scheduler.util import yaml_enum_presenter, yaml_str_presenter
 from apps.schemas.enum_var import EdgeType, NodeType
 from apps.schemas.flow import Flow

@@ -12,7 +12,7 @@ from apps.common.postgres import postgres
 from apps.models.llm import EmbeddingBackend, LLMData
 
 _logger = logging.getLogger(__name__)
-_VectorBase = declarative_base()
+VectorBase = declarative_base()
 _flow_pool_vector_table = {
     "__tablename__": "framework_flow_vector",
     "appId": Column(UUID(as_uuid=True), ForeignKey("framework_app.id"), nullable=False),
@@ -117,7 +117,7 @@ class Embedding:
         ]:
             table["embedding"] = Column(Vector(dim), nullable=False)
         # 创建表
-        _VectorBase.metadata.create_all(_VectorBase.metadata)
+        VectorBase.metadata.create_all(VectorBase.metadata)
 
     async def __init__(self, llm_config: LLMData | None = None) -> None:
         """初始化Embedding模型"""
