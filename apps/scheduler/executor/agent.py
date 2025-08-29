@@ -55,13 +55,6 @@ class MCPAgentExecutor(BaseExecutor):
         self.planner = MCPPlanner(self.task.runtime.userInput, self.llm, self.task.runtime.language)
         self.host = MCPHost(self.task.metadata.userSub, self.llm)
 
-    async def load_state(self) -> None:
-        """从数据库中加载FlowExecutor的状态"""
-        _logger.info("[MCPAgentExecutor] 加载Executor状态")
-        # 尝试恢复State
-        if self.task.state and self.task.state.executorStatus != ExecutorStatus.INIT:
-            self.task.context = await TaskManager.get_context_by_task_id(self.task.metadata.id)
-
     async def load_mcp(self) -> None:
         """加载MCP服务器列表"""
         _logger.info("[MCPAgentExecutor] 加载MCP服务器列表")
