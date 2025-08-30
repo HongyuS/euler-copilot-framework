@@ -9,9 +9,9 @@
   
   通过指定资产名称、资产简介、资产默认解析方法、资产默认分块大小和embedding模型等条目创建、删除、导入资产、编辑资产或资产信息
 - 文档管理
-    - 支持用户上传限定大小和限定数量的文件，也允许用户下载自己上传的文件，用户可以通过点击资产卡片的形式进入资产，此时文档以条目的形式展示。
-    - 支持txt、md、xlsx、docx和doc以及pdf文档的文档解析
-    - 文档解析方式有三种general、ocr和enhanced模式，general模式下只提取文字和表格，ocr模式下不仅提取文字和表格嗨提取部分文档的图片内容，enhanced在ocr的基础上对图片中提取的内容进行总结。
+  - 支持用户上传限定大小和限定数量的文件，也允许用户下载自己上传的文件，用户可以通过点击资产卡片的形式进入资产，此时文档以条目的形式展示。
+  - 支持txt、md、xlsx、docx和doc以及pdf文档的文档解析
+  - 文档解析方式有三种general、ocr和enhanced模式，general模式下只提取文字和表格，ocr模式下不仅提取文字和表格嗨提取部分文档的图片内容，enhanced在ocr的基础上对图片中提取的内容进行总结。
 
 - 文档解析结果管理：
   
@@ -28,7 +28,7 @@
 请在浏览器中输入 `https://$(wichaind域名)`访问 EulerCopilot 的 WitChainD 网页,
 登入界面如下，输入账号(admin)、密码(123456)点击登录按钮登录系统。
 
-![witchaind登录界面](./pictures/witChainD/witchaind登录界面.png)
+![witchaind登录界面](./pictures/witchaind/witchaind_login_interface.png)
 
 ## 新建资产
 
@@ -36,7 +36,7 @@
 
 进入资产卡片显示页面，卡片展示了资产的名称、简介、文档篇数、创建时间和资产ID。
 
-![查看资产库界面](./pictures/witChainD/查看资产库界面.png)
+![查看资产库界面](./pictures/witchaind/view_asset_library_interface.png)
 
 可通过红框中的按钮将卡片展示的资产转换为条目显示。
 
@@ -44,18 +44,18 @@
 
 点击新建资产，会跳出资产信息配置的框图
 
-![新建资产库界面](./pictures/witChainD/新建资产库界面.png)
+![新建资产库界面](./pictures/witchaind/create_new_asset_library_interface.png)
 
 填写资产库名称、资产库描述（可选）、语言、嵌入模型、默认解析方法和默认文件分块大小后，点击确定。
-![新建资产库填写展示界面](./pictures/witChainD/新建资产库填写展示界面.png)
+![新建资产库填写展示界面](./pictures/witchaind/create_new_asset_library_fill_display_interface.png)
 
 资产库建立完毕之后会显示是否添加文档，点击确定
 
-![资产库创建完成界面](./pictures/witChainD/资产库创建完成界面.png)
+![资产库创建完成界面](./pictures/witchaind/asset_library_creation_completed_interface.png)
 
 点击确定完成后进入资产库
 
-![资产库创建完成界面](./pictures/witChainD/进入资产库界面.png)
+![资产库创建完成界面](./pictures/witchaind/enter_asset_library_interface.png)
 
 ## 导入文档
 
@@ -63,60 +63,60 @@
 
 点击导入文档按钮跳出文档上传框，选择本地文件并勾选进行上传
 
-![导入文档界面](./pictures/witChainD/导入文档界面.png)
+![导入文档界面](./pictures/witchaind/import_document_interface.png)
 
-![选择文件](./pictures/witChainD/选择文件.png)
+![选择文件](./pictures/witchaind/select_file.png)
 
 ### 批量导入
 
 点击1批量导入资产，2选择本地资产，3勾选本地资产，最后点击确定进行资产导入。
 
-![批量导入界面](./pictures/witChainD/批量导入界面.png)
+![批量导入界面](./pictures/witchaind/batch_import_interface.png)
 
 资产导入中
 
-![批量正在导入界面](./pictures/witChainD/批量正在导入界面.png)
+![批量正在导入界面](./pictures/witchaind/batch_importing_interface.png)
 
 资产导入成功
 
-![批量导入成功界面](./pictures/witChainD/批量导入成功界面.png)
+![批量导入成功界面](./pictures/witchaind/batch_import_successful_interface.png)
 
 ## 解析文档
 
 等待解析中，点击取消可以停止文档解析。
 
-![解析中界面](./pictures/witChainD/解析中界面.png)
+![解析中界面](./pictures/witchaind/parsing_interface.png)
 
 解析完成后，解析状态会显示解析成功。
 
-![解析成功界面](./pictures/witChainD/解析成功界面.png)
+![解析成功界面](./pictures/witchaind/parse_successful_interface.png)
 
 文档解析方式有三种general、ocr和enhanced模式，请根据需要选择合适的文档解析方法
 
-![解析方法选择界面](./pictures/witChainD/解析方法选择界面.png)
+![解析方法选择界面](./pictures/witchaind/parsing_method_selection_interface.png)
 
 解析完毕可以通过点击文件名进入文档解析结果展示详情，可以查看文档解析结果，如下图所示：
 
-![解析详情界面](./pictures/witChainD/解析详情界面.png)
+![解析详情界面](./pictures/witchaind/parse_details_interface.png)
 
 可以通过1过滤文档解析的片段、表格和图片等内容，通过2可以通过关键字检索模糊检索对应的片段，通过3可以设定是否在检索中是否启用片段，如下图所示：
 
-![解析结果过滤界面](./pictures/witChainD/解析结果过滤界面.png)
+![解析结果过滤界面](./pictures/witchaind/parse_result_filter_interface.png)
 
 ## 导出资产
 
 点击回到首页
 
-![回到首页](./pictures/witChainD/回到首页.png)
+![回到首页](./pictures/witchaind/return_to_homepage.png)
 
 再点击导出资产
 
-![导出资产界面](./pictures/witChainD/导出资产界面.png)
+![导出资产界面](./pictures/witchaind/export_assets_interface.png)
 
 显示资产正在导出中，如下图所示：
 
-![正在导出界面](./pictures/witChainD/正在导出界面.png)
+![正在导出界面](./pictures/witchaind/exporting_interface.png)
 
 导出成功点击下载，显示下载成功
 
-![导出成功](./pictures/witChainD/导出成功.png)
+![导出成功](./pictures/witchaind/export_successful.png)

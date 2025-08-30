@@ -1,87 +1,87 @@
-# witChainD 使用指南——知识库管理
+# witChainD User Guide - Knowledge Base Management
 
-完成 witChainD 部署之后，即可使用 witChainD 进行知识库管理管理。
+After completing the witChainD deployment, you can use witChainD for knowledge base management.
 
-下文会从页面的维度进行 witChainD 的功能介绍。
+The following sections will introduce witChainD's functionality from a page perspective.
 
-## 1. 资产库管理界面
+## 1. Asset Library Management Interface
 
-该页面为资产库管理界面，用户登录后将会进入该界面。
+This page is the asset library management interface, which users will enter after logging in.
 
-![资产库管理界面](./pictures/资产库管理界面.png)
+![Asset Library Management Interface](./pictures/asset_library_management_interface.png)
 
-**支持操作：**
+**Supported Operations:**
 
-- 配置模型：点击右上角的设置按键，可以修改模型相关的配置。
+- Configure Models: Click the settings button in the upper right corner to modify model-related configurations.
 
-  ![模型配置](./pictures/模型配置.png)
+  ![Model Configuration](./pictures/model_configuration.png)
 
-- 新增资产库：点击新建资产库按钮新建，支持自定义名称、描述、语言、嵌入模型、解析方法、文件分块大小、文档类别。注意：重复名称会自动将名称修改成资产库id。
+- Create New Asset Library: Click the "New Asset Library" button to create a new one, supporting custom name, description, language, embedding model, parsing method, file chunk size, and document category. Note: Duplicate names will automatically be modified to the asset library ID.
 
-  ![新增资产库](./pictures/新增资产库.png)
+  ![Create New Asset Library](./pictures/create_new_asset_library.png)
 
-- 编辑资产库：点击资产库的编辑按钮编辑，支持修改名称、描述、语言、解析方法、文件分块大小、文档类别。注意：不能修改成重复名称。
+- Edit Asset Library: Click the edit button of the asset library to edit, supporting modification of name, description, language, parsing method, file chunk size, and document category. Note: Cannot be modified to duplicate names.
 
-  ![编辑资产库](./pictures/编辑资产库0.png)
+  ![Edit Asset Library](./pictures/edit_asset_library_0.png)
 
-  ![编辑资产库](./pictures/编辑资产库.png)
+  ![Edit Asset Library](./pictures/edit_asset_library.png)
 
-- 导出资产库：点击资产库的导出按钮导出，导出完成后需要按任务列表中的下载任务下载对应资产库到本地。
+- Export Asset Library: Click the export button of the asset library to export. After export completion, you need to download the corresponding asset library to local according to the download task in the task list.
+
+  ![Export Asset Library](./pictures/export_asset_library.png)
+
+- Batch Import Asset Libraries: Click "Batch Import", upload local files and select them to import.
+
+  ![Batch Import Asset Libraries](./pictures/batch_import_asset_libraries.png)
+
+- Search Asset Libraries: Type text in the search bar to search for asset libraries whose names contain the corresponding text.
+
+## 2. Document Management Interface
+
+Click on the corresponding asset library in the asset management interface to enter the document management interface.
+
+![Document Management Interface](./pictures/document_management_interface.png)
+
+**Supported Operations:**
+
+- Import Documents: Click "Import Documents" to upload files from local for import. After import, parsing will automatically start with the default configuration of that asset library.
+
+  ![Import Documents](./pictures/import_documents.png)
+
+- Parse Documents: Click "Parse" in the operations to parse the document. You can also select multiple documents for batch parsing.
+
+  ![Document Parsing](./pictures/document_parsing.png)
   
-  ![导出资产库](./pictures/导出资产库.png)
-
-- 批量导入资产库：点击批量导入，上传本地文件后选中即可导入。
-
-  ![批量导入资产库](./pictures/批量导入资产库.png)
-
-- 搜索资产库：在搜索栏中键入文本，可以搜索得到名称包含对应文本的资产库。
-
-## 2. 文档管理界面
-
-在资产管理界面点击对应资产库，可以进入文档管理界面。
-
-![文档管理界面](./pictures/文档管理界面.png)
-
-**支持操作：**
-
-- 导入文档：点击导入文档，从本地上传文件导入，导入后会自动以该资产库默认配置开始解析。
-
-  ![导入文档](./pictures/导入文档.png)
-
-- 解析文档：点击操作中的解析，对文档进行解析。也可以选中多个文档批量解析。
-
-  ![文档解析](./pictures/文档解析.png)
+  ![Document Parsing 2](./pictures/document_parsing_2.png)
   
-  ![文档解析2](./pictures/文档解析2.png)
-  
-  ![解析完成](./pictures/解析完成.png)
+  ![Parsing Complete](./pictures/parsing_complete.png)
 
-- 编辑文档配置：点击编辑对文档配置进行编辑，支持编辑文档名称、解析方法、类别、文件分块大小。
+- Edit Document Configuration: Click "Edit" to edit document configuration, supporting editing of document name, parsing method, category, and file chunk size.
 
-  ![编辑文档配置](./pictures/编辑文档配置.png)
+  ![Edit Document Configuration](./pictures/edit_document_configuration.png)
 
-- 下载文档：点击下载即可将文档下载至本地，也可以选中多个文档批量下载。
+- Download Documents: Click download to download documents to local, or select multiple documents for batch download.
 
-- 删除文档：点击删除即可将文档从资产库中删除，也可以选中多个文档批量删除。
+- Delete Documents: Click delete to remove documents from the asset library, or select multiple documents for batch deletion.
 
-- 搜索文档：点击文档名称旁的搜索键，在弹出的搜索框中键入搜索的文本，可以搜索得到名称包含这些文本的文档。
+- Search Documents: Click the search key next to the document name, type the search text in the popup search box to search for documents whose names contain that text.
 
-  ![搜索文档](./pictures/搜索文档.png)
+  ![Search Documents](./pictures/search_documents.png)
 
-- 编辑资产库配置：支持编辑资产库名称、描述、语言、默认解析方法、文件分块大小、文档信息类别。
+- Edit Asset Library Configuration: Supports editing asset library name, description, language, default parsing method, file chunk size, and document information category.
 
-  ![编辑资产库配置](./pictures/编辑资产库配置.png)
+  ![Edit Asset Library Configuration](./pictures/edit_asset_library_configuration.png)
 
-## 3. 解析结果管理界面
+## 3. Parsing Result Management Interface
 
-点击解析完成的文档，可以进入文档的解析结果管理界面。界面中会按照顺序显示文档解析后的文本块内容预览，每个文本块会附带一个标签，表示该文本块中的信息来源于文档中的段落、列表或者是图片。右侧的开关表示该文本块是否被启用。
+Click on a parsed document to enter the document's parsing result management interface. The interface displays text block content previews after document parsing in order, with each text block accompanied by a tag indicating whether the information in that text block comes from paragraphs, lists, or images in the document. The switch on the right indicates whether that text block is enabled.
 
-![文本块结果预览](./pictures/文本块结果预览.png)
+![Text Block Result Preview](./pictures/text_block_result_preview.png)
 
-**支持操作**：
+**Supported Operations:**
 
-- 关闭/启用文本块：点击文本块右侧的开关即可关闭/启用对应文本块，也可以选中多个文本块批量关闭/启用。
+- Disable/Enable Text Blocks: Click the switch on the right side of the text block to disable/enable the corresponding text block, or select multiple text blocks for batch disable/enable.
 
-  ![批量启用](./pictures/批量启用.png)
+  ![Batch Enable](./pictures/batch_enable.png)
 
-- 搜索文本块：在搜索框中键入内容，可以查找包含对应内容的文本块。
+- Search Text Blocks: Type content in the search box to find text blocks containing the corresponding content.

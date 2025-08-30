@@ -1,122 +1,122 @@
-# 本地资产库构建指南
+# Local Asset Library Construction Guide
 
-本平台设计的目的为了为企业（用户）提供一个可视化入口实现对本地文档资产的管理，功能方面分为以下几个部分：
+This platform is designed to provide enterprises (users) with a visual entry point to manage local document assets. The functionality is divided into the following sections:
 
-- 用户管理：
+- User Management:
   
-  您可以通过账号登入witchainD平台并在平台配置大模型，为后续某些文档解析模式提供能力。
-- 资产管理
+  You can log into the witchainD platform with your account and configure large models on the platform to provide capabilities for certain document parsing modes.
+- Asset Management
   
-  通过指定资产名称、资产简介、资产默认解析方法、资产默认分块大小和embedding模型等条目创建、删除、导入资产、编辑资产或资产信息
-- 文档管理
-  - 支持用户上传限定大小和限定数量的文件，也允许用户下载自己上传的文件，用户可以通过点击资产卡片的形式进入资产，此时文档以条目的形式展示。
-  - 支持txt、md、xlsx、docx和doc以及pdf文档的文档解析
-  - 文档解析方式有三种general、ocr和enhanced模式，general模式下只提取文字和表格，ocr模式下不仅提取文字和表格嗨提取部分文档的图片内容，enhanced在ocr的基础上对图片中提取的内容进行总结。
+  Create, delete, import assets, edit assets or asset information by specifying asset name, asset description, asset default parsing method, asset default chunk size, and embedding model.
+- Document Management
+  - Support users to upload files with limited size and quantity, and also allow users to download their uploaded files. Users can enter assets by clicking on asset cards, where documents are displayed as entries.
+  - Support document parsing for txt, md, xlsx, docx, doc, and pdf documents
+  - There are three document parsing methods: general, ocr, and enhanced modes. In general mode, only text and tables are extracted. In ocr mode, not only text and tables are extracted, but also image content from some documents. Enhanced mode summarizes the extracted content from images based on ocr.
 
-- 文档解析结果管理：
+- Document Parsing Result Management:
   
-  通过指定chunk的类别和关键字过滤目标chunk或者可以指定chunk是否启用，来评判或消除chunk对检索造成的影响。
-- 任务管理
+  Evaluate or eliminate the impact of chunks on retrieval by specifying chunk categories and keywords to filter target chunks, or by specifying whether chunks are enabled.
+- Task Management
   
-  查看当前导入导出资产和文档解析任务的状态、取消或移除导入导出资产库和文档解析任务
-- 检索增强：
+  View the status of current import/export asset and document parsing tasks, cancel or remove import/export asset libraries and document parsing tasks
+- Retrieval Enhancement:
   
-  本平台最终解析的结果通过向量化、关键字的形式对外呈现检索结果，也提供了token压缩和问题补全等技术增强结果命中的概率，也使用了上下文随机关联的形式补全检索结果。
+  The final parsing results of this platform are presented externally in the form of vectorization and keywords. It also provides technologies such as token compression and question completion to enhance the probability of result hits, and uses random contextual association to complete retrieval results.
 
-## 登录管理平台
+## Login Management Platform
 
-请在浏览器中输入 `https://$(wichaind域名)`访问 EulerCopilot 的 WitChainD 网页,
-登入界面如下，输入账号(admin)、密码(123456)点击登录按钮登录系统。
+Please enter `https://$(wichaind domain)` in your browser to access EulerCopilot's WitChainD web page.
+The login interface is as follows. Enter your account (admin) and password (123456), then click the login button to access the system.
 
-![witchaind登录界面](./pictures/witChainD/witchaind登录界面.png)
+![witchaind login interface](./pictures/witchaind/witchaind_login_interface.png)
 
-## 新建资产
+## Create New Asset
 
-### 1. 查看资产库
+### 1. View Asset Library
 
-进入资产卡片显示页面，卡片展示了资产的名称、简介、文档篇数、创建时间和资产ID。
+Enter the asset card display page. The cards show the asset name, description, number of documents, creation time, and asset ID.
 
-![查看资产库界面](./pictures/witChainD/查看资产库界面.png)
+![View asset library interface](./pictures/witchaind/view_asset_library_interface.png)
 
-可通过红框中的按钮将卡片展示的资产转换为条目显示。
+You can convert the assets displayed as cards to entry display through the button in the red box.
 
-### 2. 新建资产库
+### 2. Create New Asset Library
 
-点击新建资产，会跳出资产信息配置的框图
+Click "Create New Asset" to bring up the asset information configuration dialog.
 
-![新建资产库界面](./pictures/witChainD/新建资产库界面.png)
+![Create new asset library interface](./pictures/witchaind/create_new_asset_library_interface.png)
 
-填写资产库名称、资产库描述（可选）、语言、嵌入模型、默认解析方法和默认文件分块大小后，点击确定。
-![新建资产库填写展示界面](./pictures/witChainD/新建资产库填写展示界面.png)
+Fill in the asset library name, asset library description (optional), language, embedding model, default parsing method, and default file chunk size, then click OK.
+![Create new asset library fill display interface](./pictures/witchaind/create_new_asset_library_fill_display_interface.png)
 
-资产库建立完毕之后会显示是否添加文档，点击确定
+After the asset library is created, it will ask whether to add documents. Click OK.
 
-![资产库创建完成界面](./pictures/witChainD/资产库创建完成界面.png)
+![Asset library creation completed interface](./pictures/witchaind/asset_library_creation_completed_interface.png)
 
-点击确定完成后进入资产库
+Click OK to complete and enter the asset library.
 
-![资产库创建完成界面](./pictures/witChainD/进入资产库界面.png)
+![Asset library creation completed interface](./pictures/witchaind/enter_asset_library_interface.png)
 
-## 导入文档
+## Import Documents
 
-### 单次导入
+### Single Import
 
-点击导入文档按钮跳出文档上传框，选择本地文件并勾选进行上传
+Click the "Import Document" button to bring up the document upload dialog. Select local files and check them for upload.
 
-![导入文档界面](./pictures/witChainD/导入文档界面.png)
+![Import document interface](./pictures/witchaind/import_document_interface.png)
 
-![选择文件](./pictures/witChainD/选择文件.png)
+![Select file](./pictures/witchaind/select_file.png)
 
-### 批量导入
+### Batch Import
 
-点击1批量导入资产，2选择本地资产，3勾选本地资产，最后点击确定进行资产导入。
+Click 1 "Batch Import Assets", 2 "Select Local Assets", 3 "Check Local Assets", and finally click OK to import assets.
 
-![批量导入界面](./pictures/witChainD/批量导入界面.png)
+![Batch import interface](./pictures/witchaind/batch_import_interface.png)
 
-资产导入中
+Assets importing.
 
-![批量正在导入界面](./pictures/witChainD/批量正在导入界面.png)
+![Batch importing interface](./pictures/witchaind/batch_importing_interface.png)
 
-资产导入成功
+Asset import successful.
 
-![批量导入成功界面](./pictures/witChainD/批量导入成功界面.png)
+![Batch import successful interface](./pictures/witchaind/batch_import_successful_interface.png)
 
-## 解析文档
+## Parse Documents
 
-等待解析中，点击取消可以停止文档解析。
+Waiting for parsing. Click cancel to stop document parsing.
 
-![解析中界面](./pictures/witChainD/解析中界面.png)
+![Parsing interface](./pictures/witchaind/parsing_interface.png)
 
-解析完成后，解析状态会显示解析成功。
+After parsing is completed, the parsing status will show "Parse Successful".
 
-![解析成功界面](./pictures/witChainD/解析成功界面.png)
+![Parse successful interface](./pictures/witchaind/parse_successful_interface.png)
 
-文档解析方式有三种general、ocr和enhanced模式，请根据需要选择合适的文档解析方法
+There are three document parsing methods: general, ocr, and enhanced modes. Please choose the appropriate document parsing method according to your needs.
 
-![解析方法选择界面](./pictures/witChainD/解析方法选择界面.png)
+![Parsing method selection interface](./pictures/witchaind/parsing_method_selection_interface.png)
 
-解析完毕可以通过点击文件名进入文档解析结果展示详情，可以查看文档解析结果，如下图所示：
+After parsing is complete, you can click on the filename to enter the document parsing result display details. You can view the document parsing results as shown in the figure below:
 
-![解析详情界面](./pictures/witChainD/解析详情界面.png)
+![Parse details interface](./pictures/witchaind/parse_details_interface.png)
 
-可以通过1过滤文档解析的片段、表格和图片等内容，通过2可以通过关键字检索模糊检索对应的片段，通过3可以设定是否在检索中是否启用片段，如下图所示：
+You can filter document parsing fragments, tables, and images through 1, search for corresponding fragments through keywords with fuzzy search through 2, and set whether to enable fragments in retrieval through 3, as shown in the figure below:
 
-![解析结果过滤界面](./pictures/witChainD/解析结果过滤界面.png)
+![Parse result filter interface](./pictures/witchaind/parse_result_filter_interface.png)
 
-## 导出资产
+## Export Assets
 
-点击回到首页
+Click "Return to Homepage".
 
-![回到首页](./pictures/witChainD/回到首页.png)
+![Return to homepage](./pictures/witchaind/return_to_homepage.png)
 
-再点击导出资产
+Then click "Export Assets".
 
-![导出资产界面](./pictures/witChainD/导出资产界面.png)
+![Export assets interface](./pictures/witchaind/export_assets_interface.png)
 
-显示资产正在导出中，如下图所示：
+Shows that assets are being exported, as shown in the figure below:
 
-![正在导出界面](./pictures/witChainD/正在导出界面.png)
+![Exporting interface](./pictures/witchaind/exporting_interface.png)
 
-导出成功点击下载，显示下载成功
+Export successful. Click download to show download success.
 
-![导出成功](./pictures/witChainD/导出成功.png)
+![Export successful](./pictures/witchaind/export_successful.png)
