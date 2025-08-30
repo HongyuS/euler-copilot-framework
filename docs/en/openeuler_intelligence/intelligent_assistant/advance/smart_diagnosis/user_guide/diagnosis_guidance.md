@@ -1,50 +1,50 @@
-# 智能插件：智能诊断
+# Smart Plugin: Intelligent Diagnosis
 
-部署智能诊断工具后，可以通过 EulerCopilot 智能体框架实现对本机进行诊断。
-在智能诊断模式提问，智能体框架服务可以调用本机的诊断工具诊断异常状况、分析并生成报告。
+After deploying the intelligent diagnosis tool, you can use the EulerCopilot intelligent agent framework to perform diagnostics on your local machine.
+In intelligent diagnosis mode, the intelligent agent framework service can call local diagnostic tools to diagnose abnormal conditions, analyze them, and generate reports.
 
-## 操作步骤
+## Operation Steps
 
-**步骤1** 切换到“智能插件”模式
+**Step 1** Switch to "Smart Plugin" mode
 
 ```bash
 copilot -p
 ```
 
-![切换到智能插件模式](./pictures/shell-plugin-diagnose-switch-mode.png)
+![Switch to Smart Plugin Mode](./pictures/shell-plugin-diagnose-switch-mode.png)
 
-**步骤2** 异常事件检测
-
-```bash
-帮我进行异常事件检测
-```
-
-按下 `Ctrl + O` 键提问，然后在插件列表中选择“智能诊断”。
-
-![异常事件检测](./pictures/shell-plugin-diagnose-detect.png)
-
-**步骤3** 查看异常事件详情
+**Step 2** Abnormal Event Detection
 
 ```bash
-查看 XXX 容器的异常事件详情
+Help me perform abnormal event detection
 ```
 
-![查看异常事件详情](./pictures/shell-plugin-diagnose-detail.png)
+Press `Ctrl + O` to ask a question, then select "Intelligent Diagnosis" from the plugin list.
 
-**步骤4** 执行异常事件分析
+![Abnormal Event Detection](./pictures/shell-plugin-diagnose-detect.png)
+
+**Step 3** View Abnormal Event Details
 
 ```bash
-请对 XXX 容器的 XXX 指标执行 profiling 分析
+View abnormal event details for XXX container
 ```
 
-![异常事件分析](./pictures/shell-plugin-diagnose-profiling.png)
+![View Abnormal Event Details](./pictures/shell-plugin-diagnose-detail.png)
 
-**步骤5** 查看异常事件分析报告
-
-等待 5 至 10 分钟，然后查看分析报告。
+**Step 4** Execute Abnormal Event Analysis
 
 ```bash
-查看 <profiling-id> 对应的 profiling 报告
+Please perform profiling analysis on XXX metrics for XXX container
 ```
 
-![执行优化脚本](./pictures/shell-plugin-diagnose-report.png)
+![Abnormal Event Analysis](./pictures/shell-plugin-diagnose-profiling.png)
+
+**Step 5** View Abnormal Event Analysis Report
+
+Wait 5 to 10 minutes, then view the analysis report.
+
+```bash
+View the profiling report corresponding to <profiling-id>
+```
+
+![Execute Optimization Script](./pictures/shell-plugin-diagnose-report.png)
