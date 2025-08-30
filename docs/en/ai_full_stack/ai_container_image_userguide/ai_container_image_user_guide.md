@@ -26,7 +26,7 @@ Here, `image` is the repository name, such as `openeuler/cann`, and `tag` is the
 
 ## Start a Container
 
-1. Install `docker` in your environment. Refer to the official guide [Install Docker Engine](https://docs.docker.com/engine/install/), or install directly with the following commands:
+1. Install `docker` in your environment. Refer to the official guide `https://docs.docker.com/engine/install/`, or install directly with the following commands:
 
     ```sh
     yum install -y docker

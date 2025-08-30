@@ -26,7 +26,7 @@ docker pull image:tag
 
 ## 启动容器
 
-1. 在环境中安装`docker`，官方安装方法见[Install Docker Engine](https://docs.docker.com/engine/install/)，也可直接通过如下命令进行安装。
+1. 在环境中安装`docker`，官方安装方法见 `https://docs.docker.com/engine/install/`，也可直接通过如下命令进行安装。
 
     ```sh
     yum install -y docker
