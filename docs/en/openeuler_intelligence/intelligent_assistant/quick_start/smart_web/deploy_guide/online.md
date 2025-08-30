@@ -64,8 +64,8 @@ This guide provides deployment instructions for the EulerCopilot intelligent ass
 
 Prepare the following two service domains:
 
-- AuthHub authentication service: <authhub.eulercopilot.local>
-- EulerCopilot web service: <www.eulercopilot.local>
+- AuthHub authentication service: `authhub.eulercopilot.local`
+- EulerCopilot web service: `www.eulercopilot.local`
 
 ```bash
 # Configure in local Windows host
