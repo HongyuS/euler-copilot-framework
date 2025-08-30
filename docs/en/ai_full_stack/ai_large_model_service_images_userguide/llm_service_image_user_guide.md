@@ -1,4 +1,4 @@
-# Containerized Packaging for AI Large Models Supporting Baichuan, ChatGLM, Spark, etc.
+# Containerized Packaging for AI Large Models Supporting Baichuan, ChatGLM, Spark
 
 Pre-configured with relevant dependencies, available in both CPU and GPU versions to lower the barrier to use and enable out-of-the-box deployment.
 

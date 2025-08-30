@@ -8,8 +8,8 @@ EulerCopilot 命令行助手是一个命令行（Shell）AI 助手，您可以�
 
 - 操作系统：openEuler 22.03 LTS SP3，或者 openEuler 24.03 LTS 及以上版本
 - 命令行软件：
-    - Linux 桌面环境：支持 GNOME、KDE、DDE 等桌面环境的内置终端
-    - 远程 SSH 链接：支持兼容 xterm-256 与 UTF-8 字符集的终端
+  - Linux 桌面环境：支持 GNOME、KDE、DDE 等桌面环境的内置终端
+  - 远程 SSH 链接：支持兼容 xterm-256 与 UTF-8 字符集的终端
 
 ## 安装
 

@@ -40,7 +40,7 @@ Here, `image` is the repository name, such as `openeuler/cann`, and `tag` is the
 
 2. For NVIDIA environments, install `nvidia-container` components.
 
-    1) Configure yum or apt repositories
+    (1) Configure yum or apt repositories
     - For yum-based systems, run:
 
     ```sh
@@ -60,7 +60,7 @@ Here, `image` is the repository name, such as `openeuler/cann`, and `tag` is the
     sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
     ```
 
-    2) Install `nvidia-container-toolkit` and `nvidia-container-runtime`:
+    (2) Install `nvidia-container-toolkit` and `nvidia-container-runtime`:
 
     ```sh
     # yum installation
@@ -72,7 +72,7 @@ Here, `image` is the repository name, such as `openeuler/cann`, and `tag` is the
     apt-get install -y nvidia-container-toolkit nvidia-container-runtime
     ```
 
-    3) Configure Docker
+    (3) Configure Docker
 
     ```sh
     nvidia-ctk runtime configure --runtime=docker
