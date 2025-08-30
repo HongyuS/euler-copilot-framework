@@ -56,7 +56,7 @@ This guide provides system deployment instructions for the EulerCopilot intellig
 
 ### Deployment View
 
-![Deployment Diagram](./pictures/development-overview.png)
+![Deployment Diagram](./pictures/deployment-overview.png)
 
 ---
 

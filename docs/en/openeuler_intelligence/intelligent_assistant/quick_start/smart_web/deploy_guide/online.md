@@ -1,89 +1,89 @@
-# **EulerCopilot 智能助手部署指南**
+# **EulerCopilot Intelligent Assistant Deployment Guide**
 
-版本信息
-当前版本：v0.9.5
-更新日期：2025年4月1日
+Version Information
+Current Version: v0.9.5
+Update Date: April 1, 2025
 
-## 产品概述
+## Product Overview
 
-EulerCopilot 是一款智能问答工具，使用 EulerCopilot 可以解决操作系统知识获取的便捷性，并且为OS领域模型赋能开发者及运维人员。作为获取操作系统知识，使能操作系统生产力工具 (如 A-Ops / A-Tune / x2openEuler / EulerMaker / EulerDevOps / StratoVirt / iSulad 等)，颠覆传统命令交付方式，由传统命令交付方式向自然语义进化，并结合智能体任务规划能力，降低开发、使用操作系统特性的门槛。
+EulerCopilot is an intelligent Q&A tool that uses EulerCopilot to solve the convenience of operating system knowledge acquisition and empowers developers and operations personnel with OS domain models. As a tool for acquiring operating system knowledge and enabling operating system productivity tools (such as A-Ops / A-Tune / x2openEuler / EulerMaker / EulerDevOps / StratoVirt / iSulad, etc.), it subverts traditional command delivery methods, evolving from traditional command delivery methods to natural semantics, and combines intelligent agent task planning capabilities to lower the threshold for developing and using operating system features.
 
-本指南提供基于自动化脚本的EulerCopilot智能助手系统部署说明，支持一键自动部署和手动分步部署两种方式。
+This guide provides deployment instructions for the EulerCopilot intelligent assistant system based on automated scripts, supporting both one-click automatic deployment and manual step-by-step deployment.
 
-### 组件介绍
+### Component Introduction
 
-| 组件                          | 端口            | 说明                  |
+| Component                          | Port            | Description                  |
 | ----------------------------- | --------------- | -------------------- |
-| euler-copilot-framework       | 8002 (内部端口) | 智能体框架服务         |
-| euler-copilot-web             | 8080            | 智能体前端界面        |
-| euler-copilot-rag             | 9988 (内部端口) | 检索增强服务           |
-| authhub-backend-service       | 11120 (内部端口) | 鉴权服务后端          |
-| authhub-web-service           | 8000            | 鉴权服务前端          |
-| mysql                         | 3306 (内部端口) | MySQL数据库           |
-| redis                         | 6379 (内部端口) | Redis数据库           |
-| minio                         | 9000 (内部端口) 9001(外部部端口) | minio数据库       |
-| mongo                         | 27017 (内部端口)         | mongo数据库           |
-| postgres                      | 5432 (内部端口) | 向量数据库             |
-| secret_inject                 | 无              | 配置文件安全复制工具   |
+| euler-copilot-framework       | 8002 (internal port) | Intelligent agent framework service         |
+| euler-copilot-web             | 8080            | Intelligent agent frontend interface        |
+| euler-copilot-rag             | 9988 (internal port) | Retrieval enhancement service           |
+| authhub-backend-service       | 11120 (internal port) | Authentication service backend          |
+| authhub-web-service           | 8000            | Authentication service frontend          |
+| mysql                         | 3306 (internal port) | MySQL database           |
+| redis                         | 6379 (internal port) | Redis database           |
+| minio                         | 9000 (internal port) 9001(external port) | MinIO database       |
+| mongo                         | 27017 (internal port)         | MongoDB database           |
+| postgres                      | 5432 (internal port) | Vector database             |
+| secret_inject                 | None              | Configuration file secure copy tool   |
 
-### 软件要求
+### Software Requirements
 
-|     类型        |      版本要求                         |  说明                                |
+|     Type        |      Version Requirements                         |  Description                                |
 |----------------| -------------------------------------|--------------------------------------|
-| 操作系统    | openEuler 22.03 LTS 及以上版本         | 无                                   |
-| K3s        | >= v1.30.2，带有 Traefik Ingress 工具   | K3s 提供轻量级的 Kubernetes 集群，易于部署和管理 |
-| Helm       | >= v3.15.3                           | Helm 是一个 Kubernetes 的包管理工具，其目的是快速安装、升级、卸载 EulerCopilot 服务 |
-| python     | >=3.9.9                              | python3.9.9 以上版本为模型的下载和安装提供运行环境 |
+| Operating System    | openEuler 22.03 LTS and above         | None                                   |
+| K3s        | >= v1.30.2, with Traefik Ingress tools   | K3s provides a lightweight Kubernetes cluster that is easy to deploy and manage |
+| Helm       | >= v3.15.3                           | Helm is a Kubernetes package management tool designed to quickly install, upgrade, and uninstall EulerCopilot services |
+| Python     | >=3.9.9                              | Python 3.9.9 and above provides the runtime environment for model download and installation |
 
 ---
 
-### 硬件规格
+### Hardware Specifications
 
-| 硬件资源      |  最小配置                  |    推荐配置               |
+| Hardware Resource      |  Minimum Configuration                  |    Recommended Configuration               |
 |--------------|----------------------------|------------------------------|
-| CPU          | 4 核心                     | 16 核心及以上                 |
+| CPU          | 4 cores                     | 16 cores and above                 |
 | RAM          | 4 GB                       | 64 GB                        |
-| 存储         | 32 GB                      | 64G                         |
-| 大模型名称    | deepseek-llm-7b-chat      | DeepSeek-R1-Llama-8B        |
-| 显存 (GPU)   |  NVIDIA RTX A4000 8GB   | NVIDIA A100 80GB * 2         |
+| Storage         | 32 GB                      | 64G                         |
+| Large Model Name    | deepseek-llm-7b-chat      | DeepSeek-R1-Llama-8B        |
+| VRAM (GPU)   |  NVIDIA RTX A4000 8GB   | NVIDIA A100 80GB * 2         |
 
-**关键说明**：
+**Key Notes**:
 
-- 纯CPU环境，建议通过调用 OpenAI 接口或使用自带的模型部署方式来实现功能。
-- 如果k8s集群环境，则不需要单独安装k3s，要求version >= 1.28
-
----
-
-### 部署视图
-
-![部署图](./pictures/部署视图.png)
+- For pure CPU environments, it is recommended to implement functionality by calling OpenAI interfaces or using the built-in model deployment method.
+- If it's a k8s cluster environment, there's no need to install k3s separately, requiring version >= 1.28
 
 ---
 
-### 域名配置
+### Deployment View
 
-需准备以下两个服务域名：
+![Deployment Diagram](./pictures/deployment-overview.png)
 
-- authhub认证服务：authhub.eulercopilot.local
-- EulerCopilot web服务：www.eulercopilot.local
+---
+
+### Domain Configuration
+
+Prepare the following two service domains:
+
+- AuthHub authentication service: <authhub.eulercopilot.local>
+- EulerCopilot web service: <www.eulercopilot.local>
 
 ```bash
-# 本地Windows主机中进行配置
-# 打开 C:\Windows\System32\drivers\etc\hosts 添加记录
-# 替换127.0.0.1为目标服务器的IP
+# Configure in local Windows host
+# Open C:\Windows\System32\drivers\etc\hosts to add records
+# Replace 127.0.0.1 with the target server's IP
 127.0.0.1 authhub.eulercopilot.local
 127.0.0.1 www.eulercopilot.local
 ```
 
-## 快速开始
+## Quick Start
 
-### 1. 获取部署脚本
+### 1. Get Deployment Scripts
 
-- 从 EulerCopilot 的官方Git仓库 [euler-copilot-framework](https://gitee.com/openeuler/euler-copilot-framework) 下载最新的部署仓库
-- 如果您正在使用 Kubernetes，则不需要安装 k3s 工具。
+- Download the latest deployment repository from EulerCopilot's official Git repository [euler-copilot-framework](https://gitee.com/openeuler/euler-copilot-framework)
+- If you are using Kubernetes, there's no need to install the k3s tool.
 
 ```bash
-# 下载目录以 home 为例
+# Use home directory as download example
 cd /home
 ```
 
@@ -96,13 +96,13 @@ cd euler-copilot-framework/deploy/scripts
 ```
 
 ```bash
-# 为脚本文件添加可执行权限
+# Add executable permissions to script files
 chmod -R +x ./*
 ```
 
-### 2. 部署EulerCopilot
+### 2. Deploy EulerCopilot
 
-#### **一键部署**
+#### **One-Click Deployment**
 
 ```bash
 cd /home/euler-copilot-framework/deploy/scripts
@@ -113,65 +113,65 @@ bash deploy.sh
 ```
 
 ```bash
-# 输入0进行一键自动部署
+# Enter 0 for one-click automatic deployment
 ==============================
-        主部署菜单
+        Main Deployment Menu
 ==============================
-0) 一键自动部署
-1) 手动分步部署
-2) 重启服务
-3) 卸载所有组件并清除数据
-4) 退出程序
+0) One-Click Automatic Deployment
+1) Manual Step-by-Step Deployment
+2) Restart Services
+3) Uninstall All Components and Clear Data
+4) Exit Program
 ==============================
-请输入选项编号（0-3）: 0
+Please enter option number (0-3): 0
 ```
 
 ---
 
-#### **分步部署**
+#### **Step-by-Step Deployment**
 
 ```bash
-# 选择1 -> 1 进入手动分步部署
+# Select 1 -> 1 to enter manual step-by-step deployment
 ==============================
-        主部署菜单
+        Main Deployment Menu
 ==============================
-0) 一键自动部署
-1) 手动分步部署
-2) 重启服务
-3) 卸载所有组件并清除数据
-4) 退出程序
+0) One-Click Automatic Deployment
+1) Manual Step-by-Step Deployment
+2) Restart Services
+3) Uninstall All Components and Clear Data
+4) Exit Program
 ==============================
-请输入选项编号（0-3）: 1
+Please enter option number (0-3): 1
 ```
 
 ```bash
-# 输入选项编号（0-9），逐步部署
+# Enter option number (0-9) to deploy step by step
 ==============================
-       手动分步部署菜单
+       Manual Step-by-Step Deployment Menu
 ==============================
-1) 执行环境检查脚本
-2) 安装k3s和helm
-3) 安装Ollama
-4) 部署Deepseek模型
-5) 部署Embedding模型
-6) 安装数据库
-7) 安装AuthHub
-8) 安装EulerCopilot
-9) 返回主菜单
+1) Execute Environment Check Script
+2) Install k3s and helm
+3) Install Ollama
+4) Deploy Deepseek Model
+5) Deploy Embedding Model
+6) Install Databases
+7) Install AuthHub
+8) Install EulerCopilot
+9) Return to Main Menu
 ==============================
-请输入选项编号（0-9）:
+Please enter option number (0-9):
 ```
 
 ---
 
-#### **重启服务**
+#### **Restart Services**
 
 ```bash
-# 输入选项重启服务
+# Enter option to restart services
 ==============================
-        服务重启菜单
+        Service Restart Menu
 ==============================
-可重启的服务列表：
+List of services that can be restarted:
 1) authhub-backend
 2) authhub
 3) framework
@@ -183,46 +183,46 @@ bash deploy.sh
 9) rag-web
 10) redis
 11) web
-12) 返回主菜单
+12) Return to Main Menu
 ==============================
-请输入要重启的服务编号（1-12）:
+Please enter the service number to restart (1-12):
 ```
 
-#### **卸载所有组件**
+#### **Uninstall All Components**
 
 ```bash
 sudo ./deploy.sh
-# 选择2进行完全卸载
+# Select 2 for complete uninstallation
 ==============================
-        主部署菜单
+        Main Deployment Menu
 ==============================
-0) 一键自动部署
-1) 手动分步部署
-2) 卸载所有组件并清除数据
-3) 退出程序
+0) One-Click Automatic Deployment
+1) Manual Step-by-Step Deployment
+2) Uninstall All Components and Clear Data
+3) Exit Program
 ==============================
-请输入选项编号（0-3）: 2
+Please enter option number (0-3): 2
 ```
 
 ---
 
-**关键说明**：
+**Key Notes**:
 
-- 在部署过程中，您需要输入 Authhub 域名和 EulerCopilot 域名, 不输入则使用默认域名`authhub.eulercopilot.local`, `www.eulercopilot.local`。
-- 资源不足时可参考 FAQ 中的评估资源可用性解决
-- 查看组件日志
+- During deployment, you need to enter the AuthHub domain and EulerCopilot domain. If not entered, the default domains `authhub.eulercopilot.local` and `www.eulercopilot.local` will be used.
+- When resources are insufficient, refer to the FAQ section for solutions on evaluating resource availability
+- View component logs
 
 ```bash
-kubectl logs <pod名称> -n euler-copilot
+kubectl logs <pod-name> -n euler-copilot
 ```
 
-- 查看服务状态
+- View service status
 
 ```bash
 kubectl get pod -n euler-copilot
 ```
 
-- 大模型配置修改并更新EulerCopilot
+- Modify large model configuration and update EulerCopilot
 
 ```bash
 cd /home/euler-copilot-framework/deploy/chart/euler-copilot
@@ -236,37 +236,37 @@ vim values.yaml
 helm upgrade euler-copilot -n euler-copilot .
 ```
 
-## 验证安装
+## Verify Installation
 
-恭喜您，**EulerCopilot** 已成功部署！为了开始您的体验，请在浏览器中输入 `https://您的EulerCopilot域名` 链接访问 EulerCopilot 的网页界面：
+Congratulations! **EulerCopilot** has been successfully deployed! To start your experience, please enter the link `https://your-eulercopilot-domain` in your browser to access the EulerCopilot web interface:
 
-首次访问时，您需要点击页面上的 **立即注册** 按钮来创建一个新的账号，并完成登录过程。
+On your first visit, you need to click the **Register Now** button on the page to create a new account and complete the login process.
 
-![Web登录界面](./pictures/WEB登录界面.png)
-![Web 界面](./pictures/WEB界面.png)
+![Web Login Interface](./pictures/web-login.png)
+![Web Interface](./pictures/web.png)
 
-## 构建专有领域智能问答
+## Build Domain-Specific Intelligent Q&A
 
-点击知识库，可登录本地知识库管理页面，详细信息请参考文档 [本地资产库构建指南](../../../advance/knowledge_base/deploy_guide/witChainD_deployment.md)
-**知识库登录默认账号 `admin`, 密码 `123456`**
+Click on Knowledge Base to log into the local knowledge base management page. For detailed information, please refer to the document [Local Asset Library Construction Guide](../../../advance/knowledge_base/deploy_guide/witchaind_deployment.md)
+**Knowledge Base default login account: `admin`, password: `123456`**
 
 ---
 
-## 附录
+## Appendix
 
-### 大模型准备
+### Large Model Preparation
 
-#### GPU 环境
+#### GPU Environment
 
-可直接使用部署的deepseek大模型参考以下方式进行部署
+You can directly use the deployed deepseek large model. Refer to the following deployment method:
 
-1. 下载模型文件：
+1. Download model files:
 
    ```bash
    huggingface-cli download --resume-download Qwen/Qwen1.5-14B-Chat --local-dir Qwen1.5-14B-Chat
    ```
 
-2. 创建终端 control
+2. Create terminal control
 
    ```bash
    screen -S control
@@ -276,9 +276,9 @@ helm upgrade euler-copilot -n euler-copilot .
    python3 -m fastchat.serve.controller
    ```
 
-   按 Ctrl A+D 置于后台
+   Press Ctrl A+D to put it in the background
 
-3. 创建新终端 api
+3. Create new terminal api
 
    ```bash
    screen -S api
@@ -288,8 +288,8 @@ helm upgrade euler-copilot -n euler-copilot .
    python3 -m fastchat.serve.openai_api_server --host 0.0.0.0 --port 30000  --api-keys sk-123456
    ```
 
-   按 Ctrl A+D 置于后台
-   如果当前环境的 Python 版本是 3.12 或者 3.9 可以创建 python3.10 的 conda 虚拟环境
+   Press Ctrl A+D to put it in the background
+   If the current environment's Python version is 3.12 or 3.9, you can create a conda virtual environment with Python 3.10
 
    ```bash
    mkdir -p /root/py310
@@ -303,7 +303,7 @@ helm upgrade euler-copilot -n euler-copilot .
    conda activate /root/py310
    ```
 
-4. 创建新终端 worker
+4. Create new terminal worker
 
    ```bash
    screen -S worker
@@ -313,13 +313,13 @@ helm upgrade euler-copilot -n euler-copilot .
    screen -r worker
    ```
 
-   安装 fastchat 和 vllm
+   Install fastchat and vllm
 
    ```bash
    pip install fschat vllm
    ```
 
-   安装依赖：
+   Install dependencies:
 
    ```bash
    pip install fschat[model_worker]
@@ -329,161 +329,161 @@ helm upgrade euler-copilot -n euler-copilot .
    python3 -m fastchat.serve.vllm_worker --model-path /root/models/Qwen1.5-14B-Chat/ --model-name qwen1.5 --num-gpus 8 --gpu-memory-utilization=0.7 --dtype=half
    ```
 
-   按 Ctrl A+D 置于后台
+   Press Ctrl A+D to put it in the background
 
-5. 按照如下方式修改配置的大模型参数，并更新服务。
+5. Modify the configured large model parameters as follows and update the service.
 
    ```bash
    vim /home/euler-copilot-framework/deploy/chart/euler_copilot/values.yaml
    ```
 
-   修改如下部分
+   Modify the following section
 
    ```yaml
-   # 模型设置
+   # Model Settings
    models:
-     # 用于问答的大模型；需要为OpenAI兼容接口
+     # Large model for Q&A; needs to be OpenAI-compatible interface
      answer:
-       # [必填] 接口URL（无需带上“v1”后缀）
+       # [Required] Interface URL (no need to include "v1" suffix)
        url: http://172.168.178.107:11434
-       # [必填] 接口API Key；默认置空
+       # [Required] Interface API Key; default is empty
        key: sk-123456
-       # [必填] 模型名称
+       # [Required] Model name
        name: deepseek-llm-7b-chat:latest
-       # [必填] 模型最大上下文数；建议>=8192
+       # [Required] Model maximum context length; recommended >=8192
        ctx_length: 8192
-       # 模型最大输出长度，建议>=2048
+       # Model maximum output length, recommended >=2048
        max_tokens: 2048
-       # 用于Function Call的模型；建议使用特定推理框架
+       # Model for Function Call; recommended to use specific inference framework
      functioncall:
-       # 推理框架类型，默认为ollama
-       # 可用的框架类型：["vllm", "sglang", "ollama", "openai"]
+       # Inference framework type, default is ollama
+       # Available framework types: ["vllm", "sglang", "ollama", "openai"]
        backend:
-       # 模型地址；不填则与问答模型一致
+       # Model address; if not filled, same as Q&A model
      url: ollama
-       # API Key；不填则与问答模型一致
+       # API Key; if not filled, same as Q&A model
        key:
-       # 模型名称；不填则与问答模型一致
+       # Model name; if not filled, same as Q&A model
        name:
-       # 模型最大上下文数；不填则与问答模型一致
+       # Model maximum context length; if not filled, same as Q&A model
        ctx_length:
-       # 模型最大输出长度；不填则与问答模型一致
+       # Model maximum output length; if not filled, same as Q&A model
        max_tokens:
-     # 用于数据向量化（Embedding）的模型
+     # Model for data vectorization (Embedding)
      embedding:
-       # 推理框架类型，默认为openai
-       # [必填] Embedding接口类型：["openai", "mindie"]
+       # Inference framework type, default is openai
+       # [Required] Embedding interface type: ["openai", "mindie"]
        type: openai
-       # [必填] Embedding URL（需要带上“v1”后缀）
+       # [Required] Embedding URL (needs to include "v1" suffix)
        url: http://172.168.178.107:11434
-       # [必填] Embedding 模型API Key
+       # [Required] Embedding model API Key
        key: sk-123456
-       # [必填] Embedding 模型名称
+       # [Required] Embedding model name
        name: bge-m3:latest
    ```
 
    ```bash
-   # 更新服务
+   # Update service
    helm upgrade -n euler-copilot euler-copilot .
-   # 重启framework服务
+   # Restart framework service
    kubectl get pod -n euler-copilot
    kubectl delete pod framework-deploy-65b669fc58-q9bw7 -n euler-copilot
    ```
 
-#### NPU 环境
+#### NPU Environment
 
-NPU 环境部署可参考链接 [MindIE安装指南](https://www.hiascend.com/document/detail/zh/mindie/10RC2/whatismindie/mindie_what_0001.html)
+For NPU environment deployment, refer to the link [MindIE Installation Guide](https://www.hiascend.com/document/detail/zh/mindie/10RC2/whatismindie/mindie_what_0001.html)
 
 ### FAQ
 
-#### 1. 解决 Hugging Face 连接错误
+#### 1. Resolve Hugging Face Connection Errors
 
-如果遇到如下连接错误：
+If you encounter the following connection error:
 
 ```text
 urllib3.exceptions.NewConnectionError: <urllib3.connection.HTTPSConnection object>: Failed to establish a new connection: [Errno 101] Network is unreachable
 ```
 
-尝试以下解决方案：
+Try the following solutions:
 
-- 更新 `huggingface_hub` 包到最新版本。
+- Update the `huggingface_hub` package to the latest version.
 
   ```bash
   pip3 install -U huggingface_hub
   ```
 
-- 如果网络问题依旧存在，可以尝试使用镜像站点作为端点。
+- If network issues persist, try using mirror sites as endpoints.
 
   ```bash
   export HF_ENDPOINT=https://hf-mirror.com
   ```
 
-#### 2. 在 RAG 容器中调用问答接口
+#### 2. Call Q&A Interface in RAG Container
 
-进入对应的 RAG Pod 后，可以通过 `curl` 命令发送 POST 请求来获取问答结果。请确保在请求体中提供具体的问题文本。
+After entering the corresponding RAG Pod, you can send POST requests via `curl` commands to get Q&A results. Please ensure to provide specific question text in the request body.
 
 ```bash
 curl -k -X POST "http://localhost:9988/kb/get_answer" \
      -H "Content-Type: application/json" \
      -d '{
-           "question": "您的问题",
+           "question": "Your question",
            "kb_sn": "default_test",
            "fetch_source": true
          }'
 ```
 
-#### 3. 解决 `helm upgrade` 错误
+#### 3. Resolve `helm upgrade` Errors
 
-当 Kubernetes 集群不可达时，您可能会遇到类似下面的错误信息：
+When the Kubernetes cluster is unreachable, you may encounter error messages similar to the following:
 
 ```text
 Error: UPGRADE FAILED: Kubernetes cluster unreachable
 ```
 
-确保设置了正确的 KUBECONFIG 环境变量指向有效的配置文件。
+Ensure that the correct KUBECONFIG environment variable is set to point to a valid configuration file.
 
 ```bash
 echo "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" >> /root/.bashrc
 source /root/.bashrc
 ```
 
-#### 4. 查看 Pod 日志失败
+#### 4. Failed to View Pod Logs
 
-如果您遇到查看 Pod 日志时权限被拒绝的问题，检查是否正确配置了代理设置，并将本机 IP 地址添加到 `no_proxy` 环境变量中。
+If you encounter permission denied issues when viewing Pod logs, check if proxy settings are correctly configured and add your local IP address to the `no_proxy` environment variable.
 
 ```bash
 cat /etc/systemd/system/k3s.service.env
 ```
 
-编辑文件并确保包含：
+Edit the file and ensure it contains:
 
 ```bash
 no_proxy=XXX.XXX.XXX.XXX
 ```
 
-#### 5. GPU环境中大模型流式回复问题
+#### 5. Large Model Streaming Response Issues in GPU Environment
 
-对于某些服务执行 curl 大模型时无法进行流式回复的情况，尝试修改请求中的 `"stream"` 参数为 `false`。此外，确认已安装兼容版本的 Pydantic 库。
+For cases where certain services cannot perform streaming responses when executing curl with large models, try modifying the `"stream"` parameter in the request to `false`. Additionally, confirm that a compatible version of the Pydantic library is installed.
 
 ```bash
 pip install pydantic==1.10.13
 ```
 
-#### 6. sglang 模型部署指南
+#### 6. sglang Model Deployment Guide
 
-按照以下步骤部署基于 sglang 的模型：
+Follow these steps to deploy models based on sglang:
 
 ```bash
-# 1. 激活名为 `myenv` 的 Conda 环境，该环境基于 Python 3.10 创建：
+# 1. Activate the conda environment named `myenv`, which is created based on Python 3.10:
 conda activate myenv
 
-# 2. 安装 sglang 及其所有依赖项，指定版本为 0.3.0
+# 2. Install sglang and all its dependencies, specifying version 0.3.0
 pip install "sglang[all]==0.3.0"
 
-# 3. 从特定索引安装 flashinfer，确保与您的 CUDA 和 PyTorch 版本兼容
+# 3. Install flashinfer from a specific index to ensure compatibility with your CUDA and PyTorch versions
 pip install flashinfer -i https://flashinfer.ai/whl/cu121/torch2.4/
 
-# 4. 使用 sglang 启动服务器，配置如下：
+# 4. Start the server using sglang with the following configuration:
 python -m sglang.launch_server \
     --served-model-name Qwen2.5-32B \
     --model-path Qwen2.5-32B-Instruct-AWQ \
@@ -494,23 +494,23 @@ python -m sglang.launch_server \
     --tp 8
 ```
 
-- 验证安装
+- Verify installation
 
   ```bash
   pip show sglang
   pip show flashinfer
   ```
 
-**注意事项：**
+**Important Notes:**
 
-- API Key：请确保 `--api-key` 参数中的 API 密钥是正确的
-- 模型路径： 确保 `--model-path` 参数中的路径是正确的，并且模型文件存在于该路径下。
-- CUDA 版本：确保你的系统上安装了 CUDA 12.1 和 PyTorch 2.4，因为 `flashinfer` 包依赖于这些特定版本。
-- 线程池大小：根据你的GPU资源和预期负载调整线程池大小。如果你有 8 个 GPU，那么可以选择 --tp 8 来充分利用这些资源。
+- API Key: Please ensure the API key in the `--api-key` parameter is correct
+- Model Path: Ensure the path in the `--model-path` parameter is correct and that the model files exist at that path.
+- CUDA Version: Ensure you have CUDA 12.1 and PyTorch 2.4 installed on your system, as the `flashinfer` package depends on these specific versions.
+- Thread Pool Size: Adjust the thread pool size based on your GPU resources and expected load. If you have 8 GPUs, you can choose --tp 8 to fully utilize these resources.
 
-#### 7. 获取 Embedding
+#### 7. Get Embedding
 
-使用 curl 发送 POST 请求以获取 embedding 结果：
+Use curl to send POST requests to get embedding results:
 
 ```bash
 curl -k -X POST http://localhost:11434/v1/embeddings \
@@ -518,16 +518,16 @@ curl -k -X POST http://localhost:11434/v1/embeddings \
      -d {"input": "The food was delicious and the waiter...", "model": "bge-m3", "encoding_format": "float"}
 ```
 
-#### 8. 生成证书
+#### 8. Generate Certificates
 
-为了生成自签名证书，首先下载 [mkcert](https://github.com/FiloSottile/mkcert/releases)工具，然后运行以下命令：
+To generate self-signed certificates, first download the [mkcert](https://github.com/FiloSottile/mkcert/releases) tool, then run the following commands:
 
 ```bash
 mkcert -install
 mkcert example.com 
 ```
 
-最后，将生成的证书和私钥拷贝到 values.yaml 中, 并应用至 Kubernetes Secret。
+Finally, copy the generated certificate and private key to values.yaml and apply them to the Kubernetes Secret.
 
 ```bash
 vim /home/euler-copilot-framework_openeuler/deploy/chart_ssl/traefik-secret.yaml
@@ -537,51 +537,51 @@ vim /home/euler-copilot-framework_openeuler/deploy/chart_ssl/traefik-secret.yaml
 kubectl apply -f traefik-secret.yaml
 ```
 
-#### 9. 问题排查方法
+#### 9. Troubleshooting Methods
 
-1. **获取集群事件信息**
+1. **Get Cluster Event Information**
 
-   为了更好地定位 Pod 失败的原因，请首先检查 Kubernetes 集群中的事件 (Events)。这可以提供有关 Pod 状态变化的上下文信息。
+   To better locate the cause of Pod failures, first check the events in the Kubernetes cluster. This can provide contextual information about Pod state changes.
 
    ```bash
    kubectl get events -n euler-copilot
    ```
 
-2. **验证镜像拉取状态**
+2. **Verify Image Pull Status**
 
-   确认容器镜像是否成功拉取。如果镜像未能正确加载，可能是由于网络问题或镜像仓库配置错误。
+   Confirm whether container images are successfully pulled. If images fail to load correctly, it may be due to network issues or incorrect image repository configuration.
 
    ```bash
    k3s crictl images
    ```
 
-3. **审查 Pod 日志**
+3. **Review Pod Logs**
 
-   检查相关 Pod 的日志，以寻找可能的错误信息或异常行为。这对于诊断应用程序级别的问题特别有用。
+   Check the logs of relevant Pods to look for possible error messages or abnormal behavior. This is particularly useful for diagnosing application-level issues.
 
    ```bash
    kubectl logs rag-deploy-service-5b7887644c-sm58z -n euler-copilot
    ```
 
-4. **评估资源可用性**
+4. **Evaluate Resource Availability**
 
-   确保 Kubernetes 集群有足够的资源（如 CPU、内存和存储）来支持 Pod 的运行。资源不足可能导致镜像拉取失败或其他性能问题，或使得 Pod 状态从 Running 变为 Pending 或 Completed。可查看磁盘空间并保证至少有 30% 的可用空间。这有助于维持 Pod 的稳定运行状态。参考该链接挂载空间较大的磁盘[How to move k3s data to another location](https://mrkandreev.name/snippets/how_to_move_k3s_data_to_another_location/)
+   Ensure the Kubernetes cluster has sufficient resources (such as CPU, memory, and storage) to support Pod operation. Insufficient resources may cause image pull failures or other performance issues, or cause Pod status to change from Running to Pending or Completed. Check disk space and ensure at least 30% free space. This helps maintain stable Pod operation. Refer to this link to mount disks with larger space [How to move k3s data to another location](https://mrkandreev.name/snippets/how_to_move_k3s_data_to_another_location/)
 
    ```bash
    kubectl top nodes
    ```
 
-5. **确认 k3s 版本兼容性**
+5. **Confirm k3s Version Compatibility**
 
-   如果遇到镜像拉取失败且镜像大小为 0 的问题，请检查您的 k3s 版本是否符合最低要求（v1.30.2 或更高）。较低版本可能存在不兼容的问题。
+   If you encounter image pull failures with image size 0, please check if your k3s version meets the minimum requirements (v1.30.2 or higher). Lower versions may have compatibility issues.
 
    ```bash
    k3s -v
    ```
 
-6. **检查配置**
+6. **Check Configuration**
 
-   检查 `values.yaml` 文件中关于 OIDC 配置和域名配置是否填写正确，确保配置无误后更新服务。
+   Check whether the OIDC configuration and domain configuration in the `values.yaml` file are filled in correctly, and update the service after ensuring the configuration is correct.
 
    ```bash
    cat /home/euler-copilot-framework/deploy/chart/euler_copilot

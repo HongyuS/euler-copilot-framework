@@ -1,53 +1,53 @@
-# 智能插件：智能调优
+# Smart Plugin: Intelligent Tuning
 
-部署智能调优工具后，可以通过 EulerCopilot 智能体框架实现对本机进行调优。
-在智能调优模式提问，智能体框架服务可以调用本机的调优工具采集性能指标，并生成性能分析报告和性能优化建议。
+After deploying the intelligent tuning tool, you can use the EulerCopilot agent framework to perform tuning on the local machine.
+In intelligent tuning mode, the agent framework service can call the local tuning tool to collect performance metrics and generate performance analysis reports and performance optimization recommendations.
 
-## 操作步骤
+## Operation Steps
 
-**步骤1** 切换到“智能调优”模式
+**Step 1** Switch to "Intelligent Tuning" mode
 
 ```bash
 copilot -t
 ```
 
-![切换到智能调优模式](./pictures/shell-plugin-tuning-switch-mode.png)
+![Switch to Intelligent Tuning Mode](./pictures/shell-plugin-tuning-switch-mode.png)
 
-**步骤2** 采集性能指标
-
-```bash
-帮我进行性能指标采集
-```
-
-![性能指标采集](./pictures/shell-plugin-tuning-metrics-collect.png)
-
-**步骤3** 生成性能分析报告
+**Step 2** Collect Performance Metrics
 
 ```bash
-帮我生成性能分析报告
+Help me collect performance metrics
 ```
 
-![性能分析报告](./pictures/shell-plugin-tuning-report.png)
+![Performance Metrics Collection](./pictures/shell-plugin-tuning-metrics-collect.png)
 
-**步骤4** 生成性能优化建议
+**Step 3** Generate Performance Analysis Report
 
 ```bash
-请生成性能优化脚本
+Help me generate a performance analysis report
 ```
 
-![性能优化脚本](./pictures/shell-plugin-tuning-script-gen.png)
+![Performance Analysis Report](./pictures/shell-plugin-tuning-report.png)
 
-**步骤5** 选择“执行命令”，运行优化脚本
+**Step 4** Generate Performance Optimization Recommendations
 
-![执行优化脚本](./pictures/shell-plugin-tuning-script-exec.png)
+```bash
+Please generate a performance optimization script
+```
 
-- 脚本内容如图：
-  ![优化脚本内容](./pictures/shell-plugin-tuning-script-view.png)
+![Performance Optimization Script](./pictures/shell-plugin-tuning-script-gen.png)
 
-## 远程调优
+**Step 5** Select "Execute Command" to run the optimization script
 
-如果需要对其他机器进行远程调优，请在上文示例的问题前面加上对应机器的 IP 地址。
+![Execute Optimization Script](./pictures/shell-plugin-tuning-script-exec.png)
 
-例如：`请对 192.168.1.100 这台机器进行性能指标采集。`
+- Script content as shown in the figure:
+  ![Optimization Script Content](./pictures/shell-plugin-tuning-script-view.png)
 
-进行远程调优前请确保目标机器已部署智能调优工具，同时请确保 EulerCopilot 智能体框架能够访问目标机器。
+## Remote Tuning
+
+If you need to perform remote tuning on other machines, please add the corresponding machine's IP address before the questions in the examples above.
+
+For example: `Please perform performance metrics collection on the machine 192.168.1.100.`
+
+Before performing remote tuning, please ensure that the target machine has deployed the intelligent tuning tool, and also ensure that the EulerCopilot agent framework can access the target machine.

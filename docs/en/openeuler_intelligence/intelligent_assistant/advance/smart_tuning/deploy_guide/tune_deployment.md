@@ -1,23 +1,23 @@
-# 智能调优部署指南
+# Smart Tuning Deployment Guide
 
-## 准备工作
+## Prerequisites
 
-+ 提前安装 [EulerCopilot 命令行（智能 Shell）客户端](../../../quick_start/smart_shell/user_guide/shell.md))
++ Install [EulerCopilot Command Line (Smart Shell) Client](../../../quick_start/smart_shell/user_guide/shell.md) in advance
 
-+ 被调优机器需要为 openEuler 22.03 LTS-SP3
++ The machine to be tuned must be openEuler 22.03 LTS-SP3
 
-+ 在需要被调优的机器上安装依赖
++ Install dependencies on the machine that needs to be tuned
 
 ```bash
 yum install -y sysstat perf
 ```
 
-+ 被调优机器需要开启 SSH 22端口
++ The machine to be tuned must have SSH port 22 enabled
 
-## 编辑配置文件
+## Edit Configuration File
 
-修改values.yaml文件的tune部分，将 `enable` 字段改为 `True` ，并配置大模型设置、
-Embedding模型文件地址、以及需要调优的机器和对应机器上的 mysql 的账号名以及密码
+Modify the tune section in the values.yaml file, change the `enable` field to `True`, and configure the large language model settings,
+Embedding model file address, as well as the machines that need tuning and their corresponding MySQL account names and passwords
 
 ```bash
 vim /home/euler-copilot-framework/deploy/chart/agents/values.yaml
@@ -25,75 +25,75 @@ vim /home/euler-copilot-framework/deploy/chart/agents/values.yaml
 
 ```yaml
 tune:
-    # 【必填】是否启用智能调优Agent
+    # [Required] Whether to enable Smart Tuning Agent
     enabled: true
-    # 镜像设置
+    # Image settings
     image:
-      # 镜像仓库。留空则使用全局设置。
+      # Image registry. Leave empty to use global settings.
       registry: ""
-      # 【必填】镜像名称
+      # [Required] Image name
       name: euler-copilot-tune
-      # 【必填】镜像标签
+      # [Required] Image tag
       tag: "0.9.1"
-      # 拉取策略。留空则使用全局设置。
+      # Pull policy. Leave empty to use global settings.
       imagePullPolicy: ""
-    # 【必填】容器根目录只读
+    # [Required] Container root directory read-only
     readOnly: false
-    # 性能限制设置
+    # Performance limit settings
     resources: {}
-    # Service设置
+    # Service settings
     service:
-      # 【必填】Service类型，ClusterIP或NodePort
+      # [Required] Service type, ClusterIP or NodePort
       type: ClusterIP
       nodePort: 
-    # 大模型设置
+    # Large language model settings
     llm:
-      # 【必填】模型地址（需要包含v1后缀）
+      # [Required] Model address (must include v1 suffix)
       url: 
-      # 【必填】模型名称
+      # [Required] Model name
       name: ""
-      # 【必填】模型API Key
+      # [Required] Model API Key
       key: ""
-      # 【必填】模型最大Token数
+      # [Required] Maximum tokens for the model
       max_tokens: 8096
-    # 【必填】Embedding模型文件地址
+    # [Required] Embedding model file address
     embedding: ""
-    # 待优化机器信息
+    # Target optimization machine information
     machine:
-      # 【必填】IP地址
+      # [Required] IP address
       ip: ""
-      # 【必填】Root用户密码
-      # 注意：必需启用Root用户以密码形式SSH登录
+      # [Required] Root user password
+      # Note: Root user must be enabled for SSH login with password
       password: ""
-    # 待优化应用设置
+    # Target optimization application settings
     mysql:
-      # 【必填】数据库用户名
+      # [Required] Database username
       user: "root"
-      # 【必填】数据库密码
+      # [Required] Database password
       password: ""
 ```
 
-## 安装智能调优插件
+## Install Smart Tuning Plugin
 
 ```bash
 helm install -n euler-copilot agents .
 ```
 
-如果之前有执行过安装，则按下面指令更新插件服务
+If you have installed before, update the plugin service with the following command
 
 ```bash
 helm upgrade-n euler-copilot agents .
 ```
 
-如果 framework未重启，则需要重启framework配置
+If the framework has not been restarted, you need to restart the framework configuration
 
 ```bash
 kubectl delete pod framework-deploy-service-bb5b58678-jxzqr -n eulercopilot
 ```
 
-## 测试
+## Testing
 
-+ 查看 tune 的 pod 状态
++ Check the tune pod status
 
   ```bash
   NAME                                             READY   STATUS    RESTARTS   AGE
@@ -108,19 +108,19 @@ kubectl delete pod framework-deploy-service-bb5b58678-jxzqr -n eulercopilot
   tune-deploy-agents-5d46bfdbd4-xph7b               1/1     Running   0          2d
   ```
 
-+ pod启动失败排查办法
-    + 检查 euler-copilot-tune 目录下的 openapi.yaml 中 `servers.url` 字段，确保调优服务的启动地址被正确设置
-    + 检查 `$plugin_dir` 插件文件夹的路径是否配置正确，该变量位于 `deploy/chart/euler_copilot/values.yaml` 中的 `framework`模块，如果插件目录不存在，需新建该目录，并需要将该目录下的 euler-copilot-tune 文件夹放到 `$plugin_dir` 中。
-    + 检查sglang的地址和key填写是否正确，该变量位于 `vim /home/euler-copilot-framework/deploy/chart/euler_copilot/values.yaml`
++ Pod startup failure troubleshooting methods
+  + Check the `servers.url` field in the openapi.yaml under the euler-copilot-tune directory to ensure the tuning service startup address is correctly set
+  + Check if the `$plugin_dir` plugin folder path is correctly configured. This variable is located in the `framework` module in `deploy/chart/euler_copilot/values.yaml`. If the plugin directory doesn't exist, create it, and place the euler-copilot-tune folder from that directory into `$plugin_dir`.
+  + Check if the sglang address and key are correctly filled. This variable is located in `vim /home/euler-copilot-framework/deploy/chart/euler_copilot/values.yaml`
 
     ```yaml
-      # 用于Function Call的模型
+      # Model for Function Call
       scheduler:
-        # 推理框架类型
+        # Inference framework type
         backend: sglang
-        # 模型地址
+        # Model address
         url: ""
-        # 模型 API Key
+        # Model API Key
         key: ""
-      # 数据库设置
+      # Database settings
     ```

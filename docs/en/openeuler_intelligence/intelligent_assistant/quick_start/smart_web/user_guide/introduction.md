@@ -28,7 +28,7 @@ This document is primarily intended for EulerCopilot users. Users should possess
 - Dialogue results may contain internal information and related data of the applications you analyze. Please manage them appropriately.
 - Unless otherwise stipulated by laws and regulations or bilateral contracts, the openEuler community makes no express or implied statements and warranties regarding analysis results, and makes no guarantees or commitments regarding the merchantability, satisfaction, non-infringement, or fitness for a particular purpose of analysis results.
 - Any actions you take based on analysis records should comply with legal and regulatory requirements, and you bear the risks yourself.
-- Without owner authorization, no individual or organization may use applications and related analysis records for any activities. The openEuler community is not responsible for any consequences arising therefrom, nor does it assume any legal liability. Legal liability will be pursued when necessary.
+- Without owner authorization, no individual or organization may use applications and related analysis records for any activities. The openEuler community is not responsible for any consequences arising there from, nor does it assume any legal liability. Legal liability will be pursued when necessary.
 
 ### EulerCopilot Introduction
 
