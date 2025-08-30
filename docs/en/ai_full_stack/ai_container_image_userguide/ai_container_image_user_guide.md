@@ -8,11 +8,11 @@ The openEuler AI container images package SDKs for different hardware accelerato
 
 Currently, openEuler provides container images for both Ascend and NVIDIA platforms. You can find them here:
 
-- [openeuler/cann](https://hub.docker.com/r/openeuler/cann): SDK-type images that install the CANN software stack on top of the openEuler base image, for Ascend environments.
-- [openeuler/cuda](https://hub.docker.com/r/openeuler/cuda): SDK-type images that install the CUDA software stack on top of the openEuler base image, for NVIDIA environments.
-- [openeuler/pytorch](https://hub.docker.com/r/openeuler/pytorch): AI framework images that install PyTorch on top of an SDK image; the applicable platform depends on the installed SDK.
-- [openeuler/tensorflow](https://hub.docker.com/r/openeuler/tensorflow): AI framework images that install TensorFlow on top of an SDK image; the applicable platform depends on the installed SDK.
-- [openeuler/llm](https://hub.docker.com/r/openeuler/tensorrt): Model application images that include specific large models and toolchains on top of an AI framework image; the applicable platform depends on the installed SDK.
+- `docker.io/openeuler/cann`: SDK-type images that install the CANN software stack on top of the openEuler base image, for Ascend environments.
+- `docker.io/openeuler/cuda`: SDK-type images that install the CUDA software stack on top of the openEuler base image, for NVIDIA environments.
+- `docker.io/openeuler/pytorch`: AI framework images that install PyTorch on top of an SDK image; the applicable platform depends on the installed SDK.
+- `docker.io/openeuler/tensorflow`: AI framework images that install TensorFlow on top of an SDK image; the applicable platform depends on the installed SDK.
+- `docker.io/openeuler/llm`: Model application images that include specific large models and toolchains on top of an AI framework image; the applicable platform depends on the installed SDK.
 
 For detailed classifications and tag conventions of AI container images, see [oEEP-0014](https://gitee.com/openeuler/TC/blob/master/oEEP/oEEP-0014%20openEuler%20AI容器镜像软件栈规范.md).
 

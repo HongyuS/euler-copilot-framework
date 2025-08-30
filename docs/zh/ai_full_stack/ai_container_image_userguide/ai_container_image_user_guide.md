@@ -8,11 +8,11 @@ openEuler AI 容器镜像封装了不同硬件算力的 SDK 以及 AI 框架、�
 
 目前，openEuler 已发布支持 Ascend 和 NVIDIA 平台的容器镜像，获取路径如下：
 
-- [openeuler/cann](https://hub.docker.com/r/openeuler/cann) 存放 SDK 类镜像，在 openEuler 基础镜像之上安装 CANN 系列软件，适用于 Ascend 环境。
-- [openeuler/cuda](https://hub.docker.com/r/openeuler/cuda) 存放 SDK 类镜像，在 openEuler 基础镜像之上安装 CUDA 系列软件，适用于 NVIDIA 环境。
-- [openeuler/pytorch](https://hub.docker.com/r/openeuler/pytorch) 存放 AI 框架类镜像，在 SDK 镜像基础之上安装 PyTorch，根据安装的 SDK 软件内容区分适用平台。
-- [openeuler/tensorflow](https://hub.docker.com/r/openeuler/tensorflow) 存放 AI 框架类镜像，在 SDK 镜像基础之上安装 TensorFlow，根据安装的 SDK 软件内容区分适用平台。
-- [openeuler/llm](https://hub.docker.com/r/openeuler/tensorrt) 存放模型应用类镜像，在 AI 框架镜像之上包含特定大模型及工具链，根据安装的 SDK 软件内容区分适用平台。
+- `docker.io/openeuler/cann` 存放 SDK 类镜像，在 openEuler 基础镜像之上安装 CANN 系列软件，适用于 Ascend 环境。
+- `docker.io/openeuler/cuda` 存放 SDK 类镜像，在 openEuler 基础镜像之上安装 CUDA 系列软件，适用于 NVIDIA 环境。
+- `docker.io/openeuler/pytorch` 存放 AI 框架类镜像，在 SDK 镜像基础之上安装 PyTorch，根据安装的 SDK 软件内容区分适用平台。
+- `docker.io/openeuler/tensorflow` 存放 AI 框架类镜像，在 SDK 镜像基础之上安装 TensorFlow，根据安装的 SDK 软件内容区分适用平台。
+- `docker.io/openeuler/llm` 存放模型应用类镜像，在 AI 框架镜像之上包含特定大模型及工具链，根据安装的 SDK 软件内容区分适用平台。
 
 详细的 AI 容器镜像分类和镜像 tag 的规范说明见[oEEP-0014](https://gitee.com/openeuler/TC/blob/master/oEEP/oEEP-0014%20openEuler%20AI容器镜像软件栈规范.md)。
 
