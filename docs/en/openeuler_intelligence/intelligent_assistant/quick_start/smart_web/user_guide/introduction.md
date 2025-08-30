@@ -1,68 +1,68 @@
-# 前言
+# Introduction
 
-## 概述
+## Overview
 
-本文档介绍了 EulerCopilot 的使用方法，对 EulerCopilot 线上服务的 Web 界面的各项功能做了详细介绍，同时提供了常见的问题解答，详细请参考对应手册。
+This document introduces the usage of EulerCopilot, providing detailed descriptions of various features of the EulerCopilot online service web interface, along with common Q&A. For detailed information, please refer to the corresponding manuals.
 
-## 读者对象
+## Target Audience
 
-本文档主要适用于 EulerCopilot 的使用人员。使用人员必须具备以下经验和技能：
+This document is primarily intended for EulerCopilot users. Users should possess the following experience and skills:
 
-- 熟悉 openEuler 操作系统相关情况。
-- 有 AI 对话使用经验。
+- Familiarity with openEuler operating system related information.
+- Experience with AI dialogue systems.
 
-## 修改记录
+## Revision History
 
-| 文档版本 | 发布日期     | 修改说明         |
-|--------|------------|----------------|
-| 03     | 2024-09-19 | 更新新版界面。 |
-| 02     | 2024-05-13 | 优化智能对话操作指引。 |
-| 01     | 2024-01-28 | 第一次正式发布。 |
+| Document Version | Release Date | Revision Description |
+|------------------|--------------|---------------------|
+| 03               | 2024-09-19   | Updated new interface. |
+| 02               | 2024-05-13   | Optimized intelligent dialogue operation guidance. |
+| 01               | 2024-01-28   | First official release. |
 
-## 介绍
+## Introductions
 
-### 免责声明
+### Disclaimer
 
-- 使用过程中涉及的非工具本身验证功能所用的用户名和密码，不作他用，且不会被保存在系统环境中。
-- 在您进行对话或操作前应当确认您为应用程序的所有者或已获得所有者的充足授权同意。
-- 对话结果中可能包含您所分析应用的内部信息和相关数据，请妥善管理。
-- 除非法律法规或双方合同另有规定，openEuler 社区对分析结果不做任何明示或暗示的声明和保证，不对分析结果的适销性、满意度、非侵权性或特定用途适用性等作出任何保证或者承诺。
-- 您根据分析记录所采取的任何行为均应符合法律法规的要求，并由您自行承担风险。
-- 未经所有者授权，任何个人或组织均不得使用应用程序及相关分析记录从事任何活动。openEuler 社区不对由此造成的一切后果负责，亦不承担任何法律责任。必要时，将追究其法律责任。
+- Usernames and passwords used during the process that are not part of the tool's own verification functionality are not used for other purposes and will not be saved in the system environment.
+- Before engaging in dialogue or operations, you should confirm that you are the owner of the application or have obtained sufficient authorization consent from the owner.
+- Dialogue results may contain internal information and related data of the applications you analyze. Please manage them appropriately.
+- Unless otherwise stipulated by laws and regulations or bilateral contracts, the openEuler community makes no express or implied statements and warranties regarding analysis results, and makes no guarantees or commitments regarding the merchantability, satisfaction, non-infringement, or fitness for a particular purpose of analysis results.
+- Any actions you take based on analysis records should comply with legal and regulatory requirements, and you bear the risks yourself.
+- Without owner authorization, no individual or organization may use applications and related analysis records for any activities. The openEuler community is not responsible for any consequences arising therefrom, nor does it assume any legal liability. Legal liability will be pursued when necessary.
 
-### EulerCopilot 简介
+### EulerCopilot Introduction
 
-EulerCopilot 是一个基于 openEuler 操作系统的人工智能助手，可以帮助用户解决各种技术问题，提供技术支持和咨询服务。它使用了最先进的自然语言处理技术和机器学习算法，能够理解用户的问题并提供相应的解决方案。
+EulerCopilot is an artificial intelligence assistant based on the openEuler operating system that helps users solve various technical problems and provides technical support and consulting services. It uses the most advanced natural language processing technology and machine learning algorithms to understand user questions and provide corresponding solutions.
 
-### 场景内容
+### Application Scenarios
 
-1. OS 领域通用知识：EulerCopilot 可以咨询 Linux 常规知识、上游信息和工具链介绍和指导。
-2. openEuler 专业知识：EulerCopilot 可以咨询 openEuler 社区信息、技术原理和使用指导。
-3. openEuler 扩展知识：EulerCopilot 可以咨询 openEuler 周边硬件特性知识和ISV、OSV相关信息。
-4. openEuler 应用案例：EulerCopilot 可以提供 openEuler 技术案例、行业应用案例。
-5. shell 命令生成：EulerCopilot 可以帮助用户生成单条 shell 命令或者复杂命令。
+1. **OS Domain General Knowledge**: EulerCopilot can provide consultation on Linux general knowledge, upstream information, and toolchain introduction and guidance.
+2. **openEuler Professional Knowledge**: EulerCopilot can provide consultation on openEuler community information, technical principles, and usage guidance.
+3. **openEuler Extended Knowledge**: EulerCopilot can provide consultation on openEuler peripheral hardware feature knowledge and ISV, OSV related information.
+4. **openEuler Application Cases**: EulerCopilot can provide openEuler technical cases and industry application cases.
+5. **Shell Command Generation**: EulerCopilot can help users generate single shell commands or complex commands.
 
-总之，EulerCopilot 可以应用于各种场景，帮助用户提高工作效率和了解 Linux、openEuler 等的相关知识。
+In summary, EulerCopilot can be applied to various scenarios, helping users improve work efficiency and understand related knowledge about Linux, openEuler, and more.
 
-### 访问和使用
+### Access and Usage
 
-EulerCopilot 通过网址访问 Web 网页进行使用。账号注册与登录请参考[注册与登录](./registration_and_login.md)。使用方法请参考[智能问答使用指南](./qa_guide.md)。
+EulerCopilot is accessed and used through a web page via URL. For account registration and login, please refer to [Registration and Login](./registration_and_login.md). For usage methods, please refer to [Intelligent Q&A User Guide](./qa_guide.md).
 
-### 界面说明
+### Interface Description
 
-#### 界面分区
+#### Interface Layout
 
-EulerCopilot 界面主要由如图 1 所示的区域组成，各个区域的作用如表 1 所示。
+The EulerCopilot interface mainly consists of the areas shown in Figure 1, with the functions of each area described in Table 1.
 
-- 图 1 EulerCopilot 界面
+- Figure 1: EulerCopilot Interface
 
-![Copilot 界面](./pictures/main-page-sections.png)
+![Copilot Interface](./pictures/main-page-sections.png)
 
-- 表 1 EulerCopilot 首页界面分区说明
+- Table 1: EulerCopilot Homepage Interface Area Description
 
-| 区域 | 名称       | 说明                                                            |
-|-----|------------|----------------------------------------------------------------|
-| 1   | 设置管理区        | 提供账号登录和退出操作入口和明亮/黑暗模式切换功能                |
-| 2   | 对话管理区       | 用于用户新建对话、对话历史记录管理和对话历史记录批量删除操作        |
-| 3   | 对话区           | 用于用户和 EulerCopilot 的对话聊天               |
-| 4   | 服务协议和隐私政策区 | 提供查看服务协议和隐私政策入口                               |
+| Area | Name | Description |
+|------|------|-------------|
+| 1    | Settings Management Area | Provides account login and logout operation entries and light/dark mode toggle functionality |
+| 2    | Dialogue Management Area | Used for users to create new dialogues, manage dialogue history, and perform batch deletion of dialogue history |
+| 3    | Dialogue Area | Used for dialogue chat between users and EulerCopilot |
+| 4    | Service Agreement and Privacy Policy Area | Provides access to view service agreements and privacy policies |

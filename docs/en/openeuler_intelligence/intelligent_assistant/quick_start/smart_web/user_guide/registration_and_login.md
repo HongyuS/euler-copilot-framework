@@ -1,60 +1,60 @@
-# 登录 EulerCopilot
+# Logging into EulerCopilot
 
-本章节介绍如何登录已部署的 EulerCopilot 网页端的具体步骤。
+This section introduces the specific steps to log into the deployed EulerCopilot web client.
 
-## 浏览器要求
+## Browser Requirements
 
-浏览器要求如表 1 所示。
+The browser requirements are shown in Table 1.
 
-- 表 1 浏览器要求
+- Table 1 Browser Requirements
 
-| 浏览器类型 | 最低版本 | 推荐版本 |
+| Browser Type | Minimum Version | Recommended Version |
 | ----- | ----- | ----- |
-| Google Chrome | 72 | 121 或更高版本 |
-| Mozilla Firefox | 89 | 122 或更高版本 |
-| Apple Safari | 11.0 | 16.3 或更高版本 |
+| Google Chrome | 72 | 121 or higher |
+| Mozilla Firefox | 89 | 122 or higher |
+| Apple Safari | 11.0 | 16.3 or higher |
 
-## 操作步骤
+## Procedure
 
-**步骤1** 打开本地 PC 机的浏览器，在地址栏输入部署指南中配置好的域名，按下 `Enter`。在未登录状态，进入 EulerCopilot，会出现登录提示弹出框，如图 1 所示。
+**Step 1** Open the browser on your local PC, enter the configured domain name from the deployment guide in the address bar, and press `Enter`. When not logged in, accessing EulerCopilot will display a login prompt pop-up box, as shown in Figure 1.
 
-- 图 1 未登录
+- Figure 1 Not Logged In
 
-![未登录](./pictures/login-popup.png)
+![Not Logged In](./pictures/login-popup.png)
 
-**步骤2** 登录 EulerCopilot（已注册账号）。
+**Step 2** Log into EulerCopilot (with an existing account).
 
-打开登录界面，如图 2 所示。
+Open the login interface, as shown in Figure 2.
 
-- 图 2 登录 EulerCopilot
+- Figure 2 Logging into EulerCopilot
 
-![登录 EulerCopilot](./pictures/authhub-login.png)
+![Logging into EulerCopilot](./pictures/authhub-login.png)
 
-## 注册 EulerCopilot 账号
+## Registering an EulerCopilot Account
 
-**步骤1**  在登录信息输入框右下角单击“立即注册”，如图 3 所示。
+**Step 1** Click "Register Now" in the bottom right corner of the login information input box, as shown in Figure 3.
 
-- 图 3 立即注册
+- Figure 3 Register Now
 
-![立即注册](./pictures/authhub-login-click2signup.png)
+![Register Now](./pictures/authhub-login-click2signup.png)
 
-**步骤2** 进入账号注册页，根据页面提示填写相关内容，如图 4 所示。
+**Step 2** Go to the account registration page and fill in the relevant information according to the page prompts, as shown in Figure 4.
 
-- 图 4 账号注册
+- Figure 4 Account Registration
 
-![账号注册](./pictures/authhub-signup.png)
+![Account Registration](./pictures/authhub-signup.png)
 
-**步骤3** 按页面要求填写账号信息后，单击“注册”，即可注册成功。注册后即可返回登录。
+**Step 3** After filling in the account information as required by the page, click "Register" to successfully register. After registration, you can return to the login page.
 
-## 退出登录
+## Logging Out
 
-**步骤1** 单击![退出登录](./pictures/icon-user.png)后，会出现“退出登录”下拉框，如图 5 所示。
+**Step 1** Click ![Logout](./pictures/icon-user.png) to display the logout dropdown menu, as shown in Figure 5.
 
-> **说明**
-> 账号管理区位于页面的右上角部分，如图 5 所示。
+> **Note**
+> The account management area is located at the top right of the page, as shown in Figure 5.
 
-- 图 5 账号管理区
+- Figure 5 Account Management Area
 
-![账号管理区](./pictures/logout.png)
+![Account Management Area](./pictures/logout.png)
 
-**步骤2** 单击“退出登录”即可退出登录，如图 5 所示。
+**Step 2** Click "Logout" to log out, as shown in Figure 5.

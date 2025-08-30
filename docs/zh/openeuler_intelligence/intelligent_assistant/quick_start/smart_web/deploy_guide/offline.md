@@ -56,7 +56,7 @@ EulerCopilot 是一款智能问答工具，使用 EulerCopilot 可以解决操�
 
 ### 部署视图
 
-![部署图](./pictures/部署视图.png)
+![部署图](./pictures/deployment-overview.png)
 
 ---
 
@@ -89,9 +89,9 @@ EulerCopilot 是一款智能问答工具，使用 EulerCopilot 可以解决操�
 
 - **资源清单**
 
-    - **下载地址**
+  - **下载地址**
     [EulerCopilot 资源仓库](https://repo.oepkgs.net/openEuler/rpm/openEuler-22.03-LTS/contrib/eulercopilot)
-    - **镜像文件**
+  - **镜像文件**
 
     ```bash
     # 使用脚本自动下载所有镜像（需在联网环境执行）
@@ -107,10 +107,10 @@ EulerCopilot 是一款智能问答工具，使用 EulerCopilot 可以解决操�
   
 - **关键说明**
 
-    - **网络要求**
-        - 手动下载需确保存在可访问外网文件的Windows环境，全部下载完成后传输至离线环境
-        - 脚本下载需在联网服务器执行，仅完成镜像下载，完成传输至离线环境
-    - **确保目标服务器存在以下目录**
+  - **网络要求**
+    - 手动下载需确保存在可访问外网文件的Windows环境，全部下载完成后传输至离线环境
+    - 脚本下载需在联网服务器执行，仅完成镜像下载，完成传输至离线环境
+  - **确保目标服务器存在以下目录**
 
       ```bash
       /home/eulercopilot/
@@ -266,12 +266,12 @@ helm upgrade euler-copilot -n euler-copilot .
 
 首次访问时，您需要点击页面上的 **立即注册** 按钮来创建一个新的账号，并完成登录过程。
 
-![Web登录界面](./pictures/WEB登录界面.png)
-![Web 界面](./pictures/WEB界面.png)
+![Web登录界面](./pictures/web-login.png)
+![Web 界面](./pictures/web.png)
 
 ## 构建专有领域智能问答
 
-点击知识库，可登录本地知识库管理页面，详细信息请参考文档 [本地资产库构建指南](../../../advance/knowledge_base/deploy_guide/witChainD_deployment.md)
+点击知识库，可登录本地知识库管理页面，详细信息请参考文档 [本地资产库构建指南](../../../advance/knowledge_base/deploy_guide/witchaind_deployment.md)
 **知识库登录默认账号 `admin`, 密码 `123456`**
 
 ---

@@ -1,179 +1,179 @@
-# 智能问答使用指南
+# Intelligent Q&A User Guide
 
-## 开始对话
+## Start a Conversation
 
-在对话区下侧输入框即可输入对话想要提问的内容，输入 `Shift + Enter` 可进行换行，输入 `Enter` 即可发送对话提问内容，或者单击“发送”也可发送对话提问内容。
+In the input box below the conversation area, you can enter the content you want to ask. Press `Shift + Enter` for line breaks, press `Enter` to send your question, or click "Send" to submit your question.
 
-> **说明**
+> **Note**
 >
-> 对话区位于页面的主体部分，如图 1 所示。
+> The conversation area is located in the main part of the page, as shown in Figure 1.
 
-- 图 1 对话区
-  ![对话区](./pictures/chat-area.png)
+- Figure 1 Conversation Area
+  ![Conversation Area](./pictures/chat-area.png)
 
-### 多轮连续对话
+### Multi-turn Continuous Conversation
 
-EulerCopilot 智能问答支持多轮连续对话。只需要在同一个对话中继续追问即可使用，如图 2 所示。
+EulerCopilot intelligent Q&A supports multi-turn continuous conversations. You can simply continue asking follow-up questions in the same conversation, as shown in Figure 2.
 
-- 图 2 多轮对话
-  ![多轮对话](./pictures/context-support.png)
+- Figure 2 Multi-turn Conversation
+  ![Multi-turn Conversation](./pictures/context-support.png)
 
-### 重新生成
+### Regenerate Response
 
-如遇到 AI 生成的内容有误或不完整的特殊情况，可以要求 AI 重新回答问题。单击对话回答左下侧的“重新生成”文字，可让 EulerCopilot 重新回答用户问题，重新回答后，在对话回答右下侧，会出现回答翻页的图标![向前翻页](./pictures/icon-arrow-prev.png)和![向后翻页](./pictures/icon-arrow-next.png)，单击![向前翻页](./pictures/icon-arrow-prev.png)或![向后翻页](./pictures/icon-arrow-next.png)可查看不同的回答，如图 3 所示。
+If you encounter situations where AI-generated content is incorrect or incomplete, you can ask AI to regenerate the answer. Click the "Regenerate" text on the bottom left of the AI response to have EulerCopilot answer your question again. After regenerating, pagination icons ![Previous Page](./pictures/icon-arrow-prev.png) and ![Next Page](./pictures/icon-arrow-next.png) will appear on the bottom right of the response. Click ![Previous Page](./pictures/icon-arrow-prev.png) or ![Next Page](./pictures/icon-arrow-next.png) to view different responses, as shown in Figure 3.
 
-- 图 3 重新生成
-  ![重新生成](./pictures/regenerate.png)
+- Figure 3 Regenerate Response
+  ![Regenerate Response](./pictures/regenerate.png)
 
-### 推荐问题
+### Recommended Questions
 
-在 AI 回答的下方，会展示一些推荐的问题，单击即可进行提问，如图 4 所示。
+Below the AI response, some recommended questions will be displayed. Click on them to ask questions, as shown in Figure 4.
 
-- 图 4 推荐问题
-  ![推荐问题](./pictures/recommend-questions.png)
+- Figure 4 Recommended Questions
+  ![Recommended Questions](./pictures/recommend-questions.png)
 
-## 自定义背景知识
+## Custom Background Knowledge
 
-EulerCopilot 支持上传文件功能。上传文件后，AI 会将上传的文件内容作为背景知识，在回答问题时，会结合背景知识进行回答。上传的背景知识只会作用于当前对话，不会影响其他对话。
+EulerCopilot supports file upload functionality. After uploading files, AI will use the uploaded file content as background knowledge and incorporate it when answering questions. The uploaded background knowledge only applies to the current conversation and will not affect other conversations.
 
-### 上传文件
+### Upload Files
 
-**步骤1** 单击对话区左下角的“上传文件”按钮，如图 5 所示。
+**Step 1** Click the "Upload File" button in the bottom left corner of the conversation area, as shown in Figure 5.
 
-- 图 5 上传文件按钮
-  ![上传文件](./pictures/file-upload-btn.png)
+- Figure 5 Upload File Button
+  ![Upload File](./pictures/file-upload-btn.png)
 
-> **说明**
+> **Note**
 >
-> 鼠标悬停到“上传文件”按钮上，会显示提示允许上传文件的规格和格式，如图 6 所示。
+> Hover your mouse over the "Upload File" button to see prompts about the allowed file specifications and formats, as shown in Figure 6.
 
-- 图 6 鼠标悬停显示上传文件规格提示
-  ![上传文件提示](./pictures/file-upload-btn-prompt.png)
+- Figure 6 Mouse Hover Shows Upload File Specification Prompts
+  ![Upload File Prompts](./pictures/file-upload-btn-prompt.png)
 
-**步骤2** 在弹出的文件选择框中，选择需要上传的文件，单击“打开”，即可上传文件。最多上传10个文件，总大小限制为64MB。接受 PDF、docx、doc、txt、md、xlsx。
+**Step 2** In the popup file selection dialog, select the file you want to upload and click "Open" to upload. You can upload up to 10 files with a total size limit of 64MB. Accepted formats include PDF, docx, doc, txt, md, and xlsx.
 
-开始上传后，对话区下方会显示上传进度，如图 7 所示。
+After starting the upload, the upload progress will be displayed below the conversation area, as shown in Figure 7.
 
-- 图 7 同时上传的所有文件排列在问答输入框下方
-  ![上传文件](./pictures/file-upload-uploading.png)
+- Figure 7 All Files Being Uploaded Simultaneously Are Arranged Below the Q&A Input Box
+  ![Upload File](./pictures/file-upload-uploading.png)
 
-文件上传完成后会自动解析，如图 8 所示，解析完成后，对话区下方会显示每个文件的大小信息。
+After file upload is complete, it will be automatically parsed, as shown in Figure 8. After parsing is complete, the file size information for each file will be displayed below the conversation area.
 
-- 图 8 文件上传至服务器后将显示“正在解析”
-  ![文件解析](./pictures/file-upload-parsing.png)
+- Figure 8 After File Upload to Server, "Parsing" Will Be Displayed
+  ![File Parsing](./pictures/file-upload-parsing.png)
 
-文件上传成功后，左侧历史记录区会显示上传的文件数量，如图 9 所示。
+After successful file upload, the left history record area will display the number of uploaded files, as shown in Figure 9.
 
-- 图 9 对话历史记录标签上会展示上传文件数量
-  ![历史记录标记](./pictures/file-upload-history-tag.png)
+- Figure 9 The Uploaded File Count Will Be Displayed on the Conversation History Record Tab
+  ![History Record Mark](./pictures/file-upload-history-tag.png)
 
-### 针对文件提问
+### Ask Questions About Files
 
-文件上传完成后，即可针对文件进行提问，提问方式同普通对话模式，如图 10 所示。
-回答结果如图 11 所示。
+After file upload is complete, you can ask questions about the files. The questioning method is the same as the regular conversation mode, as shown in Figure 10.
+The answer result is shown in Figure 11.
 
-- 图 10 询问与上传的文件相关的问题
-  ![针对文件提问](./pictures/file-upload-ask-against-file.png)
+- Figure 10 Ask Questions Related to the Uploaded Files
+  ![Ask Questions About Files](./pictures/file-upload-ask-against-file.png)
 
-- 图 11 AI 以上传的为背景知识进行回答
-  ![根据自定义背景知识回答](./pictures/file-upload-showcase.png)
+- Figure 11 AI Answers Based on Uploaded Background Knowledge
+  ![Answer Based on Custom Background Knowledge](./pictures/file-upload-showcase.png)
 
-## 管理对话
+## Manage Conversations
 
-> **说明**
+> **Note**
 >
-> 对话管理区在页面左侧。
+> The conversation management area is on the left side of the page.
 
-### 新建对话
+### Create New Conversation
 
-单击“新建对话”按钮即可新建对话，如图 12 所示。
+Click the "New Conversation" button to create a new conversation, as shown in Figure 12.
 
-- 图 12 “新建对话”按钮在页面左上方
-  ![新建对话](./pictures/new-chat.png)
+- Figure 12 "New Conversation" Button is Located in the Upper Left of the Page
+  ![New Conversation](./pictures/new-chat.png)
 
-### 对话历史记录搜索
+### Search Conversation History
 
-在页面左侧历史记录搜索输入框输入关键词，然后单击![搜索](./pictures/icon-search.png)即可进行对话历史记录搜索如图 13 所示。
+Enter keywords in the history search input box on the left side of the page, then click ![Search](./pictures/icon-search.png) to search conversation history, as shown in Figure 13.
 
-- 图 13 对话历史记录搜索框
-  ![对话历史记录搜索](./pictures/search-history.png)
+- Figure 13 Conversation History Search Box
+  ![Conversation History Search](./pictures/search-history.png)
 
-### 对话历史记录单条管理
+### Manage Individual Conversation History Records
 
-历史记录的列表位于历史记录搜索栏的下方，在每条对话历史记录的右侧，单击![编辑](./pictures/icon-edit.png)即可编辑对话历史记录的名字，如图 14 所示。
+The history record list is located below the history search bar. On the right side of each conversation history record, click ![Edit](./pictures/icon-edit.png) to edit the name of the conversation history record, as shown in Figure 14.
 
-- 图 14 点击“编辑”图标重命名历史记录
-  ![重命名历史记录](./pictures/rename-session.png)
+- Figure 14 Click "Edit" Icon to Rename History Record
+  ![Rename History Record](./pictures/rename-session.png)
 
-在对话历史记录名字重新书写完成后，单击右侧![确认](./pictures/icon-confirm.png)即可完成重命名，或者单击右侧![取消](./pictures/icon-cancel.png)放弃本次重命名，如图 15 所示。
+After rewriting the conversation history record name, click ![Confirm](./pictures/icon-confirm.png) on the right to complete the renaming, or click ![Cancel](./pictures/icon-cancel.png) on the right to abandon this renaming, as shown in Figure 15.
 
-- 图 15 完成/取消重命名历史记录
-  ![完成/取消重命名历史记录](./pictures/rename-session-confirmation.png)
+- Figure 15 Complete/Cancel Renaming History Record
+  ![Complete/Cancel Renaming History Record](./pictures/rename-session-confirmation.png)
 
-另外，单击对话历史记录右侧的删除图标，如图 16 所示，即可对删除单条对话历史记录进行二次确认，在二次确认弹出框，如图 17 所示，单击“确认”，可确认删除单条对话历史记录，或者单击“取消”，取消本次删除。
+Additionally, click the delete icon on the right side of the conversation history record, as shown in Figure 16, to perform secondary confirmation for deleting a single conversation history record. In the secondary confirmation popup, as shown in Figure 17, click "Confirm" to confirm deletion of the single conversation history record, or click "Cancel" to cancel this deletion.
 
-- 图 16 点击“垃圾箱”图标删除单条历史记录
-  ![删除单条历史记录](./pictures/delete-session.png)
+- Figure 16 Click "Trash" Icon to Delete Single History Record
+  ![Delete Single History Record](./pictures/delete-session.png)
 
-- 图 17 二次确认后删除历史记录
-  ![删除单条历史记录二次确认](./pictures/delete-session-confirmation.png)
+- Figure 17 Secondary Confirmation Before Deleting History Record
+  ![Secondary Confirmation for Deleting Single History Record](./pictures/delete-session-confirmation.png)
 
-### 对话历史记录批量删除
+### Batch Delete Conversation History Records
 
-首先单击“批量删除”，如图 18 所示。
+First, click "Batch Delete", as shown in Figure 18.
 
-- 图 18 批量删除功能在历史记录搜索框右上方
-  ![批量删除](./pictures/bulk-delete.png)
+- Figure 18 Batch Delete Function is Located Above the Right Side of the History Search Box
+  ![Batch Delete](./pictures/bulk-delete.png)
 
-然后可对历史记录进行选择删除，如图 19 所示。单击“全选”，即对所有历史记录选中，单击单条历史记录或历史记录左侧的选择框，可对单条历史记录进行选中。
+Then you can select history records for deletion, as shown in Figure 19. Click "Select All" to select all history records, or click on a single history record or the selection box on the left side of the history record to select individual history records.
 
-- 图 19 在左侧勾选要批量删除历史记录
-  ![批量删除历史记录选择](./pictures/bulk-delete-multi-select.png)
+- Figure 19 Check the Box on the Left to Select History Records for Batch Deletion
+  ![Batch Delete History Record Selection](./pictures/bulk-delete-multi-select.png)
 
-最后需要对批量删除历史记录进行二次确认，如图 20 所示，单击“确认”，即删除，单击“取消”，即取消本次删除。
+Finally, secondary confirmation is required for batch deleting history records, as shown in Figure 20. Click "Confirm" to delete, or click "Cancel" to cancel this deletion.
 
-- 图 20 二次确认后删除所选的历史记录
-  ![批量删除二次确认](./pictures/bulk-delete-confirmation.png)
+- Figure 20 Secondary Confirmation Before Deleting Selected History Records
+  ![Batch Delete Secondary Confirmation](./pictures/bulk-delete-confirmation.png)
 
-## 反馈与举报
+## Feedback and Report
 
-在对话记录区，对话回答的右下侧，可进行对话回答反馈，如图 21 所示，单击![满意](./pictures/icon-thumb-up.png)，可给对话回答点赞；单击![不满意](./pictures/icon-thumb-down.png)，可以给对话回答反馈不满意的原因。
+In the conversation record area, on the bottom right side of the AI response, you can provide feedback on the conversation response, as shown in Figure 21. Click ![Thumbs Up](./pictures/icon-thumb-up.png) to give the conversation response a thumbs up; click ![Thumbs Down](./pictures/icon-thumb-down.png) to provide feedback on why you're dissatisfied with the response.
 
-- 图 21 点赞和不满意反馈
-  ![点赞和不满意反馈](./pictures/feedback.png)
+- Figure 21 Thumbs Up and Dissatisfaction Feedback
+  ![Thumbs Up and Dissatisfaction Feedback](./pictures/feedback.png)
 
-对于反馈不满意原因，如图 22 所示，在单击![不满意](./pictures/icon-thumb-down.png)之后，对话机器人会展示反馈内容填写的对话框，可选择相关的不满意原因的选项。
+For feedback on dissatisfaction reasons, as shown in Figure 22, after clicking ![Thumbs Down](./pictures/icon-thumb-down.png), the chatbot will display a dialog box for filling in feedback content, where you can choose relevant options for dissatisfaction reasons.
 
-- 图 22 回答不满意反馈
-  ![回答不满意反馈](./pictures/feedback-illegal.png)
+- Figure 22 Dissatisfaction Feedback for Response
+  ![Dissatisfaction Feedback for Response](./pictures/feedback-illegal.png)
 
-其中单击选择“存在错误信息”，需要填写参考答案链接和描述，如图 23 所示。
+Among them, clicking "Contains Incorrect Information" requires filling in reference answer links and descriptions, as shown in Figure 23.
 
-- 图 23 回答不满意反馈——存在错误信息
-  ![回答不满意反馈——存在错误信息](./pictures/feedback-misinfo.png)
+- Figure 23 Dissatisfaction Feedback for Response - Contains Incorrect Information
+  ![Dissatisfaction Feedback for Response - Contains Incorrect Information](./pictures/feedback-misinfo.png)
 
-### 举报
+### Report
 
-如果发现 AI 返回的内容中有违规信息，可以点击右下角按钮举报，如图 24 所示。点击举报后选择举报类型并提交，若没有合适的选项，请选择“其他”并输入原因，如图 25 所示。
+If you find that AI-generated content contains inappropriate information, you can click the report button in the bottom right corner, as shown in Figure 24. After clicking report, select the report type and submit. If there are no suitable options, please select "Other" and enter the reason, as shown in Figure 25.
 
-- 图 24 举报按钮在对话块的右下角
-  ![举报1](./pictures/report.png)
+- Figure 24 Report Button is Located in the Bottom Right Corner of the Conversation Block
+  ![Report 1](./pictures/report.png)
 
-- 图 25 点击后可选择举报类型
-  ![举报2](./pictures/report-options.png)
+- Figure 25 After Clicking, You Can Select Report Type
+  ![Report 2](./pictures/report-options.png)
 
-## 查看服务协议和隐私政策
+## View Service Agreement and Privacy Policy
 
-单击文字“服务协议”，即可查看服务协议，单击文字“隐私政策”，即可查看隐私政策，如图 26、图 27 所示。
+Click on the text "Service Agreement" to view the service agreement, and click on the text "Privacy Policy" to view the privacy policy, as shown in Figures 26 and 27.
 
-- 图 26 服务协议和隐私政策入口在页面底部信息栏
-  ![服务协议和隐私政策入口](./pictures/privacy-policy-entry.png)
+- Figure 26 Service Agreement and Privacy Policy Entry Points are Located in the Bottom Information Bar of the Page
+  ![Service Agreement and Privacy Policy Entry](./pictures/privacy-policy-entry.png)
 
-- 图 27 点击后显示服务协议或隐私政策弹窗
-  ![服务协议和隐私政策](./pictures/privacy-policy.png)
+- Figure 27 After Clicking, Service Agreement or Privacy Policy Popup Will Be Displayed
+  ![Service Agreement and Privacy Policy](./pictures/privacy-policy.png)
 
-## 附录
+## Appendix
 
-### 用户信息导出说明
+### User Information Export Instructions
 
-EulerCopilot 后台存在用户信息导出功能，如用户需要，需主动通过 <contact@openeuler.io> 邮箱联系我们，运维会将导出的用户信息通过邮箱回送给用户。
+EulerCopilot backend has user information export functionality. If users need it, they must actively contact us through the <contact@openeuler.io> email. Operations staff will send the exported user information back to users via email.
