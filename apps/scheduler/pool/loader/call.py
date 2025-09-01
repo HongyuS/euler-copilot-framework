@@ -2,21 +2,17 @@
 """Call 加载器"""
 
 import logging
-from pathlib import Path
 
 from sqlalchemy import delete
 
 import apps.scheduler.call as system_call
-from apps.common.config import config
 from apps.common.postgres import postgres
 from apps.common.singleton import SingletonMeta
-from apps.llm.embedding import Embedding
+from apps.llm.embedding import Embedding, VectorBase
 from apps.models.node import NodeInfo
-from apps.models.vectors import NodePoolVector
 from apps.schemas.scheduler import CallInfo
 
-logger = logging.getLogger(__name__)
-BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "call"
+_logger = logging.getLogger(__name__)
 
 
 class CallLoader(metaclass=SingletonMeta):
@@ -41,6 +37,7 @@ class CallLoader(metaclass=SingletonMeta):
         # 清除旧数据
         async with postgres.session() as session:
             await session.execute(delete(NodeInfo).where(NodeInfo.serviceId == None))  # noqa: E711
+            NodePoolVector = VectorBase.metadata.tables["framework_node_vector"]  # noqa: N806
             await session.execute(delete(NodePoolVector).where(NodePoolVector.serviceId == None))  # noqa: E711
 
             # 更新数据库
@@ -80,7 +77,7 @@ class CallLoader(metaclass=SingletonMeta):
             sys_call_metadata = await self._load_system_call()
         except Exception as e:
             err = "[CallLoader] 载入系统Call信息失败"
-            logger.exception(err)
+            _logger.exception(err)
             raise RuntimeError(err) from e
 
         # 更新数据库

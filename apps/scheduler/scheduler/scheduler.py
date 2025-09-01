@@ -5,12 +5,13 @@ import asyncio
 import logging
 import uuid
 
-from apps.common.config import config
 from apps.common.queue import MessageQueue
+from apps.llm.embedding import Embedding
+from apps.llm.function import FunctionLLM
 from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.llm.reasoning import ReasoningLLM
-from apps.models.llm import LLMData
-from apps.models.task import Task
+from apps.models.task import Task, TaskRuntime
+from apps.models.user import User
 from apps.scheduler.executor.agent import MCPAgentExecutor
 from apps.scheduler.executor.flow import FlowExecutor
 from apps.scheduler.pool.pool import Pool
@@ -20,16 +21,17 @@ from apps.scheduler.scheduler.message import (
     push_init_message,
     push_rag_message,
 )
-from apps.schemas.config import LLMConfig
 from apps.schemas.enum_var import AppType, EventType, ExecutorStatus
 from apps.schemas.rag_data import RAGQueryReq
 from apps.schemas.request_data import RequestData
-from apps.schemas.scheduler import ExecutorBackground
+from apps.schemas.scheduler import ExecutorBackground, LLMConfig
+from apps.schemas.task import TaskData
 from apps.services.activity import Activity
 from apps.services.appcenter import AppCenterManager
 from apps.services.knowledge import KnowledgeBaseManager
 from apps.services.llm import LLMManager
 from apps.services.task import TaskManager
+from apps.services.user import UserManager
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +43,47 @@ class Scheduler:
     Scheduler包含一个“SchedulerContext”，作用为多个Executor的“聊天会话”
     """
 
-    async def init(self, task_id: uuid.UUID, queue: MessageQueue, post_body: RequestData) -> None:
+    task: TaskData
+    llm: LLMConfig
+    queue: MessageQueue
+    post_body: RequestData
+    user: User
+
+
+    async def init(
+            self,
+            task_id: uuid.UUID,
+            queue: MessageQueue,
+            post_body: RequestData,
+            user_sub: str,
+    ) -> None:
         """初始化"""
-        self.used_docs = []
-        self.task_id = task_id
         self.queue = queue
         self.post_body = post_body
+        # 获取用户
+        user = await UserManager.get_user(user_sub)
+        if not user:
+            err = f"[Scheduler] 用户 {user_sub} 不存在"
+            logger.error(err)
+            raise RuntimeError(err)
+        self.user = user
+
+        # 获取Task
+        task = await TaskManager.get_task_data_by_task_id(task_id)
+        if not task:
+            logger.info("[Scheduler] 新建任务")
+            task = TaskData(
+                metadata=Task(
+                    id=task_id,
+                    userSub=user_sub,
+                ),
+                runtime=TaskRuntime(
+                    taskId=task_id,
+                ),
+                state=None,
+                context=[],
+            )
+        self.task = task
 
 
     async def _monitor_activity(self, kill_event: asyncio.Event, user_sub: str) -> None:
@@ -72,49 +109,66 @@ class Scheduler:
             kill_event.set()
 
 
-    async def get_chat_llm(self, llm_id: uuid.UUID) -> LLMData:
+    async def get_scheduler_llm(self, reasoning_llm_id: str) -> LLMConfig:
         """获取RAG大模型"""
         # 获取当前会话使用的大模型
-        llm = await LLMManager.get_llm(llm_id)
-        if not llm:
-            err = "[Scheduler] 获取大模型ID失败"
+        reasoning_llm = await LLMManager.get_llm(reasoning_llm_id)
+        if not reasoning_llm:
+            err = "[Scheduler] 获取问答用大模型ID失败"
             logger.error(err)
             raise ValueError(err)
-        return llm
+        reasoning_llm = ReasoningLLM(reasoning_llm)
+
+        # 获取功能性的大模型信息
+        function_llm = None
+        if not self.user.functionLLM:
+            logger.error("[Scheduler] 用户 %s 没有设置函数调用大模型，相关功能将被禁用", self.user.userSub)
+        else:
+            function_llm = await LLMManager.get_llm(self.user.functionLLM)
+            if not function_llm:
+                logger.error(
+                    "[Scheduler] 用户 %s 设置的函数调用大模型ID %s 不存在，相关功能将被禁用",
+                    self.user.userSub, self.user.functionLLM,
+                )
+            else:
+                function_llm = FunctionLLM(function_llm)
+
+        embedding_llm = None
+        if not self.user.embeddingLLM:
+            logger.error("[Scheduler] 用户 %s 没有设置向量模型，相关功能将被禁用", self.user.userSub)
+        else:
+            embedding_llm = await LLMManager.get_llm(self.user.embeddingLLM)
+            if not embedding_llm:
+                logger.error(
+                    "[Scheduler] 用户 %s 设置的向量模型ID %s 不存在，相关功能将被禁用",
+                    self.user.userSub, self.user.embeddingLLM,
+                )
+            else:
+                embedding_llm = Embedding(embedding_llm)
+
+        return LLMConfig(
+            reasoning=reasoning_llm,
+            function=function_llm,
+            embedding=embedding_llm,
+        )
 
 
     async def run(self) -> None:
         """运行调度器"""
-        task = await TaskManager.get_task_by_conversation_id(self.task_id)
-        if not task:
-            task = Task(
-                id=self.task_id,
-                ids=TaskIds(
-                    user_sub=self.post_body.user_sub,
-                    conversation_id=self.task_id,
-                ),
-            )
-        try:
-            # 获取当前问答可供关联的文档
-            docs, doc_ids = await get_docs(self.post_body)
-        except Exception:
-            logger.exception("[Scheduler] 获取文档失败")
-            await self.queue.close()
-            return
-        history, _ = await get_context(self.task.ids.user_sub, self.post_body, 3)
-
         # 如果是智能问答，直接执行
         logger.info("[Scheduler] 开始执行")
         # 创建用于通信的事件
         kill_event = asyncio.Event()
-        monitor = asyncio.create_task(self._monitor_activity(kill_event, self.task.ids.user_sub))
+        monitor = asyncio.create_task(self._monitor_activity(kill_event, self.task.metadata.userSub))
+
         rag_method = True
         if self.post_body.app and self.post_body.app.app_id:
             rag_method = False
-        if self.task.state.app_id:
+
+        if self.task.state.appId:
             rag_method = False
         if rag_method:
-            llm = await self.get_chat_llm()
+            llm = await self.get_scheduler_llm()
             kb_ids = await KnowledgeBaseManager.get_selected_kb(self.task.ids.user_sub)
             self.task = await push_init_message(self.task, self.queue, 3, is_flow=False)
             rag_data = RAGQueryReq(
@@ -160,9 +214,8 @@ class Scheduler:
         if kill_event.is_set():
             logger.warning("[Scheduler] 用户活动状态检测不活跃，正在终止工作流执行...")
             main_task.cancel()
-            need_change_cancel_flow_state = [ExecutorStatus.RUNNING, ExecutorStatus.WAITING]
-            if self.task.state.flow_status in need_change_cancel_flow_state:
-                self.task.state.flow_status = ExecutorStatus.CANCELLED
+            if self.task.state.executorStatus in [ExecutorStatus.RUNNING, ExecutorStatus.WAITING]:
+                self.task.state.executorStatus = ExecutorStatus.CANCELLED
             try:
                 await main_task
                 logger.info("[Scheduler] 工作流执行已被终止")
@@ -181,30 +234,13 @@ class Scheduler:
             self, queue: MessageQueue, post_body: RequestData, background: ExecutorBackground,
     ) -> None:
         """构造Executor并执行"""
-        # 读取App信息
-        app_info = post_body.app
-        if not app_info:
-            logger.error("[Scheduler] 未使用应用中心功能！")
-            return
         # 获取agent信息
         app_collection = MongoDB().get_collection("app")
         app_metadata = AppPool.model_validate(await app_collection.find_one({"_id": app_info.app_id}))
         if not app_metadata:
             logger.error("[Scheduler] 未找到Agent应用")
             return
-        llm = await LLMManager.get_llm(app_metadata.llm_id)
-        if not llm:
-            logger.error("[Scheduler] 获取大模型失败")
-            await self.queue.close()
-            return
-        reasion_llm = ReasoningLLM(
-            LLMConfig(
-                endpoint=llm.openai_base_url,
-                key=llm.openai_api_key,
-                model=llm.model_name,
-                max_tokens=llm.max_tokens,
-            ),
-        )
+
         if background.conversation and self.task.state.flow_status == ExecutorStatus.INIT:
             try:
                 question_obj = QuestionRewrite()

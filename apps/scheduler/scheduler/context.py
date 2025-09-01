@@ -6,14 +6,11 @@ import re
 from datetime import UTC, datetime
 
 from apps.common.security import Security
-from apps.llm.patterns.facts import Facts
-from apps.models.document import Document
-from apps.models.record import Record, RecordFootNote, RecordMetadata
+from apps.models.record import Record, RecordMetadata
 from apps.schemas.enum_var import StepStatus
 from apps.schemas.record import (
     FlowHistory,
     RecordContent,
-    RecordDocument,
     RecordGroupDocument,
 )
 from apps.schemas.request_data import RequestData
@@ -23,73 +20,6 @@ from apps.services.record import RecordManager
 from apps.services.task import TaskManager
 
 logger = logging.getLogger(__name__)
-
-
-async def get_docs(post_body: RequestData) -> tuple[list[RecordDocument] | list[Document], list[str]]:
-    """获取当前问答可供关联的文档"""
-    doc_ids = []
-
-    # 从Conversation中获取刚上传的文档
-    docs = await DocumentManager.get_unused_docs(post_body.conversation_id)
-    # 从最近10条Record中获取文档
-    docs += await DocumentManager.get_used_docs(post_body.conversation_id, 10, "question")
-    doc_ids += [doc.id for doc in docs]
-
-    return docs, doc_ids
-
-
-async def assemble_history(history: list[dict[str, str]]) -> str:
-    """
-    组装历史问题
-
-    :param history: 历史问题列表
-    :return: 组装后的字符串
-    """
-    history_str = ""
-    for item in history:
-        role = item.get("role")
-        content = item.get("content")
-        if role and content:
-            history_str += f"{role}: {content}\n"
-    return history_str.strip()
-
-
-async def get_context(user_sub: str, post_body: RequestData, n: int) -> tuple[list[dict[str, str]], list[str]]:
-    """
-    获取当前问答的上下文信息
-
-    注意：这里的n要比用户选择的多，因为要考虑事实信息和历史问题
-    """
-    # 最多15轮
-    n = min(n, 15)
-
-    # 获取最后n+5条Record
-    records = await RecordManager.query_record_by_conversation_id(user_sub, post_body.conversation_id, n + 5)
-
-    # 组装问答
-    context = []
-    facts = []
-    for record in records:
-        record_data = RecordContent.model_validate_json(Security.decrypt(record.content, record.key))
-        context.append({"role": "user", "content": record_data.question})
-        context.append({"role": "assistant", "content": record_data.answer})
-        facts.extend(record_data.facts)
-
-    return context, facts
-
-
-async def generate_facts(task: Task, question: str) -> tuple[Task, list[str]]:
-    """生成Facts"""
-    message = [
-        {"role": "user", "content": question},
-        {"role": "assistant", "content": task.runtime.answer},
-    ]
-
-    facts = await Facts().generate(conversation=message)
-    task.runtime.facts = facts
-    await TaskManager.save_task(task.id, task)
-
-    return task, facts
 
 
 async def save_data(task: Task, user_sub: str, post_body: RequestData) -> None:
@@ -109,7 +39,7 @@ async def save_data(task: Task, user_sub: str, post_body: RequestData) -> None:
                 size=docs.get("size", 0),
                 associated="answer",
                 created_at=docs.get("created_at", round(datetime.now(UTC).timestamp(), 3)),
-            )
+            ),
         )
         if docs.get("order") is not None:
             order_to_id[docs["order"]] = docs["id"]
@@ -130,7 +60,7 @@ async def save_data(task: Task, user_sub: str, post_body: RequestData) -> None:
                     insertPosition=new_position,
                     footSource="rag_search",
                     footType="document",
-                )
+                ),
             )
 
             # 更新偏移量，因为脚注被移除会导致后续内容前移

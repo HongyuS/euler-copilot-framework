@@ -181,7 +181,7 @@ class FlowExecutor(BaseExecutor):
         """
         logger.info("[FlowExecutor] 运行工作流")
         # 推送Flow开始消息
-        await self.push_message(EventType.FLOW_START.value)
+        await self._push_message(EventType.FLOW_START.value)
 
         # 获取首个步骤
         first_step = StepQueueItem(
@@ -270,6 +270,6 @@ class FlowExecutor(BaseExecutor):
         self.task.runtime.time = round(datetime.now(UTC).timestamp(), 2) - self.task.runtime.fullTime
         # 推送Flow停止消息
         if is_error:
-            await self.push_message(EventType.FLOW_FAILED.value)
+            await self._push_message(EventType.FLOW_FAILED.value)
         else:
-            await self.push_message(EventType.FLOW_SUCCESS.value)
+            await self._push_message(EventType.FLOW_SUCCESS.value)

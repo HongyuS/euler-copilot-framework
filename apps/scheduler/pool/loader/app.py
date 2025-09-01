@@ -51,7 +51,7 @@ class AppLoader:
                 if not flow:
                     err = f"[AppLoader] 工作流 {flow_file} 加载失败"
                     raise ValueError(err)
-                if not flow.debug:
+                if not flow.checkStatus.debug:
                     metadata.published = False
                 new_flows.append(
                     AppFlow(
@@ -59,7 +59,7 @@ class AppLoader:
                         name=flow.name,
                         description=flow.description,
                         path=flow_file.as_posix(),
-                        debug=flow.debug,
+                        debug=flow.checkStatus.debug,
                     ),
                 )
             metadata.flows = new_flows

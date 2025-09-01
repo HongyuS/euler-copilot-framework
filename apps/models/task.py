@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -46,10 +46,6 @@ class TaskRuntime(Base):
         primary_key=True,
     )
     """任务ID"""
-    inputToken: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # noqa: N815
-    """输入Token"""
-    outputToken: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # noqa: N815
-    """输出Token"""
     time: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     """时间"""
     fullTime: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)  # noqa: N815

@@ -10,7 +10,7 @@ from apps.models.llm import LLMData
 from apps.models.user import User
 from apps.schemas.request_data import (
     UpdateLLMReq,
-    UpdateUserSpecialLLMReq,
+    UpdateUserSelectedLLMReq,
 )
 from apps.schemas.response_data import (
     LLMProvider,
@@ -164,7 +164,7 @@ class LLMManager:
 
 
     @staticmethod
-    async def delete_llm(user_sub: str, llm_id: str | None) -> None:
+    async def delete_llm(llm_id: str | None) -> None:
         """
         删除大模型
 
@@ -187,20 +187,25 @@ class LLMManager:
                 await session.commit()
 
         async with postgres.session() as session:
-            user = (await session.scalars(
-                select(User).where(User.userSub == user_sub),
-            )).one_or_none()
-            if not user:
-                err = f"[LLMManager] 用户 {user_sub} 不存在"
-                raise ValueError(err)
-            user.reasoningLLM = None
+            # 清除所有FunctionLLM的引用
+            user = list((await session.scalars(
+                select(User).where(User.functionLLM == llm_id),
+            )).all())
+            for item in user:
+                item.functionLLM = None
+            # 清除所有EmbeddingLLM的引用
+            user = list((await session.scalars(
+                select(User).where(User.embeddingLLM == llm_id),
+            )).all())
+            for item in user:
+                item.embeddingLLM = None
             await session.commit()
 
 
     @staticmethod
-    async def update_user_default_llm(
+    async def update_user_selected_llm(
         user_sub: str,
-        llm_id: str,
+        req: UpdateUserSelectedLLMReq,
     ) -> None:
         """更新用户的默认LLM"""
         async with postgres.session() as session:
@@ -210,19 +215,6 @@ class LLMManager:
             if not user:
                 err = f"[LLMManager] 用户 {user_sub} 不存在"
                 raise ValueError(err)
-            user.reasoningLLM = llm_id
+            user.functionLLM = req.functionLLM
+            user.embeddingLLM = req.embeddingLLM
             await session.commit()
-
-
-    @staticmethod
-    async def update_user_special_llm(
-        user_sub: str,
-        req: UpdateUserSpecialLLMReq,
-    ) -> None:
-        """更新用户的特殊LLM（Function Call、Embedding等）"""
-        async with postgres.session() as session:
-            user = (await session.scalars(
-                select(User).where(User.userSub == user_sub),
-            )).one_or_none()
-            if not user:
-                pass

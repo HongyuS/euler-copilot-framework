@@ -162,32 +162,3 @@ class TaskManager:
             {"$set": task.model_dump(by_alias=True, exclude_none=True)},
             upsert=True,
         )
-
-
-    @classmethod
-    async def update_task_token(
-        cls,
-        task_id: uuid.UUID,
-        input_token: int,
-        output_token: int,
-        *,
-        override: bool = False,
-    ) -> tuple[int, int]:
-        """更新任务的Token"""
-        async with postgres.session() as session:
-            sql = select(TaskRuntime.inputToken, TaskRuntime.outputToken).where(TaskRuntime.taskId == task_id)
-            row = (await session.execute(sql)).one()
-
-            if override:
-                new_input_token = input_token
-                new_output_token = output_token
-            else:
-                new_input_token = row.inputToken + input_token
-                new_output_token = row.outputToken + output_token
-
-            sql = update(TaskRuntime).where(TaskRuntime.taskId == task_id).values(
-                inputToken=new_input_token, outputToken=new_output_token,
-            )
-            await session.execute(sql)
-            await session.commit()
-            return new_input_token, new_output_token

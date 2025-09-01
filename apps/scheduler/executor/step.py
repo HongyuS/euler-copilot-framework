@@ -157,7 +157,7 @@ class StepExecutor(BaseExecutor):
             ),
         )
         # 推送填参消息
-        await self.push_message(EventType.STEP_INPUT.value, slot_obj.input)
+        await self._push_message(EventType.STEP_INPUT.value, slot_obj.input)
         # 运行填参
         iterator = slot_obj.exec(self, slot_obj.input)
         async for chunk in iterator:
@@ -173,7 +173,7 @@ class StepExecutor(BaseExecutor):
             self.task.state.stepStatus = StepStatus.PARAM
         else:
             self.task.state.stepStatus = StepStatus.SUCCESS
-        await self.push_message(EventType.STEP_OUTPUT.value, result.model_dump(by_alias=True, exclude_none=True))
+        await self._push_message(EventType.STEP_OUTPUT.value, result.model_dump(by_alias=True, exclude_none=True))
 
         # 更新输入
         self.obj.input.update(result.slot_data)
@@ -212,10 +212,10 @@ class StepExecutor(BaseExecutor):
                 content = chunk.content
             if to_user:
                 if isinstance(chunk.content, str):
-                    await self.push_message(EventType.TEXT_ADD.value, chunk.content)
+                    await self._push_message(EventType.TEXT_ADD.value, chunk.content)
                     self.task.runtime.fullAnswer += chunk.content
                 else:
-                    await self.push_message(self.step.step.type, chunk.content)
+                    await self._push_message(self.step.step.type, chunk.content)
 
         return content
 
@@ -236,7 +236,7 @@ class StepExecutor(BaseExecutor):
         self.task.state.stepStatus = StepStatus.RUNNING
         self.task.runtime.time = round(datetime.now(UTC).timestamp(), 2)
         # 推送输入
-        await self.push_message(EventType.STEP_INPUT.value, self.obj.input)
+        await self._push_message(EventType.STEP_INPUT.value, self.obj.input)
 
         # 执行步骤
         iterator = self.obj.exec(self, self.obj.input)
@@ -246,7 +246,7 @@ class StepExecutor(BaseExecutor):
         except Exception as e:
             logger.exception("[StepExecutor] 运行步骤失败，进行异常处理步骤")
             self.task.state.stepStatus = StepStatus.ERROR
-            await self.push_message(EventType.STEP_OUTPUT.value, {})
+            await self._push_message(EventType.STEP_OUTPUT.value, {})
             if isinstance(e, CallError):
                 self.task.state.errorMessage = {
                     "err_msg": e.message,
@@ -289,4 +289,4 @@ class StepExecutor(BaseExecutor):
         self.task.context.append(history)
 
         # 推送输出
-        await self.push_message(EventType.STEP_OUTPUT.value, output_data)
+        await self._push_message(EventType.STEP_OUTPUT.value, output_data)
