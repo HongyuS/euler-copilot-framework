@@ -26,7 +26,6 @@ from apps.schemas.enum_var import (
 from apps.schemas.message import TextAddContent
 from apps.schemas.scheduler import CallError, CallOutputChunk
 from apps.services.node import NodeManager
-from apps.services.task import TaskManager
 
 from .base import BaseExecutor
 
@@ -162,11 +161,6 @@ class StepExecutor(BaseExecutor):
         iterator = slot_obj.exec(self, slot_obj.input)
         async for chunk in iterator:
             result: SlotOutput = SlotOutput.model_validate(chunk.content)
-        await TaskManager.update_task_token(
-            self.task.metadata.id,
-            input_token=slot_obj.tokens.input_tokens,
-            output_token=slot_obj.tokens.output_tokens,
-        )
 
         # 如果没有填全，则状态设置为待填参
         if result.remaining_schema:
@@ -181,11 +175,6 @@ class StepExecutor(BaseExecutor):
         # 恢复State
         self.task.state.stepId = current_step_id
         self.task.state.stepName = current_step_name
-        await TaskManager.update_task_token(
-            self.task.metadata.id,
-            input_token=self.obj.tokens.input_tokens,
-            output_token=self.obj.tokens.output_tokens,
-        )
 
 
     async def _process_chunk(
@@ -260,11 +249,6 @@ class StepExecutor(BaseExecutor):
 
         # 更新执行状态
         self.task.state.stepStatus = StepStatus.SUCCESS
-        await TaskManager.update_task_token(
-            self.task.metadata.id,
-            input_token=self.obj.tokens.input_tokens,
-            output_token=self.obj.tokens.output_tokens,
-        )
         self.task.runtime.fullTime = round(datetime.now(UTC).timestamp(), 2) - self.task.runtime.time
 
         # 更新history

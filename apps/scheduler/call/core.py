@@ -12,8 +12,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, Self
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.json_schema import SkipJsonSchema
 
-from apps.llm.function import FunctionLLM
-from apps.llm.reasoning import ReasoningLLM
 from apps.models.node import NodeInfo
 from apps.models.task import ExecutorHistory
 from apps.schemas.enum_var import CallOutputType, LanguageType
@@ -22,10 +20,8 @@ from apps.schemas.scheduler import (
     CallIds,
     CallInfo,
     CallOutputChunk,
-    CallTokens,
     CallVars,
 )
-from apps.services.llm import LLMManager
 
 if TYPE_CHECKING:
     from apps.scheduler.executor.step import StepExecutor
@@ -54,11 +50,6 @@ class CoreCall(BaseModel):
     description: SkipJsonSchema[str] = Field(description="Step的描述", exclude=True)
     node: SkipJsonSchema[NodeInfo | None] = Field(description="节点信息", exclude=True)
     enable_filling: SkipJsonSchema[bool] = Field(description="是否需要进行自动参数填充", default=False, exclude=True)
-    tokens: SkipJsonSchema[CallTokens] = Field(
-        description="Call的输入输出Tokens信息",
-        default=CallTokens(),
-        exclude=True,
-    )
     input_model: ClassVar[SkipJsonSchema[type[DataBase]]] = Field(
         description="Call的输入Pydantic类型；不包含override的模板",
         exclude=True,
@@ -166,6 +157,7 @@ class CoreCall(BaseModel):
 
     async def _set_input(self, executor: "StepExecutor") -> None:
         """获取Call的输入"""
+        self._llm_obj = executor.llm
         self._sys_vars = self._assemble_call_vars(executor)
         input_data = await self._init(self._sys_vars)
         self.input = input_data.model_dump(by_alias=True, exclude_none=True)
@@ -196,18 +188,19 @@ class CoreCall(BaseModel):
     async def _llm(self, messages: list[dict[str, Any]], *, streaming: bool = False) -> AsyncGenerator[str, None]:
         """Call可直接使用的LLM非流式调用"""
         if streaming:
-            async for chunk in llm.call(messages, streaming=streaming):
+            async for chunk in self._llm_obj.reasoning.call(messages, streaming=streaming):
                 yield chunk
         else:
             result = ""
-            async for chunk in llm.call(messages, streaming=streaming):
+            async for chunk in self._llm_obj.reasoning.call(messages, streaming=streaming):
                 result += chunk
             yield result
-
-        self.tokens.input_tokens += llm.input_tokens
-        self.tokens.output_tokens += llm.output_tokens
 
 
     async def _json(self, messages: list[dict[str, Any]], schema: dict[str, Any]) -> dict[str, Any]:
         """Call可直接使用的JSON生成"""
-        return await json.call(messages=messages, schema=schema)
+        if not self._llm_obj.function:
+            err = "[CoreCall] 未设置函数调用模型！"
+            logger.error(err)
+            raise CallError(message=err, data={})
+        return await self._llm_obj.function.call(messages=messages, schema=schema)

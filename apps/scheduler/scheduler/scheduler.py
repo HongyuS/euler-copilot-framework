@@ -4,6 +4,7 @@
 import asyncio
 import logging
 import uuid
+from datetime import UTC, datetime
 
 from apps.common.queue import MessageQueue
 from apps.llm.embedding import Embedding
@@ -15,13 +16,12 @@ from apps.models.user import User
 from apps.scheduler.executor.agent import MCPAgentExecutor
 from apps.scheduler.executor.flow import FlowExecutor
 from apps.scheduler.pool.pool import Pool
-from apps.scheduler.scheduler.context import get_context, get_docs
 from apps.scheduler.scheduler.flow import FlowChooser
-from apps.scheduler.scheduler.message import (
-    push_init_message,
-    push_rag_message,
-)
 from apps.schemas.enum_var import AppType, EventType, ExecutorStatus
+from apps.schemas.message import (
+    InitContent,
+    InitContentFeature,
+)
 from apps.schemas.rag_data import RAGQueryReq
 from apps.schemas.request_data import RequestData
 from apps.schemas.scheduler import ExecutorBackground, LLMConfig
@@ -85,6 +85,37 @@ class Scheduler:
             )
         self.task = task
 
+
+    async def push_init_message(
+        self, context_num: int, *, is_flow: bool = False,
+    ) -> None:
+        """推送初始化消息"""
+        # 组装feature
+        if is_flow:
+            feature = InitContentFeature(
+                maxTokens=self.llm.reasoning.config.maxToken or 0,
+                contextNum=context_num,
+                enableFeedback=False,
+                enableRegenerate=False,
+            )
+        else:
+            feature = InitContentFeature(
+                maxTokens=self.llm.reasoning.config.maxToken or 0,
+                contextNum=context_num,
+                enableFeedback=True,
+                enableRegenerate=True,
+            )
+
+        # 保存必要信息到Task
+        created_at = round(datetime.now(UTC).timestamp(), 3)
+        self.task.runtime.time = created_at
+
+        # 推送初始化消息
+        await self.queue.push_output(
+            task=self.task,
+            event_type=EventType.INIT.value,
+            data=InitContent(feature=feature, createdAt=created_at).model_dump(exclude_none=True, by_alias=True),
+        )
 
     async def _monitor_activity(self, kill_event: asyncio.Event, user_sub: str) -> None:
         """监控用户活动状态，不活跃时终止工作流"""

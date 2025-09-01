@@ -7,7 +7,6 @@ import uuid
 from apps.llm.patterns import Select
 from apps.scheduler.pool.pool import Pool
 from apps.schemas.request_data import RequestDataApp
-from apps.services.task import TaskManager
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +37,4 @@ class FlowChooser:
             "description": f"{flow.name}, {flow.description}",
         } for flow in flow_list]
         select_obj = Select()
-        top_flow = await select_obj.generate(question=self._question, choices=choices)
-
-        await TaskManager.update_task_token(self.task_id, select_obj.input_tokens, select_obj.output_tokens)
-        return top_flow
+        return await select_obj.generate(question=self._question, choices=choices)

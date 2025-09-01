@@ -106,6 +106,7 @@ class FlowExecutor(BaseExecutor):
             step=self.current_step,
             background=self.background,
             question=self.question,
+            llm=self.llm,
         )
 
         # 初始化步骤

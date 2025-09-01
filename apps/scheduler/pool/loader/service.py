@@ -13,7 +13,6 @@ from apps.common.postgres import postgres
 from apps.llm.embedding import Embedding
 from apps.models.node import NodeInfo
 from apps.models.service import Service, ServiceACL, ServiceHashes
-from apps.models.vectors import NodePoolVector, ServicePoolVector
 from apps.scheduler.pool.check import FileChecker
 from apps.schemas.flow import PermissionType, ServiceMetadata
 
@@ -75,15 +74,25 @@ class ServiceLoader:
 
 
     @staticmethod
-    async def delete(service_id: uuid.UUID, *, is_reload: bool = False) -> None:
+    async def delete(
+        service_id: uuid.UUID, embedding_model: Embedding | None = None, *, is_reload: bool = False,
+    ) -> None:
         """删除Service，并更新数据库"""
         async with postgres.session() as session:
             await session.execute(delete(Service).where(Service.id == service_id))
             await session.execute(delete(NodeInfo).where(NodeInfo.serviceId == service_id))
             await session.execute(delete(ServiceACL).where(ServiceACL.serviceId == service_id))
             await session.execute(delete(ServiceHashes).where(ServiceHashes.serviceId == service_id))
-            await session.execute(delete(ServicePoolVector).where(ServicePoolVector.id == service_id))
-            await session.execute(delete(NodePoolVector).where(NodePoolVector.serviceId == service_id))
+
+            if embedding_model:
+                await session.execute(
+                    delete(embedding_model.ServicePoolVector).where(embedding_model.ServicePoolVector.id == service_id),
+                )
+                await session.execute(
+                    delete(
+                        embedding_model.NodePoolVector,
+                    ).where(embedding_model.NodePoolVector.serviceId == service_id),
+                )
             await session.commit()
 
         if not is_reload:
@@ -120,30 +129,31 @@ class ServiceLoader:
                 session.add(node)
             await session.commit()
 
-        # 删除旧的向量数据
-        async with postgres.session() as session:
-            await session.execute(delete(ServicePoolVector).where(ServicePoolVector.id == metadata.id))
-            await session.execute(delete(NodePoolVector).where(NodePoolVector.serviceId == metadata.id))
-            await session.commit()
 
-        # 进行向量化，更新postgres
-        service_vecs = await Embedding.get_embedding([metadata.description])
-        async with postgres.session() as session:
-            pool_data = ServicePoolVector(
-                id=metadata.id,
-                embedding=service_vecs[0],
-            )
-            session.add(pool_data)
-            await session.commit()
-
+    @staticmethod
+    async def _update_vector(nodes: list[NodeInfo], metadata: ServiceMetadata, embedding_model: Embedding) -> None:
+        """更新向量数据"""
+        service_vecs = await embedding_model.get_embedding([metadata.description])
         node_descriptions = []
         for node in nodes:
             node_descriptions += [node.description]
-        node_vecs = await Embedding.get_embedding(node_descriptions)
+        node_vecs = await embedding_model.get_embedding(node_descriptions)
 
         async with postgres.session() as session:
+            # 删除旧数据
+            await session.execute(
+                delete(embedding_model.ServicePoolVector).where(embedding_model.ServicePoolVector.id == metadata.id),
+            )
+            await session.execute(
+                delete(embedding_model.NodePoolVector).where(embedding_model.NodePoolVector.serviceId == metadata.id),
+            )
+            # 插入新数据
+            session.add(embedding_model.ServicePoolVector(
+                id=metadata.id,
+                embedding=service_vecs[0],
+            ))
             for vec in node_vecs:
-                node_data = NodePoolVector(
+                node_data = embedding_model.NodePoolVector(
                     id=node.id,
                     serviceId=metadata.id,
                     embedding=vec,

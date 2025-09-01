@@ -172,7 +172,7 @@ application scenarios."
         llm = kwargs.get("llm")
         if not llm:
             llm = ReasoningLLM()
-        leave_tokens = llm._config.max_tokens
+        leave_tokens = llm.config.max_tokens
         leave_tokens -= TokenCalculator().calculate_token_length(messages)
         if leave_tokens <= 0:
             logger.error("[QuestionRewrite] 大模型上下文窗口不足，无法进行问题补全与重写")

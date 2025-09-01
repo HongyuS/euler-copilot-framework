@@ -7,13 +7,13 @@ from datetime import UTC, datetime
 
 from apps.common.security import Security
 from apps.models.record import Record, RecordMetadata
+from apps.scheduler.scheduler import Scheduler
 from apps.schemas.enum_var import StepStatus
 from apps.schemas.record import (
     FlowHistory,
     RecordContent,
     RecordGroupDocument,
 )
-from apps.schemas.request_data import RequestData
 from apps.services.appcenter import AppCenterManager
 from apps.services.document import DocumentManager
 from apps.services.record import RecordManager
@@ -22,7 +22,7 @@ from apps.services.task import TaskManager
 logger = logging.getLogger(__name__)
 
 
-async def save_data(task: Task, user_sub: str, post_body: RequestData) -> None:
+async def save_data(scheduler: "Scheduler") -> None:
     """保存当前Executor、Task、Record等的数据"""
     # 构造RecordContent
     used_docs = []
