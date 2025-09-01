@@ -100,21 +100,21 @@ class ReasoningLLM:
             err = "未设置大模型配置"
             logger.error(err)
             raise RuntimeError(err)
-        self._config: LLMData = llm_config
+        self.config: LLMData = llm_config
         self._init_client()
 
     def _init_client(self) -> None:
         """初始化OpenAI客户端"""
-        if not self._config.openaiAPIKey:
+        if not self.config.openaiAPIKey:
             self._client = AsyncOpenAI(
-                base_url=self._config.openaiBaseUrl,
+                base_url=self.config.openaiBaseUrl,
                 timeout=self.timeout,
             )
             return
 
         self._client = AsyncOpenAI(
-            api_key=self._config.openaiAPIKey,
-            base_url=self._config.openaiBaseUrl,
+            api_key=self.config.openaiAPIKey,
+            base_url=self.config.openaiBaseUrl,
             timeout=self.timeout,
         )
 
@@ -140,12 +140,12 @@ class ReasoningLLM:
     ) -> AsyncGenerator[ChatCompletionChunk, None]:
         """创建流式响应"""
         if model is None:
-            model = self._config.modelName
+            model = self.config.modelName
         return await self._client.chat.completions.create(
             model=model,
             messages=messages,  # type: ignore[]
-            max_tokens=max_tokens or self._config.maxToken,
-            temperature=temperature or self._config.temperature,
+            max_tokens=max_tokens or self.config.maxToken,
+            temperature=temperature or self.config.temperature,
             stream=True,
             stream_options={"include_usage": True},
         )  # type: ignore[]
@@ -163,11 +163,11 @@ class ReasoningLLM:
         """调用大模型，分为流式和非流式两种"""
         # 检查max_tokens和temperature
         if max_tokens is None:
-            max_tokens = self._config.maxToken
+            max_tokens = self.config.maxToken
         if temperature is None:
-            temperature = self._config.temperature
+            temperature = self.config.temperature
         if model is None:
-            model = self._config.modelName
+            model = self.config.modelName
         msg_list = self._validate_messages(messages)
         stream = await self._create_stream(msg_list, max_tokens, temperature, model)
         reasoning = ReasoningContent()

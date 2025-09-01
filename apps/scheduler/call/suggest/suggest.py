@@ -69,11 +69,11 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
         context = [
             {
                 "role": "user",
-                "content": executor.runtime.userInput,
+                "content": executor.task.runtime.userInput,
             },
             {
                 "role": "assistant",
-                "content": executor.runtime.fullAnswer,
+                "content": executor.task.runtime.fullAnswer,
             },
         ]
         obj = cls(
@@ -81,7 +81,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
             description=executor.step.step.description,
             node=node,
             context=context,
-            conversation_id=executor.task.conversationId,
+            conversation_id=executor.task.metadata.conversationId,
             **kwargs,
         )
         await obj._set_input(executor)

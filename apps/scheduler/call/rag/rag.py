@@ -54,6 +54,11 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
 
     async def _init(self, call_vars: CallVars) -> RAGInput:
         """初始化RAG工具"""
+        if not call_vars.ids.session_id:
+            err = "[RAG] 未设置Session ID"
+            logger.error(err)
+            raise CallError(message=err, data={})
+
         return RAGInput(
             session_id=call_vars.ids.session_id,
             kbIds=self.knowledge_base_ids,
@@ -74,8 +79,6 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
         question_obj = QuestionRewrite()
         question = await question_obj.generate(question=data.question)
         data.question = question
-        self.tokens.input_tokens += question_obj.input_tokens
-        self.tokens.output_tokens += question_obj.output_tokens
 
         url = config.rag.rag_service.rstrip("/") + "/chunk/search"
         headers = {

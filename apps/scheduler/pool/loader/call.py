@@ -8,7 +8,7 @@ from sqlalchemy import delete
 import apps.scheduler.call as system_call
 from apps.common.postgres import postgres
 from apps.common.singleton import SingletonMeta
-from apps.llm.embedding import Embedding, VectorBase
+from apps.llm.embedding import Embedding
 from apps.models.node import NodeInfo
 from apps.schemas.scheduler import CallInfo
 
@@ -31,14 +31,12 @@ class CallLoader(metaclass=SingletonMeta):
         return call_metadata
 
 
-    # 更新数据库
-    async def _add_to_db(self, call_metadata: dict[str, CallInfo]) -> None:
-        """更新数据库"""
+    # 将数据插入数据库
+    async def _add_data_to_db(self, call_metadata: dict[str, CallInfo]) -> None:
+        """将数据插入数据库"""
         # 清除旧数据
         async with postgres.session() as session:
             await session.execute(delete(NodeInfo).where(NodeInfo.serviceId == None))  # noqa: E711
-            NodePoolVector = VectorBase.metadata.tables["framework_node_vector"]  # noqa: N806
-            await session.execute(delete(NodePoolVector).where(NodePoolVector.serviceId == None))  # noqa: E711
 
             # 更新数据库
             call_descriptions = []
@@ -55,18 +53,26 @@ class CallLoader(metaclass=SingletonMeta):
                 ))
                 call_descriptions.append(call.description)
 
-            # 进行向量化
-            call_vecs = await Embedding.get_embedding(call_descriptions)
-            vector_data = []
+            await session.commit()
+
+
+    # 将向量化数据存入数据库
+    async def _add_vector_to_db(
+        self, call_metadata: dict[str, CallInfo], embedding_model: Embedding,
+    ) -> None:
+        """将向量化数据存入数据库"""
+        async with postgres.session() as session:
+            # 删除旧数据
+            await session.execute(
+                delete(embedding_model.NodePoolVector).where(embedding_model.NodePoolVector.serviceId == None),  # noqa: E711
+            )
+
+            call_vecs = await embedding_model.get_embedding([call.description for call in call_metadata.values()])
             for call_id, vec in zip(call_metadata.keys(), call_vecs, strict=True):
-                vector_data.append(
-                    NodePoolVector(
-                        id=call_id,
-                        serviceId=None,
-                        embedding=vec,
-                    ),
-                )
-            session.add_all(vector_data)
+                session.add(embedding_model.NodePoolVector(
+                    id=call_id,
+                    embedding=vec,
+                ))
             await session.commit()
 
 
@@ -81,4 +87,4 @@ class CallLoader(metaclass=SingletonMeta):
             raise RuntimeError(err) from e
 
         # 更新数据库
-        await self._add_to_db(sys_call_metadata)
+        await self._add_data_to_db(sys_call_metadata)

@@ -147,7 +147,7 @@ class FlowLoader:
                 description=flow_config.description,
                 enabled=True,
                 path=str(flow_path),
-                debug=flow_config.debug,
+                debug=flow_config.checkStatus.debug,
             ),
         )
         return Flow.model_validate(flow_yaml)
@@ -180,13 +180,13 @@ class FlowLoader:
                 description=flow.description,
                 enabled=True,
                 path=str(flow_path),
-                debug=flow.debug,
+                debug=flow.checkStatus.debug,
             ),
         )
 
 
     @staticmethod
-    async def delete(app_id: uuid.UUID, flow_id: str) -> None:
+    async def delete(app_id: uuid.UUID, flow_id: str, embedding_model: Embedding | None = None) -> None:
         """删除指定工作流文件"""
         flow_path = BASE_PATH / str(app_id) / "flow" / f"{flow_id}.yaml"
         # 确保目标为文件且存在
@@ -201,7 +201,10 @@ class FlowLoader:
                         FlowInfo.id == flow_id,
                     ),
                 ))
-                await session.execute(delete(FlowPoolVector).where(FlowPoolVector.id == flow_id))
+                if embedding_model:
+                    await session.execute(
+                        delete(embedding_model.FlowPoolVector).where(embedding_model.FlowPoolVector.id == flow_id),
+                    )
                 await session.commit()
                 return
         logger.warning("[FlowLoader] 工作流文件不存在或不是文件：%s", flow_path)
@@ -228,7 +231,6 @@ class FlowLoader:
                     AppHashes.filePath == f"flow/{metadata.id}.yaml",
                 ),
             ))
-            await session.execute(delete(FlowPoolVector).where(FlowPoolVector.id == metadata.id))
 
             # 创建新的Flow数据
             session.add(metadata)
@@ -243,15 +245,21 @@ class FlowLoader:
                 filePath=f"flow/{metadata.id}.yaml",
             )
             session.add(flow_hash)
+            await session.commit()
 
-            # 进行向量化
-            service_embedding = await Embedding.get_embedding([metadata.description])
-            vector_data = [
-                FlowPoolVector(
-                    id=metadata.id,
-                    appId=app_id,
-                    embedding=service_embedding[0],
-                ),
-            ]
-            session.add_all(vector_data)
+    @staticmethod
+    async def _update_vector(app_id: uuid.UUID, metadata: FlowInfo, embedding_model: Embedding) -> None:
+        """将向量化数据存入数据库"""
+        async with postgres.session() as session:
+            await session.execute(
+                delete(embedding_model.FlowPoolVector).where(embedding_model.FlowPoolVector.id == metadata.id),
+            )
+
+            # 获取向量数据
+            service_embedding = await embedding_model.get_embedding([metadata.description])
+            session.add(embedding_model.FlowPoolVector(
+                id=metadata.id,
+                appId=app_id,
+                embedding=service_embedding[0],
+            ))
             await session.commit()

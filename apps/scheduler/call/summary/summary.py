@@ -64,8 +64,6 @@ class Summary(CoreCall, input_model=DataBase, output_model=SummaryOutput):
         """执行工具"""
         summary_obj = ExecutorSummary()
         summary = await summary_obj.generate(background=self.context, language=self._sys_vars.language)
-        self.tokens.input_tokens += summary_obj.input_tokens
-        self.tokens.output_tokens += summary_obj.output_tokens
 
         yield CallOutputChunk(type=CallOutputType.TEXT, content=summary)
 
@@ -77,5 +75,5 @@ class Summary(CoreCall, input_model=DataBase, output_model=SummaryOutput):
             if not isinstance(content, str):
                 err = "[SummaryCall] 工具输出格式错误"
                 raise TypeError(err)
-            executor.runtime.reasoning = content
+            executor.task.runtime.reasoning = content
             yield chunk

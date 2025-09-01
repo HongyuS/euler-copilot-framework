@@ -34,7 +34,7 @@ class CallIds(BaseModel):
 
     task_id: uuid.UUID = Field(description="任务ID")
     executor_id: str = Field(description="Flow ID")
-    session_id: str = Field(description="当前用户的Session ID")
+    session_id: str | None = Field(description="当前用户的Session ID")
     app_id: uuid.UUID = Field(description="当前应用的ID")
     user_sub: str = Field(description="当前用户的用户ID")
 
@@ -48,13 +48,6 @@ class CallVars(BaseModel):
     history_order: list[str] = Field(description="Executor中历史工具的顺序", default=[])
     ids: CallIds = Field(description="Call的ID")
     language: LanguageType = Field(description="语言", default=LanguageType.CHINESE)
-
-
-class CallTokens(BaseModel):
-    """Call的Tokens"""
-
-    input_tokens: int = Field(description="输入的Tokens", default=0)
-    output_tokens: int = Field(description="输出的Tokens", default=0)
 
 
 class ExecutorBackground(BaseModel):

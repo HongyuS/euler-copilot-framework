@@ -1,6 +1,7 @@
 """Embedding模型"""
 
 import logging
+from typing import Any
 
 import httpx
 from pgvector.sqlalchemy import Vector
@@ -12,7 +13,6 @@ from apps.common.postgres import postgres
 from apps.models.llm import EmbeddingBackend, LLMData
 
 _logger = logging.getLogger(__name__)
-VectorBase = declarative_base()
 _flow_pool_vector_table = {
     "__tablename__": "framework_flow_vector",
     "appId": Column(UUID(as_uuid=True), ForeignKey("framework_app.id"), nullable=False),
@@ -86,6 +86,13 @@ _mcp_tool_vector_table = {
 class Embedding:
     """Embedding模型"""
 
+    VectorBase: Any
+    NodePoolVector: Any
+    FlowPoolVector: Any
+    ServicePoolVector: Any
+    MCPVector: Any
+    MCPToolVector: Any
+
     async def _get_embedding_dimension(self) -> int:
         """获取Embedding的维度"""
         embedding = await self.get_embedding(["测试文本"])
@@ -116,16 +123,30 @@ class Embedding:
             _mcp_tool_vector_table,
         ]:
             table["embedding"] = Column(Vector(dim), nullable=False)
-        # 创建表
-        VectorBase.metadata.create_all(VectorBase.metadata)
 
-    async def __init__(self, llm_config: LLMData | None = None) -> None:
-        """初始化Embedding模型"""
+        # 创建表
+        self.VectorBase = declarative_base()
+        self.NodePoolVector = type("NodePoolVector", (self.VectorBase,), _node_pool_vector_table)
+        self.FlowPoolVector = type("FlowPoolVector", (self.VectorBase,), _flow_pool_vector_table)
+        self.ServicePoolVector = type("ServicePoolVector", (self.VectorBase,), _service_pool_vector_table)
+        self.MCPVector = type("MCPVector", (self.VectorBase,), _mcp_vector_table)
+        self.MCPToolVector = type("MCPToolVector", (self.VectorBase,), _mcp_tool_vector_table)
+        self.VectorBase.metadata.create_all(postgres.engine)
+
+    def __init__(self, llm_config: LLMData | None = None) -> None:
+        """初始化Embedding对象"""
         if not llm_config or not llm_config.embeddingBackend:
             err = "[Embedding] 未设置Embedding模型"
             _logger.error(err)
             raise RuntimeError(err)
         self._config: LLMData = llm_config
+
+    async def init(self) -> None:
+        """在使用Embedding前初始化数据库表等资源"""
+        await self._delete_vector()
+        # 检测维度
+        dim = await self._get_embedding_dimension()
+        await self._create_vector_table(dim)
 
     async def _get_openai_embedding(self, text: list[str]) -> list[list[float]]:
         """访问OpenAI兼容的Embedding API，获得向量化数据"""
@@ -152,7 +173,6 @@ class Embedding:
             json = response.json()
             return [item["embedding"] for item in json["data"]]
 
-
     async def _get_tei_embedding(self, text: list[str]) -> list[list[float]]:
         """访问TEI兼容的Embedding API，获得向量化数据"""
         api = self._config.openaiBaseUrl + "/embed"
@@ -177,7 +197,6 @@ class Embedding:
 
             return result
 
-
     async def get_embedding(self, text: list[str]) -> list[list[float]]:
         """
         访问OpenAI兼容的Embedding API，获得向量化数据
@@ -185,14 +204,11 @@ class Embedding:
         :param text: 待向量化文本（多条文本组成List）
         :return: 文本对应的向量（顺序与text一致，也为List）
         """
-        try:
-            if self._config.embeddingBackend == EmbeddingBackend.OPENAI:
-                return await self._get_openai_embedding(text)
-            if self._config.embeddingBackend == EmbeddingBackend.TEI:
-                return await self._get_tei_embedding(text)
+        if self._config.embeddingBackend == EmbeddingBackend.OPENAI:
+            return await self._get_openai_embedding(text)
+        if self._config.embeddingBackend == EmbeddingBackend.TEI:
+            return await self._get_tei_embedding(text)
 
-            _logger.error("[Embedding] 不支持的Embedding API类型: %s", self._config.modelName)
-            return [[0.0] * 1024 for _ in range(len(text))]
-        except Exception:
-            _logger.exception("[Embedding] 获取Embedding失败")
-            return [[0.0] * 1024 for _ in range(len(text))]
+        err = f"[Embedding] 不支持的Embedding API类型: {self._config.modelName}"
+        _logger.error(err)
+        raise RuntimeError(err)

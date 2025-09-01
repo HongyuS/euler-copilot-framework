@@ -5,7 +5,7 @@ import urllib.parse
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from apps.models import (
     Base,
@@ -19,18 +19,20 @@ logger = logging.getLogger(__name__)
 class Postgres:
     """Postgres连接器"""
 
+    engine: AsyncEngine
+
     async def init(self) -> None:
         """初始化Postgres连接器"""
         logger.info("[Postgres] 初始化Postgres连接器")
-        self._engine = create_async_engine(
+        self.engine = create_async_engine(
             f"postgresql+asyncpg://{urllib.parse.quote_plus(config.postgres.user)}:"
             f"{urllib.parse.quote_plus(config.postgres.password)}@{config.postgres.host}:"
             f"{config.postgres.port}/{config.postgres.database}",
         )
-        self._session = async_sessionmaker(self._engine, expire_on_commit=False)
+        self._session = async_sessionmaker(self.engine, expire_on_commit=False)
 
         logger.info("[Postgres] 创建表")
-        async with self._engine.begin() as conn:
+        async with self.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
     @asynccontextmanager

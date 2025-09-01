@@ -171,6 +171,11 @@ class API(CoreCall, input_model=APIInput, output_model=APIOutput):
 
     async def _apply_auth(self) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
         """应用认证信息到请求参数中"""
+        if not self._session_id:
+            err = "[API] 未设置Session ID"
+            logger.error(err)
+            raise CallError(message=err, data={})
+
         # self._auth可能是None或ServiceApiAuth类型
         # ServiceApiAuth类型包含header、cookie、query和oidc属性
         req_header = {}

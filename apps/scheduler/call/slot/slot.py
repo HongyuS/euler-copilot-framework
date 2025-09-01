@@ -97,7 +97,7 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
             name=executor.step.step.name,
             description=executor.step.step.description,
             facts=executor.background.facts,
-            summary=executor.runtime.reasoning,
+            summary=executor.task.runtime.reasoning,
             node=node,
             **kwargs,
         )
