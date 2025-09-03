@@ -6,6 +6,8 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 from anyio import Path
+from jinja2 import BaseLoader
+from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
 from apps.scheduler.call.core import CoreCall
@@ -18,7 +20,12 @@ from apps.schemas.scheduler import (
 )
 
 from .prompt import GENERATE_STYLE_PROMPT
-from .schema import RenderFormat, RenderInput, RenderOutput
+from .schema import (
+    RenderFormat,
+    RenderInput,
+    RenderOutput,
+    RenderStyleResult,
+)
 
 
 class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
@@ -39,6 +46,13 @@ class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
 
     async def _init(self, call_vars: CallVars) -> RenderInput:
         """初始化Render Call，校验参数，读取option模板"""
+        self._env = SandboxedEnvironment(
+            loader=BaseLoader(),
+            autoescape=False,
+            trim_blocks=True,
+            lstrip_blocks=True,
+        )
+
         try:
             option_location = Path(__file__).parent / "option.json"
             f = await Path(option_location).open(encoding="utf-8")
@@ -88,10 +102,18 @@ class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
         self._option_template["dataset"]["source"] = processed_data
 
         try:
-            llm_output = await style_obj.generate(question=data.question)
+            style_obj = self._env.from_string(GENERATE_STYLE_PROMPT[self._sys_vars.language])
+            style_prompt = style_obj.render(question=data.question)
 
-            add_style = llm_output.get("additional_style", "")
-            self._parse_options(column_num, llm_output["chart_type"], add_style, llm_output["scale_type"])
+            result = ""
+            async for chunk in self._llm(messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": style_prompt},
+                ], streaming=True):
+                    result += chunk
+            llm_output = RenderStyleResult.model_validate_json(result)
+
+            self._parse_options(column_num, llm_output)
         except Exception as e:
             raise CallError(message=f"图表生成失败：{e!s}", data={"data": data}) from e
 
@@ -120,25 +142,25 @@ class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
         return result
 
 
-    def _parse_options(self, column_num: int, chart_style: str, additional_style: str, scale_style: str) -> None:
+    def _parse_options(self, column_num: int, style: RenderStyleResult) -> None:
         """解析LLM做出的图表样式选择"""
         series_template = {}
 
-        if chart_style == "line":
+        if style.chart_type == "line":
             series_template["type"] = "line"
-        elif chart_style == "scatter":
+        elif style.chart_type == "scatter":
             series_template["type"] = "scatter"
-        elif chart_style == "pie":
+        elif style.chart_type == "pie":
             column_num = 1
             series_template["type"] = "pie"
-            if additional_style == "ring":
+            if style.additional_style == "ring":
                 series_template["radius"] = ["40%", "70%"]
         else:
             series_template["type"] = "bar"
-            if additional_style == "stacked":
+            if style.additional_style == "stacked":
                 series_template["stack"] = "total"
 
-        if scale_style == "log":
+        if style.scale_type == "log":
             self._option_template["yAxis"]["type"] = "log"
 
         for _ in range(column_num):

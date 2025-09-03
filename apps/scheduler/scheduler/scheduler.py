@@ -9,7 +9,6 @@ from datetime import UTC, datetime
 from apps.common.queue import MessageQueue
 from apps.llm.embedding import Embedding
 from apps.llm.function import FunctionLLM
-from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.llm.reasoning import ReasoningLLM
 from apps.models.task import Task, TaskRuntime
 from apps.models.user import User
@@ -76,6 +75,7 @@ class Scheduler:
                 metadata=Task(
                     id=task_id,
                     userSub=user_sub,
+                    conversationId=self.post_body.conversation_id,
                 ),
                 runtime=TaskRuntime(
                     taskId=task_id,
@@ -272,14 +272,6 @@ class Scheduler:
             logger.error("[Scheduler] 未找到Agent应用")
             return
 
-        if background.conversation and self.task.state.flow_status == ExecutorStatus.INIT:
-            try:
-                question_obj = QuestionRewrite()
-                post_body.question = await question_obj.generate(
-                    history=background.conversation, question=post_body.question, llm=reasion_llm,
-                )
-            except Exception:
-                logger.exception("[Scheduler] 问题重写失败")
         if app_metadata.app_type == AppType.FLOW.value:
             logger.info("[Scheduler] 获取工作流元数据")
             flow_info = await Pool().get_flow_metadata(app_info.app_id)

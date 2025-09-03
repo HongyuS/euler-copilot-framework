@@ -79,8 +79,6 @@ class FlowExecutor(BaseExecutor):
             self.state
             and self.state.executorStatus not in [ExecutorStatus.INIT, ExecutorStatus.UNKNOWN]
         ):
-            self.context = await TaskManager.get_context_by_task_id(self.task.id)
-        else:
             # 创建ExecutorState
             self.state = ExecutorCheckpoint(
                 taskId=self.task.id,

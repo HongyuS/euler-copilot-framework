@@ -18,6 +18,7 @@ from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.pool import MCPPool
 from apps.schemas.enum_var import ExecutorStatus, LanguageType, StepStatus
 from apps.schemas.mcp import MCPPlanItem
+from apps.schemas.scheduler import LLMConfig
 from apps.services.mcp_service import MCPServiceManager
 from apps.services.task import TaskManager
 
@@ -27,13 +28,10 @@ logger = logging.getLogger(__name__)
 class MCPHost:
     """MCP宿主服务"""
 
-    def __init__(
-            self, user_sub: str, task_id: uuid.UUID, runtime_id: str, runtime_name: str,
-            language: LanguageType,
-    ) -> None:
+    def __init__(self, user_sub: str,task_id: uuid.UUID, llm: LLMConfig) -> None:
         """初始化MCP宿主"""
-        self._user_sub = user_sub
         self._task_id = task_id
+        self._user_sub = user_sub
         # 注意：runtime在工作流中是flow_id和step_description，在Agent中可为标识Agent的id和description
         self._runtime_id = runtime_id
         self._runtime_name = runtime_name
@@ -44,7 +42,9 @@ class MCPHost:
             trim_blocks=True,
             lstrip_blocks=True,
         )
-        self.language = language
+
+    async def init(self) -> None:
+        """初始化MCP宿主"""
 
 
     async def get_client(self, mcp_id: str) -> MCPClient | None:
@@ -123,7 +123,6 @@ class MCPHost:
             return {}
         self._context_list.append(context.id)
         context.append(context)
-        await TaskManager.save_task(self._task_id, task)
 
         return output_data
 

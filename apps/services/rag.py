@@ -12,7 +12,6 @@ import httpx
 from fastapi import status
 
 from apps.common.config import config
-from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.llm.reasoning import ReasoningLLM
 from apps.llm.token import TokenCalculator
 from apps.schemas.enum_var import EventType, LanguageType

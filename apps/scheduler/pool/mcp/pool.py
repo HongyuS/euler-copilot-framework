@@ -22,7 +22,7 @@ class MCPPool(metaclass=SingletonMeta):
 
     def __init__(self) -> None:
         """初始化MCP池"""
-        self.pool = {}
+        self.pool: dict[str, dict[str, MCPClient]] = {}
 
 
     async def init_mcp(self, mcp_id: str, user_sub: str) -> MCPClient | None:

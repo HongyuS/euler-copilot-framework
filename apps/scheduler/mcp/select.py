@@ -6,12 +6,9 @@ import logging
 from sqlalchemy import select
 
 from apps.common.postgres import postgres
-from apps.llm.embedding import Embedding
-from apps.llm.function import FunctionLLM
-from apps.llm.reasoning import ReasoningLLM
 from apps.models.mcp import MCPTools
-from apps.models.vectors import MCPToolVector
 from apps.schemas.mcp import MCPSelectResult
+from apps.schemas.scheduler import LLMConfig
 from apps.services.mcp_service import MCPServiceManager
 
 logger = logging.getLogger(__name__)
@@ -20,32 +17,31 @@ logger = logging.getLogger(__name__)
 class MCPSelector:
     """MCP选择器"""
 
-    def __init__(self) -> None:
-        """初始化助手类"""
-        self.input_tokens = 0
-        self.output_tokens = 0
-
+    def __init__(self, llm: LLMConfig) -> None:
+        """初始化MCP选择器"""
+        self._llm = llm
 
     async def _call_reasoning(self, prompt: str) -> str:
         """调用大模型进行推理"""
-        logger.info("[MCPHelper] 调用推理大模型")
-        llm = ReasoningLLM()
+        logger.info("[MCPSelector] 调用推理大模型")
         message = [
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt},
         ]
         result = ""
-        async for chunk in llm.call(message):
+        async for chunk in self._llm.reasoning.call(message):
             result += chunk
-        self.input_tokens += llm.input_tokens
-        self.output_tokens += llm.output_tokens
         return result
 
 
     async def _call_function_mcp(self, reasoning_result: str, mcp_ids: list[str]) -> MCPSelectResult:
         """调用结构化输出小模型提取JSON"""
-        logger.info("[MCPHelper] 调用结构化输出小模型")
-        llm = FunctionLLM()
+        if not self._llm.function:
+            err = "[MCPSelector] 未设置Function模型"
+            logger.error(err)
+            raise RuntimeError(err)
+
+        logger.info("[MCPSelector] 调用结构化输出小模型")
         message = [
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": reasoning_result},
@@ -53,23 +49,27 @@ class MCPSelector:
         schema = MCPSelectResult.model_json_schema()
         # schema中加入选项
         schema["properties"]["mcp_id"]["enum"] = mcp_ids
-        result = await llm.call(messages=message, schema=schema)
+        result = await self._llm.function.call(messages=message, schema=schema)
         try:
             result = MCPSelectResult.model_validate(result)
         except Exception:
-            logger.exception("[MCPHelper] 解析MCP Select Result失败")
+            logger.exception("[MCPSelector] 解析MCP Select Result失败")
             raise
         return result
 
 
-    @staticmethod
-    async def select_top_tool(query: str, mcp_list: list[str], top_n: int = 10) -> list[MCPTools]:
+    async def select_top_tool(self, query: str, mcp_list: list[str], top_n: int = 10) -> list[MCPTools]:
         """选择最合适的工具"""
-        query_embedding = await Embedding.get_embedding([query])
+        if not self._llm.embedding:
+            err = "[MCPSelector] 未设置Embedding模型"
+            logger.error(err)
+            raise RuntimeError(err)
+
+        query_embedding = await self._llm.embedding.get_embedding([query])
         async with postgres.session() as session:
             tool_vecs = await session.scalars(
-                select(MCPToolVector).where(MCPToolVector.mcpId.in_(mcp_list))
-                .order_by(MCPToolVector.embedding.cosine_distance(query_embedding)).limit(top_n),
+                select(self._llm.embedding.MCPToolVector).where(self._llm.embedding.MCPToolVector.mcpId.in_(mcp_list))
+                .order_by(self._llm.embedding.MCPToolVector.embedding.cosine_distance(query_embedding)).limit(top_n),
             )
 
         # 拿到工具

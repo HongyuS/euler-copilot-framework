@@ -1,11 +1,12 @@
 """用于执行智能问答的Executor"""
+
 import logging
 import uuid
 from datetime import UTC, datetime
 from textwrap import dedent
 
 from apps.models.document import Document
-from apps.schemas.enum_var import EventType
+from apps.schemas.enum_var import EventType, ExecutorStatus
 from apps.schemas.message import DocumentAddContent, TextAddContent
 from apps.schemas.rag_data import RAGEventData
 from apps.schemas.record import RecordDocument
@@ -76,7 +77,9 @@ class QAExecutor(BaseExecutor):
         full_answer = ""
 
         try:
-            async for chunk in RAG.chat_with_llm_base_on_rag(user_sub, llm, history, doc_ids, rag_data):
+            async for chunk in RAG.chat_with_llm_base_on_rag(
+                user_sub, llm, history, doc_ids, rag_data
+            ):
                 task, content_obj = await self._push_rag_chunk(task, queue, chunk)
                 if not content_obj:
                     continue
@@ -87,9 +90,8 @@ class QAExecutor(BaseExecutor):
                     task.runtime.documents.append(content_obj.content)
             task.state.flow_status = ExecutorStatus.SUCCESS
         except Exception as e:
-            logger.error(f"[Scheduler] RAG服务发生错误: {e}")
+            _logger.error(f"[Scheduler] RAG服务发生错误: {e}")
             task.state.flow_status = ExecutorStatus.ERROR
         # 保存答案
-        task.runtime.answer = full_answer
-        task.tokens.full_time = round(datetime.now(UTC).timestamp(), 2) - task.tokens.time
-        await TaskManager.save_task(task.id, task)
+        self.task.runtime.fullAnswer = full_answer
+        self.task.runtime.fullTime = round(datetime.now(UTC).timestamp(), 2) - self.task.runtime.time
