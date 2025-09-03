@@ -10,7 +10,6 @@ from fastapi import status
 from pydantic import Field
 
 from apps.common.config import config
-from apps.llm.patterns.rewrite import QuestionRewrite
 from apps.scheduler.call.core import CoreCall
 from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.scheduler import (
@@ -20,6 +19,7 @@ from apps.schemas.scheduler import (
     CallVars,
 )
 
+from .prompt import QUESTION_REWRITE
 from .schema import RAGInput, RAGOutput, SearchMethod
 
 logger = logging.getLogger(__name__)

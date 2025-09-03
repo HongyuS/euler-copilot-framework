@@ -25,6 +25,7 @@ class FunctionLLM:
     """用于FunctionCall的模型"""
 
     timeout: float = 30.0
+    config: LLMData
 
     def __init__(self, llm_config: LLMData | None = None) -> None:
         """
@@ -43,34 +44,34 @@ class FunctionLLM:
             logger.error(err)
             raise RuntimeError(err)
 
-        self._config: LLMData = llm_config
+        self.config: LLMData = llm_config
         self._params = {
-            "model": self._config.modelName,
+            "model": self.config.modelName,
             "messages": [],
         }
 
-        if self._config.functionCallBackend == FunctionCallBackend.OLLAMA and not self._config.openaiAPIKey:
+        if self.config.functionCallBackend == FunctionCallBackend.OLLAMA and not self.config.openaiAPIKey:
             self._client = ollama.AsyncClient(
-                host=self._config.openaiBaseUrl,
+                host=self.config.openaiBaseUrl,
                 timeout=self.timeout,
             )
-        elif self._config.functionCallBackend == FunctionCallBackend.OLLAMA and self._config.openaiAPIKey:
+        elif self.config.functionCallBackend == FunctionCallBackend.OLLAMA and self.config.openaiAPIKey:
             self._client = ollama.AsyncClient(
-                host=self._config.openaiBaseUrl,
+                host=self.config.openaiBaseUrl,
                 headers={
-                    "Authorization": f"Bearer {self._config.openaiAPIKey}",
+                    "Authorization": f"Bearer {self.config.openaiAPIKey}",
                 },
                 timeout=self.timeout,
             )
-        elif self._config.functionCallBackend != FunctionCallBackend.OLLAMA and not self._config.openaiAPIKey:
+        elif self.config.functionCallBackend != FunctionCallBackend.OLLAMA and not self.config.openaiAPIKey:
             self._client = openai.AsyncOpenAI(
-                base_url=self._config.openaiBaseUrl,
+                base_url=self.config.openaiBaseUrl,
                 timeout=self.timeout,
             )
-        elif self._config.functionCallBackend != FunctionCallBackend.OLLAMA and self._config.openaiAPIKey:
+        elif self.config.functionCallBackend != FunctionCallBackend.OLLAMA and self.config.openaiAPIKey:
             self._client = openai.AsyncOpenAI(
-                base_url=self._config.openaiBaseUrl,
-                api_key=self._config.openaiAPIKey,
+                base_url=self.config.openaiBaseUrl,
+                api_key=self.config.openaiAPIKey,
                 timeout=self.timeout,
             )
 
@@ -98,14 +99,14 @@ class FunctionLLM:
             "temperature": temperature,
         })
 
-        if self._config.functionCallBackend == FunctionCallBackend.VLLM:
+        if self.config.functionCallBackend == FunctionCallBackend.VLLM:
             self._params["extra_body"] = {"guided_json": schema}
 
-        elif self._config.functionCallBackend == FunctionCallBackend.JSON_MODE:
+        elif self.config.functionCallBackend == FunctionCallBackend.JSON_MODE:
             logger.warning("[FunctionCall] json_mode无法确保输出格式符合要求，使用效果将受到影响")
             self._params["response_format"] = {"type": "json_object"}
 
-        elif self._config.functionCallBackend == FunctionCallBackend.STRUCTURED_OUTPUT:
+        elif self.config.functionCallBackend == FunctionCallBackend.STRUCTURED_OUTPUT:
             self._params["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
@@ -116,7 +117,7 @@ class FunctionLLM:
                 },
             }
 
-        elif self._config.functionCallBackend == FunctionCallBackend.FUNCTION_CALL:
+        elif self.config.functionCallBackend == FunctionCallBackend.FUNCTION_CALL:
             logger.warning("[FunctionCall] function_call无法确保一定调用工具，使用效果将受到影响")
             self._params["tools"] = [
                 {
@@ -220,14 +221,14 @@ class FunctionLLM:
         """
         # 检查max_tokens和temperature是否设置
         if max_tokens is None:
-            max_tokens = self._config.maxToken
+            max_tokens = self.config.maxToken
         if temperature is None:
-            temperature = self._config.temperature
+            temperature = self.config.temperature
 
-        if self._config.functionCallBackend == FunctionCallBackend.OLLAMA:
+        if self.config.functionCallBackend == FunctionCallBackend.OLLAMA:
             json_str = await self._call_ollama(messages, schema, max_tokens, temperature)
 
-        elif self._config.functionCallBackend in [
+        elif self.config.functionCallBackend in [
             FunctionCallBackend.FUNCTION_CALL,
             FunctionCallBackend.JSON_MODE,
             FunctionCallBackend.STRUCTURED_OUTPUT,
@@ -306,12 +307,14 @@ class JsonGenerator:
 
         return {}
 
-    def __init__(self, config: LLMData, query: str, conversation: list[dict[str, str]], schema: dict[str, Any]) -> None:
+    def __init__(
+        self, llm: FunctionLLM, query: str, conversation: list[dict[str, str]], schema: dict[str, Any],
+    ) -> None:
         """初始化JSON生成器"""
         self._query = query
         self._conversation = conversation
         self._schema = schema
-        self._config = config
+        self._llm = llm
 
         self._trial = {}
         self._count = 0
@@ -327,7 +330,7 @@ class JsonGenerator:
     async def _assemble_message(self) -> str:
         """组装消息"""
         # 检查类型
-        function_call = self._config.functionCallBackend == FunctionCallBackend.FUNCTION_CALL
+        function_call = self._llm.config.functionCallBackend == FunctionCallBackend.FUNCTION_CALL
 
         # 渲染模板
         template = self._env.from_string(JSON_GEN_BASIC)
@@ -347,8 +350,7 @@ class JsonGenerator:
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt},
         ]
-        function = FunctionLLM()
-        return await function.call(messages, self._schema, max_tokens, temperature)
+        return await self._llm.call(messages, self._schema, max_tokens, temperature)
 
 
     async def generate(self) -> dict[str, Any]:

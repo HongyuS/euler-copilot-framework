@@ -1,7 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """使用大模型生成Executor的思考内容"""
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from apps.llm.reasoning import ReasoningLLM
 from apps.llm.snippet import convert_context_to_prompt, facts_to_prompt
@@ -11,121 +11,6 @@ from .core import CorePattern
 
 if TYPE_CHECKING:
     from apps.schemas.scheduler import ExecutorBackground
-
-
-class ExecutorThought(CorePattern):
-    """通过大模型生成Executor的思考内容"""
-
-    @staticmethod
-    def _default() -> tuple[dict[LanguageType, str], dict[LanguageType, str]]:
-        """默认的Prompt内容"""
-        return {
-            LanguageType.CHINESE: r"You are a helpful assistant.",
-            LanguageType.ENGLISH: r"You are a helpful assistant.",
-        }, {
-            LanguageType.CHINESE: r"""
-                <instructions>
-                    <instruction>
-                        你是一个可以使用工具的智能助手。
-                        在回答用户的问题时，你为了获取更多的信息，使用了一个工具。
-                        请简明扼要地总结工具的使用过程，提供你的见解，并给出下一步的行动。
-
-                        注意：
-                        工具的相关信息在<tool></tool>标签中给出。
-                        为了使你更好的理解发生了什么，你之前的思考过程在<thought></thought>标签中给出。
-                        输出时请不要包含XML标签，输出时请保持简明和清晰。
-                    </instruction>
-                </instructions>
-
-                <tool>
-                    <name>{tool_name}</name>
-                    <description>{tool_description}</description>
-                    <output>{tool_output}</output>
-                </tool>
-
-                <thought>
-                    {last_thought}
-                </thought>
-
-                <question>
-                    你当前需要解决的问题是：
-                    {user_question}
-                </question>
-
-                请综合以上信息，再次一步一步地进行思考，并给出见解和行动：
-            """,
-            LanguageType.ENGLISH: r"""
-                <instructions>
-                    <instruction>
-                        You are an intelligent assistant who can use tools.
-                        When answering user questions, you use a tool to get more information.
-                        Please summarize the process of using the tool briefly, provide your insights, \
-and give the next action.
-
-                        Note:
-                        The information about the tool is given in the <tool></tool> tag.
-                        To help you better understand what happened, your previous thought process is given in the \
-<thought></thought> tag.
-                        Do not include XML tags in the output, and keep the output brief and clear.
-                    </instruction>
-                </instructions>
-
-                <tool>
-                    <name>{tool_name}</name>
-                    <description>{tool_description}</description>
-                    <output>{tool_output}</output>
-                </tool>
-
-                <thought>
-                    {last_thought}
-                </thought>
-
-                <question>
-                    The question you need to solve is:
-                    {user_question}
-                </question>
-
-                Please integrate the above information, think step by step again, provide insights, and give actions:
-            """,
-        }
-
-    def __init__(
-        self,
-        system_prompt: dict[LanguageType, str] | None = None,
-        user_prompt: dict[LanguageType, str] | None = None,
-    ) -> None:
-        """处理Prompt"""
-        super().__init__(system_prompt, user_prompt)
-
-    async def generate(self, **kwargs) -> str:  # noqa: ANN003
-        """调用大模型，生成对话总结"""
-        last_thought: str = kwargs["last_thought"]
-        user_question: str = kwargs["user_question"]
-        tool_info: dict[str, Any] = kwargs["tool_info"]
-        language: LanguageType = kwargs.get("language", LanguageType.CHINESE)
-
-        messages = [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {
-                "role": "user",
-                "content": self.user_prompt[language].format(
-                    last_thought=last_thought,
-                    user_question=user_question,
-                    tool_name=tool_info["name"],
-                    tool_description=tool_info["description"],
-                    tool_output=tool_info["output"],
-                ),
-            },
-        ]
-
-        llm = ReasoningLLM()
-        result = ""
-        async for chunk in llm.call(messages, streaming=False, temperature=0.7):
-            result += chunk
-        self.input_tokens = llm.input_tokens
-        self.output_tokens = llm.output_tokens
-
-        return result
 
 
 class ExecutorSummary(CorePattern):

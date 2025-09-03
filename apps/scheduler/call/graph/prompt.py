@@ -43,7 +43,7 @@ GENERATE_STYLE_PROMPT: dict[LanguageType, str] = {
         </instructions>
 
         ## 问题
-        {question}
+        {{question}}
 
         ## 思考
         让我们一步步思考。
@@ -92,7 +92,7 @@ should be `bar`, i.e. a bar chart; the chart style should be `stacked`, i.e. a s
 
         ## Question
 
-        {question}
+        {{question}}
 
         ## Thought
 

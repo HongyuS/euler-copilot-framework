@@ -1,33 +1,35 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MCP 用户目标拆解与规划"""
 
+import logging
+
 from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 
 from apps.llm.function import JsonGenerator
-from apps.llm.reasoning import ReasoningLLM
 from apps.models.mcp import MCPTools
 from apps.schemas.enum_var import LanguageType
 from apps.schemas.mcp import MCPPlan
+from apps.schemas.scheduler import LLMConfig
 
 from .prompt import CREATE_PLAN, FINAL_ANSWER
 
+_logger = logging.getLogger(__name__)
 
 class MCPPlanner:
     """MCP 用户目标拆解与规划"""
 
-    def __init__(self, user_goal: str, language: LanguageType) -> None:
+    def __init__(self, user_goal: str, language: LanguageType, llm: LLMConfig) -> None:
         """初始化MCP规划器"""
-        self.user_goal = user_goal
+        self._user_goal = user_goal
         self._env = SandboxedEnvironment(
             loader=BaseLoader,
             autoescape=True,
             trim_blocks=True,
             lstrip_blocks=True,
         )
-        self.input_tokens = 0
-        self.output_tokens = 0
-        self.language = language
+        self._language = language
+        self._llm = llm
 
 
     async def create_plan(self, tool_list: list[MCPTools], max_steps: int = 6) -> MCPPlan:
@@ -42,9 +44,9 @@ class MCPPlanner:
     async def _get_reasoning_plan(self, tool_list: list[MCPTools], max_steps: int) -> str:
         """获取推理大模型的结果"""
         # 格式化Prompt
-        template = self._env.from_string(CREATE_PLAN[self.language])
+        template = self._env.from_string(CREATE_PLAN[self._language])
         prompt = template.render(
-            goal=self.user_goal,
+            goal=self._user_goal,
             tools=tool_list,
             max_num=max_steps,
         )
@@ -54,31 +56,31 @@ class MCPPlanner:
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt},
         ]
-        reasoning_llm = ReasoningLLM()
         result = ""
-        async for chunk in reasoning_llm.call(
+        async for chunk in self._llm.reasoning.call(
             message,
             streaming=False,
             temperature=0.07,
             result_only=True,
         ):
             result += chunk
-
-        # 保存token用量
-        self.input_tokens = reasoning_llm.input_tokens
-        self.output_tokens = reasoning_llm.output_tokens
-
         return result
 
 
     async def _parse_plan_result(self, result: str, max_steps: int) -> MCPPlan:
         """将推理结果解析为结构化数据"""
+        if not self._llm.function:
+            err = "[MCPPlanner] 未设置Function模型"
+            _logger.error(err)
+            raise RuntimeError(err)
+
         # 格式化Prompt
         schema = MCPPlan.model_json_schema()
         schema["properties"]["plans"]["maxItems"] = max_steps
 
         # 使用Function模型解析结果
         json_generator = JsonGenerator(
+            self._llm.function,
             result,
             [
                 {"role": "system", "content": "You are a helpful assistant."},
@@ -92,23 +94,19 @@ class MCPPlanner:
 
     async def generate_answer(self, plan: MCPPlan, memory: str) -> str:
         """生成最终回答"""
-        template = self._env.from_string(FINAL_ANSWER[self.language])
+        template = self._env.from_string(FINAL_ANSWER[self._language])
         prompt = template.render(
             plan=plan,
             memory=memory,
-            goal=self.user_goal,
+            goal=self._user_goal,
         )
 
-        llm = ReasoningLLM()
         result = ""
-        async for chunk in llm.call(
+        async for chunk in self._llm.reasoning.call(
             [{"role": "user", "content": prompt}],
             streaming=False,
             temperature=0.07,
         ):
             result += chunk
-
-        self.input_tokens = llm.input_tokens
-        self.output_tokens = llm.output_tokens
 
         return result

@@ -51,5 +51,11 @@ ALLOWED_ICON_MIME_TYPES = [
 MCP_PATH = Path(config.deploy.data_dir) / "semantics" / "mcp"
 # 项目路径
 PROJ_PATH = Path(__file__).parent.parent
-# 图标存储
+# 图标存储位置
 ICON_PATH = PROJ_PATH / "static" / "icons"
+# MCP Agent 最大重试次数
+AGENT_MAX_RETRY_TIMES = 3
+# MCP Agent 最大步骤数
+AGENT_MAX_STEPS = 25
+# MCP Agent 最终步骤名称
+AGENT_FINAL_STEP_NAME = "FIANL"
