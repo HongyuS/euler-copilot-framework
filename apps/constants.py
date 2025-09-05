@@ -16,8 +16,10 @@ SLIDE_WINDOW_TIME = 15
 OIDC_ACCESS_TOKEN_EXPIRE_TIME = 30
 # OIDC 刷新Token 过期时间（分钟）
 OIDC_REFRESH_TOKEN_EXPIRE_TIME = 180
-# 滑动窗口限流 最大请求数
-SLIDE_WINDOW_QUESTION_COUNT = 10
+# 滑动窗口限流 最大请求数（按单个用户统计）
+SLIDE_WINDOW_QUESTION_COUNT = 5
+# 全局同时运行任务上限（与用户无关）
+MAX_CONCURRENT_TASKS = 30
 # API Call 最大返回值长度（字符）
 MAX_API_RESPONSE_LENGTH = 8192
 # Session时间，单位为分钟

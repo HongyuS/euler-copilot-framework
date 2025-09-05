@@ -64,8 +64,6 @@ class TaskManager:
             if not runtime:
                 runtime = TaskRuntime(
                     taskId=task_id,
-                    inputToken=0,
-                    outputToken=0,
                 )
 
             state = (await session.scalars(

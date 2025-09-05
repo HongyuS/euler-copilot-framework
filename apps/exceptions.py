@@ -21,9 +21,5 @@ class FlowEdgeValidationError(Exception):
     """service.flow 流程边验证错误"""
 
 
-class LoginSettingsError(Exception):
-    """manager.session 登录设置错误"""
-
-
 class ActivityError(Exception):
     """service.activity 活动错误"""

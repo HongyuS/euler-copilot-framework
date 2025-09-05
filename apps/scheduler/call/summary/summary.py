@@ -4,9 +4,10 @@
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any, Self
 
+from jinja2 import BaseLoader
+from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
-from apps.llm.patterns.executor import ExecutorSummary
 from apps.models.node import NodeInfo
 from apps.scheduler.call.core import CoreCall, DataBase
 from apps.schemas.enum_var import CallOutputType, LanguageType
@@ -17,6 +18,7 @@ from apps.schemas.scheduler import (
     ExecutorBackground,
 )
 
+from .prompt import SUMMARY_PROMPT
 from .schema import SummaryOutput
 
 if TYPE_CHECKING:
@@ -62,8 +64,28 @@ class Summary(CoreCall, input_model=DataBase, output_model=SummaryOutput):
 
     async def _exec(self, _input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """执行工具"""
-        summary_obj = ExecutorSummary()
-        summary = await summary_obj.generate(background=self.context, language=self._sys_vars.language)
+        # 创建 Jinja2 环境
+        env = SandboxedEnvironment(
+            loader=BaseLoader(),
+            autoescape=True,
+            trim_blocks=True,
+            lstrip_blocks=True,
+        )
+
+        # 使用模板生成提示词
+        template = env.from_string(SUMMARY_PROMPT[self._sys_vars.language])
+        prompt = template.render(
+            conversation=self.context.conversation,
+            facts=self.context.facts,
+        )
+
+        # 调用 LLM 生成总结
+        summary = ""
+        async for chunk in self._llm([
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt},
+        ]):
+            summary += chunk
 
         yield CallOutputChunk(type=CallOutputType.TEXT, content=summary)
 

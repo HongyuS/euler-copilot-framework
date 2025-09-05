@@ -14,7 +14,6 @@ from apps.schemas.enum_var import EventType, ExecutorStatus, LanguageType, Speci
 from apps.schemas.flow import Flow, Step
 from apps.schemas.request_data import RequestDataApp
 from apps.schemas.task import StepQueueItem
-from apps.services.task import TaskManager
 
 from .base import BaseExecutor
 from .step import StepExecutor
@@ -62,18 +61,14 @@ class FlowExecutor(BaseExecutor):
 
     flow: Flow
     flow_id: str = Field(description="Flow ID")
-    question: str = Field(description="用户输入")
     post_body_app: RequestDataApp = Field(description="请求体中的app信息")
-    current_step: StepQueueItem | None = Field(
-        description="当前执行的步骤",
-        exclude=True,
-        default=None,
-    )
 
 
     async def init(self) -> None:
         """初始化FlowExecutor"""
         logger.info("[FlowExecutor] 加载Executor状态")
+        await self._load_history()
+
         # 尝试恢复State
         if (
             self.state
@@ -81,7 +76,7 @@ class FlowExecutor(BaseExecutor):
         ):
             # 创建ExecutorState
             self.state = ExecutorCheckpoint(
-                taskId=self.task.id,
+                taskId=self.task.metadata.id,
                 appId=self.post_body_app.app_id,
                 executorId=str(self.flow_id),
                 executorName=self.flow.name,
@@ -144,7 +139,7 @@ class FlowExecutor(BaseExecutor):
             return []
         if self.current_step.step.type == SpecialCallType.CHOICE.value:
             # 如果是choice节点，获取分支ID
-            branch_id = self.context[-1].outputData["branch_id"]
+            branch_id = self.task.context[-1].outputData["branch_id"]
             if branch_id:
                 next_steps = await self._find_next_id(str(self.state.stepId) + "." + branch_id)
                 logger.info("[FlowExecutor] 分支ID：%s", branch_id)

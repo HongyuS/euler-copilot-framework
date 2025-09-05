@@ -1,7 +1,6 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 """FastAPI 语义接口中心相关路由"""
 
-import json
 import logging
 from typing import Annotated
 
@@ -10,7 +9,7 @@ from fastapi.responses import JSONResponse
 
 from apps.dependency.user import verify_admin, verify_personal_token, verify_session
 from apps.schemas.enum_var import SearchType
-from apps.schemas.request_data import ActiveMCPServiceRequest, UpdateMCPServiceRequest
+from apps.schemas.mcp import ActiveMCPServiceRequest, UpdateMCPServiceRequest
 from apps.schemas.response_data import (
     ActiveMCPServiceRsp,
     BaseMCPServiceOperationMsg,

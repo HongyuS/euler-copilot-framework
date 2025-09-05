@@ -11,7 +11,6 @@ from fastapi.responses import JSONResponse
 from apps.dependency.user import verify_personal_token, verify_session
 from apps.exceptions import InstancePermissionError
 from apps.schemas.enum_var import SearchType
-from apps.schemas.request_data import ChangeFavouriteServiceRequest, UpdateServiceRequest
 from apps.schemas.response_data import (
     BaseServiceOperationMsg,
     ChangeFavouriteServiceMsg,
@@ -25,6 +24,7 @@ from apps.schemas.response_data import (
     UpdateServiceMsg,
     UpdateServiceRsp,
 )
+from apps.schemas.service import ChangeFavouriteServiceRequest, UpdateServiceRequest
 from apps.services.service import ServiceCenterManager
 
 logger = logging.getLogger(__name__)

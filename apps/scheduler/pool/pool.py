@@ -130,6 +130,11 @@ class Pool:
         await MCPLoader.init()
 
 
+    async def set_vector(self) -> None:
+        """向数据库中写入向量化数据"""
+        await CallLoader().set_vector()
+
+
     async def get_flow_metadata(self, app_id: uuid.UUID) -> list[FlowInfo]:
         """从数据库中获取特定App的全部Flow的元数据"""
         async with postgres.session() as session:

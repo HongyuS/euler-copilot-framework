@@ -30,11 +30,11 @@ class HeartbeatData(BaseModel):
 class MessageFlow(BaseModel):
     """消息中有关Flow信息的部分"""
 
-    app_id: str = Field(description="插件ID", alias="appId")
+    app_id: uuid.UUID = Field(description="插件ID", alias="appId")
     flow_id: str = Field(description="Flow ID", alias="flowId")
     flow_name: str = Field(description="Flow名称", alias="flowName")
     flow_status: ExecutorStatus = Field(description="Flow状态", alias="flowStatus", default=ExecutorStatus.UNKNOWN)
-    step_id: str = Field(description="当前步骤ID", alias="stepId")
+    step_id: uuid.UUID = Field(description="当前步骤ID", alias="stepId")
     step_name: str = Field(description="当前步骤名称", alias="stepName")
     sub_step_id: str | None = Field(description="当前子步骤ID", alias="subStepId", default=None)
     sub_step_name: str | None = Field(description="当前子步骤名称", alias="subStepName", default=None)
@@ -101,9 +101,8 @@ class MessageBase(HeartbeatData):
     """基础消息事件结构"""
 
     id: str = Field(min_length=36, max_length=36)
-    group_id: str = Field(min_length=36, max_length=36, alias="groupId")
     conversation_id: uuid.UUID = Field(min_length=36, max_length=36, alias="conversationId")
-    task_id: str = Field(min_length=36, max_length=36, alias="taskId")
+    task_id: uuid.UUID = Field(min_length=36, max_length=36, alias="taskId")
     flow: MessageFlow | None = None
     content: Any | None = Field(default=None, description="消息内容")
     metadata: MessageMetadata

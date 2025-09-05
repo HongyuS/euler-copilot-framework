@@ -10,9 +10,8 @@ from fastapi.responses import JSONResponse
 
 from apps.dependency.user import verify_personal_token, verify_session
 from apps.exceptions import InstancePermissionError
-from apps.schemas.appcenter import AppFlowInfo, AppPermissionData
+from apps.schemas.appcenter import AppFlowInfo, AppPermissionData, ChangeFavouriteAppRequest, CreateAppRequest
 from apps.schemas.enum_var import AppFilterType, AppType
-from apps.schemas.request_data import ChangeFavouriteAppRequest, CreateAppRequest
 from apps.schemas.response_data import (
     BaseAppOperationMsg,
     BaseAppOperationRsp,

@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 
 from apps.dependency import verify_personal_token, verify_session
 from apps.models.conversation import Conversation
-from apps.schemas.request_data import (
+from apps.schemas.conversation import (
     ChangeConversationData,
     DeleteConversationData,
 )

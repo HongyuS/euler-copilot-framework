@@ -67,3 +67,15 @@ class AppData(BaseModel):
         default_factory=lambda: AppPermissionData(authorizedUsers=None), description="权限配置")
     workflows: list[AppFlowInfo] = Field(default=[], description="工作流信息列表")
     mcp_service: list[str] = Field(default=[], alias="mcpService", description="MCP服务id列表")
+
+
+class CreateAppRequest(AppData):
+    """POST /api/app 请求数据结构"""
+
+    app_id: str | None = Field(None, alias="appId", description="应用ID")
+
+
+class ChangeFavouriteAppRequest(BaseModel):
+    """PUT /api/app/{appId} 请求数据结构"""
+
+    favorited: bool = Field(..., description="是否收藏")

@@ -4,8 +4,6 @@
 import string
 from typing import Any, Literal, Optional
 
-from apps.llm.patterns.select import Select
-
 
 class CommandlineAssembler:
     """命令行组装器"""

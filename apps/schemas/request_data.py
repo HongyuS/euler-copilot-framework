@@ -2,14 +2,11 @@
 """FastAPI 请求体"""
 
 import uuid
-from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .appcenter import AppData
-from .enum_var import CommentType, LanguageType
+from .enum_var import LanguageType
 from .flow_topology import FlowItem
-from .mcp import MCPType
 from .message import FlowParams
 
 
@@ -33,102 +30,7 @@ class RequestData(BaseModel):
     app: RequestDataApp | None = Field(default=None, description="应用")
     debug: bool = Field(default=False, description="是否调试")
     task_id: str | None = Field(default=None, alias="taskId", description="任务ID")
-
-
-class QuestionBlacklistRequest(BaseModel):
-    """POST /api/blacklist/question 请求数据结构"""
-
-    id: str
-    question: str
-    answer: str
-    is_deletion: int
-
-
-class UserBlacklistRequest(BaseModel):
-    """POST /api/blacklist/user 请求数据结构"""
-
-    user_sub: str
-    is_ban: int
-
-
-class AbuseRequest(BaseModel):
-    """POST /api/blacklist/complaint 请求数据结构"""
-
-    record_id: uuid.UUID
-    reason: str
-    reason_type: str
-
-
-class AbuseProcessRequest(BaseModel):
-    """POST /api/blacklist/abuse 请求数据结构"""
-
-    id: uuid.UUID
-    is_deletion: int
-
-
-class CreateAppRequest(AppData):
-    """POST /api/app 请求数据结构"""
-
-    app_id: str | None = Field(None, alias="appId", description="应用ID")
-
-
-class ChangeFavouriteAppRequest(BaseModel):
-    """PUT /api/app/{appId} 请求数据结构"""
-
-    favorited: bool = Field(..., description="是否收藏")
-
-
-class UpdateMCPServiceRequest(BaseModel):
-    """POST /api/mcpservice 请求数据结构"""
-
-    service_id: str | None = Field(None, alias="serviceId", description="服务ID（更新时传递）")
-    name: str = Field(..., description="MCP服务名称")
-    description: str = Field(..., description="MCP服务描述")
-    overview: str = Field(..., description="MCP服务概述")
-    config: dict[str, Any] = Field(..., description="MCP服务配置")
-    mcp_type: MCPType = Field(description="MCP传输协议(Stdio/SSE/Streamable)", default=MCPType.STDIO, alias="mcpType")
-
-
-class ActiveMCPServiceRequest(BaseModel):
-    """POST /api/mcp/{serviceId} 请求数据结构"""
-
-    active: bool = Field(description="是否激活mcp服务")
-    mcp_env: dict[str, Any] | None = Field(default=None, description="MCP服务环境变量", alias="mcpEnv")
-
-
-class UpdateServiceRequest(BaseModel):
-    """POST /api/service 请求数据结构"""
-
-    service_id: uuid.UUID | None = Field(None, alias="serviceId", description="服务ID（更新时传递）")
-    data: dict[str, Any] = Field(..., description="对应 YAML 内容的数据对象")
-
-
-class ChangeFavouriteServiceRequest(BaseModel):
-    """PUT /api/service/{serviceId} 请求数据结构"""
-
-    favorited: bool = Field(..., description="是否收藏")
-
-
-class ChangeConversationData(BaseModel):
-    """修改会话信息"""
-
-    title: str = Field(..., min_length=1, max_length=2000)
-
-
-class DeleteConversationData(BaseModel):
-    """删除会话"""
-
-    conversation_list: list[uuid.UUID] = Field(alias="conversationList")
-
-
-class AddCommentData(BaseModel):
-    """添加评论"""
-
-    record_id: str
-    comment: CommentType
-    dislike_reason: str = Field(default="", max_length=200)
-    reason_link: str = Field(default="", max_length=200)
-    reason_description: str = Field(default="", max_length=500)
+    llm_id: str = Field(alias="llmId", description="大模型ID")
 
 
 class PostTagData(BaseModel):

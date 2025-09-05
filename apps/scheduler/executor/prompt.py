@@ -18,18 +18,18 @@ EXECUTOR_REASONING: dict[LanguageType, str] = {
         </instructions>
 
         <tool>
-            <name>{tool_name}</name>
-            <description>{tool_description}</description>
-            <output>{tool_output}</output>
+            <name>{{tool_name}}</name>
+            <description>{{tool_description}}</description>
+            <output>{{tool_output}}</output>
         </tool>
 
         <thought>
-            {last_thought}
+            {{last_thought}}
         </thought>
 
         <question>
             你当前需要解决的问题是：
-            {user_question}
+            {{user_question}}
         </question>
 
         请综合以上信息，再次一步一步地进行思考，并给出见解和行动：
@@ -51,18 +51,18 @@ and give the next action.
         </instructions>
 
         <tool>
-            <name>{tool_name}</name>
-            <description>{tool_description}</description>
-            <output>{tool_output}</output>
+            <name>{{tool_name}}</name>
+            <description>{{tool_description}}</description>
+            <output>{{tool_output}}</output>
         </tool>
 
         <thought>
-            {last_thought}
+            {{last_thought}}
         </thought>
 
         <question>
             The question you need to solve is:
-            {user_question}
+            {{user_question}}
         </question>
 
         Please integrate the above information, think step by step again, provide insights, and give actions:

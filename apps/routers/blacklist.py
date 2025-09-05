@@ -5,17 +5,17 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import verify_admin, verify_personal_token, verify_session
-from apps.schemas.request_data import (
+from apps.schemas.blacklist import (
     AbuseProcessRequest,
     AbuseRequest,
-    QuestionBlacklistRequest,
-    UserBlacklistRequest,
-)
-from apps.schemas.response_data import (
     GetBlacklistQuestionMsg,
     GetBlacklistQuestionRsp,
     GetBlacklistUserMsg,
     GetBlacklistUserRsp,
+    QuestionBlacklistRequest,
+    UserBlacklistRequest,
+)
+from apps.schemas.response_data import (
     ResponseData,
 )
 from apps.services.blacklist import (

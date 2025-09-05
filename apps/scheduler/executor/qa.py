@@ -46,14 +46,12 @@ class QAExecutor(BaseExecutor):
 
             # 推送消息
             if content_obj.event_type == EventType.TEXT_ADD.value:
-                await self.msg_queue.push_output(
-                    task=self.task,
+                await self._push_message(
                     event_type=content_obj.event_type,
                     data=TextAddContent(text=content_obj.content).model_dump(exclude_none=True, by_alias=True),
                 )
             elif content_obj.event_type == EventType.DOCUMENT_ADD.value:
-                await self.msg_queue.push_output(
-                    task=self.task,
+                await self._push_message(
                     event_type=content_obj.event_type,
                     data=DocumentAddContent(
                         documentId=content_obj.content.get("id", ""),
@@ -89,8 +87,8 @@ class QAExecutor(BaseExecutor):
                 elif content_obj.event_type == EventType.DOCUMENT_ADD.value:
                     task.runtime.documents.append(content_obj.content)
             task.state.flow_status = ExecutorStatus.SUCCESS
-        except Exception as e:
-            _logger.error(f"[Scheduler] RAG服务发生错误: {e}")
+        except Exception:
+            _logger.exception("[Scheduler] RAG服务发生错误 ")
             task.state.flow_status = ExecutorStatus.ERROR
         # 保存答案
         self.task.runtime.fullAnswer = full_answer

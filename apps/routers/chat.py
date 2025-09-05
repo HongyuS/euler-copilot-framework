@@ -15,7 +15,7 @@ from apps.common.wordscheck import WordsCheck
 from apps.dependency import verify_personal_token, verify_session
 from apps.scheduler.scheduler import Scheduler
 from apps.scheduler.scheduler.context import save_data
-from apps.schemas.enum_var import ExecutorStatus, LanguageType
+from apps.schemas.enum_var import ExecutorStatus
 from apps.schemas.request_data import RequestData, RequestDataApp
 from apps.schemas.response_data import ResponseData
 from apps.services.activity import Activity
