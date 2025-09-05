@@ -3,10 +3,13 @@
 
 import logging
 from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 from fastapi import status
+from jinja2 import BaseLoader
+from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
 from apps.common.config import config
@@ -20,9 +23,15 @@ from apps.schemas.scheduler import (
 )
 
 from .prompt import QUESTION_REWRITE
-from .schema import RAGInput, RAGOutput, SearchMethod
+from .schema import (
+    CHUNK_ELEMENT_TOKENS,
+    QuestionRewriteOutput,
+    RAGInput,
+    RAGOutput,
+    SearchMethod,
+)
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
@@ -56,7 +65,7 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
         """初始化RAG工具"""
         if not call_vars.ids.session_id:
             err = "[RAG] 未设置Session ID"
-            logger.error(err)
+            _logger.error(err)
             raise CallError(message=err, data={})
 
         return RAGInput(
@@ -73,12 +82,130 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
             tokensLimit=self.tokens_limit,
         )
 
+    async def _assemble_doc_info(
+        self,
+        doc_chunk_list: list[dict[str, Any]],
+        max_tokens: int,
+    ) -> tuple[str, list[dict[str, Any]]]:
+        """组装文档信息"""
+        bac_info = ""
+        doc_info_list = []
+        doc_cnt = 0
+        doc_id_map = {}
+        remaining_tokens = max_tokens * 0.8
+
+        for doc_chunk in doc_chunk_list:
+            if doc_chunk["docId"] not in doc_id_map:
+                doc_cnt += 1
+                t = doc_chunk.get("docCreatedAt", None)
+                if isinstance(t, str):
+                    t = datetime.strptime(t, "%Y-%m-%d %H:%M").replace(
+                        tzinfo=UTC,
+                    )
+                    t = round(t.replace(tzinfo=UTC).timestamp(), 3)
+                else:
+                    t = round(datetime.now(UTC).timestamp(), 3)
+                doc_info_list.append({
+                    "id": doc_chunk["docId"],
+                    "order": doc_cnt,
+                    "name": doc_chunk.get("docName", ""),
+                    "author": doc_chunk.get("docAuthor", ""),
+                    "extension": doc_chunk.get("docExtension", ""),
+                    "abstract": doc_chunk.get("docAbstract", ""),
+                    "size": doc_chunk.get("docSize", 0),
+                    "created_at": t,
+                })
+                doc_id_map[doc_chunk["docId"]] = doc_cnt
+            doc_index = doc_id_map[doc_chunk["docId"]]
+
+            if bac_info:
+                bac_info += "\n\n"
+            bac_info += f"""<document id="{doc_index}"  name="{doc_chunk["docName"]}">"""
+
+            for chunk in doc_chunk["chunks"]:
+                if remaining_tokens <= CHUNK_ELEMENT_TOKENS:
+                    break
+                chunk_text = chunk["text"]
+                chunk_text = TokenCalculator().get_k_tokens_words_from_content(
+                    content=chunk_text, k=remaining_tokens)
+                remaining_tokens -= TokenCalculator().calculate_token_length(messages=[
+                    {"role": "user", "content": "<chunk>"},
+                    {"role": "user", "content": chunk_text},
+                    {"role": "user", "content": "</chunk>"},
+                ], pure_text=True)
+                bac_info += f"""
+                    <chunk>
+                        {chunk_text}
+                    </chunk>
+                """
+            bac_info += "</document>"
+        return bac_info, doc_info_list
+
+    async def _get_doc_info(self, doc_ids: list[str], data: RAGInput) -> AsyncGenerator[CallOutputChunk, None]:
+        """获取文档信息"""
+        url = config.rag.rag_service.rstrip("/") + "/chunk/search"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self._sys_vars.ids.session_id}",
+        }
+        doc_chunk_list = []
+        if doc_ids:
+            default_kb_id = "00000000-0000-0000-0000-000000000000"
+            tmp_data = RAGQueryReq(
+                kbIds=[default_kb_id],
+                query=data.query,
+                topK=data.top_k,
+                docIds=doc_ids,
+                searchMethod=data.search_method,
+                isRelatedSurrounding=data.is_related_surrounding,
+                isClassifyByDoc=data.is_classify_by_doc,
+                isRerank=data.is_rerank,
+                tokensLimit=max_tokens,
+            )
+            try:
+                async with httpx.AsyncClient(timeout=30) as client:
+                    data_json = tmp_data.model_dump(exclude_none=True, by_alias=True)
+                    response = await client.post(url, headers=headers, json=data_json)
+                    if response.status_code == status.HTTP_200_OK:
+                        result = response.json()
+                        doc_chunk_list += result["result"]["docChunks"]
+            except Exception:
+                _logger.exception("[RAG] 获取文档分片失败")
+        if data.kb_ids:
+            try:
+                async with httpx.AsyncClient(timeout=30) as client:
+                    data_json = data.model_dump(exclude_none=True, by_alias=True)
+                    response = await client.post(url, headers=headers, json=data_json)
+                    # 检查响应状态码
+                    if response.status_code == status.HTTP_200_OK:
+                        result = response.json()
+                        doc_chunk_list += result["result"]["docChunks"]
+            except Exception:
+                _logger.exception("[RAG] 获取文档分片失败")
+        return doc_chunk_list
+
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
         """调用RAG工具"""
         data = RAGInput(**input_data)
-        question_obj = QuestionRewrite()
-        question = await question_obj.generate(question=data.question)
-        data.question = question
+        # 使用Jinja2渲染问题重写模板，并用JsonGenerator解析结果
+        try:
+            env = SandboxedEnvironment(
+                loader=BaseLoader(),
+                autoescape=False,
+                trim_blocks=True,
+                lstrip_blocks=True,
+            )
+            tmpl = env.from_string(QUESTION_REWRITE[self._sys_vars.language])
+            prompt = tmpl.render(history="", question=data.question)
+
+            # 使用_json方法直接获取JSON结果
+            json_result = await self._json([
+                {"role": "user", "content": prompt},
+            ], schema=QuestionRewriteOutput.model_json_schema())
+            # 直接使用解析后的JSON结果
+            data.question = QuestionRewriteOutput.model_validate(json_result).question
+        except Exception:
+            _logger.exception("[RAG] 问题重写失败，使用原始问题")
 
         url = config.rag.rag_service.rstrip("/") + "/chunk/search"
         headers = {
@@ -112,7 +239,7 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
                 return
 
             text = response.text
-            logger.error("[RAG] 调用失败：%s", text)
+            _logger.error("[RAG] 调用失败：%s", text)
 
             raise CallError(
                 message=f"rag调用失败：{text}",

@@ -66,8 +66,8 @@ GENERATE_FLOW_EXCUTE_RISK: dict[LanguageType, str] = {
             ## 工具集合
             你可以访问并使用一些工具，这些工具将在 <tools> </tools> XML标签中给出。
             <tools>
-                - <id> mysql_analyzer </id> <description> 分析MySQL数据库性能 </description>
-                - <id> performance_tuner </id> <description> 调优数据库性能 </description>
+                - <id>mysql_analyzer</id> <description>分析MySQL数据库性能</description>
+                - <id>performance_tuner</id> <description>调优数据库性能</description>
             </tools>
             ## 输出
             {
@@ -82,7 +82,7 @@ GENERATE_FLOW_EXCUTE_RISK: dict[LanguageType, str] = {
             ## 工具集合
             <tools>
                 {% for tool in tools %}
-                - <id> {{tool.id}} </id> <description> {{tool.name}}；{{tool.description}} </description>
+                - <id>{{tool.id}}</id> <description>{{tool.name}}；{{tool.description}}</description>
                 {% endfor %}
             </tools>
             ## 输出
@@ -98,8 +98,8 @@ user's goal and the current tool set.
             # Tool Set
             You can access and use some tools, which will be given in the <tools> </tools> XML tag.
             <tools>
-                - <id> mysql_analyzer </id> <description> Analyze MySQL database performance </description>
-                - <id> performance_tuner </id> <description> Tune database performance </description>
+                - <id>mysql_analyzer</id> <description>Analyze MySQL database performance</description>
+                - <id>performance_tuner</id> <description>Tune database performance</description>
             </tools>
             # Output
             {
@@ -114,7 +114,7 @@ the performance and stability of the database. Therefore, the risk assessment is
             # Tool Set
             <tools>
                 {% for tool in tools %}
-                - <id> {{tool.id}} </id> <description> {{tool.name}}; {{tool.description}} </description>
+                - <id>{{tool.id}}</id> <description>{{tool.name}}; {{tool.description}}</description>
                 {% endfor %}
             </tools>
             # Output
@@ -134,7 +134,7 @@ GEN_STEP: dict[LanguageType, str] = {
             3.不要选择不存在的工具。
             4.如果你认为当前已经达成了用户的目标，可以直接返回Final工具，表示计划执行结束。
             5.tool_id中的工具ID必须是当前工具集合中存在的工具ID，而不是工具的名称。
-            6.工具在<tools> </tools> XML标签中给出,工具的id在<tools> </tools> 下的<id> </id> XML标签中给出。
+            6.工具在<tools></tools> XML标签中给出,工具的id在<tools></tools> 下的<id></id> XML标签中给出。
 
             # 样例 1
             # 目标
@@ -325,18 +325,19 @@ RISK_EVALUATE: dict[LanguageType, str] = {
             }
             ```
             # 样例
-            # 工具名称
-            mysql_analyzer
-            # 工具描述
-            分析MySQL数据库性能
-            # 工具入参
+            ## 工具
+            <tool>
+                <name>mysql_analyzer</name>
+                <description>分析MySQL数据库性能</description>
+            </tool>
+            ## 工具入参
             {
                 "host": "192.0.0.1",
                 "port": 3306,
                 "username": "root",
                 "password": "password"
             }
-            # 附加信息
+            ## 附加信息
             1. 当前MySQL数据库的版本是8.0.26
             2. 当前MySQL数据库的配置文件路径是/etc/my.cnf，并含有以下配置项
             ```ini
@@ -344,7 +345,7 @@ RISK_EVALUATE: dict[LanguageType, str] = {
             innodb_buffer_pool_size=1G
             innodb_log_file_size=256M
             ```
-            # 输出
+            ## 输出
             ```json
             {
                 "risk": "中",
@@ -352,16 +353,18 @@ RISK_EVALUATE: dict[LanguageType, str] = {
 请确保在非生产环境中执行此操作。"
             }
             ```
-            # 工具
+
+            # 现在开始评估工具执行风险：
+            ## 工具
             <tool>
                 <name> {{tool_name}} </name>
                 <description> {{tool_description}} </description>
             </tool>
-            # 工具入参
+            ## 工具入参
             {{input_param}}
-            # 附加信息
+            ## 附加信息
             {{additional_info}}
-            # 输出
+            ## 输出
         """,
     ),
     LanguageType.ENGLISH: dedent(
@@ -376,18 +379,19 @@ input parameters, and additional information, and output a warning.
             }
             ```
             # Example
-            # Tool name
-            mysql_analyzer
-            # Tool description
-            Analyzes MySQL database performance
-            # Tool input
+            ## Tool
+            <tool>
+                <name> mysql_analyzer </name>
+                <description> Analyzes MySQL database performance </description>
+            </tool>
+            ## Tool input
             {
                 "host": "192.0.0.1",
                 "port": 3306,
                 "username": "root",
                 "password": "password"
             }
-            # Additional information
+            ## Additional information
             1. The current MySQL database version is 8.0.26
             2. The current MySQL database configuration file path is /etc/my.cnf and contains the following \
 configuration items
@@ -396,7 +400,7 @@ configuration items
             innodb_buffer_pool_size=1G
             innodb_log_file_size=256M
             ```
-            # Output
+            ## Output
             ```json
             {
                 "risk": "medium",
@@ -404,17 +408,18 @@ configuration items
 database performance. This operation should only be performed in a non-production environment."
             }
             ```
-            # Tool
+
+            # Now start evaluating the tool execution risk:
+            ## Tool
             <tool>
                 <name> {{tool_name}} </name>
                 <description> {{tool_description}} </description>
             </tool>
-            # Tool Input Parameters
+            ## Tool Input Parameters
             {{input_param}}
-            # Additional Information
+            ## Additional Information
             {{additional_info}}
-            # Output
-
+            ## Output
         """,
     ),
 }
@@ -430,10 +435,12 @@ IS_PARAM_ERROR: dict[LanguageType, str] = {
                 "is_param_error": true/false,
             }
             ```
+
             # 样例
-            # 用户目标
+            ## 用户目标
             我需要扫描当前mysql数据库，分析性能瓶颈, 并调优
-            # 历史
+
+            ## 历史
             第1步：生成端口扫描命令
               - 调用工具 `command_generator`，并提供参数 `{"command": "nmap -sS -p--open 192.168.1.1"}`
                 - 执行状态：成功
@@ -442,43 +449,53 @@ IS_PARAM_ERROR: dict[LanguageType, str] = {
                 - 调用工具 `command_executor`，并提供参数 `{"command": "nmap -sS -p--open 192.168.1.1"}`
                 - 执行状态：成功
                 - 得到数据：`{"result": "success"}`
-            # 当前步骤
+
+            ## 当前步骤
             <step>
-                <step_id> step_3 </step_id>
-                <step_name> mysql_analyzer </step_name>
-                <step_instruction> 分析MySQL数据库性能 </step_instruction>
+                <step_id>step_3</step_id>
+                <step_name>mysql_analyzer</step_name>
+                <step_instruction>分析MySQL数据库性能</step_instruction>
             </step>
-            # 工具入参
+
+            ## 工具入参
             {
                 "host": "192.0.0.1",
                 "port": 3306,
                 "username": "root",
                 "password": "password"
             }
-            # 工具运行报错
+
+            ## 工具运行报错
             执行MySQL性能分析命令时，出现了错误：`host is not correct`。
 
-            # 输出
+            ## 输出
             ```json
             {
                 "is_param_error": true
             }
             ```
-            # 用户目标
+
+            # 现在开始判断工具执行失败是否是因为参数错误导致的：
+            ## 用户目标
             {{goal}}
-            # 历史
+
+            ## 历史
             {{history}}
-            # 当前步骤
+
+            ## 当前步骤
             <step>
                 <step_id> {{step_id}} </step_id>
                 <step_name> {{step_name}} </step_name>
                 <step_instruction> {{step_instruction}} </step_instruction>
             </step>
-            # 工具入参
+
+            ## 工具入参
             {{input_param}}
-            # 工具运行报错
+
+            ## 工具运行报错
             {{error_message}}
-            # 输出
+
+            ## 输出
         """,
     ),
     LanguageType.ENGLISH: dedent(
@@ -492,10 +509,12 @@ due to parameter errors.
                 "is_param_error": true/false,
             }
             ```
+
             # Example
-            # User Goal
+            ## User Goal
             I need to scan the current MySQL database, analyze performance bottlenecks, and optimize it.
-            # History
+
+            ## History
             Step 1: Generate a port scan command
                 - Call the `command_generator` tool and provide `{"command": "nmap -sS -p--open 192.168.1.1"}`
                 - Execution Status: Success
@@ -504,43 +523,53 @@ due to parameter errors.
                 - Call the `command_executor` tool and provide `{"command": "nmap -sS -p--open 192.168.1.1"}`
                 - Execution Status: Success
                 - Result: `{"result": "success"}`
-            # Current step
+
+            ## Current step
             <step>
-            <step_id> step_3 </step_id>
-            <step_name> mysql_analyzer </step_name>
-            <step_instruction> Analyze MySQL database performance </step_instruction>
+                <step_id>step_3</step_id>
+                <step_name>mysql_analyzer</step_name>
+                <step_instruction>Analyze MySQL database performance</step_instruction>
             </step>
-            # Tool input parameters
+
+            ## Tool input parameters
             {
                 "host": "192.0.0.1",
                 "port": 3306,
                 "username": "root",
                 "password": "password"
             }
-            # Tool execution error
+
+            ## Tool execution error
             When executing the MySQL performance analysis command, an error occurred: `host is not correct`.
 
-            # Output
+            ## Output
             ```json
             {
                 "is_param_error": true
             }
             ```
-            # User goal
+
+            # Now start judging whether the tool execution failure is due to parameter errors:
+            ## User goal
             {{goal}}
-            # History
+
+            ## History
             {{history}}
-            # Current step
+
+            ## Current step
             <step>
-            <step_id> {{step_id}} </step_id>
-            <step_name> {{step_name}} </step_name>
-            <step_instruction> {{step_instruction}} </step_instruction>
+                <step_id>{{step_id}}</step_id>
+                <step_name>{{step_name}}</step_name>
+                <step_instruction>{{step_instruction}}</step_instruction>
             </step>
-            # Tool input parameters
+
+            ## Tool input parameters
             {{input_param}}
-            # Tool error
+
+            ## Tool error
             {{error_message}}
-            # Output
+
+            ## Output
         """,
     ),
 }
@@ -556,11 +585,12 @@ CHANGE_ERROR_MESSAGE_TO_DESCRIPTION: dict[LanguageType, str] = {
             3. 描述应该避免使用过于专业的术语，以便用户能够理解。
             4. 描述应该尽量简短，控制在50字以内。
             5. 只输出自然语言描述，不要输出其他内容。
+
             # 样例
-            # 工具信息
+            ## 工具信息
             <tool>
-                <name> port_scanner </name>
-                <description> 扫描主机端口 </description>
+                <name>port_scanner</name>
+                <description>扫描主机端口</description>
                 <input_schema>
                 {
                     "type": "object",
@@ -586,31 +616,38 @@ CHANGE_ERROR_MESSAGE_TO_DESCRIPTION: dict[LanguageType, str] = {
                 }
                 </input_schema>
             </tool>
-            # 工具入参
+
+            ## 工具入参
             {
                 "host": "192.0.0.1",
                 "port": 3306,
                 "username": "root",
                 "password": "password"
             }
-            # 报错信息
+
+            ## 报错信息
             执行端口扫描命令时，出现了错误：`password is not correct`。
-            # 输出
+
+            ## 输出
             扫描端口时发生错误：密码不正确。请检查输入的密码是否正确，并重试。
+
             # 现在开始转换报错信息：
-            # 工具信息
+            ## 工具信息
             <tool>
-                <name> {{tool_name}} </name>
-                <description> {{tool_description}} </description>
+                <name>{{tool_name}}</name>
+                <description>{{tool_description}}</description>
                 <input_schema>
-                {{input_schema}}
+                    {{input_schema}}
                 </input_schema>
             </tool>
+
             # 工具入参
             {{input_params}}
+
             # 报错信息
             {{error_message}}
-            # 输出
+
+            ## 输出
         """,
     ),
     LanguageType.ENGLISH: dedent(
@@ -624,11 +661,12 @@ and clear, allowing users to understand the cause and impact of the error.
             3. The description should avoid using overly technical terms so that users can understand it.
             4. The description should be as brief as possible, within 50 words.
             5. Only output the natural language description, do not output other content.
+
             # Example
-            # Tool Information
+            ## Tool Information
             <tool>
-                <name> port_scanner </name>
-                <description> Scan host ports </description>
+                <name>port_scanner</name>
+                <description>Scan host ports</description>
                 <input_schema>
                 {
                     "type": "object",
@@ -654,32 +692,39 @@ and clear, allowing users to understand the cause and impact of the error.
                 }
                 </input_schema>
             </tool>
-            # Tool input
+
+            ## Tool input
             {
                 "host": "192.0.0.1",
                 "port": 3306,
                 "username": "root",
                 "password": "password"
             }
-            # Error message
+
+            ## Error message
             An error occurred while executing the port scan command: `password is not correct`.
-            # Output
+
+            ## Output
             An error occurred while scanning the port: The password is incorrect. Please check that the password \
 you entered is correct and try again.
+
             # Now start converting the error message:
-            # Tool information
+            ## Tool information
             <tool>
-                <name> {{tool_name}} </name>
-                <description> {{tool_description}} </description>
+                <name>{{tool_name}}</name>
+                <description>{{tool_description}}</description>
                 <input_schema>
-                {{input_schema}}
+                    {{input_schema}}
                 </input_schema>
             </tool>
-            # Tool input parameters
+
+            ## Tool input parameters
             {{input_params}}
-            # Error message
+
+            ## Error message
             {{error_message}}
-            # Output
+
+            ## Output
         """,
     ),
 }
@@ -698,20 +743,24 @@ GET_MISSING_PARAMS: dict[LanguageType, str] = {
                 "password": "请补充密码"
             }
             ```
+
             # 样例
-            # 工具名称
-            mysql_analyzer
-            # 工具描述
-            分析MySQL数据库性能
-            # 工具入参
+            ## 工具
+            <tool>
+                <name>mysql_analyzer</name>
+                <description>分析MySQL数据库性能</description>
+            </tool>
+
+            ## 工具入参
             {
                 "host": "192.0.0.1",
                 "port": 3306,
                 "username": "root",
                 "password": "password"
             }
-            # 工具入参schema
-           {
+
+            ## 工具入参schema
+            {
                 "type": "object",
                 "properties": {
                         "host": {
@@ -745,9 +794,11 @@ GET_MISSING_PARAMS: dict[LanguageType, str] = {
                     },
                 "required": ["host", "port", "username", "password"]
             }
-            # 运行报错
+
+            #$ 运行报错
             {"err_msg": "执行端口扫描命令时，出现了错误：`password is not correct`。", "data": {} }
-            # 输出
+
+            ## 输出
             ```json
             {
                 "host": "192.0.0.1",
@@ -756,18 +807,24 @@ GET_MISSING_PARAMS: dict[LanguageType, str] = {
                 "password": null
             }
             ```
-            # 工具
+
+            # 现在开始获取缺失的参数：
+            ## 工具
             <tool>
-                <name> {{tool_name}} </name>
-                <description> {{tool_description}} </description>
+                <name>{{tool_name}}</name>
+                <description>{{tool_description}}</description>
             </tool>
-            # 工具入参
+
+            ## 工具入参
             {{input_param}}
-            # 工具入参schema（部分字段允许为null）
+
+            ## 工具入参schema（部分字段允许为null）
             {{input_schema}}
-            # 运行报错
+
+            ## 运行报错
             {{error_message}}
-            # 输出
+
+            ## 输出
         """,
     ),
     LanguageType.ENGLISH: dedent(
@@ -783,19 +840,26 @@ input parameters, input parameter schema, and runtime errors, and output a JSON-
                 "password": "Please provide the password"
             }
             ```
+
             # Example
-            # Tool Name
-            mysql_analyzer
-            # Tool Description
-            Analyze MySQL database performance
-            # Tool Input Parameters
+            ## Tool
+            <tool>
+                <name>mysql_analyzer</name>
+                <description>Analyze MySQL database performance</description>
+            </tool>
+
+            ## Tool Input Parameters
+            ```json
             {
                 "host": "192.0.0.1",
                 "port": 3306,
                 "username": "root",
                 "password": "password"
             }
-            # Tool Input Parameter Schema
+            ```
+
+            ## Tool Input Parameter Schema
+            ```json
             {
                 "type": "object",
                 "properties": {
@@ -830,10 +894,12 @@ input parameters, input parameter schema, and runtime errors, and output a JSON-
                     },
                 "required": ["host", "port", "username", "password"]
             }
-            # Error info
+
+            ## Error info
             {"err_msg": "When executing the port scan command, an error occurred: `password is not correct`.", \
 "data": {} }
-            # Output
+
+            ## Output
             ```json
             {
                 "host": "192.0.0.1",
@@ -842,18 +908,24 @@ input parameters, input parameter schema, and runtime errors, and output a JSON-
                 "password": null
             }
             ```
-            # Tool
+
+            # Now start getting the missing parameters:
+            ## Tool
             <tool>
-                <name> {{tool_name}} </name>
-                <description> {{tool_description}} </description>
+                <name>{{tool_name}}</name>
+                <description>{{tool_description}}</description>
             </tool>
-            # Tool input parameters
+
+            ## Tool input parameters
             {{input_param}}
-            # Tool input parameter schema (some fields can be null)
+
+            ## Tool input parameter schema (some fields can be null)
             {{input_schema}}
-            # Error info
+
+            ## Error info
             {{error_message}}
-            # Output
+
+            ## Output
         """,
     ),
 }
@@ -869,17 +941,20 @@ GEN_PARAMS: dict[LanguageType, str] = {
             3.生成的参数必须符合阶段性目标。
 
             # 样例
-            # 工具信息
+            ## 工具信息
             <tool>
-            < name > mysql_analyzer < /name >
-            < description > 分析MySQL数据库性能 < /description >
-            < / tool >
-            # 总目标
+                <name>mysql_analyzer</name>
+                <description>分析MySQL数据库性能</description>
+            </tool>
+
+            ## 总目标
             我需要扫描当前mysql数据库，分析性能瓶颈, 并调优，ip地址是192.168.1.1，端口是3306，用户名是root，\
 密码是password。
-            # 当前阶段目标
+
+            ## 当前阶段目标
             我要连接MySQL数据库，分析性能瓶颈，并调优。
-            # 工具入参的schema
+
+            ## 工具入参的schema
             {
                 "type": "object",
                 "properties": {
@@ -902,7 +977,8 @@ GEN_PARAMS: dict[LanguageType, str] = {
                 },
                 "required": ["host", "port", "username", "password"]
             }
-            # 背景信息
+
+            ## 背景信息
             第1步：生成端口扫描命令
               - 调用工具 `command_generator`，并提供参数 `帮我生成一个mysql端口扫描命令`
               - 执行状态：成功
@@ -911,7 +987,8 @@ GEN_PARAMS: dict[LanguageType, str] = {
                 - 调用工具 `command_executor`，并提供参数 `{"command": "nmap -sS -p--open 192.168.1.1"}`
                 - 执行状态：成功
                 - 得到数据：`{"result": "success"}`
-            # 输出
+
+            ## 输出
             ```json
             {
                 "host": "192.168.1.1",
@@ -920,19 +997,26 @@ GEN_PARAMS: dict[LanguageType, str] = {
                 "password": "password"
             }
             ```
-            # 工具
-            < tool >
-            < name > {{tool_name}} < /name >
-            < description > {{tool_description}} < /description >
-            < / tool >
+
+            # 现在开始生成工具入参：
+            ## 工具
+            <tool>
+                <name>{{tool_name}}</name>
+                <description>{{tool_description}}</description>
+            </tool>
+
             # 总目标
             {{goal}}
+
             # 当前阶段目标
             {{current_goal}}
+
             # 工具入参scheme
             {{input_schema}}
+
             # 背景信息
             {{background_info}}
+
             # 输出
         """,
     ).strip("\n"),
@@ -948,17 +1032,20 @@ generate tool input parameters.
                 3. The generated parameters must conform to the phased goals.
 
             # Example
-            # Tool Information
-            < tool >
-            < name >mysql_analyzer < /name >
-            < description > Analyze MySQL Database Performance < /description >
-            < / tool >
-            # Overall Goal
+            ## Tool Information
+            <tool>
+                <name>mysql_analyzer</name>
+                <description>Analyze MySQL Database Performance</description>
+            </tool>
+
+            ## Overall Goal
             I need to scan the current MySQL database, analyze performance bottlenecks, and optimize it. The IP \
 address is 192.168.1.1, the port is 3306, the username is root, and the password is password.
-            # Current Phase Goal
+
+            ## Current Phase Goal
             I need to connect to the MySQL database, analyze performance bottlenecks, and optimize it.
-            # Tool input schema
+
+            ## Tool input schema
             {
                 "type": "object",
                 "properties": {
@@ -981,7 +1068,8 @@ address is 192.168.1.1, the port is 3306, the username is root, and the password
                 },
                 "required": ["host", "port", "username", "password"]
             }
-            # Background information
+
+            ## Background information
             Step 1: Generate a port scan command
                 - Call the `command_generator` tool and provide the `Help me generate a MySQL port scan \
 command` parameter
@@ -993,7 +1081,8 @@ command` parameter
 192.168.1.1"}`
                 - Execution status: Success
                 - Received data: `{"result": "success"}`
-            # Output
+
+            ## Output
             ```json
             {
                 "host": "192.168.1.1",
@@ -1002,20 +1091,27 @@ command` parameter
                 "password": "password"
             }
             ```
-            # Tool
-            < tool >
-            < name > {{tool_name}} < /name >
-            < description > {{tool_description}} < /description >
-            < / tool >
-            # Overall goal
+
+            # Now start generating tool input parameters:
+            ## Tool
+            <tool>
+                <name>{{tool_name}}</name>
+                <description>{{tool_description}}</description>
+            </tool>
+
+            ## Overall goal
             {{goal}}
-            # Current stage goal
+
+            ## Current stage goal
             {{current_goal}}
-            # Tool input scheme
+
+            ## Tool input scheme
             {{input_schema}}
-            # Background information
+
+            ## Background information
             {{background_info}}
-            # Output
+
+            ## Output
         """,
     ),
 }
@@ -1030,16 +1126,19 @@ REPAIR_PARAMS: dict[LanguageType, str] = {
             1.最终修复的参数要符合目标和工具入参的schema。
 
             # 样例
-            # 工具信息
+            ## 工具信息
             <tool>
-                <name> mysql_analyzer </name>
-                <description> 分析MySQL数据库性能 </description>
+                <name>mysql_analyzer</name>
+                <description>分析MySQL数据库性能</description>
             </tool>
-            # 总目标
+
+            ## 总目标
             我需要扫描当前mysql数据库，分析性能瓶颈, 并调优
-            # 当前阶段目标
+
+            ## 当前阶段目标
             我要连接MySQL数据库，分析性能瓶颈，并调优。
-            # 工具入参的schema
+
+            ## 工具入参的schema
             {
                 "type": "object",
                 "properties": {
@@ -1062,23 +1161,28 @@ REPAIR_PARAMS: dict[LanguageType, str] = {
                 },
                 "required": ["host", "port", "username", "password"]
             }
-            # 工具当前的入参
+
+            ## 工具当前的入参
             {
                 "host": "192.0.0.1",
                 "port": 3306,
                 "username": "root",
                 "password": "password"
             }
-            # 工具的报错
+
+            ## 工具的报错
             执行端口扫描命令时，出现了错误：`password is not correct`。
-            # 补充的参数
+
+            ## 补充的参数
             {
                 "username": "admin",
                 "password": "admin123"
             }
-            # 补充的参数描述
+
+            ## 补充的参数描述
             用户希望使用admin用户和admin123密码来连接MySQL数据库。
-            # 输出
+
+            ## 输出
             ```json
             {
                 "host": "192.0.0.1",
@@ -1087,26 +1191,36 @@ REPAIR_PARAMS: dict[LanguageType, str] = {
                 "password": "admin123"
             }
             ```
-            # 工具
+
+            # 现在开始修复工具入参：
+            ## 工具
             <tool>
-                <name> {{tool_name}} </name>
-                <description> {{tool_description}} </description>
+                <name>{{tool_name}}</name>
+                <description>{{tool_description}}</description>
             </tool>
-            # 总目标
+
+            ## 总目标
             {{goal}}
-            # 当前阶段目标
+
+            ## 当前阶段目标
             {{current_goal}}
-            # 工具入参scheme
+
+            ## 工具入参Schema
             {{input_schema}}
-            # 工具入参
+
+            ## 工具入参
             {{input_param}}
-            # 运行报错
+
+            ## 运行报错
             {{error_message}}
-            # 补充的参数
+
+            ## 补充的参数
             {{params}}
-            # 补充的参数描述
+
+            ## 补充的参数描述
             {{params_description}}
-            # 输出
+
+            ## 输出
         """,
     ),
     LanguageType.ENGLISH: dedent(
@@ -1117,12 +1231,13 @@ parameter schema, tool current input parameters, tool error, supplemented parame
 parameter descriptions.
 
             # Example
-            # Tool information
+            ## Tool information
             <tool>
-                <name> mysql_analyzer </name>
-                <description> Analyze MySQL database performance </description>
+                <name>mysql_analyzer</name>
+                <description>Analyze MySQL database performance</description>
             </tool>
-            # Tool input parameter schema
+
+            ## Tool input parameter schema
             {
                 "type": "object",
                 "properties": {
@@ -1145,23 +1260,28 @@ parameter descriptions.
                 },
                 "required": ["host", "port", "username", "password"]
             }
-            # Current tool input parameters
+
+            ## Current tool input parameters
             {
                 "host": "192.0.0.1",
                 "port": 3306,
                 "username": "root",
                 "password": "password"
             }
-            # Tool error
+
+            ## Tool error
             When executing the port scan command, an error occurred: `password is not correct`.
-            # Supplementary parameters
+
+            ## Supplementary parameters
             {
                 "username": "admin",
                 "password": "admin123"
             }
-            # Supplementary parameter description
+
+            ## Supplementary parameter description
             The user wants to use the admin user and the admin123 password to connect to the MySQL database.
-            # Output
+
+            ## Output
             ```json
             {
                 "host": "192.0.0.1",
@@ -1170,22 +1290,30 @@ parameter descriptions.
                 "password": "admin123"
             }
             ```
-            # Tool
+
+            # Now start fixing tool input parameters:
+            ## Tool
             <tool>
                 <name> {{tool_name}} </name>
                 <description> {{tool_description}} </description>
             </tool>
-            # Tool input schema
+
+            ## Tool input schema
             {{input_schema}}
-            # Tool input parameters
+
+            ## Tool input parameters
             {{input_param}}
-            # Runtime error
+
+            ## Runtime error
             {{error_message}}
-            # Supplementary parameters
+
+            ## Supplementary parameters
             {{params}}
-            # Supplementary parameter descriptions
+
+            ## Supplementary parameter descriptions
             {{params_description}}
-            # Output
+
+            ## Output
         """,
     ),
 }
@@ -1196,17 +1324,14 @@ FINAL_ANSWER: dict[LanguageType, str] = {
             综合理解计划执行结果和背景信息，向用户报告目标的完成情况。
 
             # 用户目标
-
             {{goal}}
 
             # 计划执行情况
-
             为了完成上述目标，你实施了以下计划：
 
             {{memory}}
 
             # 其他背景信息：
-
             {{status}}
 
             # 现在，请根据以上信息，向用户报告目标的完成情况：
@@ -1219,17 +1344,14 @@ FINAL_ANSWER: dict[LanguageType, str] = {
 completion status to the user.
 
             # User Goal
-
             {{goal}}
 
             # Plan Execution Status
-
             To achieve the above goal, you implemented the following plan:
 
             {{memory}}
 
             # Additional Background Information:
-
             {{status}}
 
             # Now, based on the above information, report the goal completion status to the user:

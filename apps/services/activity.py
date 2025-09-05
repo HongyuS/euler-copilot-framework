@@ -6,51 +6,48 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, func, select
 
 from apps.common.postgres import postgres
-from apps.constants import SLIDE_WINDOW_QUESTION_COUNT, SLIDE_WINDOW_TIME
+from apps.constants import MAX_CONCURRENT_TASKS, SLIDE_WINDOW_QUESTION_COUNT, SLIDE_WINDOW_TIME
 from apps.exceptions import ActivityError
 from apps.models.session import SessionActivity
 
 
 class Activity:
-    """用户活动控制，限制单用户同一时间只能提问一个问题"""
+    """活动控制：全局并发限制，同时最多有 n 个任务在执行（与用户无关）"""
 
-    # TODO：改为同一时间整个系统最多有n个task在执行，与用户无关
     @staticmethod
     async def is_active(user_sub: str) -> bool:
         """
-        判断当前用户是否正在提问（占用GPU资源）
+        判断系统是否达到全局并发上限
 
-        :param user_sub: 用户实体ID
-        :return: 判断结果，正在提问则返回True
+        :param user_sub: 用户实体ID（兼容现有接口签名）
+        :return: 达到并发上限返回 True，否则 False
         """
+        _ = user_sub
         time = datetime.now(tz=UTC)
 
         async with postgres.session() as session:
-            # 检查窗口内总请求数
+            # 单用户滑动窗口限流：统计该用户在窗口内的请求数
             count = (await session.scalars(select(func.count(SessionActivity.id)).where(
+                SessionActivity.userSub == user_sub,
                 SessionActivity.timestamp >= time - timedelta(seconds=SLIDE_WINDOW_TIME),
                 SessionActivity.timestamp <= time,
             ))).one()
             if count >= SLIDE_WINDOW_QUESTION_COUNT:
                 return True
 
-            # 检查用户是否正在提问
-            active = (await session.scalars(select(SessionActivity).where(
-                SessionActivity.userSub == user_sub,
-            ))).one_or_none()
-            return bool(active)
+            # 全局并发检查：当前活跃任务数量是否达到上限
+            current_active = (await session.scalars(select(func.count(SessionActivity.id)))).one()
+            return current_active >= MAX_CONCURRENT_TASKS
 
     @staticmethod
     async def set_active(user_sub: str) -> None:
-        """设置用户的活跃标识"""
+        """设置活跃标识：当未超过全局并发上限时登记一个活动任务"""
         time = datetime.now(UTC)
-        # 设置用户活跃状态
         async with postgres.session() as session:
-            active = (
-                await session.scalars(select(SessionActivity).where(SessionActivity.userSub == user_sub))
-            ).one_or_none()
-            if active:
-                err = "用户正在提问"
+            # 并发上限校验
+            current_active = (await session.scalars(select(func.count(SessionActivity.id)))).one()
+            if current_active >= MAX_CONCURRENT_TASKS:
+                err = "系统并发已达上限"
                 raise ActivityError(err)
             await session.merge(SessionActivity(userSub=user_sub, timestamp=time))
             await session.commit()
@@ -59,11 +56,10 @@ class Activity:
     @staticmethod
     async def remove_active(user_sub: str) -> None:
         """
-        清除用户的活跃标识，释放GPU资源
+        释放一个活动任务名额（按发起者标识清除对应记录）
 
         :param user_sub: 用户实体ID
         """
-        # 清除用户当前活动标识
         async with postgres.session() as session:
             await session.execute(
                 delete(SessionActivity).where(SessionActivity.userSub == user_sub),

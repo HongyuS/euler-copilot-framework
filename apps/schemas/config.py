@@ -38,15 +38,6 @@ class LoginConfig(BaseModel):
     settings: OIDCConfig | FixedUserConfig = Field(description="OIDC 配置")
 
 
-class EmbeddingConfig(BaseModel):
-    """Embedding配置"""
-
-    type: str = Field(description="Embedding接口类型", default="openai")
-    endpoint: str = Field(description="Embedding模型地址")
-    api_key: str = Field(description="Embedding模型API Key")
-    model: str = Field(description="Embedding模型名称")
-
-
 class RAGConfig(BaseModel):
     """RAG配置"""
 
@@ -66,16 +57,6 @@ class MinioConfig(BaseModel):
     access_key: str = Field(description="MinIO访问密钥")
     secret_key: str = Field(description="MinIO密钥")
     secure: bool = Field(description="MinIO是否启用SSL", default=False)
-
-
-class MongoDBConfig(BaseModel):
-    """MongoDB配置"""
-
-    host: str = Field(description="MongoDB主机名")
-    port: int = Field(description="MongoDB端口号", default=27017)
-    user: str = Field(description="MongoDB用户名")
-    password: str = Field(description="MongoDB密码")
-    database: str = Field(description="MongoDB数据库名")
 
 
 class PostgresConfig(BaseModel):
@@ -115,11 +96,9 @@ class ConfigModel(BaseModel):
 
     deploy: DeployConfig
     login: LoginConfig
-    embedding: EmbeddingConfig
     rag: RAGConfig
     fastapi: FastAPIConfig
     minio: MinioConfig
-    mongodb: MongoDBConfig
     postgres: PostgresConfig
     security: SecurityConfig
     check: CheckConfig

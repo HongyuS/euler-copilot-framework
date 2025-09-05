@@ -71,3 +71,9 @@ class CallOutputChunk(BaseModel):
 
     type: CallOutputType = Field(description="输出类型")
     content: str | dict[str, Any] = Field(description="输出内容")
+
+
+class TopFlow(BaseModel):
+    """最匹配用户输入的Flow"""
+
+    choice: str = Field(description="最匹配用户输入的Flow的名称")

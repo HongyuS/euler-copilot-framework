@@ -8,7 +8,6 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Any
 
-from apps.models.task import Task
 from apps.schemas.enum_var import EventType
 from apps.schemas.message import (
     HeartbeatData,
@@ -16,6 +15,8 @@ from apps.schemas.message import (
     MessageFlow,
     MessageMetadata,
 )
+from apps.schemas.scheduler import LLMConfig
+from apps.schemas.task import TaskData
 
 logger = logging.getLogger(__name__)
 
@@ -35,43 +36,42 @@ class MessageQueue:
         self._close = False
         self._heartbeat_task = asyncio.get_event_loop().create_task(self._heartbeat())
 
-    async def push_output(self, task: Task, event_type: str, data: dict[str, Any]) -> None:
+    async def push_output(self, task: TaskData, llm: LLMConfig, event_type: str, data: dict[str, Any]) -> None:
         """组装用于向用户（前端/Shell端）输出的消息"""
         if event_type == EventType.DONE.value:
             await self._queue.put("[DONE]")
             return
 
         # 计算当前Step时间
-        step_time = round((datetime.now(UTC).timestamp() - task.tokens.time), 3)
+        step_time = round((datetime.now(UTC).timestamp() - task.runtime.time), 3)
         step_time = max(step_time, 0)
 
         metadata = MessageMetadata(
             timeCost=step_time,
-            inputTokens=task.tokens.input_tokens,
-            outputTokens=task.tokens.output_tokens,
+            inputTokens=llm.reasoning.input_tokens,
+            outputTokens=llm.reasoning.output_tokens,
         )
 
         if task.state:
             # 如果使用了Flow
             flow = MessageFlow(
-                appId=task.state.app_id,
-                flowId=task.state.flow_id,
-                flowName=task.state.flow_name,
-                flowStatus=task.state.flow_status,
-                stepId=task.state.step_id,
-                stepName=task.state.step_name,
-                stepDescription=task.state.step_description,
-                stepStatus=task.state.step_status,
+                appId=task.state.appId,
+                flowId=task.state.executorId,
+                flowName=task.state.executorName,
+                flowStatus=task.state.executorStatus,
+                stepId=task.state.stepId,
+                stepName=task.state.stepName,
+                stepDescription=task.state.stepDescription,
+                stepStatus=task.state.stepStatus,
             )
         else:
             flow = None
 
         message = MessageBase(
             event=event_type,
-            id=task.ids.record_id,
-            groupId=task.ids.group_id,
-            conversationId=task.ids.conversation_id,
-            taskId=task.id,
+            id=task.metadata.record_id,
+            conversationId=task.metadata.conversationId,
+            taskId=task.metadata.id,
             metadata=metadata,
             flow=flow,
             content=data,

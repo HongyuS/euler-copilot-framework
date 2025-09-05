@@ -32,8 +32,8 @@ from apps.schemas.mcp import (
     MCPServerConfig,
     MCPServerSSEConfig,
     MCPServerStdioConfig,
+    UpdateMCPServiceRequest,
 )
-from apps.schemas.request_data import UpdateMCPServiceRequest
 from apps.schemas.response_data import MCPServiceCardItem
 
 logger = logging.getLogger(__name__)
@@ -110,7 +110,7 @@ class MCPServiceManager:
         :return: MCP服务列表
         """
         mcpservice_pools = await MCPServiceManager._search_mcpservice(
-            search_type, keyword, page, is_active=is_active, is_installed=is_install,
+            search_type, keyword, page, user_sub, is_active=is_active, is_installed=is_install,
         )
         return [
             MCPServiceCardItem(

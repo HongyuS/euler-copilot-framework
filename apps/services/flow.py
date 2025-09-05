@@ -179,7 +179,7 @@ class FlowManager:
                 raise ValueError(err)
 
             flow_config = await FlowLoader.load(app_id, flow_id)
-            focus_point = flow_config.focusPoint or PositionItem(x=0, y=0)
+            focus_point = flow_config.basicConfig.focusPoint or PositionItem(x=0, y=0)
             flow_item = FlowItem(
                 flowId=flow_id,
                 name=flow_config.name,
@@ -188,8 +188,8 @@ class FlowManager:
                 nodes=[],
                 edges=[],
                 focusPoint=focus_point,
-                connectivity=flow_config.connectivity,
-                debug=flow_config.debug,
+                connectivity=flow_config.checkStatus.connectivity,
+                debug=flow_config.checkStatus.debug,
             )
 
             for node_id, node_config in flow_config.steps.items():
@@ -214,7 +214,7 @@ class FlowManager:
             for edge_config in flow_config.edges:
                 edge_from = edge_config.edge_from
                 branch_id = ""
-                tmp_list = edge_config.edge_from.split(".")
+                tmp_list = edge_config.edge_from
                 if len(tmp_list) == 0 or len(tmp_list) > FLOW_SPLIT_LEN:
                     logger.error("[FlowManager] Flow中边的格式错误")
                     continue
@@ -338,8 +338,8 @@ class FlowManager:
 
             # 检查是否是修改动作；检查修改前后是否等价
             old_flow_config = await FlowLoader.load(app_id, flow_id)
-            if old_flow_config and old_flow_config.debug:
-                flow_config.debug = await FlowManager.is_flow_config_equal(old_flow_config, flow_config)
+            if old_flow_config and old_flow_config.checkStatus.debug:
+                flow_config.checkStatus.debug = await FlowManager.is_flow_config_equal(old_flow_config, flow_config)
 
             await FlowLoader.save(app_id, flow_id, flow_config)
 
@@ -389,7 +389,7 @@ class FlowManager:
         if flow is None:
             return False
 
-        flow.debug = debug
+        flow.checkStatus.debug = debug
         # 保存到文件系统
         await FlowLoader.save(app_id=app_id, flow_id=flow_id, flow=flow)
         return True

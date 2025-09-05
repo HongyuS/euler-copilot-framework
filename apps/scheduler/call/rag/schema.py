@@ -3,9 +3,11 @@
 
 from enum import Enum
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from apps.scheduler.call.core import DataBase
+
+CHUNK_ELEMENT_TOKENS = 5
 
 
 class SearchMethod(str, Enum):
@@ -17,6 +19,12 @@ class SearchMethod(str, Enum):
     DOC2CHUNK = "doc2chunk"
     DOC2CHUNK_BFS = "doc2chunk_bfs"
     ENHANCED_BY_LLM = "enhanced_by_llm"
+
+
+class QuestionRewriteOutput(BaseModel):
+    """问题重写工具的输出"""
+
+    question: str = Field(description="用户输入")
 
 
 class RAGOutput(DataBase):

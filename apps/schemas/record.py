@@ -92,20 +92,6 @@ class RecordData(BaseModel):
     created_at: float = Field(alias="createdAt")
 
 
-class RecordGroupDocument(BaseModel):
-    """RecordGroup关联的文件"""
-
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), alias="_id")
-    order: int = Field(default=0, description="文档顺序")
-    author: str = Field(default="", description="文档作者")
-    name: str = Field(description="文档名称")
-    abstract: str = Field(description="文档摘要", default="")
-    extension: str = Field(description="文档扩展名", default="")
-    size: int = Field(description="文档大小，单位是KB", default=0)
-    associated: Literal["question", "answer"]
-    created_at: float = Field(default=0.0, description="文档创建时间")
-
-
 class FlowHistory(BaseModel):
     """Flow执行历史"""
 

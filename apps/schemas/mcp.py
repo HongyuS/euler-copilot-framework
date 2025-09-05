@@ -119,3 +119,21 @@ class Step(BaseModel):
 
     tool_id: str = Field(description="工具ID")
     description: str = Field(description="步骤描述")
+
+
+class UpdateMCPServiceRequest(BaseModel):
+    """POST /api/mcpservice 请求数据结构"""
+
+    service_id: str | None = Field(None, alias="serviceId", description="服务ID（更新时传递）")
+    name: str = Field(..., description="MCP服务名称")
+    description: str = Field(..., description="MCP服务描述")
+    overview: str = Field(..., description="MCP服务概述")
+    config: dict[str, Any] = Field(..., description="MCP服务配置")
+    mcp_type: MCPType = Field(description="MCP传输协议(Stdio/SSE/Streamable)", default=MCPType.STDIO, alias="mcpType")
+
+
+class ActiveMCPServiceRequest(BaseModel):
+    """POST /api/mcp/{serviceId} 请求数据结构"""
+
+    active: bool = Field(description="是否激活mcp服务")
+    mcp_env: dict[str, Any] | None = Field(default=None, description="MCP服务环境变量", alias="mcpEnv")

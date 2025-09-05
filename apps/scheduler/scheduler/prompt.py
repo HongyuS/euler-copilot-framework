@@ -41,11 +41,11 @@ FLOW_SELECT: dict[LanguageType, str] = {
 
         <input>
             <question>
-                {question}
+                {{question}}
             </question>
 
             <options>
-                {choice_list}
+                {{choice_list}}
             </options>
         </input>
 
@@ -94,11 +94,11 @@ The best choice seems to be "API: request a specific API, get the returned JSON 
         </instructions>
         <input>
                 <question>
-                    {question}
+                    {{question}}
                 </question>
 
                 <options>
-                    {choice_list}
+                    {{choice_list}}
                 </options>
             </input>
 

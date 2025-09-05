@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """请求RAG相关接口时，使用的数据类型"""
 
+import uuid
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -9,7 +10,7 @@ from pydantic import BaseModel, Field
 class RAGQueryReq(BaseModel):
     """查询RAG时的POST请求体"""
 
-    kb_ids: list[str] = Field(default=[], description="资产id", alias="kbIds")
+    kb_ids: list[uuid.UUID] = Field(default=[], description="资产id", alias="kbIds")
     query: str = Field(default="", description="查询内容")
     top_k: int = Field(default=5, description="返回的结果数量", alias="topK")
     doc_ids: list[str] | None = Field(default=None, description="文档id", alias="docIds")

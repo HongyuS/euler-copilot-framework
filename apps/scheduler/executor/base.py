@@ -73,7 +73,8 @@ class BaseExecutor(BaseModel, ABC):
             data = TextAddContent(text=data).model_dump(exclude_none=True, by_alias=True)
 
         await self.msg_queue.push_output(
-            self.task.metadata,
+            self.task,
+            self.llm,
             event_type=event_type,
             data=data,
         )

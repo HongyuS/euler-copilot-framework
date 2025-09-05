@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import verify_personal_token, verify_session
+from apps.schemas.comment import AddCommentData
 from apps.schemas.record import RecordComment
-from apps.schemas.request_data import AddCommentData
 from apps.schemas.response_data import ResponseData
 from apps.services.comment import CommentManager
 

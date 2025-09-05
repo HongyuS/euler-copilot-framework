@@ -281,45 +281,49 @@ class Slot:
         """从JSON Schema中提取类型描述"""
         return self._extract_type_desc(self._schema)
 
-    def get_params_node_from_schema(self, root: str = "") -> ParamsNode:
+    def _extract_params_node_recursive(  # noqa: C901
+            self, schema_node: dict[str, Any], name: str = "", path: str = "",
+        ) -> ParamsNode | None:
+        """递归提取ParamsNode"""
+        if "type" not in schema_node:
+            return None
+
+        param_type = schema_node["type"]
+        if isinstance(param_type, list):
+            return None  # 不支持多类型
+        if param_type == "object":
+            param_type = Type.DICT
+        elif param_type == "array":
+            param_type = Type.LIST
+        elif param_type == "string":
+            param_type = Type.STRING
+        elif param_type in ["number", "integer"]:
+            param_type = Type.NUMBER
+        elif param_type == "boolean":
+            param_type = Type.BOOL
+        else:
+            err = f"[Slot] 不支持的参数类型: {param_type}"
+            logger.warning(err)
+            return None
+        sub_params = []
+
+        if param_type == Type.DICT and "properties" in schema_node:
+            for key, value in schema_node["properties"].items():
+                sub_param = self._extract_params_node_recursive(value, name=key, path=f"{path}/{key}")
+                if sub_param:
+                    sub_params.append(sub_param)
+        else:
+            # 对于非对象类型，直接返回空子参数
+            sub_params = None
+        return ParamsNode(paramName=name,
+                          paramPath=path,
+                          paramType=param_type,
+                          subParams=sub_params)
+
+    def get_params_node_from_schema(self, root: str = "") -> ParamsNode | None:
         """从JSON Schema中提取ParamsNode"""
-        def _extract_params_node(schema_node: dict[str, Any], name: str = "", path: str = "") -> ParamsNode:
-            """递归提取ParamsNode"""
-            if "type" not in schema_node:
-                return None
-
-            param_type = schema_node["type"]
-            if isinstance(param_type, list):
-                return None  # 不支持多类型
-            if param_type == "object":
-                param_type = Type.DICT
-            elif param_type == "array":
-                param_type = Type.LIST
-            elif param_type == "string":
-                param_type = Type.STRING
-            elif param_type in ["number", "integer"]:
-                param_type = Type.NUMBER
-            elif param_type == "boolean":
-                param_type = Type.BOOL
-            else:
-                logger.warning(f"[Slot] 不支持的参数类型: {param_type}")
-                return None
-            sub_params = []
-
-            if param_type == Type.DICT and "properties" in schema_node:
-                for key, value in schema_node["properties"].items():
-                    sub_param = _extract_params_node(value, name=key, path=f"{path}/{key}")
-                    if sub_param:
-                        sub_params.append(sub_param)
-            else:
-                # 对于非对象类型，直接返回空子参数
-                sub_params = None
-            return ParamsNode(paramName=name,
-                              paramPath=path,
-                              paramType=param_type,
-                              subParams=sub_params)
         try:
-            return _extract_params_node(self._schema, name=root, path=root)
+            return self._extract_params_node_recursive(self._schema, name=root, path=root)
         except Exception:
             logger.exception("[Slot] 提取ParamsNode失败")
             return None
@@ -477,46 +481,47 @@ class Slot:
 
     def add_null_to_basic_types(self) -> dict[str, Any]:
         """递归地为 JSON Schema 中的基础类型（bool、number等）添加 null 选项"""
-        def add_null_to_basic_types(schema: dict[str, Any]) -> dict[str, Any]:
-            """
-            递归地为 JSON Schema 中的基础类型（bool、number等）添加 null 选项
-
-            :param schema: 原始 JSON Schema
-            :return: 修改后的 JSON Schema
-            """
-            # 如果不是字典类型（schema），直接返回
-            if not isinstance(schema, dict):
-                return schema
-
-            # 处理当前节点的 type 字段
-            if "type" in schema:
-                # 处理单一类型字符串
-                if isinstance(schema["type"], str):
-                    if schema["type"] in ["boolean", "number", "string", "integer"]:
-                        schema["type"] = [schema["type"], "null"]
-
-                # 处理类型数组
-                elif isinstance(schema["type"], list):
-                    for i, t in enumerate(schema["type"]):
-                        if isinstance(t, str) and t in ["boolean", "number", "string", "integer"]:
-                            if "null" not in schema["type"]:
-                                schema["type"].append("null")
-                            break
-
-            # 递归处理 properties 字段（对象类型）
-            if "properties" in schema:
-                for prop, prop_schema in schema["properties"].items():
-                    schema["properties"][prop] = add_null_to_basic_types(prop_schema)
-
-            # 递归处理 items 字段（数组类型）
-            if "items" in schema:
-                schema["items"] = add_null_to_basic_types(schema["items"])
-
-            # 递归处理 anyOf, oneOf, allOf 字段
-            for keyword in ["anyOf", "oneOf", "allOf"]:
-                if keyword in schema:
-                    schema[keyword] = [add_null_to_basic_types(sub_schema) for sub_schema in schema[keyword]]
-
-            return schema
         schema_copy = copy.deepcopy(self._schema)
-        return add_null_to_basic_types(schema_copy)
+        return add_null_to_basic_types_func(schema_copy)
+
+def add_null_to_basic_types_func(schema: dict[str, Any]) -> dict[str, Any]:  # noqa: C901, PLR0912
+    """
+    递归地为 JSON Schema 中的基础类型（bool、number等）添加 null 选项
+
+    :param schema: 原始 JSON Schema
+    :return: 修改后的 JSON Schema
+    """
+    # 如果不是字典类型（schema），直接返回
+    if not isinstance(schema, dict):
+        return schema
+
+    # 处理当前节点的 type 字段
+    if "type" in schema:
+        # 处理单一类型字符串
+        if isinstance(schema["type"], str):
+            if schema["type"] in ["boolean", "number", "string", "integer"]:
+                schema["type"] = [schema["type"], "null"]
+
+        # 处理类型数组
+        elif isinstance(schema["type"], list):
+            for t in schema["type"]:
+                if isinstance(t, str) and t in ["boolean", "number", "string", "integer"]:
+                    if "null" not in schema["type"]:
+                        schema["type"].append("null")
+                    break
+
+    # 递归处理 properties 字段（对象类型）
+    if "properties" in schema:
+        for prop, prop_schema in schema["properties"].items():
+            schema["properties"][prop] = add_null_to_basic_types_func(prop_schema)
+
+    # 递归处理 items 字段（数组类型）
+    if "items" in schema:
+        schema["items"] = add_null_to_basic_types_func(schema["items"])
+
+    # 递归处理 anyOf, oneOf, allOf 字段
+    for keyword in ["anyOf", "oneOf", "allOf"]:
+        if keyword in schema:
+            schema[keyword] = [add_null_to_basic_types_func(sub_schema) for sub_schema in schema[keyword]]
+
+    return schema

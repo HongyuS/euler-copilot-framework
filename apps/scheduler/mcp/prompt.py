@@ -12,7 +12,6 @@ MCP_SELECT: dict[LanguageType, str] = {
             请分析用户的目标，并生成一个计划。你后续将根据这个计划，一步一步地完成用户的目标。
 
             # 一个好的计划应该：
-
             1. 能够成功完成用户的目标
             2. 计划中的每一个步骤必须且只能使用一个工具。
             3. 计划中的步骤必须具有清晰和逻辑的步骤，没有冗余或不必要的步骤。
@@ -20,7 +19,6 @@ MCP_SELECT: dict[LanguageType, str] = {
             5.生成的计划必须要覆盖用户的目标，不能遗漏任何用户目标中的内容。
 
             # 生成计划时的注意事项：
-
             - 每一条计划包含3个部分：
                 - 计划内容：描述单个计划步骤的大致内容
                 - 工具ID：必须从下文的工具列表中选择
@@ -45,7 +43,6 @@ MCP_SELECT: dict[LanguageType, str] = {
             - 计划不得多于{{ max_num }}条，且每条计划内容应少于150字。
 
             # 工具
-
             你可以访问并使用一些工具，这些工具将在<tools></tools> XML标签中给出。
 
             <tools>
@@ -57,13 +54,10 @@ MCP_SELECT: dict[LanguageType, str] = {
             </tools>
 
             # 样例
-
             ## 目标
-
             在后台运行一个新的alpine:latest容器，将主机/root文件夹挂载至/data，并执行top命令。
 
             ## 计划
-
             <thinking>
             1. 这个目标需要使用Docker来完成,首先需要选择合适的MCP Server
             2. 目标可以拆解为以下几个部分:
@@ -102,9 +96,7 @@ MCP_SELECT: dict[LanguageType, str] = {
             ```
 
             # 现在开始生成计划：
-
             ## 目标
-
             {{goal}}
 
             # 计划
@@ -116,7 +108,6 @@ MCP_SELECT: dict[LanguageType, str] = {
             Your task is to select the most appropriate MCP server based on your current goals.
 
             ## Things to note when selecting an MCP server:
-
             1. Ensure you fully understand your current goals and select the most appropriate MCP server.
             2. Please select from the provided list of MCP servers; do not generate your own.
             3. Please provide the rationale for your choice before making your selection.
@@ -135,22 +126,17 @@ additional content:
             6. The following example is for reference only. Do not use it as a basis for selecting an MCP server.
 
             ## Example
-
             ### Goal
-
             I need an MCP server to complete a task.
 
             ### MCP Server List
-
             - **mcp_1**: "MCP Server 1"; Description of MCP Server 1
             - **mcp_2**: "MCP Server 2"; Description of MCP Server 2
 
             ### Think step by step:
-
             Because the current goal requires an MCP server to complete a task, select mcp_1.
 
             ### Select Result
-
             ```json
             {
                 "mcp": "mcp_1"
@@ -158,19 +144,15 @@ additional content:
             ```
 
             ## Let's get started!
-
             ### Goal
-
             {{goal}}
 
             ### MCP Server List
-
             {% for mcp in mcp_list %}
             - **{{mcp.id}}**: "{{mcp.name}}"; {{mcp.description}}
             {% endfor %}
 
             ### Think step by step:
-
         """,
     ),
 }
@@ -182,7 +164,6 @@ CREATE_PLAN: dict[str, str] = {
             请分析用户的目标，并生成一个计划。你后续将根据这个计划，一步一步地完成用户的目标。
 
             # 一个好的计划应该：
-
             1. 能够成功完成用户的目标
             2. 计划中的每一个步骤必须且只能使用一个工具。
             3. 计划中的步骤必须具有清晰和逻辑的步骤，没有冗余或不必要的步骤。
@@ -190,7 +171,6 @@ CREATE_PLAN: dict[str, str] = {
             5.生成的计划必须要覆盖用户的目标，不能遗漏任何用户目标中的内容。
 
             # 生成计划时的注意事项：
-
             - 每一条计划包含3个部分：
                 - 计划内容：描述单个计划步骤的大致内容
                 - 工具ID：必须从下文的工具列表中选择
@@ -215,7 +195,6 @@ CREATE_PLAN: dict[str, str] = {
             - 计划不得多于{{ max_num }}条，且每条计划内容应少于150字。
 
             # 工具
-
             你可以访问并使用一些工具，这些工具将在<tools></tools> XML标签中给出。
 
             <tools>
@@ -227,13 +206,10 @@ CREATE_PLAN: dict[str, str] = {
             </tools>
 
             # 样例
-
             ## 目标
-
             在后台运行一个新的alpine:latest容器，将主机/root文件夹挂载至/data，并执行top命令。
 
             ## 计划
-
             <thinking>
             1. 这个目标需要使用Docker来完成,首先需要选择合适的MCP Server
             2. 目标可以拆解为以下几个部分:
@@ -272,9 +248,7 @@ CREATE_PLAN: dict[str, str] = {
             ```
 
             # 现在开始生成计划：
-
             ## 目标
-
             {{goal}}
 
             # 计划
@@ -287,14 +261,12 @@ CREATE_PLAN: dict[str, str] = {
 goal step by step.
 
             # A good plan should:
-
             1. Be able to successfully achieve the user's goal.
             2. Each step in the plan must use only one tool.
             3. The steps in the plan must have clear and logical steps, without redundant or unnecessary steps.
             4. The last step in the plan must be a Final tool to ensure that the plan is executed.
 
             # Things to note when generating plans:
-
             - Each plan contains three parts:
                 - Plan content: Describes the general content of a single plan step
                 - Tool ID: Must be selected from the tool list below
@@ -322,7 +294,6 @@ For example: "Result[3]" refers to the result after the third plan is executed.
 150 words.
 
             # Tools
-
             You can access and use some tools, which will be given in the <tools></tools> XML tags.
 
             <tools>
@@ -335,14 +306,11 @@ result. </description>
             </tools>
 
             # Example
-
             ## Target
-
             Run a new alpine:latest container in the background, mount the host/root folder to /data, and execute the \
 top command.
 
             ## Plan
-
             <thinking>
             1. This goal needs to be completed using Docker. First, you need to select a suitable MCP Server.
             2. The goal can be broken down into the following parts:
@@ -384,9 +352,7 @@ is Result[2]",
             ```
 
             # Now start generating the plan:
-
             ## Goal
-
             {{goal}}
 
             # Plan
@@ -401,26 +367,22 @@ EVALUATE_PLAN: dict[LanguageType, str] = {
             请根据给定的计划，和当前计划执行的实际情况，分析当前计划是否合理和完整，并生成改进后的计划。
 
             # 一个好的计划应该：
-
             1. 能够成功完成用户的目标
             2. 计划中的每一个步骤必须且只能使用一个工具。
             3. 计划中的步骤必须具有清晰和逻辑的步骤，没有冗余或不必要的步骤。
             4. 计划中的最后一步必须是Final工具，以确保计划执行结束。
 
             # 你此前的计划是：
-
             {{ plan }}
 
             # 这个计划的执行情况是：
-
             计划的执行情况将放置在<status></status> XML标签中。
 
             <status>
-            {{ memory }}
+                {{ memory }}
             </status>
 
             # 进行评估时的注意事项：
-
             - 请一步一步思考，解析用户的目标，并指导你接下来的生成。思考过程应放置在<thinking></thinking> XML标签中。
             - 评估结果分为两个部分：
                 - 计划评估的结论
@@ -450,26 +412,22 @@ EVALUATE_PLAN: dict[LanguageType, str] = {
 reasonable and complete, and generate an improved plan.
 
             # A good plan should:
-
             1. Be able to successfully achieve the user's goal.
             2. Each step in the plan must use only one tool.
             3. The steps in the plan must have clear and logical steps, without redundant or unnecessary steps.
             4. The last step in the plan must be a Final tool to ensure the completion of the plan execution.
 
             # Your previous plan was:
-
             {{ plan }}
 
             # The execution status of this plan is:
-
             The execution status of the plan will be placed in the <status></status> XML tags.
 
             <status>
-            {{ memory }}
+                {{ memory }}
             </status>
 
             # Notes when conducting the evaluation:
-
             - Please think step by step, analyze the user's goal, and guide your subsequent generation. The thinking \
 process should be placed in the <thinking></thinking> XML tags.
             - The evaluation results are divided into two parts:
@@ -491,7 +449,6 @@ process should be placed in the <thinking></thinking> XML tags.
             ```
 
             # Start evaluating the plan now:
-
         """,
     ),
 }
@@ -501,21 +458,17 @@ FINAL_ANSWER: dict[str, str] = {
             综合理解计划执行结果和背景信息，向用户报告目标的完成情况。
 
             # 用户目标
-
             {{ goal }}
 
             # 计划执行情况
-
             为了完成上述目标，你实施了以下计划：
 
             {{ memory }}
 
             # 其他背景信息：
-
             {{ status }}
 
             # 现在，请根据以上信息，向用户报告目标的完成情况：
-
         """,
     ),
     LanguageType.ENGLISH: dedent(
@@ -524,21 +477,17 @@ FINAL_ANSWER: dict[str, str] = {
 the completion status of the goal.
 
             # User goal
-
             {{ goal }}
 
             # Plan execution status
-
             To achieve the above goal, you implemented the following plan:
 
             {{ memory }}
 
             # Other background information:
-
             {{ status }}
 
             # Now, based on the above information, please report to the user the completion status of the goal:
-
         """,
     ),
 }

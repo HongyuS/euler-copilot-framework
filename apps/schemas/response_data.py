@@ -6,7 +6,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.models.blacklist import Blacklist
 from apps.models.mcp import MCPInstallStatus, MCPTools
 
 from .appcenter import AppCenterCardItem, AppData
@@ -57,37 +56,6 @@ class HealthCheckRsp(BaseModel):
     status: str
 
 
-class GetBlacklistUserMsg(BaseModel):
-    """GET /api/blacklist/user Result数据结构"""
-
-    user_subs: list[str]
-
-
-class GetBlacklistUserRsp(ResponseData):
-    """GET /api/blacklist/user 返回数据结构"""
-
-    result: GetBlacklistUserMsg
-
-
-class GetBlacklistQuestionMsg(BaseModel):
-    """GET /api/blacklist/question Result数据结构"""
-
-    question_list: list[Blacklist]
-
-
-class GetBlacklistQuestionRsp(ResponseData):
-    """GET /api/blacklist/question 返回数据结构"""
-
-    result: GetBlacklistQuestionMsg
-
-
-class KbIteam(BaseModel):
-    """GET /api/conversation Result数据结构"""
-
-    kb_id: str = Field(alias="kbId")
-    kb_name: str = Field(alias="kbName")
-
-
 class ConversationListItem(BaseModel):
     """GET /api/conversation Result数据结构"""
 
@@ -97,7 +65,6 @@ class ConversationListItem(BaseModel):
     created_time: str = Field(alias="createdTime")
     app_id: str = Field(alias="appId")
     debug: bool = Field(alias="debug")
-    kb_list: list[KbIteam] = Field(alias="kbList", default=[])
 
 
 class ConversationListMsg(BaseModel):

@@ -6,24 +6,25 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
+from jinja2 import BaseLoader
+from jinja2.sandbox import SandboxedEnvironment
+
 from apps.common.queue import MessageQueue
 from apps.llm.embedding import Embedding
-from apps.llm.function import FunctionLLM
+from apps.llm.function import FunctionLLM, JsonGenerator
 from apps.llm.reasoning import ReasoningLLM
 from apps.models.task import Task, TaskRuntime
 from apps.models.user import User
-from apps.scheduler.executor.agent import MCPAgentExecutor
-from apps.scheduler.executor.flow import FlowExecutor
+from apps.scheduler.executor import FlowExecutor, MCPAgentExecutor, QAExecutor
 from apps.scheduler.pool.pool import Pool
-from apps.scheduler.scheduler.flow import FlowChooser
-from apps.schemas.enum_var import AppType, EventType, ExecutorStatus
+from apps.schemas.enum_var import AppType, EventType, ExecutorStatus, LanguageType
 from apps.schemas.message import (
     InitContent,
     InitContentFeature,
 )
 from apps.schemas.rag_data import RAGQueryReq
 from apps.schemas.request_data import RequestData
-from apps.schemas.scheduler import ExecutorBackground, LLMConfig
+from apps.schemas.scheduler import ExecutorBackground, LLMConfig, TopFlow
 from apps.schemas.task import TaskData
 from apps.services.activity import Activity
 from apps.services.appcenter import AppCenterManager
@@ -31,6 +32,8 @@ from apps.services.knowledge import KnowledgeBaseManager
 from apps.services.llm import LLMManager
 from apps.services.task import TaskManager
 from apps.services.user import UserManager
+
+from .prompt import FLOW_SELECT
 
 logger = logging.getLogger(__name__)
 
@@ -85,8 +88,19 @@ class Scheduler:
             )
         self.task = task
 
+        # Jinja2
+        self._env = SandboxedEnvironment(
+            loader=BaseLoader(),
+            autoescape=False,
+            trim_blocks=True,
+            lstrip_blocks=True,
+        )
 
-    async def push_init_message(
+        # LLM
+        await self._get_scheduler_llm(post_body.llm_id)
+
+
+    async def _push_init_message(
         self, context_num: int, *, is_flow: bool = False,
     ) -> None:
         """推送初始化消息"""
@@ -112,7 +126,8 @@ class Scheduler:
 
         # 推送初始化消息
         await self.queue.push_output(
-            task=self.task,
+            self.task,
+            self.llm,
             event_type=EventType.INIT.value,
             data=InitContent(feature=feature, createdAt=created_at).model_dump(exclude_none=True, by_alias=True),
         )
@@ -140,7 +155,7 @@ class Scheduler:
             kill_event.set()
 
 
-    async def get_scheduler_llm(self, reasoning_llm_id: str) -> LLMConfig:
+    async def _get_scheduler_llm(self, reasoning_llm_id: str) -> LLMConfig:
         """获取RAG大模型"""
         # 获取当前会话使用的大模型
         reasoning_llm = await LLMManager.get_llm(reasoning_llm_id)
@@ -184,6 +199,49 @@ class Scheduler:
         )
 
 
+    async def get_top_flow(self) -> str:
+        """获取Top1 Flow"""
+        if not self.llm.function:
+            err = "[Scheduler] 未设置Function模型"
+            logger.error(err)
+            raise RuntimeError(err)
+
+        # 获取所选应用的所有Flow
+        if not self.post_body.app or not self.post_body.app.app_id:
+            err = "[Scheduler] 未选择应用"
+            logger.error(err)
+            raise RuntimeError(err)
+
+        flow_list = await Pool().get_flow_metadata(self.post_body.app.app_id)
+        if not flow_list:
+            err = "[Scheduler] 未找到应用中合法的Flow"
+            logger.error(err)
+            raise RuntimeError(err)
+
+        logger.info("[Scheduler] 选择应用 %s 最合适的Flow", self.post_body.app.app_id)
+        choices = [{
+            "name": flow.id,
+            "description": f"{flow.name}, {flow.description}",
+        } for flow in flow_list]
+
+        # 根据用户语言选择模板
+        template = self._env.from_string(FLOW_SELECT[self.task.runtime.language])
+        # 渲染模板
+        prompt = template.render(
+            template,
+            question=self.post_body.question,
+            choice_list=choices,
+        )
+        schema = TopFlow.model_json_schema()
+        schema["properties"]["choice"]["enum"] = [choice["name"] for choice in choices]
+        result_str = await JsonGenerator(self.llm.function, self.post_body.question, [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt},
+        ], schema).generate()
+        result = TopFlow.model_validate(result_str)
+        return result.choice
+
+
     async def run(self) -> None:
         """运行调度器"""
         # 如果是智能问答，直接执行
@@ -198,14 +256,14 @@ class Scheduler:
 
         if self.task.state.appId:
             rag_method = False
+
         if rag_method:
-            llm = await self.get_scheduler_llm()
-            kb_ids = await KnowledgeBaseManager.get_selected_kb(self.task.ids.user_sub)
-            self.task = await push_init_message(self.task, self.queue, 3, is_flow=False)
+            kb_ids = await KnowledgeBaseManager.get_selected_kb(self.task.metadata.userSub)
+            await self._push_init_message(3, is_flow=False)
             rag_data = RAGQueryReq(
                 kbIds=kb_ids,
                 query=self.post_body.question,
-                tokensLimit=llm.max_tokens,
+                tokensLimit=self.llm.reasoning.config.maxToken,
             )
             # 启动监控任务和主任务
             main_task = asyncio.create_task(push_rag_message(
@@ -219,7 +277,6 @@ class Scheduler:
                 return
 
             # 获取上下文
-            context, facts = await get_context(self.task.ids.user_sub, self.post_body, app_data.history_len)
             if app_data.app_type == AppType.FLOW:
                 # 需要执行Flow
                 is_flow = True
@@ -228,13 +285,8 @@ class Scheduler:
                 is_flow = False
             # 需要执行Flow
             self.task = await push_init_message(self.task, self.queue, app_data.history_len, is_flow=is_flow)
-            # 组装上下文
-            executor_background = ExecutorBackground(
-                conversation=context,
-                facts=facts,
-            )
             # 启动监控任务和主任务
-            main_task = asyncio.create_task(self.run_executor(self.queue, self.post_body, executor_background))
+            main_task = asyncio.create_task(self._run_agent(self.queue, self.post_body, executor_background))
         # 等待任一任务完成
         done, pending = await asyncio.wait(
             [main_task, monitor],
@@ -261,79 +313,81 @@ class Scheduler:
 
         return
 
-    async def run_executor(
+
+    async def _run_qa(self) -> None:
+        pass
+
+
+    async def _run_flow(self) -> None:
+        logger.info("[Scheduler] 获取工作流元数据")
+        flow_info = await Pool().get_flow_metadata(app_info.app_id)
+
+        # 如果flow_info为空，则直接返回
+        if not flow_info:
+            logger.error("[Scheduler] 未找到工作流元数据")
+            return
+
+        # 如果用户选了特定的Flow
+        if app_info.flow_id:
+            logger.info("[Scheduler] 获取工作流定义")
+            flow_id = app_info.flow_id
+            flow_data = await Pool().get_flow(app_info.app_id, flow_id)
+        else:
+            # 如果用户没有选特定的Flow，则根据语义选择一个Flow
+            logger.info("[Scheduler] 选择最合适的流")
+            flow_chooser = FlowChooser(self.task, post_body.question, app_info)
+            flow_id = await flow_chooser.get_top_flow()
+            self.task = flow_chooser.task
+            logger.info("[Scheduler] 获取工作流定义")
+            flow_data = await Pool().get_flow(app_info.app_id, flow_id)
+
+        # 如果flow_data为空，则直接返回
+        if not flow_data:
+            logger.error("[Scheduler] 未找到工作流定义")
+            return
+
+        # 初始化Executor
+        logger.info("[Scheduler] 初始化Executor")
+
+        flow_exec = FlowExecutor(
+            flow_id=flow_id,
+            flow=flow_data,
+            task=self.task,
+            msg_queue=queue,
+            question=post_body.question,
+            post_body_app=app_info,
+            background=background,
+            llm=self.llm,
+        )
+
+        # 开始运行
+        logger.info("[Scheduler] 运行Executor")
+        await flow_exec.init()
+        await flow_exec.run()
+        self.task = flow_exec.task
+
+
+    async def _run_agent(
             self, queue: MessageQueue, post_body: RequestData, background: ExecutorBackground,
     ) -> None:
         """构造Executor并执行"""
-        # 获取agent信息
-        app_collection = MongoDB().get_collection("app")
-        app_metadata = AppPool.model_validate(await app_collection.find_one({"_id": app_info.app_id}))
-        if not app_metadata:
-            logger.error("[Scheduler] 未找到Agent应用")
-            return
+        # 初始化Executor
+        agent_exec = MCPAgentExecutor(
+            task=self.task,
+            msg_queue=queue,
+            question=post_body.question,
+            history_len=app_metadata.history_len,
+            background=background,
+            agent_id=app_info.app_id,
+            params=post_body.params,
+            llm=self.llm,
+        )
+        # 开始运行
+        logger.info("[Scheduler] 运行Executor")
+        await agent_exec.run()
+        self.task = agent_exec.task
 
-        if app_metadata.app_type == AppType.FLOW.value:
-            logger.info("[Scheduler] 获取工作流元数据")
-            flow_info = await Pool().get_flow_metadata(app_info.app_id)
 
-            # 如果flow_info为空，则直接返回
-            if not flow_info:
-                logger.error("[Scheduler] 未找到工作流元数据")
-                return
-
-            # 如果用户选了特定的Flow
-            if app_info.flow_id:
-                logger.info("[Scheduler] 获取工作流定义")
-                flow_id = app_info.flow_id
-                flow_data = await Pool().get_flow(app_info.app_id, flow_id)
-            else:
-                # 如果用户没有选特定的Flow，则根据语义选择一个Flow
-                logger.info("[Scheduler] 选择最合适的流")
-                flow_chooser = FlowChooser(self.task, post_body.question, app_info)
-                flow_id = await flow_chooser.get_top_flow()
-                self.task = flow_chooser.task
-                logger.info("[Scheduler] 获取工作流定义")
-                flow_data = await Pool().get_flow(app_info.app_id, flow_id)
-
-            # 如果flow_data为空，则直接返回
-            if not flow_data:
-                logger.error("[Scheduler] 未找到工作流定义")
-                return
-
-            # 初始化Executor
-            logger.info("[Scheduler] 初始化Executor")
-
-            flow_exec = FlowExecutor(
-                flow_id=flow_id,
-                flow=flow_data,
-                task=self.task,
-                msg_queue=queue,
-                question=post_body.question,
-                post_body_app=app_info,
-                background=background,
-            )
-
-            # 开始运行
-            logger.info("[Scheduler] 运行Executor")
-            await flow_exec.init()
-            await flow_exec.run()
-            self.task = flow_exec.task
-        elif app_metadata.app_type == AppType.AGENT.value:
-            # 初始化Executor
-            agent_exec = MCPAgentExecutor(
-                task=self.task,
-                msg_queue=queue,
-                question=post_body.question,
-                history_len=app_metadata.history_len,
-                background=background,
-                agent_id=app_info.app_id,
-                params=post_body.params,
-            )
-            # 开始运行
-            logger.info("[Scheduler] 运行Executor")
-            await agent_exec.run()
-            self.task = agent_exec.task
-        else:
-            logger.error("[Scheduler] 无效的应用类型")
-
-        return
+    async def _save_task(self) -> None:
+        """保存Task"""
+        await TaskManager.save_task(self.task)

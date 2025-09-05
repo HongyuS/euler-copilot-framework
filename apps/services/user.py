@@ -4,7 +4,7 @@
 import logging
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from apps.common.postgres import postgres
 from apps.models.user import User
@@ -18,7 +18,7 @@ class UserManager:
     """用户相关操作"""
 
     @staticmethod
-    async def list_user(n: int = 10, page: int = 1) -> list[User]:
+    async def list_user(n: int = 10, page: int = 1) -> tuple[list[User], int]:
         """
         获取所有用户
 
@@ -27,8 +27,9 @@ class UserManager:
         :return: 所有用户列表
         """
         async with postgres.session() as session:
+            count = await session.scalar(select(func.count(User.id)))
             users = (await session.scalars(select(User).offset((page - 1) * n).limit(n))).all()
-            return list(users)
+            return list(users), count or 0
 
 
     @staticmethod
