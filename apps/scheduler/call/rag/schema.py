@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """RAG工具的输入和输出"""
 
+import uuid
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -37,26 +38,18 @@ class RAGOutput(DataBase):
 class RAGInput(DataBase):
     """RAG工具的输入"""
 
+    # 来自RAGInput的独有字段
     session_id: str = Field(description="会话id")
-    knowledge_base_ids: list[str] = Field(description="知识库的id列表", default=[], alias="kbIds")
-    top_k: int = Field(description="返回的分片数量", default=5, alias="topK")
-    question: str = Field(description="用户输入", default="", alias="query")
-    document_ids: list[str] | None = Field(description="文档id列表", default=None, alias="docIds")
-    search_method: str = Field(
-        description="检索方法",
-        default=SearchMethod.KEYWORD_AND_VECTOR.value,
-        alias="searchMethod",
-    )
-    is_related_surrounding: bool = Field(
-        description="是否关联上下文",
-        default=True,
-        alias="isRelatedSurrounding",
-    )
-    is_classify_by_doc: bool = Field(
-        description="是否按文档分类",
-        default=True,
-        alias="isClassifyByDoc",
-    )
-    is_rerank: bool = Field(description="是否重新排序", default=False, alias="isRerank")
     is_compress: bool = Field(description="是否压缩", default=False, alias="isCompress")
-    tokens_limit: int = Field(description="token限制", default=8192, alias="tokensLimit")
+
+    # 来自RAGQueryReq的字段（以RAGQueryReq为准）
+    kb_ids: list[uuid.UUID] = Field(default=[], description="资产id", alias="kbIds")
+    query: str = Field(default="", description="查询内容")
+    top_k: int = Field(default=5, description="返回的结果数量", alias="topK")
+    doc_ids: list[str] | None = Field(default=None, description="文档id", alias="docIds")
+    search_method: str = Field(default="dynamic_weighted_keyword_and_vector",
+                               description="检索方法", alias="searchMethod")
+    is_related_surrounding: bool = Field(default=True, description="是否关联上下文", alias="isRelatedSurrounding")
+    is_classify_by_doc: bool = Field(default=True, description="是否按文档分类", alias="isClassifyByDoc")
+    is_rerank: bool = Field(default=False, description="是否重新排序", alias="isRerank")
+    tokens_limit: int | None = Field(default=None, description="token限制", alias="tokensLimit")

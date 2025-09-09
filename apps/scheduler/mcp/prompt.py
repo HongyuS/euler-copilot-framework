@@ -506,8 +506,8 @@ MEMORY_TEMPLATE: dict[str, str] = {
         r"""
             {% for ctx in context_list %}
             - Step {{ loop.index }}: {{ ctx.step_description }}
-              - Called tool `{{ ctx.step_id }}` and provided parameters `{{ ctx.input_data }}`
-              - Execution status: {{ ctx.status }}
+              - Called tool `{{ ctx.step_name }}` and provided parameters `{{ ctx.input_data }}`
+              - Execution status: {{ ctx.step_status }}
               - Got data: `{{ ctx.output_data }}`
             {% endfor %}
         """,

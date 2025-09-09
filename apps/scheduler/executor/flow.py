@@ -9,13 +9,13 @@ from datetime import UTC, datetime
 from pydantic import Field
 
 from apps.models.task import ExecutorCheckpoint
-from apps.scheduler.call.llm.prompt import LLM_ERROR_PROMPT
 from apps.schemas.enum_var import EventType, ExecutorStatus, LanguageType, SpecialCallType, StepStatus
 from apps.schemas.flow import Flow, Step
 from apps.schemas.request_data import RequestDataApp
 from apps.schemas.task import StepQueueItem
 
 from .base import BaseExecutor
+from .prompt import FLOW_ERROR_PROMPT
 from .step import StepExecutor
 
 logger = logging.getLogger(__name__)
@@ -219,7 +219,7 @@ class FlowExecutor(BaseExecutor):
                             node=SpecialCallType.LLM.value,
                             type=SpecialCallType.LLM.value,
                             params={
-                                "user_prompt": LLM_ERROR_PROMPT[self.task.runtime.language].replace(
+                                "user_prompt": FLOW_ERROR_PROMPT[self.task.runtime.language].replace(
                                     "{{ error_info }}",
                                     self.state.errorMessage["err_msg"],
                                 ),

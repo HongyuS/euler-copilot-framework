@@ -86,8 +86,10 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
         """初始化MCP"""
         # 获取MCP交互类
         self._host = MCPHost(
+            call_vars.ids.user_sub,
             call_vars.ids.task_id,
-            call_vars.ids.executor_id,
+            self._llm_obj,
+            self._sys_vars.language,
         )
         self._tool_list = await self._host.get_tool_list(self.mcp_list)
         self._call_vars = call_vars
@@ -125,7 +127,7 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
         yield self._create_output(MCP_GENERATE["START"][self._sys_vars.language], MCPMessageType.PLAN_BEGIN)
 
         # 选择工具并生成计划
-        selector = MCPSelector()
+        selector = MCPSelector(self._llm_obj)
         top_tool = await selector.select_top_tool(self._call_vars.question, self.mcp_list)
         planner = MCPPlanner(self._call_vars.question, language=self._sys_vars.language)
         self._plan = await planner.create_plan(top_tool, self.max_steps)

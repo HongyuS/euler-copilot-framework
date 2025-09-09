@@ -6,6 +6,7 @@ import logging
 from sqlalchemy import select
 
 from apps.common.postgres import postgres
+from apps.llm.function import JsonGenerator
 from apps.models.mcp import MCPTools
 from apps.schemas.mcp import MCPSelectResult
 from apps.schemas.scheduler import LLMConfig
@@ -42,14 +43,23 @@ class MCPSelector:
             raise RuntimeError(err)
 
         logger.info("[MCPSelector] 调用结构化输出小模型")
-        message = [
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": reasoning_result},
-        ]
         schema = MCPSelectResult.model_json_schema()
         # schema中加入选项
         schema["properties"]["mcp_id"]["enum"] = mcp_ids
-        result = await self._llm.function.call(messages=message, schema=schema)
+
+        # 使用JsonGenerator生成JSON
+        conversation = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": reasoning_result},
+        ]
+        generator = JsonGenerator(
+            llm=self._llm.function,
+            query=reasoning_result,
+            conversation=conversation,
+            schema=schema,
+        )
+        result = await generator.generate()
+
         try:
             result = MCPSelectResult.model_validate(result)
         except Exception:

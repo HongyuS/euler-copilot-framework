@@ -12,15 +12,13 @@ from mcp.types import TextContent
 
 from apps.llm.function import JsonGenerator
 from apps.models.mcp import MCPTools
-from apps.models.task import ExecutorHistory
 from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
 from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.pool import MCPPool
-from apps.schemas.enum_var import ExecutorStatus, LanguageType, StepStatus
-from apps.schemas.mcp import MCPPlanItem
+from apps.schemas.enum_var import LanguageType
+from apps.schemas.mcp import MCPContext, MCPPlanItem
 from apps.schemas.scheduler import LLMConfig
 from apps.services.mcp_service import MCPServiceManager
-from apps.services.task import TaskManager
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +26,13 @@ logger = logging.getLogger(__name__)
 class MCPHost:
     """MCP宿主服务"""
 
-    def __init__(self, user_sub: str,task_id: uuid.UUID, llm: LLMConfig) -> None:
+    def __init__(self, user_sub: str, task_id: uuid.UUID, llm: LLMConfig, language: LanguageType) -> None:
         """初始化MCP宿主"""
         self._task_id = task_id
         self._user_sub = user_sub
-        # 注意：runtime在工作流中是flow_id和step_description，在Agent中可为标识Agent的id和description
-        self._runtime_id = runtime_id
-        self._runtime_name = runtime_name
         self._context_list = []
+        self._language = language
+        self._llm = llm
         self._env = SandboxedEnvironment(
             loader=BaseLoader(),
             autoescape=False,
@@ -63,19 +60,10 @@ class MCPHost:
 
     async def assemble_memory(self) -> str:
         """组装记忆"""
-        task = await TaskManager.get_task_data_by_task_id(self._task_id)
-        if not task:
-            logger.error("任务 %s 不存在", self._task_id)
-            return ""
+        # 从host的context_list中获取context
+        context_list = self._context_list
 
-        context_list = []
-        for ctx_id in self._context_list:
-            context = next((ctx for ctx in task.context if ctx.id == ctx_id), None)
-            if not context:
-                continue
-            context_list.append(context)
-
-        return self._env.from_string(MEMORY_TEMPLATE[self.language]).render(
+        return self._env.from_string(MEMORY_TEMPLATE[self._language]).render(
             context_list=context_list,
         )
 
@@ -101,34 +89,26 @@ class MCPHost:
                 "message": result,
             }
 
-        # 创建context；注意用法
-        context = ExecutorHistory(
-            taskId=self._task_id,
-            executorId=self._runtime_id,
-            executorName=self._runtime_name,
-            executorStatus=ExecutorStatus.RUNNING,
-            stepId=uuid.uuid4(),
-            stepName=tool.toolName,
-            # description是规划的实际内容
-            stepDescription=plan_item.content,
-            stepStatus=StepStatus.SUCCESS,
-            inputData=input_data,
-            outputData=output_data,
+        # 创建简化版context
+        context = MCPContext(
+            step_description=plan_item.content,
+            input_data=input_data,
+            output_data=output_data,
         )
 
-        # 保存到task
-        task = await TaskManager.get_task_data_by_task_id(self._task_id)
-        if not task:
-            logger.error("任务 %s 不存在", self._task_id)
-            return {}
-        self._context_list.append(context.id)
-        context.append(context)
+        # 保存到host的context_list
+        self._context_list.append(context)
 
         return output_data
 
 
     async def _fill_params(self, tool: MCPTools, query: str) -> dict[str, Any]:
         """填充工具参数"""
+        if not self._llm.function:
+            err = "[MCPHost] 未设置FunctionCall模型"
+            logger.error(err)
+            raise RuntimeError(err)
+
         # 更清晰的输入·指令，这样可以调用generate
         llm_query = rf"""
             请使用参数生成工具，生成满足以下目标的工具参数：
@@ -138,6 +118,7 @@ class MCPHost:
 
         # 进行生成
         json_generator = JsonGenerator(
+            self._llm.function,
             llm_query,
             [
                 {"role": "system", "content": "You are a helpful assistant."},

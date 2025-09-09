@@ -90,7 +90,7 @@ class MCPHost(MCPBase):
             current_goal=current_goal,
             tool_description=mcp_tool.description,
             input_schema=mcp_tool.inputSchema,
-            current_input=current_input,
+            input_params=current_input,
             error_message=error_message,
             params=params,
             params_description=params_description,

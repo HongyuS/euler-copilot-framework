@@ -17,5 +17,5 @@ class SQLInput(DataBase):
 class SQLOutput(DataBase):
     """SQL工具的输出"""
 
-    dataset: list[dict[str, Any]] = Field(description="SQL工具的执行结果")
+    result: list[dict[str, Any]] = Field(description="SQL工具的执行结果")
     sql: str = Field(description="SQL语句")

@@ -11,12 +11,11 @@ from pydantic import Field
 from apps.constants import AGENT_FINAL_STEP_NAME, AGENT_MAX_RETRY_TIMES, AGENT_MAX_STEPS
 from apps.models.mcp import MCPTools
 from apps.models.task import ExecutorHistory
-from apps.scheduler.call.slot.slot import Slot
 from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.mcp_agent.host import MCPHost
 from apps.scheduler.mcp_agent.plan import MCPPlanner
 from apps.scheduler.pool.mcp.pool import MCPPool
-from apps.schemas.enum_var import EventType, ExecutorStatus, LanguageType, StepStatus
+from apps.schemas.enum_var import EventType, ExecutorStatus, StepStatus
 from apps.schemas.mcp import Step
 from apps.schemas.message import FlowParams
 from apps.services.appcenter import AppCenterManager
@@ -49,8 +48,8 @@ class MCPAgentExecutor(BaseExecutor):
         self._mcp_list = []
         self._current_input = {}
         # 初始化MCP Host相关对象
-        self._planner = MCPPlanner(self.task.runtime.userInput, self.llm, self.task.runtime.language)
-        self._host = MCPHost(self.task.metadata.userSub, self.llm)
+        self._planner = MCPPlanner(self.task, self.llm)
+        self._host = MCPHost(self.task, self.llm)
         user = await UserManager.get_user(self.task.metadata.userSub)
         if not user:
             err = "[MCPAgentExecutor] 用户不存在: %s"
@@ -359,6 +358,7 @@ class MCPAgentExecutor(BaseExecutor):
             if self.task.state.stepStatus == StepStatus.PARAM:
                 if len(self.task.context) and self.task.context[-1].stepId == self.task.state.stepId:
                     del self.task.context[-1]
+                await self.get_tool_input_param(is_first=False)
             elif self.task.state.stepStatus == StepStatus.WAITING:
                 if self.params:
                     if len(self.task.context) and self.task.context[-1].stepId == self.task.state.stepId:
@@ -395,7 +395,7 @@ class MCPAgentExecutor(BaseExecutor):
                         EventType.STEP_ERROR,
                         data={
                             "message": self.task.state.errorMessage,
-                        }
+                        },
                     )
                     if len(self.task.context) and self.task.context[-1].stepId == self.task.state.stepId:
                         self.task.context[-1].stepStatus = StepStatus.ERROR
@@ -413,7 +413,7 @@ class MCPAgentExecutor(BaseExecutor):
                                 executorId=self.task.state.executorId,
                                 executorName=self.task.state.executorName,
                                 executorStatus=self.task.state.executorStatus,
-                                inputData=self.task.state.currentInput,
+                                inputData=self._current_input,
                                 outputData={
                                     "message": self.task.state.errorMessage,
                                 },
@@ -423,13 +423,11 @@ class MCPAgentExecutor(BaseExecutor):
                 else:
                     mcp_tool = self.tools[self.task.state.toolId]
                     is_param_error = await self._planner.is_param_error(
-                        self.task.runtime.userInput,
                         await self._host.assemble_memory(self.task.runtime, self.task.context),
                         self.task.state.errorMessage,
                         mcp_tool,
                         self.task.state.stepDescription,
-                        self.task.state.currentInput,
-                        language=self.task.runtime.language,
+                        self._current_input,
                     )
                     if is_param_error.is_param_error:
                         # 如果是参数错误，生成参数补充
@@ -457,7 +455,7 @@ class MCPAgentExecutor(BaseExecutor):
                                     executorId=self.task.state.executorId,
                                     executorName=self.task.state.executorName,
                                     executorStatus=self.task.state.executorStatus,
-                                    inputData=self.task.state.currentInput,
+                                    inputData=self._current_input,
                                     outputData={
                                         "message": self.task.state.errorMessage,
                                     },
@@ -495,7 +493,7 @@ class MCPAgentExecutor(BaseExecutor):
             # 初始化状态
             self.task.state.executorId = str(uuid.uuid4())
             self.task.state.executorName = (await self._planner.get_flow_name()).flow_name
-            flow_risk = await self._planner.get_flow_excute_risk(self.tool_list, self.task.language)
+            flow_risk = await self._planner.get_flow_excute_risk(self.tool_list)
             if self._user.autoExecute:
                 data = flow_risk.model_dump(exclude_none=True, by_alias=True)
             await self.get_next_step()
