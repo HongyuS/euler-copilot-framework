@@ -18,6 +18,17 @@ class MCPStatus(str, Enum):
     ERROR = "error"
 
 
+class MCPContext(BaseModel):
+    """MCP执行上下文"""
+
+    step_description: str
+    """步骤描述"""
+    input_data: dict[str, Any]
+    """输入数据"""
+    output_data: dict[str, Any]
+    """输出数据"""
+
+
 class MCPBasicConfig(BaseModel):
     """MCP 基本配置"""
 

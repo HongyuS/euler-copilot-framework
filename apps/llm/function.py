@@ -25,7 +25,6 @@ class FunctionLLM:
     """用于FunctionCall的模型"""
 
     timeout: float = 30.0
-    config: LLMData
 
     def __init__(self, llm_config: LLMData | None = None) -> None:
         """

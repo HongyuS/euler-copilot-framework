@@ -21,7 +21,6 @@ from apps.scheduler.mcp_agent.prompt import (
     RISK_EVALUATE,
 )
 from apps.scheduler.slot.slot import Slot
-from apps.schemas.enum_var import LanguageType
 from apps.schemas.mcp import (
     FlowName,
     FlowRisk,
@@ -68,13 +67,9 @@ class MCPPlanner(MCPBase):
         # 使用Step模型解析结果
         return Step.model_validate(step)
 
-    async def get_flow_excute_risk(
-        self,
-        tools: list[MCPTools],
-        language: LanguageType = LanguageType.CHINESE,
-    ) -> FlowRisk:
+    async def get_flow_excute_risk(self, tools: list[MCPTools]) -> FlowRisk:
         """获取当前流程的风险评估结果"""
-        template = _env.from_string(GENERATE_FLOW_EXCUTE_RISK[language])
+        template = _env.from_string(GENERATE_FLOW_EXCUTE_RISK[self._language])
         prompt = template.render(
             goal=self._goal,
             tools=tools,
@@ -165,9 +160,7 @@ class MCPPlanner(MCPBase):
         # 解析为结构化数据
         return await self._parse_result(result, schema_with_null)
 
-    async def generate_answer(
-        self, memory: str,
-    ) -> AsyncGenerator[str, None]:
+    async def generate_answer(self, memory: str) -> AsyncGenerator[str, None]:
         """生成最终回答"""
         template = _env.from_string(FINAL_ANSWER[self._language])
         prompt = template.render(
