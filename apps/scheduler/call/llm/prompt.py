@@ -8,12 +8,12 @@ from apps.schemas.enum_var import LanguageType
 LLM_CONTEXT_PROMPT: dict[LanguageType, str] = {
     LanguageType.CHINESE: dedent(
         r"""
-            以下是对用户和AI间对话的简短总结，在<summary>中给出：
-            <summary>
-                {{ summary }}
-            </summary>
+            以下是AI处理用户指令时所做的思考，在<reasoning>中给出：
+            <reasoning>
+                {{ reasoning }}
+            </reasoning>
 
-            你作为AI，在回答用户的问题前，需要获取必要的信息。为此，你调用了一些工具，并获得了它们的输出：
+            你作为AI，在完成用户指令前，需要获取必要的信息。为此，你调用了一些工具，并获得了它们的输出：
             工具的输出数据将在<tool_data>中给出， 其中<name>为工具的名称，<output>为工具的输出数据。
             <tool_data>
                 {% for tool in history_data %}
@@ -28,12 +28,12 @@ LLM_CONTEXT_PROMPT: dict[LanguageType, str] = {
     ).strip("\n"),
     LanguageType.ENGLISH: dedent(
         r"""
-            The following is a brief summary of the user and AI conversation, given in <summary>:
-            <summary>
-                {{ summary }}
-            </summary>
+            The following is the thinking of the AI when processing the user's instruction, given in <reasoning>:
+            <reasoning>
+                {{ reasoning }}
+            </reasoning>
 
-            As an AI, before answering the user's question, you need to obtain necessary information. For this \
+            As an AI, before completing the user's instruction, you need to obtain necessary information. For this \
 purpose, you have called some tools and obtained their outputs:
             The output data of the tools will be given in <tool_data>, where <name> is the name of the tool and \
 <output> is the output data of the tool.

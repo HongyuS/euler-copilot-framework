@@ -4,7 +4,7 @@
 import logging
 import uuid
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
+from copy import deepcopy
 from typing import Any
 
 import httpx
@@ -14,7 +14,6 @@ from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
 from apps.common.config import config
-from apps.llm.token import TokenCalculator
 from apps.scheduler.call.core import CoreCall
 from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.scheduler import (
@@ -26,7 +25,7 @@ from apps.schemas.scheduler import (
 
 from .prompt import QUESTION_REWRITE
 from .schema import (
-    CHUNK_ELEMENT_TOKENS,
+    DocItem,
     QuestionRewriteOutput,
     RAGInput,
     RAGOutput,
@@ -48,6 +47,7 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
     is_rerank: bool = Field(description="是否重新排序", default=False)
     is_compress: bool = Field(description="是否压缩", default=False)
     tokens_limit: int = Field(description="token限制", default=8192)
+    history_len: int = Field(description="历史对话长度", default=3)
 
 
     @classmethod
@@ -73,7 +73,6 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
             raise CallError(message=err, data={})
 
         return RAGInput(
-            session_id=call_vars.ids.session_id,
             kbIds=self.kb_ids,
             topK=self.top_k,
             query=call_vars.question,
@@ -87,67 +86,6 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
         )
 
 
-    async def _assemble_doc_info(
-        self,
-        doc_chunk_list: list[dict[str, Any]],
-        max_tokens: int,
-    ) -> tuple[str, list[dict[str, Any]]]:
-        """组装文档信息"""
-        bac_info = ""
-        doc_info_list = []
-        doc_cnt = 0
-        doc_id_map = {}
-        remaining_tokens = round(max_tokens * 0.8)
-
-        for doc_chunk in doc_chunk_list:
-            if doc_chunk["docId"] not in doc_id_map:
-                doc_cnt += 1
-                t = doc_chunk.get("docCreatedAt", None)
-                if isinstance(t, str):
-                    t = datetime.strptime(t, "%Y-%m-%d %H:%M").replace(
-                        tzinfo=UTC,
-                    )
-                    t = round(t.replace(tzinfo=UTC).timestamp(), 3)
-                else:
-                    t = round(datetime.now(UTC).timestamp(), 3)
-                doc_info_list.append({
-                    "id": doc_chunk["docId"],
-                    "order": doc_cnt,
-                    "name": doc_chunk.get("docName", ""),
-                    "author": doc_chunk.get("docAuthor", ""),
-                    "extension": doc_chunk.get("docExtension", ""),
-                    "abstract": doc_chunk.get("docAbstract", ""),
-                    "size": doc_chunk.get("docSize", 0),
-                    "created_at": t,
-                })
-                doc_id_map[doc_chunk["docId"]] = doc_cnt
-            doc_index = doc_id_map[doc_chunk["docId"]]
-
-            if bac_info:
-                bac_info += "\n\n"
-            bac_info += f"""<document id="{doc_index}"  name="{doc_chunk["docName"]}">"""
-
-            for chunk in doc_chunk["chunks"]:
-                if remaining_tokens <= CHUNK_ELEMENT_TOKENS:
-                    break
-                chunk_text = chunk["text"]
-                chunk_text = TokenCalculator().get_k_tokens_words_from_content(
-                    content=chunk_text, k=remaining_tokens,
-                )
-                remaining_tokens -= TokenCalculator().calculate_token_length(messages=[
-                    {"role": "user", "content": "<chunk>"},
-                    {"role": "user", "content": chunk_text},
-                    {"role": "user", "content": "</chunk>"},
-                ], pure_text=True)
-                bac_info += f"""
-                    <chunk>
-                        {chunk_text}
-                    </chunk>
-                """
-            bac_info += "</document>"
-        return bac_info, doc_info_list
-
-
     async def _get_doc_info(self, doc_ids: list[str], data: RAGInput) -> AsyncGenerator[CallOutputChunk, None]:
         """获取文档信息"""
         url = config.rag.rag_service.rstrip("/") + "/chunk/search"
@@ -157,28 +95,27 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
         }
         doc_chunk_list = []
         if doc_ids:
-            default_kb_id = "00000000-0000-0000-0000-000000000000"
-            tmp_data = RAGInput(
-                kbIds=[default_kb_id],
-                query=data.query,
-                topK=data.top_k,
-                docIds=doc_ids,
-                searchMethod=data.search_method,
-                isRelatedSurrounding=data.is_related_surrounding,
-                isClassifyByDoc=data.is_classify_by_doc,
-                isRerank=data.is_rerank,
-                tokensLimit=max_tokens,
-            )
+            tmp_data = deepcopy(data)
+            tmp_data.kbIds = [ uuid.UUID("00000000-0000-0000-0000-000000000000") ]
             try:
                 async with httpx.AsyncClient(timeout=30) as client:
                     data_json = tmp_data.model_dump(exclude_none=True, by_alias=True)
                     response = await client.post(url, headers=headers, json=data_json)
                     if response.status_code == status.HTTP_200_OK:
                         result = response.json()
-                        doc_chunk_list += result["result"]["docChunks"]
+                        # 对返回的docChunks进行校验
+                        try:
+                            validated_chunks = []
+                            for chunk_data in result["result"]["docChunks"]:
+                                validated_chunk = DocItem.model_validate(chunk_data)
+                                validated_chunks.append(validated_chunk)
+                            doc_chunk_list += validated_chunks
+                        except Exception as e:
+                            _logger.error(f"[RAG] chunk校验失败: {e}")
+                            raise
             except Exception:
                 _logger.exception("[RAG] 获取文档分片失败")
-        if data.kb_ids:
+        if data.kbIds:
             try:
                 async with httpx.AsyncClient(timeout=30) as client:
                     data_json = data.model_dump(exclude_none=True, by_alias=True)
@@ -186,7 +123,16 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
                     # 检查响应状态码
                     if response.status_code == status.HTTP_200_OK:
                         result = response.json()
-                        doc_chunk_list += result["result"]["docChunks"]
+                        # 对返回的docChunks进行校验
+                        try:
+                            validated_chunks = []
+                            for chunk_data in result["result"]["docChunks"]:
+                                validated_chunk = DocItem.model_validate(chunk_data)
+                                validated_chunks.append(validated_chunk)
+                            doc_chunk_list += validated_chunks
+                        except Exception as e:
+                            _logger.error(f"[RAG] chunk校验失败: {e}")
+                            raise
             except Exception:
                 _logger.exception("[RAG] 获取文档分片失败")
         return doc_chunk_list
@@ -204,7 +150,16 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
                 lstrip_blocks=True,
             )
             tmpl = env.from_string(QUESTION_REWRITE[self._sys_vars.language])
-            prompt = tmpl.render(history="", question=data.query)
+
+            # 从背景对话中提取最近的问答对（user -> assistant）
+            tail_messages = self._sys_vars.background.conversation[-self.history_len:]
+            qa_pairs = []
+            for message in tail_messages:
+                qa_pairs += [{
+                    "question": message["question"],
+                    "answer": message["answer"],
+                }]
+            prompt = tmpl.render(history=qa_pairs, question=data.query)
 
             # 使用_json方法直接获取JSON结果
             json_result = await self._json([
@@ -218,12 +173,11 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
         url = config.rag.rag_service.rstrip("/") + "/chunk/search"
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {data.session_id}",
+            "Authorization": f"Bearer {self._sys_vars.ids.session_id}",
         }
 
         # 发送请求
         data_json = data.model_dump(exclude_none=True, by_alias=True)
-        del data_json["session_id"]
         async with httpx.AsyncClient(timeout=300) as client:
             response = await client.post(url, headers=headers, json=data_json)
 
@@ -231,6 +185,17 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
             if response.status_code == status.HTTP_200_OK:
                 result = response.json()
                 doc_chunk_list = result["result"]["docChunks"]
+
+                # 对返回的docChunks进行校验
+                try:
+                    validated_chunks = []
+                    for chunk_data in doc_chunk_list:
+                        validated_chunk = DocItem.model_validate(chunk_data)
+                        validated_chunks.append(validated_chunk)
+                    doc_chunk_list = validated_chunks
+                except Exception as e:
+                    _logger.error(f"[RAG] chunk校验失败: {e}")
+                    raise
 
                 corpus = []
                 for doc_chunk in doc_chunk_list:

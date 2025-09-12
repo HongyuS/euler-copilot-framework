@@ -47,7 +47,7 @@ MAX_CREDIT = 100
 
 @admin_router.get("/user", response_model=GetBlacklistUserRsp)
 async def get_blacklist_user(page: int = 0) -> JSONResponse:
-    """获取黑名单用户"""
+    """GET /blacklist/user?page=xxx: 获取黑名单用户"""
     # 计算分页
     user_list = await UserBlacklistManager.get_blacklisted_users(
         PAGE_SIZE,
@@ -63,7 +63,7 @@ async def get_blacklist_user(page: int = 0) -> JSONResponse:
 
 @admin_router.post("/user", response_model=ResponseData)
 async def change_blacklist_user(request: UserBlacklistRequest) -> JSONResponse:
-    """操作黑名单用户"""
+    """POST /blacklist/user: 操作黑名单用户"""
     # 拉黑用户
     if request.is_ban:
         result = await UserBlacklistManager.change_blacklisted_users(
@@ -92,7 +92,7 @@ async def change_blacklist_user(request: UserBlacklistRequest) -> JSONResponse:
 @admin_router.get("/question", response_model=GetBlacklistQuestionRsp)
 async def get_blacklist_question(page: int = 0) -> JSONResponse:
     """
-    获取黑名单问题
+    GET /blacklist/question?page=xxx: 获取黑名单问题
 
     目前情况下，先直接输出问题，不做用户类型校验
     """
@@ -110,7 +110,7 @@ async def get_blacklist_question(page: int = 0) -> JSONResponse:
 
 @admin_router.post("/question", response_model=ResponseData)
 async def change_blacklist_question(request: QuestionBlacklistRequest) -> JSONResponse:
-    """黑名单问题检测或操作"""
+    """POST /blacklist/question: 黑名单问题检测或操作"""
     # 删问题
     if request.is_deletion:
         result = await QuestionBlacklistManager.change_blacklisted_questions(
@@ -143,7 +143,7 @@ async def change_blacklist_question(request: QuestionBlacklistRequest) -> JSONRe
 
 @user_router.post("/complaint", response_model=ResponseData)
 async def abuse_report(raw_request: Request, request: AbuseRequest) -> JSONResponse:
-    """用户实施举报"""
+    """POST /blacklist/complaint: 用户实施举报"""
     result = await AbuseManager.change_abuse_report(
         raw_request.state.user_sub,
         request.record_id,
@@ -166,7 +166,7 @@ async def abuse_report(raw_request: Request, request: AbuseRequest) -> JSONRespo
 
 @admin_router.get("/abuse", response_model=GetBlacklistQuestionRsp)
 async def get_abuse_report(page: int = 0) -> JSONResponse:
-    """获取待审核的问答对"""
+    """GET /blacklist/abuse?page=xxx: 获取待审核的问答对"""
     # 此处前端需记录ID
     result = await QuestionBlacklistManager.get_blacklisted_questions(
         PAGE_SIZE,
@@ -181,7 +181,7 @@ async def get_abuse_report(page: int = 0) -> JSONResponse:
 
 @admin_router.post("/abuse", response_model=ResponseData)
 async def change_abuse_report(request: AbuseProcessRequest) -> JSONResponse:
-    """对被举报问答对进行操作"""
+    """POST /blacklist/abuse: 对被举报问答对进行操作"""
     if request.is_deletion:
         result = await AbuseManager.audit_abuse_report(
             request.id,

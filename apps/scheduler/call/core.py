@@ -107,9 +107,10 @@ class CoreCall(BaseModel):
                 app_id=executor.task.state.appId,
             ),
             question=executor.question,
-            history=history,
-            history_order=history_order,
-            summary=executor.task.runtime.reasoning,
+            step_data=history,
+            step_order=history_order,
+            background=executor.background,
+            thinking=executor.task.runtime.reasoning,
         )
 
 

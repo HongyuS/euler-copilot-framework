@@ -56,7 +56,6 @@ class CallLoader(metaclass=SingletonMeta):
             await session.commit()
 
 
-    # 将向量化数据存入数据库
     async def _add_vector_to_db(
         self, call_metadata: dict[str, CallInfo], embedding_model: Embedding,
     ) -> None:
@@ -74,6 +73,12 @@ class CallLoader(metaclass=SingletonMeta):
                     embedding=vec,
                 ))
             await session.commit()
+
+
+    async def set_vector(self, embedding_model: Embedding) -> None:
+        """将向量化数据存入数据库"""
+        call_metadata = await self._load_system_call()
+        await self._add_vector_to_db(call_metadata, embedding_model)
 
 
     async def load(self) -> None:

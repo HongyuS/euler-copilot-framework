@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import verify_personal_token, verify_session
-from apps.schemas.response_data import UserGetMsp, UserGetRsp
+from apps.schemas.response_data import ResponseData, UserGetMsp, UserGetRsp
 from apps.schemas.user import UserInfo
 from apps.services.user import UserManager
 
@@ -16,11 +16,23 @@ router = APIRouter(
 )
 
 
+@router.post("/user", response_model=ResponseData)
+async def update_user_info(request: Request, data: UserUpdateRequest) -> JSONResponse:
+    """POST /auth/user: 更新当前用户信息"""
+    # 更新用户信息
+    await UserManager.update_userinfo_by_user_sub(request.state.user_sub, data)
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"code": status.HTTP_200_OK, "message": "用户信息更新成功"},
+    )
+
+
 @router.get("")
 async def list_user(
     request: Request, page_size: int = 10, page_num: int = 1,
 ) -> JSONResponse:
-    """查询不包含当前用户的所有用户信息，返回给前端，用以进行应用权限设置"""
+    """查询不包含当前用户的所有用户名，作为列表返回给前端。应用权限设置等时使用"""
     user_list, total = await UserManager.list_user(page_size, page_num)
     user_info_list = []
     for user in user_list:
@@ -42,13 +54,59 @@ async def list_user(
     )
 
 
-@router.post("")
-async def update_user_info(request: Request, data: UserUpdateRequest) -> JSONResponse:
-    """更新用户信息接口"""
-    # 更新用户信息
-    await UserManager.update_userinfo_by_user_sub(request.state.user_sub, data)
-
+@router.put("/llm",
+    responses={status.HTTP_404_NOT_FOUND: {"model": ResponseData}},
+)
+async def update_user_llm(
+    request: Request,
+    llmId: str,  # noqa: N803
+) -> JSONResponse:
+    """更新用户所选的大模型"""
+    try:
+        await LLMManager.update_user_selected_llm(request.state.user_sub, llmId)
+    except ValueError as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ResponseData(
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message=str(e),
+                result=None,
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content={"code": status.HTTP_200_OK, "message": "用户信息更新成功"},
+        content=ResponseData(
+            code=status.HTTP_200_OK,
+            message="success",
+            result=llmId,
+        ).model_dump(exclude_none=True, by_alias=True),
+    )
+
+
+@router.get("/tag",
+    responses={status.HTTP_404_NOT_FOUND: {"model": ResponseData}},
+)
+async def get_user_tag(
+    request: Request,
+    llmId: str,  # noqa: N803
+) -> JSONResponse:
+    """GET /user/tag?userOnly=xxx: 获取用户标签"""
+    try:
+        await TagManager.get_user_tag(request.state.user_sub, llmId)
+    except ValueError as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ResponseData(
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message=str(e),
+                result=None,
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=ResponseData(
+            code=status.HTTP_200_OK,
+            message="success",
+            result=llmId,
+        ).model_dump(exclude_none=True, by_alias=True),
     )

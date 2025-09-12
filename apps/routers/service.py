@@ -46,7 +46,7 @@ async def get_service_list(  # noqa: PLR0913
     searchType: SearchType = SearchType.ALL, keyword: str | None = None,  # noqa: N803
     page: int = 1, pageSize: int = 16,  # noqa: N803
 ) -> JSONResponse:
-    """获取服务列表"""
+    """GET /service?createdByMe=xxx&favorited=xxx&searchType=xxx&keyword=xxx&page=xxx&pageSize=xxx: 获取服务列表"""
     if createdByMe and favorited:  # 只能同时选择一个筛选条件
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -118,7 +118,7 @@ async def get_service_list(  # noqa: PLR0913
 
 @router.post("", response_model=UpdateServiceRsp)
 async def update_service(request: Request, data: UpdateServiceRequest) -> JSONResponse:
-    """上传并解析服务"""
+    """POST /service: 上传并解析服务"""
     if not data.service_id:
         try:
             service_id = await ServiceCenterManager.create_service(request.state.user_sub, data.data)
@@ -176,20 +176,11 @@ async def get_service_detail(
     request: Request, serviceId: Annotated[uuid.UUID, Path()],  # noqa: N803
     *, edit: bool = False,
 ) -> JSONResponse:
-    """获取服务详情"""
+    """GET /service/{serviceId}?edit=xxx: 获取服务详情"""
     # 示例：返回指定服务的详情
     if edit:
         try:
             name, data = await ServiceCenterManager.get_service_data(request.state.user_sub, serviceId)
-        except ServiceIDError:
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content=ResponseData(
-                    code=status.HTTP_400_BAD_REQUEST,
-                    message="Service ID错误",
-                    result={},
-                ).model_dump(exclude_none=True, by_alias=True),
-            )
         except InstancePermissionError:
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -213,15 +204,6 @@ async def get_service_detail(
     else:
         try:
             name, apis = await ServiceCenterManager.get_service_apis(serviceId)
-        except ServiceIDError:
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content=ResponseData(
-                    code=status.HTTP_400_BAD_REQUEST,
-                    message="Service ID错误",
-                    result={},
-                ).model_dump(exclude_none=True, by_alias=True),
-            )
         except Exception:
             logger.exception("[ServiceCenter] 获取服务API失败")
             return JSONResponse(
@@ -239,18 +221,9 @@ async def get_service_detail(
 
 @router.delete("/{serviceId}", response_model=DeleteServiceRsp)
 async def delete_service(request: Request, serviceId: Annotated[uuid.UUID, Path()]) -> JSONResponse:  # noqa: N803
-    """删除服务"""
+    """DELETE /service/{serviceId}: 删除服务"""
     try:
         await ServiceCenterManager.delete_service(request.state.user_sub, serviceId)
-    except ServiceIDError:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content=ResponseData(
-                code=status.HTTP_400_BAD_REQUEST,
-                message="Service ID错误",
-                result={},
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
     except InstancePermissionError:
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -281,7 +254,7 @@ async def modify_favorite_service(
     serviceId: Annotated[uuid.UUID, Path()],  # noqa: N803
     data: ChangeFavouriteServiceRequest,
 ) -> JSONResponse:
-    """修改服务收藏状态"""
+    """PUT /service/{serviceId}: 修改服务收藏状态"""
     try:
         success = await ServiceCenterManager.modify_favorite_service(
             request.state.user_sub,
@@ -297,15 +270,6 @@ async def modify_favorite_service(
                     result={},
                 ).model_dump(exclude_none=True, by_alias=True),
             )
-    except ServiceIDError:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content=ResponseData(
-                code=status.HTTP_400_BAD_REQUEST,
-                message="Service ID错误",
-                result={},
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
     except Exception:
         logger.exception("[ServiceCenter] 修改服务收藏状态失败")
         return JSONResponse(

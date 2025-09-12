@@ -67,7 +67,7 @@ async def create_new_conversation(
     },
 )
 async def get_conversation_list(request: Request) -> JSONResponse:
-    """获取对话列表"""
+    """GET /conversation: 获取对话列表"""
     conversations = await ConversationManager.get_conversation_by_user_sub(
         request.state.user_sub,
     )
@@ -102,7 +102,7 @@ async def add_conversation(
     *,
     debug: Annotated[bool, Query()] = False,
 ) -> JSONResponse:
-    """手动创建新对话"""
+    """POST /conversation: 手动创建新对话"""
     # 尝试创建新对话
     try:
         debug = debug if debug is not None else False
@@ -138,7 +138,7 @@ async def update_conversation(
     conversation_id: Annotated[str, Query(..., alias="conversationId")],
     post_body: ChangeConversationData,
 ) -> JSONResponse:
-    """更新特定Conversation的数据"""
+    """PUT /conversation: 更新特定Conversation的数据"""
     # 判断Conversation是否合法
     conv = await ConversationManager.get_conversation_by_conversation_id(user_sub, conversation_id)
     if not conv or conv.userSub != user_sub:
@@ -195,7 +195,7 @@ async def delete_conversation(
     request: Request,
     post_body: DeleteConversationData,
 ) -> JSONResponse:
-    """删除特定对话"""
+    """DELETE /conversation: 删除特定对话"""
     deleted_conversation = []
     for conversation_id in post_body.conversation_list:
         # 删除对话

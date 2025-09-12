@@ -43,7 +43,7 @@ router = APIRouter(
     },
 )
 async def get_record(request: Request, conversationId: Annotated[uuid.UUID, Path()]) -> JSONResponse:  # noqa: N803
-    """获取某个对话的所有问答对"""
+    """GET /record/{conversationId}: 获取某个对话的所有问答对"""
     cur_conv = await ConversationManager.get_conversation_by_conversation_id(
         request.state.user_sub, conversationId,
     )

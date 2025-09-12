@@ -4,7 +4,7 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from apps.common.security import Security
 from apps.schemas.enum_var import EventType
@@ -26,7 +26,7 @@ class BaseExecutor(BaseModel, ABC):
     msg_queue: "MessageQueue"
     llm: "LLMConfig"
 
-    background: "ExecutorBackground" = Field(default=ExecutorBackground())
+    background: "ExecutorBackground"
     question: str
 
     model_config = ConfigDict(
@@ -51,11 +51,16 @@ class BaseExecutor(BaseModel, ABC):
         facts = []
         for record in records:
             record_data = RecordContent.model_validate_json(Security.decrypt(record.content, record.key))
-            context.append({"role": "user", "content": record_data.question})
-            context.append({"role": "assistant", "content": record_data.answer})
+            context.append({
+                "question": record_data.question,
+                "answer": record_data.answer,
+            })
             facts.extend(record_data.facts)
-        self.background.conversation = context
-        self.background.facts = facts
+        self.background = ExecutorBackground(
+            conversation=context,
+            facts=facts,
+            num=n,
+        )
 
     async def _push_message(self, event_type: str, data: dict[str, Any] | str | None = None) -> None:
         """

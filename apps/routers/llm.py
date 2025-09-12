@@ -9,7 +9,6 @@ from apps.schemas.request_data import (
     UpdateLLMReq,
 )
 from apps.schemas.response_data import (
-    ListLLMProviderRsp,
     ListLLMRsp,
     ResponseData,
 )
@@ -34,27 +33,11 @@ admin_router = APIRouter(
 )
 
 
-@admin_router.get("/provider", response_model=ListLLMProviderRsp,
-    responses={status.HTTP_404_NOT_FOUND: {"model": ResponseData}},
-)
-async def list_llm_provider() -> JSONResponse:
-    """获取大模型提供商列表"""
-    llm_provider_list = await LLMManager.list_llm_provider()
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content=ListLLMProviderRsp(
-            code=status.HTTP_200_OK,
-            message="success",
-            result=llm_provider_list,
-        ).model_dump(exclude_none=True, by_alias=True),
-    )
-
-
 @router.get("", response_model=ListLLMRsp,
     responses={status.HTTP_404_NOT_FOUND: {"model": ResponseData}},
 )
 async def list_llm(llmId: str | None = None) -> JSONResponse:  # noqa: N803
-    """获取大模型列表"""
+    """GET /llm: 获取大模型列表"""
     llm_list = await LLMManager.list_llm(llmId)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -73,7 +56,7 @@ async def create_llm(
     req: UpdateLLMReq,
     llmId: str | None = None,  # noqa: N803
 ) -> JSONResponse:
-    """创建或更新大模型配置"""
+    """PUT /llm: 创建或更新大模型配置"""
     try:
         await LLMManager.update_llm(llmId, req)
     except ValueError as e:
@@ -99,38 +82,9 @@ async def create_llm(
     responses={status.HTTP_404_NOT_FOUND: {"model": ResponseData}},
 )
 async def delete_llm(request: Request, llmId: str) -> JSONResponse:  # noqa: N803
-    """删除大模型配置"""
+    """DELETE /llm: 删除大模型配置"""
     try:
         await LLMManager.delete_llm(request.state.user_sub, llmId)
-    except ValueError as e:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=ResponseData(
-                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                message=str(e),
-                result=None,
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content=ResponseData(
-            code=status.HTTP_200_OK,
-            message="success",
-            result=llmId,
-        ).model_dump(exclude_none=True, by_alias=True),
-    )
-
-
-@router.put("/conv",
-    responses={status.HTTP_404_NOT_FOUND: {"model": ResponseData}},
-)
-async def update_user_llm(
-    request: Request,
-    llmId: str,  # noqa: N803
-) -> JSONResponse:
-    """更新用户所选的大模型"""
-    try:
-        await LLMManager.update_user_selected_llm(request.state.user_sub, llmId)
     except ValueError as e:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

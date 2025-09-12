@@ -12,6 +12,7 @@ from apps.llm.reasoning import ReasoningLLM
 from apps.models.task import ExecutorHistory
 
 from .enum_var import CallOutputType, LanguageType
+from .scheduler import ExecutorBackground
 
 
 class LLMConfig(BaseModel):
@@ -42,10 +43,11 @@ class CallIds(BaseModel):
 class CallVars(BaseModel):
     """由Executor填充的变量，即“系统变量”"""
 
-    summary: str = Field(description="上下文信息")
+    thinking: str = Field(description="上下文信息")
     question: str = Field(description="改写后的用户输入")
-    history: dict[str, ExecutorHistory] = Field(description="Executor中历史工具的结构化数据", default={})
-    history_order: list[str] = Field(description="Executor中历史工具的顺序", default=[])
+    step_data: dict[str, ExecutorHistory] = Field(description="Executor中历史工具的结构化数据", default={})
+    step_order: list[str] = Field(description="Executor中历史工具的顺序", default=[])
+    background: ExecutorBackground = Field(description="Executor的背景信息")
     ids: CallIds = Field(description="Call的ID")
     language: LanguageType = Field(description="语言", default=LanguageType.CHINESE)
 
@@ -53,6 +55,7 @@ class CallVars(BaseModel):
 class ExecutorBackground(BaseModel):
     """Executor的背景信息"""
 
+    num: int = Field(description="对话记录最大数量", default=0)
     conversation: list[dict[str, str]] = Field(description="对话记录", default=[])
     facts: list[str] = Field(description="当前Executor的背景信息", default=[])
 

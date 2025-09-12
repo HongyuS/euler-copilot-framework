@@ -2,13 +2,12 @@
 """RAG工具的输入和输出"""
 
 import uuid
+from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, Field
 
 from apps.scheduler.call.core import DataBase
-
-CHUNK_ELEMENT_TOKENS = 5
 
 
 class SearchMethod(str, Enum):
@@ -28,6 +27,28 @@ class QuestionRewriteOutput(BaseModel):
     question: str = Field(description="用户输入")
 
 
+class DocChunks(BaseModel):
+    """文档语料"""
+
+    chunkId: uuid.UUID = Field(description="语料id")  # noqa: N815
+    chunkType: str = Field(description="语料类型")  # noqa: N815
+    text: str = Field(description="语料文本")
+    enabled: bool = Field(description="是否启用")
+
+
+class DocItem(BaseModel):
+    """文档信息"""
+
+    docId: uuid.UUID = Field(description="文档id")  # noqa: N815
+    docCreatedAt: datetime = Field(description="文档创建时间")  # noqa: N815
+    docName: str = Field(description="文档名称")  # noqa: N815
+    docAuthor: str = Field(description="文档作者")  # noqa: N815
+    docExtension: str = Field(description="文档扩展名")  # noqa: N815
+    docSize: int = Field(description="文档大小")  # noqa: N815
+    docAbstract: str = Field(description="文档摘要")  # noqa: N815
+    chunks: list[DocChunks] = Field(description="文档语料")
+
+
 class RAGOutput(DataBase):
     """RAG工具的输出"""
 
@@ -36,20 +57,15 @@ class RAGOutput(DataBase):
 
 
 class RAGInput(DataBase):
-    """RAG工具的输入"""
+    """RAG API查询请求体"""
 
-    # 来自RAGInput的独有字段
-    session_id: str = Field(description="会话id")
-    is_compress: bool = Field(description="是否压缩", default=False, alias="isCompress")
-
-    # 来自RAGQueryReq的字段（以RAGQueryReq为准）
-    kb_ids: list[uuid.UUID] = Field(default=[], description="资产id", alias="kbIds")
+    kbIds: list[uuid.UUID] = Field(default=[], description="资产id")  # noqa: N815
     query: str = Field(default="", description="查询内容")
-    top_k: int = Field(default=5, description="返回的结果数量", alias="topK")
-    doc_ids: list[str] | None = Field(default=None, description="文档id", alias="docIds")
-    search_method: str = Field(default="dynamic_weighted_keyword_and_vector",
-                               description="检索方法", alias="searchMethod")
-    is_related_surrounding: bool = Field(default=True, description="是否关联上下文", alias="isRelatedSurrounding")
-    is_classify_by_doc: bool = Field(default=True, description="是否按文档分类", alias="isClassifyByDoc")
-    is_rerank: bool = Field(default=False, description="是否重新排序", alias="isRerank")
-    tokens_limit: int | None = Field(default=None, description="token限制", alias="tokensLimit")
+    topK: int = Field(default=5, description="返回的结果数量")  # noqa: N815
+    docIds: list[str] | None = Field(default=None, description="文档id")  # noqa: N815
+    searchMethod: str = Field(default="dynamic_weighted_keyword_and_vector", description="检索方法")  # noqa: N815
+    isRelatedSurrounding: bool = Field(default=True, description="是否关联上下文")  # noqa: N815
+    isClassifyByDoc: bool = Field(default=True, description="是否按文档分类")  # noqa: N815
+    isRerank: bool = Field(default=False, description="是否重新排序")  # noqa: N815
+    tokensLimit: int | None = Field(default=None, description="token限制")  # noqa: N815
+    isCompress: bool = Field(description="是否压缩", default=False)  # noqa: N815

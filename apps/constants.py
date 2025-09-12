@@ -28,14 +28,6 @@ SESSION_TTL = 30 * 24 * 60
 JSON_GEN_MAX_TRIAL = 3
 # 应用默认历史轮次
 APP_DEFAULT_HISTORY_LEN = 3
-# 推理开始标记
-REASONING_BEGIN_TOKEN = [
-    "<think>",
-]
-# 推理结束标记
-REASONING_END_TOKEN = [
-    "</think>",
-]
 # 插件中心每页卡片数量
 SERVICE_PAGE_SIZE = 16
 # 图标允许的MIME类型

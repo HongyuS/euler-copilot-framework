@@ -109,8 +109,8 @@ class Slot(CoreCall, input_model=SlotInput, output_model=SlotOutput):
         """初始化"""
         self._flow_history = []
         self._question = call_vars.question
-        for key in call_vars.history_order[:-self.step_num]:
-            self._flow_history += [call_vars.history[key]]
+        for key in call_vars.step_order[:-self.step_num]:
+            self._flow_history += [call_vars.step_data[key]]
 
         if not self.current_schema:
             return SlotInput(

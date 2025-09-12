@@ -57,9 +57,9 @@ class ParameterManager:
             step_id_to_node_id[step.step_id] = step.node_id
             step_id_to_node_name[step.step_id] = step.name
         for edge in flow.edges:
-            if edge.target_node not in in_edges:
-                in_edges[edge.target_node] = []
-            in_edges[edge.target_node].append(edge.source_node)
+            if edge.target_branch not in in_edges:
+                in_edges[edge.target_branch] = []
+            in_edges[edge.target_branch].append(edge.source_branch)
         while index < len(q):
             tmp_step_id = q[index]
             index += 1
@@ -70,7 +70,10 @@ class ParameterManager:
         pre_step_params = []
         for i in range(1, len(q)):
             step_id = q[i]
-            if step_id == "start" or step_id == "end":
+            basic_config = flow.basic_config
+            start_id = basic_config.startStep if basic_config else None
+            end_id = basic_config.endStep if basic_config else None
+            if step_id in (start_id, end_id):
                 continue
             node_id: str | None = step_id_to_node_id.get(step_id)
             node_name: str | None = step_id_to_node_name.get(step_id)

@@ -3,88 +3,12 @@
 
 import logging
 from collections.abc import AsyncGenerator
-from dataclasses import dataclass
 
-from openai import AsyncOpenAI
-from openai.types.chat import ChatCompletionChunk
-
-from apps.constants import REASONING_BEGIN_TOKEN, REASONING_END_TOKEN
 from apps.models.llm import LLMData
 
 from .token import TokenCalculator
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class ReasoningContent:
-    """推理内容处理类"""
-
-    content: str = ""
-    is_reasoning: bool = False
-    reasoning_type: str = ""
-    is_first_chunk: bool = True
-
-    def process_first_chunk(self, chunk: ChatCompletionChunk) -> tuple[str, str]:
-        """处理第一个chunk"""
-        reason = ""
-        text = ""
-
-        if (
-            hasattr(chunk.choices[0].delta, "reasoning_content")
-            and chunk.choices[0].delta.reasoning_content is not None  # type: ignore[attr-defined]
-        ):
-            reason = "<think>" + chunk.choices[0].delta.reasoning_content  # type: ignore[attr-defined]
-            self.reasoning_type = "args"
-            self.is_reasoning = True
-        else:
-            for token in REASONING_BEGIN_TOKEN:
-                if token == (chunk.choices[0].delta.content or ""):
-                    reason = "<think>"
-                    self.reasoning_type = "tokens"
-                    self.is_reasoning = True
-                    break
-
-        self.is_first_chunk = False
-        return reason, text
-
-    def process_chunk(self, chunk: ChatCompletionChunk) -> tuple[str, str]:
-        """处理普通chunk"""
-        reason = ""
-        text = ""
-
-        content = chunk.choices[0].delta.content or ""
-
-        if not self.is_reasoning:
-            # 非推理模式，直接返回内容作为文本
-            text = content
-            return reason, text
-
-        if self.reasoning_type == "args":
-            if hasattr(chunk.choices[0].delta, "reasoning_content"):
-                reason = chunk.choices[0].delta.reasoning_content or ""  # type: ignore[attr-defined]
-            else:
-                # 推理结束，设置标志并添加结束标签
-                self.is_reasoning = False
-                reason = "</think>"
-                # 如果当前内容不是推理内容标签，将其作为文本返回
-                if content and not content.startswith("</think>"):
-                    text = content
-        elif self.reasoning_type == "tokens":
-            for token in REASONING_END_TOKEN:
-                if token == content:
-                    # 遇到结束标记，推理结束
-                    self.is_reasoning = False
-                    reason = "</think>"
-                    break
-            if self.is_reasoning:
-                # 仍在推理中，将内容作为推理内容
-                reason = content
-            else:
-                # 推理已结束，将内容作为文本
-                text = content
-
-        return reason, text
 
 
 class ReasoningLLM:
@@ -96,59 +20,6 @@ class ReasoningLLM:
 
     def __init__(self, llm_config: LLMData | None = None) -> None:
         """判断配置文件里用了哪种大模型；初始化大模型客户端"""
-        if not llm_config:
-            err = "未设置大模型配置"
-            logger.error(err)
-            raise RuntimeError(err)
-        self.config: LLMData = llm_config
-        self._init_client()
-
-    def _init_client(self) -> None:
-        """初始化OpenAI客户端"""
-        if not self.config.openaiAPIKey:
-            self._client = AsyncOpenAI(
-                base_url=self.config.openaiBaseUrl,
-                timeout=self.timeout,
-            )
-            return
-
-        self._client = AsyncOpenAI(
-            api_key=self.config.openaiAPIKey,
-            base_url=self.config.openaiBaseUrl,
-            timeout=self.timeout,
-        )
-
-    @staticmethod
-    def _validate_messages(messages: list[dict[str, str]]) -> list[dict[str, str]]:
-        """验证消息格式是否正确"""
-        if messages[0]["role"] != "system":
-            # 添加默认系统消息
-            messages.insert(0, {"role": "system", "content": "You are a helpful assistant."})
-
-        if messages[-1]["role"] != "user":
-            err = f"消息格式错误，最后一个消息必须是用户消息：{messages[-1]}"
-            raise ValueError(err)
-
-        return messages
-
-    async def _create_stream(
-        self,
-        messages: list[dict[str, str]],
-        max_tokens: int | None,
-        temperature: float | None,
-        model: str | None = None,
-    ) -> AsyncGenerator[ChatCompletionChunk, None]:
-        """创建流式响应"""
-        if model is None:
-            model = self.config.modelName
-        return await self._client.chat.completions.create(
-            model=model,
-            messages=messages,  # type: ignore[]
-            max_tokens=max_tokens or self.config.maxToken,
-            temperature=temperature or self.config.temperature,
-            stream=True,
-            stream_options={"include_usage": True},
-        )  # type: ignore[]
 
     async def call(  # noqa: C901, PLR0912, PLR0913
         self,
@@ -168,7 +39,6 @@ class ReasoningLLM:
             temperature = self.config.temperature
         if model is None:
             model = self.config.modelName
-        msg_list = self._validate_messages(messages)
         stream = await self._create_stream(msg_list, max_tokens, temperature, model)
         reasoning = ReasoningContent()
         reasoning_content = ""

@@ -49,28 +49,28 @@ class FunctionLLM:
             "messages": [],
         }
 
-        if self.config.functionCallBackend == FunctionCallBackend.OLLAMA and not self.config.openaiAPIKey:
+        if self.config.functionCallBackend == FunctionCallBackend.OLLAMA and not self.config.apiKey:
             self._client = ollama.AsyncClient(
-                host=self.config.openaiBaseUrl,
+                host=self.config.baseUrl,
                 timeout=self.timeout,
             )
-        elif self.config.functionCallBackend == FunctionCallBackend.OLLAMA and self.config.openaiAPIKey:
+        elif self.config.functionCallBackend == FunctionCallBackend.OLLAMA and self.config.apiKey:
             self._client = ollama.AsyncClient(
-                host=self.config.openaiBaseUrl,
+                host=self.config.baseUrl,
                 headers={
-                    "Authorization": f"Bearer {self.config.openaiAPIKey}",
+                    "Authorization": f"Bearer {self.config.apiKey}",
                 },
                 timeout=self.timeout,
             )
-        elif self.config.functionCallBackend != FunctionCallBackend.OLLAMA and not self.config.openaiAPIKey:
+        elif self.config.functionCallBackend != FunctionCallBackend.OLLAMA and not self.config.apiKey:
             self._client = openai.AsyncOpenAI(
-                base_url=self.config.openaiBaseUrl,
+                base_url=self.config.baseUrl,
                 timeout=self.timeout,
             )
-        elif self.config.functionCallBackend != FunctionCallBackend.OLLAMA and self.config.openaiAPIKey:
+        elif self.config.functionCallBackend != FunctionCallBackend.OLLAMA and self.config.apiKey:
             self._client = openai.AsyncOpenAI(
-                base_url=self.config.openaiBaseUrl,
-                api_key=self.config.openaiAPIKey,
+                base_url=self.config.baseUrl,
+                api_key=self.config.apiKey,
                 timeout=self.timeout,
             )
 

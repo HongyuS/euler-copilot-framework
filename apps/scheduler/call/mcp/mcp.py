@@ -129,7 +129,11 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
         # 选择工具并生成计划
         selector = MCPSelector(self._llm_obj)
         top_tool = await selector.select_top_tool(self._call_vars.question, self.mcp_list)
-        planner = MCPPlanner(self._call_vars.question, language=self._sys_vars.language)
+        planner = MCPPlanner(
+            self._call_vars.question,
+            language=self._sys_vars.language,
+            llm=self._llm_obj,
+        )
         self._plan = await planner.create_plan(top_tool, self.max_steps)
 
         # 输出计划
@@ -191,7 +195,11 @@ class MCP(CoreCall, input_model=MCPInput, output_model=MCPOutput):
         )
 
         # 生成答案
-        planner = MCPPlanner(self._call_vars.question, language=self._sys_vars.language)
+        planner = MCPPlanner(
+            self._call_vars.question,
+            language=self._sys_vars.language,
+            llm=self._llm_obj,
+        )
         answer = await planner.generate_answer(self._plan, await self._host.assemble_memory())
 
         # 输出结果

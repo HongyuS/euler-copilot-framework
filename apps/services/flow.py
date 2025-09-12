@@ -16,7 +16,7 @@ from apps.scheduler.pool.loader.app import AppLoader
 from apps.scheduler.pool.loader.flow import FlowLoader
 from apps.scheduler.slot.slot import Slot
 from apps.schemas.enum_var import EdgeType
-from apps.schemas.flow import AppMetadata, Edge, Flow, Step
+from apps.schemas.flow import AppMetadata, Edge, Flow, FlowBasicConfig, FlowCheckStatus, Step
 from apps.schemas.flow_topology import (
     EdgeItem,
     FlowItem,
@@ -178,8 +178,8 @@ class FlowManager:
                 logger.error(err)
                 raise ValueError(err)
 
-            flow_config = await FlowLoader.load(app_id, flow_id)
-            focus_point = flow_config.basicConfig.focusPoint or PositionItem(x=0, y=0)
+            flow_loader = FlowLoader()
+            flow_config = await flow_loader.load(app_id, flow_id)
             flow_item = FlowItem(
                 flowId=flow_id,
                 name=flow_config.name,
@@ -187,9 +187,8 @@ class FlowManager:
                 enable=True,
                 nodes=[],
                 edges=[],
-                focusPoint=focus_point,
-                connectivity=flow_config.checkStatus.connectivity,
-                debug=flow_config.checkStatus.debug,
+                checkStatus=flow_config.checkStatus,
+                basicConfig=flow_config.basicConfig,
             )
 
             for node_id, node_config in flow_config.steps.items():
@@ -304,14 +303,19 @@ class FlowManager:
                 raise ValueError(err)
 
             # Flow模版
+            # TODO: 需要看前端能否直接组装basicConfig
+            if not flow_item.basic_config:
+                err = "[FlowManager] basic_config is required"
+                logger.error(err)
+                raise ValueError(err)
+
             flow_config = Flow(
                 name=flow_item.name,
                 description=flow_item.description,
+                checkStatus=flow_item.check_status,
+                basicConfig=flow_item.basic_config,
                 steps={},
                 edges=[],
-                focusPoint=flow_item.focus_point,
-                connectivity=flow_item.connectivity,
-                debug=False,
             )
             # 增加Flow实际使用的节点
             for node_item in flow_item.nodes:
@@ -325,23 +329,25 @@ class FlowManager:
                 )
             # 使用固定格式把边存入yaml中
             for edge_item in flow_item.edges:
-                edge_from = edge_item.source_node
+                edge_from = edge_item.source_branch
                 if edge_item.branch_id:
                     edge_from = edge_from + "." + edge_item.branch_id
                 edge_config = Edge(
                     id=edge_item.edge_id,
                     edge_from=edge_from,
-                    edge_to=edge_item.target_node,
+                    edge_to=edge_item.target_branch,
                     edge_type=EdgeType(edge_item.type) if edge_item.type else EdgeType.NORMAL,
                 )
                 flow_config.edges.append(edge_config)
 
             # 检查是否是修改动作；检查修改前后是否等价
-            old_flow_config = await FlowLoader.load(app_id, flow_id)
+            flow_loader = FlowLoader()
+            old_flow_config = await flow_loader.load(app_id, flow_id)
             if old_flow_config and old_flow_config.checkStatus.debug:
                 flow_config.checkStatus.debug = await FlowManager.is_flow_config_equal(old_flow_config, flow_config)
 
-            await FlowLoader.save(app_id, flow_id, flow_config)
+            flow_loader = FlowLoader()
+            await flow_loader.save(app_id, flow_id, flow_config)
 
 
     @staticmethod
@@ -352,7 +358,8 @@ class FlowManager:
         :param app_id: 应用的id
         :param flow_id: 流的id
         """
-        await FlowLoader.delete(app_id, flow_id)
+        flow_loader = FlowLoader()
+        await flow_loader.delete(app_id, flow_id)
 
         async with postgres.session() as session:
             key = f"flow/{flow_id}.yaml"
@@ -385,11 +392,12 @@ class FlowManager:
         :return: 是否更新成功
         """
         # 由于调用位置，从文件系统中获取Flow数据
-        flow = await FlowLoader.load(app_id, flow_id)
+        flow_loader = FlowLoader()
+        flow = await flow_loader.load(app_id, flow_id)
         if flow is None:
             return False
 
         flow.checkStatus.debug = debug
         # 保存到文件系统
-        await FlowLoader.save(app_id=app_id, flow_id=flow_id, flow=flow)
+        await flow_loader.save(app_id=app_id, flow_id=flow_id, flow=flow)
         return True

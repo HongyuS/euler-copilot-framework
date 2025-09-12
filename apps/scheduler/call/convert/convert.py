@@ -46,7 +46,7 @@ class Convert(CoreCall, input_model=ConvertInput, output_model=ConvertOutput):
         """初始化工具"""
         await super()._init(call_vars)
 
-        self._history = call_vars.history
+        self._history = call_vars.step_data
         self._question = call_vars.question
         self._env = SandboxedEnvironment(
             loader=BaseLoader(),

@@ -67,13 +67,13 @@ class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
 
         # 上下文信息
         step_history = []
-        for ids in call_vars.history_order[-self.step_history_size:]:
-            step_history += [call_vars.history[ids]]
+        for ids in call_vars.step_order[-self.step_history_size:]:
+            step_history += [call_vars.step_data[ids]]
 
         if self.enable_context:
             context_tmpl = env.from_string(LLM_CONTEXT_PROMPT[self._sys_vars.language])
             context_prompt = context_tmpl.render(
-                summary=call_vars.summary,
+                reasoning=call_vars.thinking,
                 history_data=step_history,
             )
         else:
@@ -85,6 +85,7 @@ class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
             "time": time,
             "context": context_prompt,
             "question": call_vars.question,
+            "history": self._sys_vars.background.conversation,
         }
 
         try:

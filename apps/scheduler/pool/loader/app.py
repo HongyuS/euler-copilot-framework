@@ -1,5 +1,5 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""App加载器"""
+"""App加载器；下属于Pool，单例"""
 
 import logging
 import shutil
@@ -28,15 +28,14 @@ BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "app"
 class AppLoader:
     """应用加载器"""
 
-    @staticmethod
-    async def load(app_id: uuid.UUID, hashes: dict[str, str]) -> None:
+    async def load(self, app_id: uuid.UUID, hashes: dict[str, str]) -> None:
         """
         从文件系统中加载应用
 
         :param app_id: 应用 ID
         """
         app_path = BASE_PATH / str(app_id)
-        metadata = await AppLoader.read_metadata(app_id)
+        metadata = await self.read_metadata(app_id)
         metadata.hashes = hashes
         if metadata.app_type == AppType.FLOW and isinstance(metadata, AppMetadata):
             # 加载工作流
@@ -47,7 +46,8 @@ class AppLoader:
             async for flow_file in flow_path.rglob("*.yaml"):
                 if flow_file.stem not in flow_ids:
                     logger.warning("[AppLoader] 工作流 %s 不在元数据中", flow_file)
-                flow = await FlowLoader.load(app_id, flow_file.stem)
+                flow_loader = FlowLoader()
+                flow = await flow_loader.load(app_id, flow_file.stem)
                 if not flow:
                     err = f"[AppLoader] 工作流 {flow_file} 加载失败"
                     raise ValueError(err)
@@ -78,11 +78,10 @@ class AppLoader:
                 err = "[AppLoader] Agent应用元数据验证失败"
                 logger.exception(err)
                 raise RuntimeError(err) from e
-        await AppLoader._update_db(metadata)
+        await self._update_db(metadata)
 
 
-    @staticmethod
-    async def read_metadata(app_id: uuid.UUID) -> AppMetadata | AgentAppMetadata:
+    async def read_metadata(self, app_id: uuid.UUID) -> AppMetadata | AgentAppMetadata:
         """读取应用元数据"""
         metadata_path = BASE_PATH / str(app_id) / "metadata.yaml"
         metadata = await MetadataLoader().load_one(metadata_path)
@@ -95,8 +94,7 @@ class AppLoader:
         return metadata
 
 
-    @staticmethod
-    async def save(metadata: AppMetadata | AgentAppMetadata, app_id: uuid.UUID) -> None:
+    async def save(self, metadata: AppMetadata | AgentAppMetadata, app_id: uuid.UUID) -> None:
         """
         保存应用
 
@@ -112,11 +110,10 @@ class AppLoader:
         # 重新载入
         file_checker = FileChecker()
         await file_checker.diff_one(app_path)
-        await AppLoader.load(app_id, file_checker.hashes[f"app/{app_id}"])
+        await self.load(app_id, file_checker.hashes[f"app/{app_id}"])
 
 
-    @staticmethod
-    async def delete(app_id: uuid.UUID, *, is_reload: bool = False) -> None:
+    async def delete(self, app_id: uuid.UUID, *, is_reload: bool = False) -> None:
         """
         删除App，并更新数据库
 
@@ -137,8 +134,7 @@ class AppLoader:
                 shutil.rmtree(str(app_path), ignore_errors=True)
 
 
-    @staticmethod
-    async def _update_db(metadata: AppMetadata | AgentAppMetadata) -> None:
+    async def _update_db(self, metadata: AppMetadata | AgentAppMetadata) -> None:
         """更新数据库"""
         if not metadata.hashes:
             err = f"[AppLoader] 应用 {metadata.id} 的哈希值为空"
