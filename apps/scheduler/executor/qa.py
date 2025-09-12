@@ -1,6 +1,7 @@
 """用于执行智能问答的Executor"""
 
 import logging
+import re
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
@@ -52,20 +53,6 @@ class QAExecutor(BaseExecutor):
         bac_info, doc_info_list = await self._assemble_doc_info(
             doc_chunk_list=doc_chunk_list, max_tokens=llm_config.maxToken,
         )
-        messages = [
-            *history,
-            {
-                "role": "system",
-                "content": "You are a helpful assistant.",
-            },
-            {
-                "role": "user",
-                "content": RAG.user_prompt[self.task.runtime.language].format(
-                    bac_info=bac_info,
-                    user_question=data.query,
-                ),
-            },
-        ]
         input_tokens = TokenCalculator().calculate_token_length(messages=messages)
         output_tokens = 0
         doc_cnt: int = 0
@@ -105,6 +92,67 @@ class QAExecutor(BaseExecutor):
         footnotes = list(set(footnotes))  # 去重
 
 
+    async def _assemble_doc_info(
+        self,
+        doc_chunk_list: list[dict[str, Any]],
+        max_tokens: int,
+    ) -> tuple[str, list[dict[str, Any]]]:
+        """组装文档信息"""
+        bac_info = ""
+        doc_info_list = []
+        doc_cnt = 0
+        doc_id_map = {}
+        remaining_tokens = round(max_tokens * 0.8)
+
+        for doc_chunk in doc_chunk_list:
+            if doc_chunk["docId"] not in doc_id_map:
+                doc_cnt += 1
+                t = doc_chunk.get("docCreatedAt", None)
+                if isinstance(t, str):
+                    t = datetime.strptime(t, "%Y-%m-%d %H:%M").replace(
+                        tzinfo=UTC,
+                    )
+                    t = round(t.replace(tzinfo=UTC).timestamp(), 3)
+                else:
+                    t = round(datetime.now(UTC).timestamp(), 3)
+                doc_info_list.append({
+                    "id": doc_chunk["docId"],
+                    "order": doc_cnt,
+                    "name": doc_chunk.get("docName", ""),
+                    "author": doc_chunk.get("docAuthor", ""),
+                    "extension": doc_chunk.get("docExtension", ""),
+                    "abstract": doc_chunk.get("docAbstract", ""),
+                    "size": doc_chunk.get("docSize", 0),
+                    "created_at": t,
+                })
+                doc_id_map[doc_chunk["docId"]] = doc_cnt
+            doc_index = doc_id_map[doc_chunk["docId"]]
+
+            if bac_info:
+                bac_info += "\n\n"
+            bac_info += f"""<document id="{doc_index}"  name="{doc_chunk["docName"]}">"""
+
+            for chunk in doc_chunk["chunks"]:
+                if remaining_tokens <= 0:
+                    break
+                chunk_text = chunk["text"]
+                chunk_text = TokenCalculator().get_k_tokens_words_from_content(
+                    content=chunk_text, k=remaining_tokens,
+                )
+                remaining_tokens -= TokenCalculator().calculate_token_length(messages=[
+                    {"role": "user", "content": "<chunk>"},
+                    {"role": "user", "content": chunk_text},
+                    {"role": "user", "content": "</chunk>"},
+                ], pure_text=True)
+                bac_info += f"""
+                    <chunk>
+                        {chunk_text}
+                    </chunk>
+                """
+            bac_info += "</document>"
+        return bac_info, doc_info_list
+
+
     async def _push_rag_doc(self, doc: Document) -> None:
         """推送RAG单个消息块"""
         # 如果是换行
@@ -118,7 +166,7 @@ class QAExecutor(BaseExecutor):
                 documentAbstract=doc.abstract,
                 documentType=doc.extension,
                 documentSize=doc.size,
-                createdAt=round(doc.created_at, 3),
+                createdAt=round(doc.createdAt, 3),
             ).model_dump(exclude_none=True, by_alias=True),
         )
 

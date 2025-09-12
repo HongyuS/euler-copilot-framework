@@ -41,7 +41,7 @@ async def document_upload(
     conversation_id: Annotated[uuid.UUID, Path()],
     documents: list[UploadFile],
 ) -> JSONResponse:
-    """上传文档"""
+    """POST /document/{conversation_id}: 上传文档到指定对话"""
     result = await DocumentManager.storage_docs(request.state.user_sub, conversation_id, documents)
     await KnowledgeBaseService.send_file_to_rag(request.state.session_id, result)
 
@@ -72,7 +72,7 @@ async def get_document_list(
     *,
     used: bool = False, unused: bool = True,
 ) -> JSONResponse:
-    """获取文档列表"""
+    """GET /document/{conversation_id}: 获取特定对话的文档列表"""
     # 判断Conversation有权访问
     if not await ConversationManager.verify_conversation_access(request.state.user_sub, conversation_id):
         return JSONResponse(
@@ -144,7 +144,7 @@ async def get_document_list(
 async def delete_single_document(
     request: Request, document_id: Annotated[str, Path()],
 ) -> JSONResponse:
-    """删除单个文件"""
+    """DELETE /document/{document_id}: 删除单个文件"""
     # 在Framework侧删除
     result = await DocumentManager.delete_document(request.state.user_sub, [document_id])
     if not result:

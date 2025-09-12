@@ -13,17 +13,22 @@ from .enum_var import (
     MetadataType,
     PermissionType,
 )
-from .flow_topology import PositionItem
 
 
 class Edge(BaseModel):
     """Flow中Edge的数据"""
 
     id: uuid.UUID = Field(description="边的ID")
-    edge_from: uuid.UUID = Field(description="边的来源节点ID")
-    edge_to: uuid.UUID = Field(description="边的目标节点ID")
+    edge_from: str = Field(description="边的来源节点ID")
+    edge_to: str = Field(description="边的目标节点ID")
     edge_type: EdgeType | None = Field(description="边的类型", default=EdgeType.NORMAL)
 
+
+class PositionItem(BaseModel):
+    """请求/响应中的前端相对位置变量类"""
+
+    x: float = Field(default=0.0)
+    y: float = Field(default=0.0)
 
 class Step(BaseModel):
     """Flow中Step的数据"""

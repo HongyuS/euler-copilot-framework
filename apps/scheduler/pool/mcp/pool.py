@@ -1,5 +1,5 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""MCP池"""
+"""MCP池；下属于Pool，单例"""
 
 import logging
 

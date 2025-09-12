@@ -1,5 +1,5 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""MCP 加载器"""
+"""MCP 加载器；下属于MCP Pool"""
 
 import json
 import logging

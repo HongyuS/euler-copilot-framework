@@ -444,7 +444,7 @@ class AppCenterManager:
 
 
     @staticmethod
-    def _create_flow_metadata(
+    async def _create_flow_metadata(
         common_params: dict,
         data: AppData | None = None,
         app_data: App | None = None,
@@ -501,9 +501,12 @@ class AppCenterManager:
         # mcp_service 逻辑
         if data is not None and hasattr(data, "mcp_service") and data.mcp_service:
             # 创建应用场景，验证传入的 mcp_service 状态，确保只使用已经激活的 (create_app)
-            metadata.mcp_service = [
-                mcp_id for mcp_id in data.mcp_service if await MCPServiceManager.is_active(user_sub, mcp_id)
-            ]
+            activated_mcp_ids = []
+            for svc in data.mcp_service:
+                is_activated = await MCPServiceManager.is_active(user_sub, svc)
+                if is_activated:
+                    activated_mcp_ids.append(svc)
+            metadata.mcp_service = activated_mcp_ids
         elif data is not None and hasattr(data, "mcp_service"):
             # 更新应用场景，使用 data 中的 mcp_service (update_app)
             metadata.mcp_service = data.mcp_service if data.mcp_service is not None else []
@@ -572,7 +575,7 @@ class AppCenterManager:
                 common_params, user_sub, data, app_data, published=published,
             )
 
-        return AppCenterManager._create_flow_metadata(common_params, data, app_data, published=published)
+        return await AppCenterManager._create_flow_metadata(common_params, data, app_data, published=published)
 
 
     @staticmethod

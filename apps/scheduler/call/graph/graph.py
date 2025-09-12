@@ -64,9 +64,9 @@ class Graph(CoreCall, input_model=RenderInput, output_model=RenderOutput):
 
         # 获取数据
         if not self.dataset_key:
-            last_step_id = call_vars.history_order[-1]
+            last_step_id = call_vars.step_order[-1]
             self.dataset_key = f"{last_step_id}/dataset"
-        data = self._extract_history_variables(self.dataset_key, call_vars.history)
+        data = self._extract_history_variables(self.dataset_key, call_vars.step_data)
 
         return RenderInput(
             question=call_vars.question,

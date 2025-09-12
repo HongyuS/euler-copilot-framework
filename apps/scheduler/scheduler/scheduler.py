@@ -17,12 +17,11 @@ from apps.models.task import Task, TaskRuntime
 from apps.models.user import User
 from apps.scheduler.executor import FlowExecutor, MCPAgentExecutor, QAExecutor
 from apps.scheduler.pool.pool import Pool
-from apps.schemas.enum_var import AppType, EventType, ExecutorStatus, LanguageType
+from apps.schemas.enum_var import AppType, EventType, ExecutorStatus
 from apps.schemas.message import (
     InitContent,
     InitContentFeature,
 )
-from apps.schemas.rag_data import RAGQueryReq
 from apps.schemas.request_data import RequestData
 from apps.schemas.scheduler import ExecutorBackground, LLMConfig, TopFlow
 from apps.schemas.task import TaskData
@@ -319,8 +318,13 @@ class Scheduler:
 
 
     async def _run_flow(self) -> None:
+        # 获取应用信息
+        if not self.post_body.app or not self.post_body.app.app_id:
+            logger.error("[Scheduler] 未选择应用")
+            return
+
         logger.info("[Scheduler] 获取工作流元数据")
-        flow_info = await Pool().get_flow_metadata(app_info.app_id)
+        flow_info = await Pool().get_flow_metadata(self.post_body.app.app_id)
 
         # 如果flow_info为空，则直接返回
         if not flow_info:
@@ -328,18 +332,16 @@ class Scheduler:
             return
 
         # 如果用户选了特定的Flow
-        if app_info.flow_id:
+        if self.post_body.app.flow_id:
             logger.info("[Scheduler] 获取工作流定义")
-            flow_id = app_info.flow_id
-            flow_data = await Pool().get_flow(app_info.app_id, flow_id)
+            flow_id = self.post_body.app.flow_id
+            flow_data = await Pool().get_flow(self.post_body.app.app_id, flow_id)
         else:
             # 如果用户没有选特定的Flow，则根据语义选择一个Flow
             logger.info("[Scheduler] 选择最合适的流")
-            flow_chooser = FlowChooser(self.task, post_body.question, app_info)
-            flow_id = await flow_chooser.get_top_flow()
-            self.task = flow_chooser.task
+            flow_id = await self.get_top_flow()
             logger.info("[Scheduler] 获取工作流定义")
-            flow_data = await Pool().get_flow(app_info.app_id, flow_id)
+            flow_data = await Pool().get_flow(self.post_body.app.app_id, flow_id)
 
         # 如果flow_data为空，则直接返回
         if not flow_data:
@@ -348,15 +350,13 @@ class Scheduler:
 
         # 初始化Executor
         logger.info("[Scheduler] 初始化Executor")
-
         flow_exec = FlowExecutor(
             flow_id=flow_id,
             flow=flow_data,
             task=self.task,
-            msg_queue=queue,
-            question=post_body.question,
-            post_body_app=app_info,
-            background=background,
+            msg_queue=self.queue,
+            question=self.post_body.question,
+            post_body_app=self.post_body.app,
             llm=self.llm,
         )
 
@@ -376,10 +376,10 @@ class Scheduler:
             task=self.task,
             msg_queue=queue,
             question=post_body.question,
-            history_len=app_metadata.history_len,
+            history_len=self.post_body.app.history_len if hasattr(self.post_body.app, 'history_len') else 3,
             background=background,
-            agent_id=app_info.app_id,
-            params=post_body.params,
+            agent_id=self.post_body.app.app_id,
+            params=self.post_body.params if hasattr(self.post_body, 'params') else {},
             llm=self.llm,
         )
         # 开始运行

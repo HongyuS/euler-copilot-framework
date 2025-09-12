@@ -1,5 +1,5 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""加载配置文件夹的Service部分"""
+"""加载配置文件夹的Service部分；下属于Pool，单例"""
 
 import logging
 import shutil

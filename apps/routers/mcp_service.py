@@ -57,7 +57,7 @@ async def get_mcpservice_list(  # noqa: PLR0913
     isInstall: bool | None = None,  # noqa: N803
     isActive: bool | None = None,  # noqa: N803
 ) -> JSONResponse:
-    """获取服务列表"""
+    """GET /mcp?searchType=xxx&keyword=xxx&page=xxx&isInstall=xxx&isActive=xxx: 获取服务列表"""
     user_sub = request.state.user_sub
     try:
         service_cards = await MCPServiceManager.fetch_mcp_services(
@@ -93,12 +93,12 @@ async def get_mcpservice_list(  # noqa: PLR0913
     )
 
 
-@admin_router.post("", response_model=UpdateMCPServiceRsp)
+@admin_router.put("", response_model=UpdateMCPServiceRsp)
 async def create_or_update_mcpservice(
     request: Request,
     data: UpdateMCPServiceRequest,
 ) -> JSONResponse:
-    """新建或更新MCP服务"""
+    """PUT /mcp: 新建或更新MCP服务"""
     if not data.service_id:
         try:
             service_id = await MCPServiceManager.create_mcpservice(data, request.state.user_sub)

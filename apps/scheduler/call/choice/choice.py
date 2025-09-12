@@ -67,7 +67,7 @@ class Choice(CoreCall, input_model=ChoiceInput, output_model=ChoiceOutput):
                     # 处理左值
                     if condition.left.step_id is not None:
                         condition.left.value = self._extract_history_variables(
-                            f"{condition.left.step_id}/{condition.left.value}", call_vars.history)
+                            f"{condition.left.step_id}/{condition.left.value}", call_vars.step_data)
                         # 检查历史变量是否成功提取
                         if condition.left.value is None:
                             msg = (f"[Choice] 分支 {choice.branch_id} 条件处理失败："
@@ -87,7 +87,7 @@ class Choice(CoreCall, input_model=ChoiceInput, output_model=ChoiceOutput):
                     # 处理右值
                     if condition.right.step_id is not None:
                         condition.right.value = self._extract_history_variables(
-                            f"{condition.right.step_id}/{condition.right.value}", call_vars.history,
+                            f"{condition.right.step_id}/{condition.right.value}", call_vars.step_data,
                         )
                         # 检查历史变量是否成功提取
                         if condition.right.value is None:

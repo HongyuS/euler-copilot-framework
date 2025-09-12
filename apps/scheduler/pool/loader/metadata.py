@@ -1,5 +1,5 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""元数据加载器"""
+"""元数据加载器；下属于App、Service"""
 
 import logging
 import uuid

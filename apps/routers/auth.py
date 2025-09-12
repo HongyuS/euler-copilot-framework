@@ -3,14 +3,16 @@
 
 import logging
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Body, Depends, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from apps.common.config import config
 from apps.common.oidc import oidc_provider
 from apps.dependency import verify_personal_token, verify_session
+from apps.schemas.personal_token import PostPersonalTokenMsg, PostPersonalTokenRsp
 from apps.schemas.response_data import (
     AuthUserMsg,
     AuthUserRsp,
@@ -18,6 +20,7 @@ from apps.schemas.response_data import (
     OidcRedirectRsp,
     ResponseData,
 )
+from apps.services.personal_token import PersonalTokenManager
 from apps.services.session import SessionManager
 from apps.services.token import TokenManager
 from apps.services.user import UserManager
@@ -27,8 +30,8 @@ router = APIRouter(
     tags=["auth"],
 )
 user_router = APIRouter(
-    prefix="/api/user",
-    tags=["user"],
+    prefix="/api/auth",
+    tags=["auth"],
     dependencies=[Depends(verify_session), Depends(verify_personal_token)],
 )
 logger = logging.getLogger(__name__)
@@ -38,7 +41,7 @@ templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates"
 @router.get("/login")
 async def oidc_login(request: Request, code: str) -> HTMLResponse:
     """
-    OIDC login
+    GET /auth/login?code=xxx: 用户登录EulerCopilot
 
     :param request: Request object
     :param code: OIDC code
@@ -88,7 +91,7 @@ async def oidc_login(request: Request, code: str) -> HTMLResponse:
 # 用户主动logout
 @user_router.get("/logout", response_model=ResponseData)
 async def logout(request: Request) -> JSONResponse:
-    """用户登出EulerCopilot"""
+    """GET /auth/logout: 用户登出EulerCopilot"""
     if not request.client:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -115,7 +118,7 @@ async def logout(request: Request) -> JSONResponse:
 
 @router.get("/redirect", response_model=OidcRedirectRsp)
 async def oidc_redirect() -> JSONResponse:
-    """OIDC重定向URL"""
+    """GET /auth/redirect: 前端获取OIDC重定向URL"""
     redirect_url = await oidc_provider.get_redirect_url()
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -129,8 +132,8 @@ async def oidc_redirect() -> JSONResponse:
 
 # TODO(zwt): OIDC主动触发logout
 @router.post("/logout", response_model=ResponseData)
-async def oidc_logout(token: str) -> JSONResponse:
-    """OIDC主动触发登出"""
+async def oidc_logout(token: Annotated[str, Body()]) -> JSONResponse:
+    """POST /auth/logout: OIDC主动告知后端用户已在其他SSO站点登出"""
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ResponseData(
@@ -143,7 +146,7 @@ async def oidc_logout(token: str) -> JSONResponse:
 
 @user_router.get("/user", response_model=AuthUserRsp)
 async def userinfo(request: Request) -> JSONResponse:
-    """获取用户信息"""
+    """GET /auth/user: 获取当前用户信息"""
     user = await UserManager.get_user(user_sub=request.state.user_sub)
     if not user:
         return JSONResponse(
@@ -168,3 +171,25 @@ async def userinfo(request: Request) -> JSONResponse:
             ),
         ).model_dump(exclude_none=True, by_alias=True),
     )
+
+
+@user_router.post("/key", responses={
+    400: {"model": ResponseData},
+}, response_model=PostPersonalTokenRsp)
+async def change_personal_token(request: Request) -> JSONResponse:
+    """POST /auth/key: 重置用户的API密钥"""
+    new_api_key: str | None = await PersonalTokenManager.update_personal_token(request.state.user_sub)
+    if not new_api_key:
+        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=ResponseData(
+            code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="failed to update personal token",
+            result={},
+        ).model_dump(exclude_none=True, by_alias=True))
+
+    return JSONResponse(status_code=status.HTTP_200_OK, content=PostPersonalTokenRsp(
+        code=status.HTTP_200_OK,
+        message="success",
+        result=PostPersonalTokenMsg(
+            api_key=new_api_key,
+        ),
+    ).model_dump(exclude_none=True, by_alias=True))

@@ -1,7 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """FastAPI 用户标签相关API"""
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency.user import verify_admin, verify_personal_token, verify_session
@@ -18,29 +18,11 @@ admin_router = APIRouter(
         Depends(verify_admin),
     ],
 )
-router = APIRouter(
-    prefix="/api/tag",
-    tags=["tag"],
-    dependencies=[
-        Depends(verify_session),
-        Depends(verify_personal_token),
-    ],
-)
 
 
-@router.get("")
-async def get_user_tag(
-    request: Request,
-    *,
-    user_only: bool = False,
-) -> JSONResponse:
-    """获取所有标签；传入user_sub的时候获取特定用户的标签信息，不传则获取所有标签"""
-    if user_only:
-        return JSONResponse(status_code=status.HTTP_200_OK, content=ResponseData(
-            code=status.HTTP_200_OK,
-            message="[Tag] Get user tag success.",
-            result=await TagManager.get_tag_by_user_sub(request.state.user_sub),
-        ).model_dump(exclude_none=True, by_alias=True))
+@admin_router.get("")
+async def get_user_tag() -> JSONResponse:
+    """GET /tag: 获取所有标签"""
     return JSONResponse(status_code=status.HTTP_200_OK, content=ResponseData(
         code=status.HTTP_200_OK,
         message="[Tag] Get all tag success.",

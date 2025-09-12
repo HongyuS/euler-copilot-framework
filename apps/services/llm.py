@@ -116,8 +116,8 @@ class LLMManager:
             llm_item = LLMProviderInfo(
                 llmId=llm.id,
                 icon=llm.icon,
-                openaiBaseUrl=llm.openaiBaseUrl,
-                openaiApiKey=llm.openaiAPIKey,
+                openaiBaseUrl=llm.baseUrl,
+                openaiApiKey=llm.apiKey,
                 modelName=llm.modelName,
                 maxTokens=llm.maxToken,
             )
@@ -144,8 +144,8 @@ class LLMManager:
                     err = f"[LLMManager] LLM {llm_id} 不存在"
                     raise ValueError(err)
                 llm.icon = req.icon
-                llm.openaiBaseUrl = req.openai_base_url
-                llm.openaiAPIKey = req.openai_api_key
+                llm.baseUrl = req.openai_base_url
+                llm.apiKey = req.openai_api_key
                 llm.modelName = req.model_name
                 llm.maxToken = req.max_tokens
                 await session.commit()
@@ -153,8 +153,8 @@ class LLMManager:
                 llm = LLMData(
                     id=llm_id,
                     icon=req.icon,
-                    openaiBaseUrl=req.openai_base_url,
-                    openaiAPIKey=req.openai_api_key,
+                    baseUrl=req.openai_base_url,
+                    apiKey=req.openai_api_key,
                     modelName=req.model_name,
                     maxToken=req.max_tokens,
                 )

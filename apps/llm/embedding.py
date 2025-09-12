@@ -148,55 +148,6 @@ class Embedding:
         dim = await self._get_embedding_dimension()
         await self._create_vector_table(dim)
 
-    async def _get_openai_embedding(self, text: list[str]) -> list[list[float]]:
-        """访问OpenAI兼容的Embedding API，获得向量化数据"""
-        api = self._config.openaiBaseUrl + "/embeddings"
-        data = {
-            "input": text,
-            "model": self._config.modelName,
-            "encoding_format": "float",
-        }
-
-        headers = {
-            "Content-Type": "application/json",
-        }
-        if self._config.openaiAPIKey:
-            headers["Authorization"] = f"Bearer {self._config.openaiAPIKey}"
-
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                api,
-                json=data,
-                headers=headers,
-                timeout=60.0,
-            )
-            json = response.json()
-            return [item["embedding"] for item in json["data"]]
-
-    async def _get_tei_embedding(self, text: list[str]) -> list[list[float]]:
-        """访问TEI兼容的Embedding API，获得向量化数据"""
-        api = self._config.openaiBaseUrl + "/embed"
-        headers = {
-            "Content-Type": "application/json",
-        }
-        if self._config.openaiAPIKey:
-            headers["Authorization"] = f"Bearer {self._config.openaiAPIKey}"
-
-        async with httpx.AsyncClient() as client:
-            result = []
-            for single_text in text:
-                data = {
-                    "inputs": single_text,
-                    "normalize": True,
-                }
-                response = await client.post(
-                    api, json=data, headers=headers, timeout=60.0,
-                )
-                json = response.json()
-                result.append(json[0])
-
-            return result
-
     async def get_embedding(self, text: list[str]) -> list[list[float]]:
         """
         访问OpenAI兼容的Embedding API，获得向量化数据

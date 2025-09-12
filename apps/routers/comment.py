@@ -26,7 +26,7 @@ router = APIRouter(
 
 @router.post("", response_model=ResponseData)
 async def add_comment(request: Request, post_body: AddCommentData) -> JSONResponse:
-    """给Record添加评论"""
+    """POST /comment: 给Record添加评论"""
     comment_data = RecordComment(
         comment=post_body.comment,
         dislike_reason=post_body.dislike_reason.split(";")[:-1],

@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from apps.common.config import config
 from apps.common.postgres import postgres
+from apps.llm.embedding import Embedding
 from apps.models.flow import Flow as FlowInfo
 from apps.schemas.enum_var import MetadataType
 from apps.schemas.flow import Flow
@@ -33,6 +34,13 @@ class Pool:
 
     在Framework启动时，执行全局的载入流程
     """
+
+    def __init__(self):
+        self.app_loader = AppLoader()
+        self.call_loader = CallLoader()
+        self.mcp_loader = MCPLoader()
+        self.service_loader = ServiceLoader()
+        self.flow_loader = FlowLoader()
 
     @staticmethod
     async def check_dir() -> None:
@@ -60,8 +68,7 @@ class Pool:
             await Path(root_dir + "mcp").mkdir(parents=True, exist_ok=True)
 
 
-    @staticmethod
-    async def init() -> None:
+    async def init(self) -> None:
         """
         加载全部文件系统内的资源
 
@@ -82,7 +89,7 @@ class Pool:
 
         # 加载Call
         logger.info("[Pool] 载入Call")
-        await CallLoader().load()
+        await self.call_loader.load()
 
         # 检查文件变动
         logger.info("[Pool] 检查文件变动")
@@ -91,19 +98,18 @@ class Pool:
 
         # 处理Service
         logger.info("[Pool] 载入Service")
-        service_loader = ServiceLoader()
 
         # 批量删除
         for service in changed_service:
-            await service_loader.delete(service, is_reload=True)
+            await self.service_loader.delete(service, is_reload=True)
         for service in deleted_service:
-            await service_loader.delete(service)
+            await self.service_loader.delete(service)
 
         # 批量加载
         for service in changed_service:
             hash_key = Path("service/" + str(service)).as_posix()
             if hash_key in checker.hashes:
-                await service_loader.load(service, checker.hashes[hash_key])
+                await self.service_loader.load(service, checker.hashes[hash_key])
 
         # 加载App
         logger.info("[Pool] 载入App")
@@ -111,28 +117,31 @@ class Pool:
 
         # 批量删除App
         for app in changed_app:
-            await AppLoader.delete(app, is_reload=True)
+            await self.app_loader.delete(app, is_reload=True)
         for app in deleted_app:
-            await AppLoader.delete(app)
+            await self.app_loader.delete(app)
 
         # 批量加载App
         for app in changed_app:
             hash_key = Path("app/" + str(app)).as_posix()
             if hash_key in checker.hashes:
                 try:
-                    await AppLoader.load(app, checker.hashes[hash_key])
+                    await self.app_loader.load(app, checker.hashes[hash_key])
                 except Exception as e:  # noqa: BLE001
-                    await AppLoader.delete(app, is_reload=True)
+                    await self.app_loader.delete(app, is_reload=True)
                     logger.warning("[Pool] 加载App %s 失败: %s", app, str(e))
 
         # 载入MCP
         logger.info("[Pool] 载入MCP")
-        await MCPLoader.init()
+        await self.mcp_loader.init()
 
 
-    async def set_vector(self) -> None:
+    async def set_vector(self, embedding_model: Embedding) -> None:
         """向数据库中写入向量化数据"""
-        await CallLoader().set_vector()
+        # 对所有的Loader进行向量化
+        await self.call_loader.set_vector(embedding_model)
+        await self.service_loader.set_vector(embedding_model)
+        await self.mcp_loader.set_vector(embedding_model)
 
 
     async def get_flow_metadata(self, app_id: uuid.UUID) -> list[FlowInfo]:
@@ -146,7 +155,7 @@ class Pool:
     async def get_flow(self, app_id: uuid.UUID, flow_id: str) -> Flow | None:
         """从文件系统中获取单个Flow的全部数据"""
         logger.info("[Pool] 获取工作流 %s", flow_id)
-        return await FlowLoader.load(app_id, flow_id)
+        return await self.flow_loader.load(app_id, flow_id)
 
 
     async def get_call(self, call_id: str) -> Any:

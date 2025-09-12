@@ -14,7 +14,7 @@ router = APIRouter(
 
 @router.get("", response_model=HealthCheckRsp)
 def health_check() -> JSONResponse:
-    """健康检查接口"""
+    """GET /health_check: 服务健康检查接口"""
     return JSONResponse(status_code=status.HTTP_200_OK, content=HealthCheckRsp(
         status="ok",
     ).model_dump(exclude_none=True, by_alias=True))
