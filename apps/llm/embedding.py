@@ -3,14 +3,16 @@
 import logging
 from typing import Any
 
-import httpx
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import Column, ForeignKey, Index, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base
 
 from apps.common.postgres import postgres
-from apps.models.llm import EmbeddingBackend, LLMData
+from apps.models.llm import LLMData
+from apps.schemas.llm import LLMProvider
+
+from .providers import BaseProvider, OpenAIProvider, TEIProvider
 
 _logger = logging.getLogger(__name__)
 _flow_pool_vector_table = {
@@ -81,6 +83,10 @@ _mcp_tool_vector_table = {
         ),
     ),
 }
+_CLASS_DICT: dict[LLMProvider, type[BaseProvider]] = {
+    LLMProvider.OPENAI: OpenAIProvider,
+    LLMProvider.TEI: TEIProvider,
+}
 
 
 class Embedding:
@@ -135,11 +141,11 @@ class Embedding:
 
     def __init__(self, llm_config: LLMData | None = None) -> None:
         """初始化Embedding对象"""
-        if not llm_config or not llm_config.embeddingBackend:
-            err = "[Embedding] 未设置Embedding模型"
+        if not llm_config:
+            err = "[Embedding] 未设置LLM配置"
             _logger.error(err)
             raise RuntimeError(err)
-        self._config: LLMData = llm_config
+        self._provider = _CLASS_DICT[llm_config.provider](llm_config)
 
     async def init(self) -> None:
         """在使用Embedding前初始化数据库表等资源"""
@@ -155,11 +161,4 @@ class Embedding:
         :param text: 待向量化文本（多条文本组成List）
         :return: 文本对应的向量（顺序与text一致，也为List）
         """
-        if self._config.embeddingBackend == EmbeddingBackend.OPENAI:
-            return await self._get_openai_embedding(text)
-        if self._config.embeddingBackend == EmbeddingBackend.TEI:
-            return await self._get_tei_embedding(text)
-
-        err = f"[Embedding] 不支持的Embedding API类型: {self._config.modelName}"
-        _logger.error(err)
-        raise RuntimeError(err)
+        return await self._provider.embedding(text)

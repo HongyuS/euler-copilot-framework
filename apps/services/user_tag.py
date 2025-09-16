@@ -8,6 +8,7 @@ from sqlalchemy import and_, select
 from apps.common.postgres import postgres
 from apps.models.tag import Tag
 from apps.models.user import UserTag
+from apps.schemas.tag import UserTagInfo
 
 logger = logging.getLogger(__name__)
 
@@ -16,27 +17,22 @@ class UserTagManager:
     """用户画像管理"""
 
     @staticmethod
-    async def get_user_domain_by_user_sub_and_topk(user_sub: str, topk: int) -> list[str]:
+    async def get_user_domain_by_user_sub_and_topk(user_sub: str, topk: int | None = None) -> list[UserTagInfo]:
         """根据用户ID，查询用户最常涉及的n个领域"""
         async with postgres.session() as session:
-            user_domains = (
-                await session.scalars(
-                    select(UserTag).where(
-                        UserTag.userSub == user_sub,
-                    ).order_by(UserTag.count.desc()).limit(topk),
-                )
-            ).all()
+            query = select(UserTag).where(UserTag.userSub == user_sub).order_by(UserTag.count.desc())
 
-            tags = []
+            if topk is not None:
+                query = query.limit(topk)
+
+            user_domains = (await session.scalars(query)).all()
+
+            result = []
             for user_domain in user_domains:
-                result = (
-                    await session.scalars(
-                        select(Tag).where(Tag.id == user_domain.tag),
-                    )
-                ).one_or_none()
-                if result:
-                    tags.append(result)
-            return [tag.name for tag in tags]
+                tag = (await session.scalars(select(Tag).where(Tag.id == user_domain.tag))).one_or_none()
+                if tag:
+                    result.append(UserTagInfo(name=tag.name, count=user_domain.count))
+            return result
 
 
     @staticmethod

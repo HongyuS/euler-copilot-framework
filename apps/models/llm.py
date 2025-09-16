@@ -1,42 +1,15 @@
 """大模型信息 数据库表"""
 
 from datetime import UTC, datetime
-from enum import Enum as PyEnum
 from typing import Any
 
 from sqlalchemy import ARRAY, DateTime, Enum, Float, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from apps.schemas.llm import LLMProvider, LLMType
+
 from .base import Base
-
-
-class LLMType(str, PyEnum):
-    """大模型类型"""
-
-    FUNCTION = "function"
-    """模型支持Function Call"""
-    EMBEDDING = "embedding"
-    """模型支持Embedding"""
-    VISION = "vision"
-    """模型支持图片理解"""
-    THINKING = "thinking"
-    """模型支持思考推理"""
-
-
-class LLMProvider(str, PyEnum):
-    """Function Call后端"""
-
-    OLLAMA = "ollama"
-    """Ollama"""
-    VLLM = "vllm"
-    """VLLM"""
-    OPENAI = "openai"
-    """OpenAI"""
-    TEI = "tei"
-    """TEI"""
-    LM_STUDIO = "lm_studio"
-    """LLM Studio"""
 
 
 class LLMData(Base):

@@ -1,7 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """FastAPI 大模型相关接口"""
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import verify_admin, verify_personal_token, verify_session
@@ -54,7 +54,7 @@ async def list_llm(llmId: str | None = None) -> JSONResponse:  # noqa: N803
 )
 async def create_llm(
     req: UpdateLLMReq,
-    llmId: str | None = None,  # noqa: N803
+    llmId: str,  # noqa: N803
 ) -> JSONResponse:
     """PUT /llm: 创建或更新大模型配置"""
     try:
@@ -81,10 +81,10 @@ async def create_llm(
 @admin_router.delete("",
     responses={status.HTTP_404_NOT_FOUND: {"model": ResponseData}},
 )
-async def delete_llm(request: Request, llmId: str) -> JSONResponse:  # noqa: N803
+async def delete_llm(llmId: str) -> JSONResponse:  # noqa: N803
     """DELETE /llm: 删除大模型配置"""
     try:
-        await LLMManager.delete_llm(request.state.user_sub, llmId)
+        await LLMManager.delete_llm(llmId)
     except ValueError as e:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

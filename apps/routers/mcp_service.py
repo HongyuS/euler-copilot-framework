@@ -189,6 +189,16 @@ async def get_service_detail(
             ).model_dump(exclude_none=True, by_alias=True),
         )
 
+    if data is None or config is None or icon is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=ResponseData(
+                code=status.HTTP_404_NOT_FOUND,
+                message="MCP服务有关信息不存在",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+
     if edit:
         # 组装编辑所需信息
         detail = EditMCPServiceMsg(
@@ -302,7 +312,7 @@ async def active_or_deactivate_mcp_service(
     """激活/取消激活mcp"""
     try:
         if data.active:
-            await MCPServiceManager.active_mcpservice(request.state.user_sub, service_id, data.mcp_env)
+            await MCPServiceManager.active_mcpservice(request.state.user_sub, mcpId, data.mcp_env)
         else:
             await MCPServiceManager.deactive_mcpservice(request.state.user_sub, mcpId)
     except Exception as e:

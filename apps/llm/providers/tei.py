@@ -6,7 +6,7 @@ import logging
 import httpx
 from typing_extensions import override
 
-from apps.models.llm import LLMType
+from apps.schemas.llm import LLMType
 
 from .base import BaseProvider
 

@@ -7,18 +7,26 @@ import re
 from textwrap import dedent
 from typing import Any
 
-import ollama
-import openai
 from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 from jsonschema import Draft7Validator
 
-from apps.constants import JSON_GEN_MAX_TRIAL, REASONING_END_TOKEN
-from apps.models.llm import FunctionCallBackend, LLMData
+from apps.constants import JSON_GEN_MAX_TRIAL
+from apps.models.llm import LLMData
+from apps.schemas.llm import LLMProvider
 
 from .prompt import JSON_GEN_BASIC
+from .providers import (
+    BaseProvider,
+    OllamaProvider,
+    OpenAIProvider,
+)
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
+_CLASS_DICT: dict[LLMProvider, type[BaseProvider]] = {
+    LLMProvider.OLLAMA: OllamaProvider,
+    LLMProvider.OPENAI: OpenAIProvider,
+}
 
 
 class FunctionLLM:
@@ -27,125 +35,12 @@ class FunctionLLM:
     timeout: float = 30.0
 
     def __init__(self, llm_config: LLMData | None = None) -> None:
-        """
-        初始化用于FunctionCall的模型
-
-        目前支持：
-        - vllm
-        - ollama
-        - function_call
-        - json_mode
-        - structured_output
-        """
-        # 暂存config；这里可以替代为从其他位置获取
-        if not llm_config or not llm_config.functionCallBackend:
-            err = "[FunctionLLM] 未设置FunctionCall模型"
-            logger.error(err)
-            raise RuntimeError(err)
-
-        self.config: LLMData = llm_config
-        self._params = {
-            "model": self.config.modelName,
-            "messages": [],
-        }
-
-        if self.config.functionCallBackend == FunctionCallBackend.OLLAMA and not self.config.apiKey:
-            self._client = ollama.AsyncClient(
-                host=self.config.baseUrl,
-                timeout=self.timeout,
-            )
-        elif self.config.functionCallBackend == FunctionCallBackend.OLLAMA and self.config.apiKey:
-            self._client = ollama.AsyncClient(
-                host=self.config.baseUrl,
-                headers={
-                    "Authorization": f"Bearer {self.config.apiKey}",
-                },
-                timeout=self.timeout,
-            )
-        elif self.config.functionCallBackend != FunctionCallBackend.OLLAMA and not self.config.apiKey:
-            self._client = openai.AsyncOpenAI(
-                base_url=self.config.baseUrl,
-                timeout=self.timeout,
-            )
-        elif self.config.functionCallBackend != FunctionCallBackend.OLLAMA and self.config.apiKey:
-            self._client = openai.AsyncOpenAI(
-                base_url=self.config.baseUrl,
-                api_key=self.config.apiKey,
-                timeout=self.timeout,
-            )
-
-
-    async def _call_openai(
-        self,
-        messages: list[dict[str, str]],
-        schema: dict[str, Any],
-        max_tokens: int | None = None,
-        temperature: float | None = None,
-    ) -> str:
-        """
-        调用openai模型生成JSON
-
-        :param list[dict[str, str]] messages: 历史消息列表
-        :param dict[str, Any] schema: 输出JSON Schema
-        :param int | None max_tokens: 最大Token长度
-        :param float | None temperature: 大模型温度
-        :return: 生成的JSON
-        :rtype: str
-        """
-        self._params.update({
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-        })
-
-        if self.config.functionCallBackend == FunctionCallBackend.VLLM:
-            self._params["extra_body"] = {"guided_json": schema}
-
-        elif self.config.functionCallBackend == FunctionCallBackend.JSON_MODE:
-            logger.warning("[FunctionCall] json_mode无法确保输出格式符合要求，使用效果将受到影响")
-            self._params["response_format"] = {"type": "json_object"}
-
-        elif self.config.functionCallBackend == FunctionCallBackend.STRUCTURED_OUTPUT:
-            self._params["response_format"] = {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "generate",
-                    "description": "Generate answer based on the background information",
-                    "schema": schema,
-                    "strict": True,
-                },
-            }
-
-        elif self.config.functionCallBackend == FunctionCallBackend.FUNCTION_CALL:
-            logger.warning("[FunctionCall] function_call无法确保一定调用工具，使用效果将受到影响")
-            self._params["tools"] = [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "generate",
-                        "description": "Generate answer based on the background information",
-                        "parameters": schema,
-                    },
-                },
-            ]
-
-        response = await self._client.chat.completions.create(**self._params) # type: ignore[arg-type]
-        try:
-            logger.info("[FunctionCall] 大模型输出：%s", response.choices[0].message.tool_calls[0].function.arguments)
-            return response.choices[0].message.tool_calls[0].function.arguments
-        except Exception:  # noqa: BLE001
-            ans = response.choices[0].message.content
-            logger.info("[FunctionCall] 大模型输出：%s", ans)
-            return await FunctionLLM.process_response(ans)
+        pass
 
 
     @staticmethod
     async def process_response(response: str) -> str:
         """处理大模型的输出"""
-        # 去掉推理过程，避免干扰
-        for token in REASONING_END_TOKEN:
-            response = response.split(token)[-1]
-
         # 尝试解析JSON
         response = dedent(response).strip()
         error_flag = False
@@ -158,14 +53,14 @@ class FunctionLLM:
             return response
 
         # 尝试提取```json中的JSON
-        logger.warning("[FunctionCall] 直接解析失败！尝试提取```json中的JSON")
+        _logger.warning("[FunctionCall] 直接解析失败！尝试提取```json中的JSON")
         try:
             json_str = re.findall(r"```json(.*)```", response, re.DOTALL)[-1]
             json_str = dedent(json_str).strip()
             json.loads(json_str)
         except Exception:  # noqa: BLE001
             # 尝试直接通过括号匹配JSON
-            logger.warning("[FunctionCall] 提取失败！尝试正则提取JSON")
+            _logger.warning("[FunctionCall] 提取失败！尝试正则提取JSON")
             try:
                 json_str = re.findall(r"\{.*\}", response, re.DOTALL)[-1]
                 json_str = dedent(json_str).strip()
@@ -174,36 +69,6 @@ class FunctionLLM:
                 json_str = "{}"
 
         return json_str
-
-
-    async def _call_ollama(
-        self,
-        messages: list[dict[str, str]],
-        schema: dict[str, Any],
-        max_tokens: int | None = None,
-        temperature: float | None = None,
-    ) -> str:
-        """
-        调用ollama模型生成JSON
-
-        :param list[dict[str, str]] messages: 历史消息列表
-        :param dict[str, Any] schema: 输出JSON Schema
-        :param int | None max_tokens: 最大Token长度
-        :param float | None temperature: 大模型温度
-        :return: 生成的对话回复
-        :rtype: str
-        """
-        self._params.update({
-            "messages": messages,
-            "options": {
-                "temperature": temperature,
-                "num_predict": max_tokens,
-            },
-            "format": schema,
-        })
-
-        response = await self._client.chat(**self._params) # type: ignore[arg-type]
-        return await self.process_response(response.message.content or "")
 
 
     async def call(
@@ -218,92 +83,18 @@ class FunctionLLM:
 
         不开放流式输出
         """
-        # 检查max_tokens和temperature是否设置
-        if max_tokens is None:
-            max_tokens = self.config.maxToken
-        if temperature is None:
-            temperature = self.config.temperature
-
-        if self.config.functionCallBackend == FunctionCallBackend.OLLAMA:
-            json_str = await self._call_ollama(messages, schema, max_tokens, temperature)
-
-        elif self.config.functionCallBackend in [
-            FunctionCallBackend.FUNCTION_CALL,
-            FunctionCallBackend.JSON_MODE,
-            FunctionCallBackend.STRUCTURED_OUTPUT,
-            FunctionCallBackend.VLLM,
-        ]:
-            json_str = await self._call_openai(messages, schema, max_tokens, temperature)
-
-        else:
-            err = "未知的Function模型后端"
-            raise ValueError(err)
-
         try:
             return json.loads(json_str)
         except Exception:  # noqa: BLE001
-            logger.error("[FunctionCall] 大模型JSON解析失败：%s", json_str)  # noqa: TRY400
+            _logger.error("[FunctionCall] 大模型JSON解析失败：%s", json_str)  # noqa: TRY400
             return {}
 
 
 class JsonGenerator:
     """JSON生成器"""
 
-    @staticmethod
-    async def parse_result_by_stack(result: str, schema: dict[str, Any]) -> dict[str, Any]:  # noqa: C901, PLR0912
-        """解析推理结果"""
-        validator = Draft7Validator(schema)
-        left_index = result.find("{")
-        right_index = result.rfind("}")
-        if left_index != -1 and right_index != -1 and left_index < right_index:
-            try:
-                tmp_js = json.loads(result[left_index:right_index + 1])
-                validator.validate(tmp_js)
-            except Exception:
-                logger.exception("[JsonGenerator] 解析结果失败")
-            else:
-                return tmp_js
-        stack = []
-        json_candidates = []
-        # 定义括号匹配关系
-        bracket_map = {")": "(", "]": "[", "}": "{"}
-
-        for i, char in enumerate(result):
-            # 遇到左括号则入栈
-            if char in bracket_map.values():
-                stack.append((char, i))
-            # 遇到右括号且栈不为空时检查匹配
-            elif char in bracket_map and stack:
-                if not stack:
-                    continue
-                top_char, top_index = stack[-1]
-                # 检查是否匹配当前右括号
-                if top_char == bracket_map[char]:
-                    stack.pop()
-                    # 当栈为空且当前是右花括号时，认为找到一个完整JSON
-                    if not stack and char == "}":
-                        json_str = result[top_index:i+1]
-                        json_candidates.append(json_str)
-                else:
-                    # 如果不匹配，清空栈
-                    stack.clear()
-        # 移除重复项并保持顺序
-        seen = set()
-        unique_jsons = []
-        for json_str in json_candidates[::]:
-            if json_str not in seen:
-                seen.add(json_str)
-                unique_jsons.append(json_str)
-
-        for json_str in unique_jsons:
-            try:
-                tmp_js = json.loads(json_str)
-                validator.validate(tmp_js)
-            except Exception:
-                logger.exception("[JsonGenerator] 解析结果失败")
-            else:
-                return tmp_js
-
+    def xml_parser(self, xml: str) -> dict[str, Any]:
+        """XML解析器"""
         return {}
 
     def __init__(
@@ -366,7 +157,7 @@ class JsonGenerator:
                 err_info = str(err)
                 err_info = err_info.split("\n\n")[0]
                 self._err_info = err_info
-                logger.info("[JSONGenerator] 验证失败：%s", self._err_info)
+                _logger.info("[JSONGenerator] 验证失败：%s", self._err_info)
                 continue
             return result
 

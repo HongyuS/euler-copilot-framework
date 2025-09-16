@@ -6,8 +6,10 @@ from fastapi.responses import JSONResponse
 
 from apps.dependency import verify_personal_token, verify_session
 from apps.schemas.response_data import ResponseData, UserGetMsp, UserGetRsp
+from apps.schemas.tag import UserTagListResponse
 from apps.schemas.user import UserInfo
 from apps.services.user import UserManager
+from apps.services.user_tag import UserTagManager
 
 router = APIRouter(
     prefix="/api/user",
@@ -88,11 +90,11 @@ async def update_user_llm(
 )
 async def get_user_tag(
     request: Request,
-    llmId: str,  # noqa: N803
+    topk: int | None = None,
 ) -> JSONResponse:
-    """GET /user/tag?userOnly=xxx: 获取用户标签"""
+    """GET /user/tag?topk=5: 获取用户标签"""
     try:
-        await TagManager.get_user_tag(request.state.user_sub, llmId)
+        tags = await UserTagManager.get_user_domain_by_user_sub_and_topk(request.state.user_sub, topk)
     except ValueError as e:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -107,6 +109,6 @@ async def get_user_tag(
         content=ResponseData(
             code=status.HTTP_200_OK,
             message="success",
-            result=llmId,
+            result=UserTagListResponse(tags=tags),
         ).model_dump(exclude_none=True, by_alias=True),
     )
