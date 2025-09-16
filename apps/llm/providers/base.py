@@ -4,10 +4,10 @@
 import logging
 from abc import abstractmethod
 from collections.abc import AsyncGenerator
-from typing import Any
 
+from apps.constants import LLM_TIMEOUT
 from apps.models.llm import LLMData
-from apps.schemas.llm import LLMChunk
+from apps.schemas.llm import LLMChunk, LLMFunctions
 
 _logger = logging.getLogger(__name__)
 
@@ -28,14 +28,12 @@ class BaseProvider:
         return messages
 
 
-    def __init__(self, llm_config: LLMData | None = None) -> None:
+    def __init__(self, llm_config: LLMData) -> None:
         """保存LLMConfig"""
-        if not llm_config:
-            err = "未设置大模型配置"
-            _logger.error(err)
-            raise RuntimeError(err)
-
         self.config: LLMData = llm_config
+        self._timeout: float = LLM_TIMEOUT
+        self.full_thinking: str = ""
+        self.full_answer: str = ""
         self._check_type()
         self._init_client()
 
@@ -61,6 +59,6 @@ class BaseProvider:
         raise NotImplementedError
 
 
-    async def tool_call(self, tool_name: str, tool_input: dict[str, Any]) -> str:
+    async def tool_call(self, messages: list[dict[str, str]], tools: list[LLMFunctions]) -> str:
         """工具调用"""
         raise NotImplementedError

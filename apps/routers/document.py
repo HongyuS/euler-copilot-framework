@@ -122,10 +122,10 @@ async def get_document_list(
                     ConversationDocumentItem(
                         _id=current_doc.id,
                         name=current_doc.name,
-                        type=current_doc.type,
+                        type=current_doc.extension,
                         size=round(current_doc.size, 2),
                         status=new_status,
-                        created_at=current_doc.created_at,
+                        created_at=current_doc.createdAt,
                     ),
                 ]
 

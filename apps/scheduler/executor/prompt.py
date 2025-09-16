@@ -161,7 +161,7 @@ GEN_RAG_ANSWER: dict[LanguageType, str] = {
             </user_question>
             <answer>
                 openEuler社区是一个开源操作系统社区，致力于推动Linux操作系统的发展。[[1]] openEuler社区的目标是为\
-                用户提供一个稳定、安全、高效的操作系统平台，并且支持多种硬件架构。[[1]]
+用户提供一个稳定、安全、高效的操作系统平台，并且支持多种硬件架构。[[1]]
             </answer>
         </example>
 
@@ -191,15 +191,15 @@ answer.
             <docs>
                 <document id="1" name="example_doc">
                     <chunk>openEuler community is an open source operating system community, committed to promoting \
-                    the development of the Linux operating system.</chunk>
+the development of the Linux operating system.</chunk>
                     <chunk>openEuler community aims to provide users with a stable, secure, and efficient operating \
-                    system platform, and support multiple hardware architectures.</chunk>
+system platform, and support multiple hardware architectures.</chunk>
                 </document>
                 <document id="2" name="another_example_doc">
                     <chunk>Members of the openEuler community come from all over the world, including developers, \
-                    users, and enterprises.</chunk>
+users, and enterprises.</chunk>
                     <chunk>Members of the openEuler community work together to promote the development of open \
-                    source operating systems, and provide support and assistance to users.</chunk>
+source operating systems, and provide support and assistance to users.</chunk>
                 </document>
             </docs>
             <user_question>
@@ -207,9 +207,8 @@ answer.
             </user_question>
             <answer>
                 openEuler community is an open source operating system community, committed to promoting the \
-                development of the Linux operating system. [[1]] openEuler community aims to provide users with a \
-                stable, secure, and efficient operating system platform, and support multiple \
-                hardware architectures. [[1]]
+development of the Linux operating system. [[1]] openEuler community aims to provide users with a \
+stable, secure, and efficient operating system platform, and support multiple hardware architectures. [[1]]
             </answer>
         </example>
 

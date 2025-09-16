@@ -5,10 +5,20 @@ import logging
 from collections.abc import AsyncGenerator
 
 from apps.models.llm import LLMData
+from apps.schemas.llm import LLMProvider
 
+from .providers import (
+    BaseProvider,
+    OllamaProvider,
+    OpenAIProvider,
+)
 from .token import TokenCalculator
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
+_CLASS_DICT: dict[LLMProvider, type[BaseProvider]] = {
+    LLMProvider.OLLAMA: OllamaProvider,
+    LLMProvider.OPENAI: OpenAIProvider,
+}
 
 
 class ReasoningLLM:
@@ -16,7 +26,6 @@ class ReasoningLLM:
 
     input_tokens: int = 0
     output_tokens: int = 0
-    timeout: float = 30.0
 
     def __init__(self, llm_config: LLMData | None = None) -> None:
         """判断配置文件里用了哪种大模型；初始化大模型客户端"""
@@ -75,7 +84,7 @@ class ReasoningLLM:
                 yield reasoning_content
             yield result
 
-        logger.info("[Reasoning] 推理内容: %s\n\n%s", reasoning_content, result)
+        _logger.info("[Reasoning] 推理内容: %s\n\n%s", reasoning_content, result)
 
         # 更新token统计
         if self.input_tokens == 0 or self.output_tokens == 0:

@@ -1,10 +1,12 @@
 """用于执行智能问答的Executor"""
 
+import json
 import logging
 import re
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from typing import Any
 
 from apps.llm.token import TokenCalculator
 from apps.models.document import Document

@@ -14,24 +14,8 @@ JSON_GEN_BASIC = dedent(r"""
     {{ query }}
     </query>
 
-    # Background
-
-    Background information is given in <background></background> XML tags.
-
-    <background>
-    Here are the background information between you and the user:
-
-    {% if conversation|length > 0 %}
-    {% for message in conversation %}
-      <{{ message.role }}>
-      {{ message.content }}
-      </{{ message.role }}>
-    {% endfor %}
-    {% else %}
-    [No conversation history available.]
-    {% endif %}
-
     {% if previous_trial %}
+    # Previous Trial
     You tried to answer the query with one function, but the arguments are incorrect.
 
     The arguments you provided are:
@@ -46,24 +30,25 @@ JSON_GEN_BASIC = dedent(r"""
     {{ err_info }}
     ```
     {% endif %}
-    </background>
 
     # Tools
-
-    You must call one function to assist with the user query.
-    Attention: the key in the JSON object is a JSON pointer, which may contain "/", "~" or ".".
-
-    You are provided with function signatures within <tools></tools> XML tags:
-    <tools>
-    {"type": "function", "function": {"name": "generate", \
-"description": "Generate answer based on the background information", "parameters": {{ schema }}}}
-    </tools>
-
-    Return a json object with function name and arguments within <tool_call></tool_call> XML tags:
-    <tool_call>
-    {"name": <function-name>, "arguments": <args-json-object>}
-    </tool_call>
-
-    # Output
-    <tool_call>
+    You have access to a set of tools. You can use one tool and will receive the result of \
+that tool use in the user's response. You use tools step-by-step to respond to the user's \
+query, with each tool use informed by the result of the previous tool use.
 """)
+
+
+JSON_NO_FUNCTION_CALL = dedent(r"""
+    **Tool Use Formatting:**
+    Tool uses are formatted using XML-style tags. The tool name itself becomes the XML tag name. Each \
+parameter is enclosed within its own set of tags. Here's the structure:
+
+    <actual_tool_name>
+    <parameter1_name>value1</parameter1_name>
+    <parameter2_name>value2</parameter2_name>
+    ...
+    </actual_tool_name>
+
+    Always use the actual tool name as the XML tag name for proper parsing and execution.
+""")
+

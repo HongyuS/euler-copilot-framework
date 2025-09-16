@@ -164,16 +164,12 @@ class LLMManager:
 
 
     @staticmethod
-    async def delete_llm(llm_id: str | None) -> None:
+    async def delete_llm(llm_id: str) -> None:
         """
         删除大模型
 
         :param llm_id: 大模型ID
         """
-        if llm_id is None:
-            err = "[LLMManager] 不能删除默认大模型"
-            raise ValueError(err)
-
         async with postgres.session() as session:
             llm = (await session.scalars(
                 select(LLMData).where(
