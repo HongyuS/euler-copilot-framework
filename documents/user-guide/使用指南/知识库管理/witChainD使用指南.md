@@ -1,6 +1,6 @@
 # witChainD 使用指南——知识库管理
 
-完成 witChainD 部署之后，即可使用 witChainD 进行知识库管理管理。
+完成 witChainD 部署之后，即可使用 witChainD 进行知识库管理。
 
 下文会从页面的维度进行 witChainD 的功能介绍。
 
