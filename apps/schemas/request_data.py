@@ -2,11 +2,13 @@
 """FastAPI 请求体"""
 
 import uuid
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 from .enum_var import LanguageType
 from .flow_topology import FlowItem
+from .llm import LLMProvider
 from .message import FlowParams
 
 
@@ -50,11 +52,13 @@ class UpdateLLMReq(BaseModel):
     """更新大模型请求体"""
 
     llm_id: str | None = Field(default=None, description="大模型ID", alias="id")
-    icon: str = Field(description="图标", default="")
     openai_base_url: str = Field(default="", description="OpenAI API Base URL", alias="openaiBaseUrl")
     openai_api_key: str = Field(default="", description="OpenAI API Key", alias="openaiApiKey")
     model_name: str = Field(default="", description="模型名称", alias="modelName")
     max_tokens: int = Field(default=8192, description="最大token数", alias="maxTokens")
+    provider: LLMProvider = Field(description="大模型提供商", alias="provider")
+    ctx_length: int = Field(description="上下文长度", alias="ctxLength")
+    extra_data: dict[str, Any] | None = Field(default=None, description="额外数据", alias="extraData")
 
 
 class UpdateUserSelectedLLMReq(BaseModel):

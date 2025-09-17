@@ -188,14 +188,8 @@ class CoreCall(BaseModel):
 
     async def _llm(self, messages: list[dict[str, Any]], *, streaming: bool = False) -> AsyncGenerator[str, None]:
         """Call可直接使用的LLM非流式调用"""
-        if streaming:
-            async for chunk in self._llm_obj.reasoning.call(messages, streaming=streaming):
-                yield chunk
-        else:
-            result = ""
-            async for chunk in self._llm_obj.reasoning.call(messages, streaming=streaming):
-                result += chunk
-            yield result
+        async for chunk in self._llm_obj.reasoning.call(messages, streaming=streaming):
+            yield chunk.content or ""
 
 
     async def _json(self, messages: list[dict[str, Any]], schema: dict[str, Any]) -> dict[str, Any]:

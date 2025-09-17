@@ -60,10 +60,8 @@ class MCPPlanner:
         async for chunk in self._llm.reasoning.call(
             message,
             streaming=False,
-            temperature=0.07,
-            result_only=True,
         ):
-            result += chunk
+            result += chunk.content or ""
         return result
 
 
@@ -105,8 +103,7 @@ class MCPPlanner:
         async for chunk in self._llm.reasoning.call(
             [{"role": "user", "content": prompt}],
             streaming=False,
-            temperature=0.07,
         ):
-            result += chunk
+            result += chunk.content or ""
 
         return result

@@ -17,7 +17,6 @@ from apps.scheduler.call.choice.schema import Type
 from apps.scheduler.slot.parser import (
     SlotConstParser,
     SlotDateParser,
-    SlotDefaultParser,
     SlotTimestampParser,
 )
 from apps.scheduler.slot.util import escape_path, patch_json
@@ -33,7 +32,6 @@ _TYPE_CHECKER = [
 _FORMAT_CHECKER = []
 _KEYWORD_CHECKER = {
     "const": SlotConstParser.keyword_validate,
-    "default": SlotDefaultParser.keyword_validate,
 }
 
 # 各类转换器
@@ -43,7 +41,6 @@ _TYPE_CONVERTER = [
 ]
 _KEYWORD_CONVERTER = {
     "const": SlotConstParser,
-    "default": SlotDefaultParser,
 }
 
 

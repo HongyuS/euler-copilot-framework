@@ -1,7 +1,8 @@
-from apps.schemas.enum_var import CommentType
-
+"""评论相关的数据结构"""
 
 from pydantic import BaseModel, Field
+
+from apps.schemas.enum_var import CommentType
 
 
 class AddCommentData(BaseModel):

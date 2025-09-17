@@ -4,7 +4,7 @@
 import logging
 import uuid
 
-from sqlalchemy import and_, delete, select, update
+from sqlalchemy import and_, delete, select
 
 from apps.common.postgres import postgres
 from apps.models.conversation import Conversation

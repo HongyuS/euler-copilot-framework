@@ -115,7 +115,6 @@ class LLMManager:
         for llm in llm_list:
             llm_item = LLMProviderInfo(
                 llmId=llm.id,
-                icon=llm.icon,
                 openaiBaseUrl=llm.baseUrl,
                 openaiApiKey=llm.apiKey,
                 modelName=llm.modelName,
@@ -143,20 +142,24 @@ class LLMManager:
                 if not llm:
                     err = f"[LLMManager] LLM {llm_id} 不存在"
                     raise ValueError(err)
-                llm.icon = req.icon
                 llm.baseUrl = req.openai_base_url
                 llm.apiKey = req.openai_api_key
                 llm.modelName = req.model_name
                 llm.maxToken = req.max_tokens
+                llm.provider = req.provider
+                llm.ctxLength = req.ctx_length
+                llm.extraConfig = req.extra_data or {}
                 await session.commit()
             else:
                 llm = LLMData(
                     id=llm_id,
-                    icon=req.icon,
                     baseUrl=req.openai_base_url,
                     apiKey=req.openai_api_key,
                     modelName=req.model_name,
                     maxToken=req.max_tokens,
+                    provider=req.provider,
+                    ctxLength=req.ctx_length,
+                    extraConfig=req.extra_data or {},
                 )
                 session.add(llm)
                 await session.commit()
@@ -178,9 +181,9 @@ class LLMManager:
             )).one_or_none()
             if not llm:
                 err = f"[LLMManager] LLM {llm_id} 不存在"
-            else:
-                await session.delete(llm)
-                await session.commit()
+                raise ValueError(err)
+            await session.delete(llm)
+            await session.commit()
 
         async with postgres.session() as session:
             # 清除所有FunctionLLM的引用

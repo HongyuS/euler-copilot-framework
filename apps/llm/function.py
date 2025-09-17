@@ -32,11 +32,19 @@ _CLASS_DICT: dict[LLMProvider, type[BaseProvider]] = {
 class FunctionLLM:
     """用于FunctionCall的模型"""
 
-    timeout: float = 30.0
-
     def __init__(self, llm_config: LLMData | None = None) -> None:
-        pass
+        """初始化大模型客户端"""
+        if not llm_config:
+            err = "[FunctionLLM] 未设置LLM配置"
+            _logger.error(err)
+            raise RuntimeError(err)
 
+        if llm_config.provider not in _CLASS_DICT:
+            err = "[FunctionLLM] 未支持的LLM类型: %s", llm_config.provider
+            _logger.error(err)
+            raise RuntimeError(err)
+
+        self._provider = _CLASS_DICT[llm_config.provider](llm_config)
 
     @staticmethod
     async def process_response(response: str) -> str:
@@ -116,11 +124,9 @@ class JsonGenerator:
         )
         self._err_info = ""
 
-
-    async def _assemble_message(self) -> str:
-        """组装消息"""
+    async def _single_trial(self, max_tokens: int | None = None, temperature: float | None = None) -> dict[str, Any]:
+        """单次尝试"""
         # 检查类型
-        function_call = self._llm.config.functionCallBackend == FunctionCallBackend.FUNCTION_CALL
 
         # 渲染模板
         template = self._env.from_string(JSON_GEN_BASIC)
@@ -133,9 +139,6 @@ class JsonGenerator:
             err_info=self._err_info,
         )
 
-    async def _single_trial(self, max_tokens: int | None = None, temperature: float | None = None) -> dict[str, Any]:
-        """单次尝试"""
-        prompt = await self._assemble_message()
         messages = [
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": prompt},

@@ -60,9 +60,6 @@ class OpenAIProvider(BaseProvider):
                 api_key=self.config.apiKey,
                 timeout=self._timeout,
             )
-        # 初始化Token计数
-        self.input_tokens = 0
-        self.output_tokens = 0
 
     def _handle_usage_chunk(self, chunk: ChatCompletionChunk | None, messages: list[dict[str, str]]) -> None:
         """处理包含usage信息的chunk"""
@@ -91,10 +88,15 @@ class OpenAIProvider(BaseProvider):
         *, include_thinking: bool = False,
     ) -> AsyncGenerator[LLMChunk, None]:
         """聊天"""
+        # 检查能力
         if not self._allow_chat:
             err = "[OpenAIProvider] 当前模型不支持Chat"
             _logger.error(err)
             raise RuntimeError(err)
+
+        # 初始化Token计数
+        self.input_tokens = 0
+        self.output_tokens = 0
 
         # 检查消息
         messages = self._validate_messages(messages)

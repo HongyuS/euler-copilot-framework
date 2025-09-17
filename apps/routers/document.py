@@ -11,16 +11,16 @@ from fastapi import APIRouter, Depends, Path, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import verify_personal_token, verify_session
-from apps.schemas.enum_var import DocumentStatus
-from apps.schemas.response_data import (
+from apps.schemas.document import (
     ConversationDocumentItem,
     ConversationDocumentMsg,
     ConversationDocumentRsp,
-    ResponseData,
     UploadDocumentMsg,
     UploadDocumentMsgItem,
     UploadDocumentRsp,
 )
+from apps.schemas.enum_var import DocumentStatus
+from apps.schemas.response_data import ResponseData
 from apps.services.conversation import ConversationManager
 from apps.services.document import DocumentManager
 from apps.services.knowledge_base import KnowledgeBaseService

@@ -54,8 +54,6 @@ class OllamaProvider(BaseProvider):
                 },
                 timeout=self._timeout,
             )
-        self.input_tokens = 0
-        self.output_tokens = 0
 
     def _process_usage_data(self, last_chunk: ChatResponse | None, messages: list[dict[str, str]]) -> None:
         """处理最后一个chunk的usage数据"""
@@ -80,10 +78,15 @@ class OllamaProvider(BaseProvider):
         self, messages: list[dict[str, str]],
         *, include_thinking: bool = False,
     ) -> AsyncGenerator[LLMChunk, None]:
+        # 检查能力
         if not self._allow_chat:
             err = "[OllamaProvider] 当前模型不支持Chat"
             _logger.error(err)
             raise RuntimeError(err)
+
+        # 初始化Token计数
+        self.input_tokens = 0
+        self.output_tokens = 0
 
         # 检查消息
         messages = self._validate_messages(messages)

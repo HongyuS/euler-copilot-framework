@@ -6,15 +6,10 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.models.mcp import MCPInstallStatus, MCPTools
-
 from .appcenter import AppCenterCardItem, AppData
-from .enum_var import DocumentStatus
 from .flow_topology import (
     FlowItem,
-    NodeServiceItem,
 )
-from .mcp import MCPType
 from .parameters import (
     BoolOperate,
     DictOperate,
@@ -121,57 +116,6 @@ class RecordListRsp(ResponseData):
     result: RecordListMsg
 
 
-class ConversationDocumentItem(Document):
-    """GET /api/document/{conversation_id} Result内元素数据结构"""
-
-    id: str = Field(alias="_id", default="")
-    user_sub: None = None
-    status: DocumentStatus
-    conversation_id: None = None
-
-    class Config:
-        """配置"""
-
-        populate_by_name = True
-
-
-class ConversationDocumentMsg(BaseModel):
-    """GET /api/document/{conversation_id} Result数据结构"""
-
-    documents: list[ConversationDocumentItem] = []
-
-
-class ConversationDocumentRsp(ResponseData):
-    """GET /api/document/{conversation_id} 返回数据结构"""
-
-    result: ConversationDocumentMsg
-
-
-class UploadDocumentMsgItem(Document):
-    """POST /api/document/{conversation_id} 返回数据结构"""
-
-    id: str = Field(alias="_id", default="")
-    user_sub: None = None
-    created_at: None = None
-    conversation_id: None = None
-
-    class Config:
-        """配置"""
-
-        populate_by_name = True
-
-
-class UploadDocumentMsg(BaseModel):
-    """POST /api/document/{conversation_id} 返回数据结构"""
-
-    documents: list[UploadDocumentMsgItem]
-
-
-class UploadDocumentRsp(ResponseData):
-    """POST /api/document/{conversation_id} 返回数据结构"""
-
-    result: UploadDocumentMsg
-
 
 class OidcRedirectMsg(BaseModel):
     """GET /api/auth/redirect Result数据结构"""
@@ -200,7 +144,7 @@ class ListTeamKnowledgeRsp(ResponseData):
 class BaseAppOperationMsg(BaseModel):
     """基础应用操作Result数据结构"""
 
-    app_id: str = Field(..., alias="appId", description="应用ID")
+    app_id: uuid.UUID = Field(..., alias="appId", description="应用ID")
 
 
 class BaseAppOperationRsp(ResponseData):
@@ -269,201 +213,6 @@ class GetRecentAppListRsp(ResponseData):
     result: RecentAppList
 
 
-class ServiceCardItem(BaseModel):
-    """语义接口中心：服务卡片数据结构"""
-
-    service_id: uuid.UUID = Field(..., alias="serviceId", description="服务ID")
-    name: str = Field(..., description="服务名称")
-    description: str = Field(..., description="服务简介")
-    icon: str = Field(..., description="服务图标")
-    author: str = Field(..., description="服务作者")
-    favorited: bool = Field(..., description="是否已收藏")
-
-
-class ServiceApiData(BaseModel):
-    """语义接口中心：服务 API 接口属性数据结构"""
-
-    name: str = Field(..., description="接口名称")
-    path: str = Field(..., description="接口路径")
-    description: str = Field(..., description="接口描述")
-
-
-class BaseServiceOperationMsg(BaseModel):
-    """语义接口中心：基础服务操作Result数据结构"""
-
-    service_id: uuid.UUID = Field(..., alias="serviceId", description="服务ID")
-
-
-class GetServiceListMsg(BaseModel):
-    """GET /api/service Result数据结构"""
-
-    current_page: int = Field(..., alias="currentPage", description="当前页码")
-    total_count: int = Field(..., alias="totalCount", description="总服务数")
-    services: list[ServiceCardItem] = Field(..., description="解析后的服务列表")
-
-
-class GetServiceListRsp(ResponseData):
-    """GET /api/service 返回数据结构"""
-
-    result: GetServiceListMsg = Field(..., title="Result")
-
-
-class UpdateServiceMsg(BaseModel):
-    """语义接口中心：服务属性数据结构"""
-
-    service_id: uuid.UUID = Field(..., alias="serviceId", description="服务ID")
-    name: str = Field(..., description="服务名称")
-    apis: list[ServiceApiData] = Field(..., description="解析后的接口列表")
-
-
-class UpdateServiceRsp(ResponseData):
-    """POST /api/service 返回数据结构"""
-
-    result: UpdateServiceMsg = Field(..., title="Result")
-
-
-class GetServiceDetailMsg(BaseModel):
-    """GET /api/service/{serviceId} Result数据结构"""
-
-    service_id: uuid.UUID = Field(..., alias="serviceId", description="服务ID")
-    name: str = Field(..., description="服务名称")
-    apis: list[ServiceApiData] | None = Field(default=None, description="解析后的接口列表")
-    data: dict[str, Any] | None = Field(default=None, description="YAML 内容数据对象")
-
-
-class GetServiceDetailRsp(ResponseData):
-    """GET /api/service/{serviceId} 返回数据结构"""
-
-    result: GetServiceDetailMsg = Field(..., title="Result")
-
-
-class DeleteServiceRsp(ResponseData):
-    """DELETE /api/service/{serviceId} 返回数据结构"""
-
-    result: BaseServiceOperationMsg = Field(..., title="Result")
-
-
-class ChangeFavouriteServiceMsg(BaseModel):
-    """PUT /api/service/{serviceId} Result数据结构"""
-
-    service_id: uuid.UUID = Field(..., alias="serviceId", description="服务ID")
-    favorited: bool = Field(..., description="是否已收藏")
-
-
-class ChangeFavouriteServiceRsp(ResponseData):
-    """PUT /api/service/{serviceId} 返回数据结构"""
-
-    result: ChangeFavouriteServiceMsg = Field(..., title="Result")
-
-
-class NodeServiceListMsg(BaseModel):
-    """GET /api/flow/service result"""
-
-    services: list[NodeServiceItem] = Field(description="服务列表", default=[])
-
-
-class NodeServiceListRsp(ResponseData):
-    """GET /api/flow/service 返回数据结构"""
-
-    result: NodeServiceListMsg
-
-
-class MCPServiceCardItem(BaseModel):
-    """插件中心：MCP服务卡片数据结构"""
-
-    mcpservice_id: str = Field(..., alias="mcpserviceId", description="mcp服务ID")
-    name: str = Field(..., description="mcp服务名称")
-    description: str = Field(..., description="mcp服务简介")
-    icon: str = Field(..., description="mcp服务图标")
-    author: str = Field(..., description="mcp服务作者")
-    is_active: bool = Field(default=False, alias="isActive", description="mcp服务是否激活")
-    status: MCPInstallStatus = Field(default=MCPInstallStatus.INSTALLING, description="mcp服务状态")
-
-
-class BaseMCPServiceOperationMsg(BaseModel):
-    """插件中心：MCP服务操作Result数据结构"""
-
-    service_id: str = Field(..., alias="serviceId", description="服务ID")
-
-
-class GetMCPServiceListMsg(BaseModel):
-    """GET /api/service Result数据结构"""
-
-    current_page: int = Field(..., alias="currentPage", description="当前页码")
-    services: list[MCPServiceCardItem] = Field(..., description="解析后的服务列表")
-
-
-class GetMCPServiceListRsp(ResponseData):
-    """GET /api/service 返回数据结构"""
-
-    result: GetMCPServiceListMsg = Field(..., title="Result")
-
-
-class UpdateMCPServiceMsg(BaseModel):
-    """插件中心：MCP服务属性数据结构"""
-
-    service_id: uuid.UUID = Field(..., alias="serviceId", description="MCP服务ID")
-    name: str = Field(..., description="MCP服务名称")
-
-
-class UpdateMCPServiceRsp(ResponseData):
-    """POST /api/mcp_service 返回数据结构"""
-
-    result: UpdateMCPServiceMsg = Field(..., title="Result")
-
-
-class UploadMCPServiceIconMsg(BaseModel):
-    """POST /api/mcp_service/icon Result数据结构"""
-
-    service_id: str = Field(..., alias="serviceId", description="MCP服务ID")
-    url: str = Field(..., description="图标URL")
-
-
-class UploadMCPServiceIconRsp(ResponseData):
-    """POST /api/mcp_service/icon 返回数据结构"""
-
-    result: UploadMCPServiceIconMsg = Field(..., title="Result")
-
-
-class GetMCPServiceDetailMsg(BaseModel):
-    """GET /api/mcp_service/{serviceId} Result数据结构"""
-
-    service_id: str = Field(..., alias="serviceId", description="MCP服务ID")
-    icon: str = Field(description="图标", default="")
-    name: str = Field(..., description="MCP服务名称")
-    description: str = Field(description="MCP服务描述")
-    overview: str = Field(description="MCP服务概述")
-    tools: list[MCPTools] = Field(description="MCP服务Tools列表", default=[])
-    status: MCPInstallStatus = Field(
-        description="MCP服务状态",
-        default=MCPInstallStatus.INIT,
-    )
-
-
-class EditMCPServiceMsg(BaseModel):
-    """编辑MCP服务"""
-
-    service_id: str = Field(..., alias="serviceId", description="MCP服务ID")
-    icon: str = Field(description="图标", default="")
-    name: str = Field(..., description="MCP服务名称")
-    description: str = Field(description="MCP服务描述")
-    overview: str = Field(description="MCP服务概述")
-    data: dict[str, Any] = Field(description="MCP服务配置")
-    mcp_type: MCPType = Field(alias="mcpType", description="MCP 类型")
-
-
-class GetMCPServiceDetailRsp(ResponseData):
-    """GET /api/service/{serviceId} 返回数据结构"""
-
-    result: GetMCPServiceDetailMsg | EditMCPServiceMsg = Field(..., title="Result")
-
-
-class DeleteMCPServiceRsp(ResponseData):
-    """DELETE /api/service/{serviceId} 返回数据结构"""
-
-    result: BaseMCPServiceOperationMsg = Field(..., title="Result")
-
-
 class FlowStructureGetMsg(BaseModel):
     """GET /api/flow result"""
 
@@ -513,12 +262,6 @@ class UserGetRsp(ResponseData):
     result: UserGetMsp
 
 
-class ActiveMCPServiceRsp(ResponseData):
-    """POST /api/mcp/active/{serviceId} 返回数据结构"""
-
-    result: BaseMCPServiceOperationMsg = Field(..., title="Result")
-
-
 class LLMProvider(BaseModel):
     """LLM提供商数据结构"""
 
@@ -538,7 +281,6 @@ class LLMProviderInfo(BaseModel):
     """LLM数据结构"""
 
     llm_id: str = Field(alias="llmId", description="LLM ID")
-    icon: str = Field(default="", description="LLM图标", max_length=25536)
     openai_base_url: str = Field(
         default="https://api.openai.com/v1",
         description="OpenAI API Base URL",
