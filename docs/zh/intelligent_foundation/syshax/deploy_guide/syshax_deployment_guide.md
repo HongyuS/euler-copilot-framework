@@ -83,19 +83,21 @@ vllm serve /home/models/DeepSeek-R1-Distill-Qwen-32B \
     --served-model-name=ds-32b \
     --host 0.0.0.0 \
     --port 8001 \
-    --dtype=half \
+    --dtype=auto \
     --swap_space=16 \
     --block_size=16 \
     --preemption_mode=swap \
     --max_model_len=8192 \
     --tensor-parallel-size 2 \
-    --gpu_memory_utilization=0.8
+    --gpu_memory_utilization=0.8 \
+    --enable-auto-pd-offload
 ```
 
 在上述脚本中：
 
 - `--tensor-parallel-size 2`：启用张量并行，将模型拆分到2张GPU上运行，需至少2张GPU，开发者可自行修改。
 - `--gpu_memory_utilization=0.8`：限制显存使用率为80%，避免因为显存耗尽而导致服务崩溃，开发者可自行修改。
+- `--enable-auto-pd-offload`：启动在swap out时触发PD分离。
 
 如下流程为在CPU容器中部署vllm。
 
@@ -125,7 +127,8 @@ vllm serve /home/models/DeepSeek-R1-Distill-Qwen-32B \
     --dtype=half \
     --block_size=16 \
     --preemption_mode=swap \
-    --max_model_len=8192
+    --max_model_len=8192 \
+    --enable-auto-pd-offload
 ```
 
 在上述脚本中：
