@@ -16,7 +16,7 @@ from apps.scheduler.pool.loader.app import AppLoader
 from apps.scheduler.pool.loader.flow import FlowLoader
 from apps.scheduler.slot.slot import Slot
 from apps.schemas.enum_var import EdgeType
-from apps.schemas.flow import AppMetadata, Edge, Flow, FlowBasicConfig, FlowCheckStatus, Step
+from apps.schemas.flow import AppMetadata, Edge, Flow, Step
 from apps.schemas.flow_topology import (
     EdgeItem,
     FlowItem,

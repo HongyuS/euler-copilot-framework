@@ -3,12 +3,10 @@
 
 from .const import SlotConstParser
 from .date import SlotDateParser
-from .default import SlotDefaultParser
 from .timestamp import SlotTimestampParser
 
 __all__ = [
     "SlotConstParser",
     "SlotDateParser",
-    "SlotDefaultParser",
     "SlotTimestampParser",
 ]

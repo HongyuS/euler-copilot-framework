@@ -72,7 +72,7 @@ class AppData(BaseModel):
 class CreateAppRequest(AppData):
     """POST /api/app 请求数据结构"""
 
-    app_id: str | None = Field(None, alias="appId", description="应用ID")
+    app_id: uuid.UUID | None = Field(None, alias="appId", description="应用ID")
 
 
 class ChangeFavouriteAppRequest(BaseModel):

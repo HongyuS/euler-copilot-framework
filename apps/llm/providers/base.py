@@ -34,6 +34,8 @@ class BaseProvider:
         self._timeout: float = LLM_TIMEOUT
         self.full_thinking: str = ""
         self.full_answer: str = ""
+        self.input_tokens: int = 0
+        self.output_tokens: int = 0
         self._check_type()
         self._init_client()
 

@@ -31,7 +31,7 @@ class MCPSelector:
         ]
         result = ""
         async for chunk in self._llm.reasoning.call(message):
-            result += chunk
+            result += chunk.content or ""
         return result
 
 

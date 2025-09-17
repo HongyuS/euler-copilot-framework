@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from apps.dependency.user import verify_admin, verify_personal_token, verify_session
 from apps.schemas.enum_var import SearchType
 from apps.schemas.mcp import ActiveMCPServiceRequest, UpdateMCPServiceRequest
-from apps.schemas.response_data import (
+from apps.schemas.mcp_service import (
     ActiveMCPServiceRsp,
     BaseMCPServiceOperationMsg,
     DeleteMCPServiceRsp,
@@ -19,12 +19,12 @@ from apps.schemas.response_data import (
     GetMCPServiceDetailRsp,
     GetMCPServiceListMsg,
     GetMCPServiceListRsp,
-    ResponseData,
     UpdateMCPServiceMsg,
     UpdateMCPServiceRsp,
     UploadMCPServiceIconMsg,
     UploadMCPServiceIconRsp,
 )
+from apps.schemas.response_data import ResponseData
 from apps.services.mcp_service import MCPServiceManager
 
 logger = logging.getLogger(__name__)
@@ -207,11 +207,13 @@ async def get_service_detail(
             name=data.name,
             description=data.description,
             overview=config.overview,
-            data=config.config.model_dump(by_alias=True, exclude_none=True),
+            data=config.model_dump(by_alias=True, exclude_none=True),
             mcpType=config.mcpType,
         )
     else:
         # 组装详情所需信息
+        # 从数据库获取工具列表替代data.tools
+        tools = await MCPServiceManager.get_mcp_tools(service_id)
         detail = GetMCPServiceDetailMsg(
             serviceId=service_id,
             icon=icon,
@@ -219,7 +221,7 @@ async def get_service_detail(
             description=data.description,
             overview=config.overview,
             status=data.status,
-            tools=data.tools,
+            tools=tools,
         )
 
     return JSONResponse(

@@ -25,7 +25,7 @@ from apps.schemas.flow import (
     ServiceApiConfig,
     ServiceMetadata,
 )
-from apps.schemas.response_data import ServiceApiData, ServiceCardItem
+from apps.schemas.service import ServiceApiData, ServiceCardItem
 
 logger = logging.getLogger(__name__)
 

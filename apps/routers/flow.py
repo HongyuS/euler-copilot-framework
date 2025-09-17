@@ -16,10 +16,9 @@ from apps.schemas.response_data import (
     FlowStructureGetRsp,
     FlowStructurePutMsg,
     FlowStructurePutRsp,
-    NodeServiceListMsg,
-    NodeServiceListRsp,
     ResponseData,
 )
+from apps.schemas.service import NodeServiceListMsg, NodeServiceListRsp
 from apps.services.appcenter import AppCenterManager
 from apps.services.flow import FlowManager
 from apps.services.flow_validate import FlowService
@@ -61,7 +60,7 @@ async def get_services(request: Request) -> NodeServiceListRsp:
         status.HTTP_404_NOT_FOUND: {"model": ResponseData},
     },
 )
-async def get_flow(request: Request, appId: uuid.UUID, flowId: uuid.UUID) -> JSONResponse:  # noqa: N803
+async def get_flow(request: Request, appId: uuid.UUID, flowId: str) -> JSONResponse:  # noqa: N803
     """获取流拓扑结构"""
     if not await AppCenterManager.validate_user_app_access(request.state.user_sub, appId):
         return JSONResponse(
@@ -102,7 +101,7 @@ async def get_flow(request: Request, appId: uuid.UUID, flowId: uuid.UUID) -> JSO
 async def put_flow(
     request: Request,
     appId: Annotated[uuid.UUID, Query()],  # noqa: N803
-    flowId: Annotated[uuid.UUID, Query()],  # noqa: N803
+    flowId: Annotated[str, Query()],  # noqa: N803
     put_body: Annotated[PutFlowReq, Body()],
 ) -> JSONResponse:
     """修改流拓扑结构"""
@@ -117,7 +116,7 @@ async def put_flow(
         )
     put_body.flow = await FlowService.remove_excess_structure_from_flow(put_body.flow)
     await FlowService.validate_flow_illegal(put_body.flow)
-    put_body.flow.connectivity = await FlowService.validate_flow_connectivity(put_body.flow)
+    put_body.flow.check_status.connectivity = await FlowService.validate_flow_connectivity(put_body.flow)
 
     try:
         await FlowManager.put_flow_by_app_and_flow_id(appId, flowId, put_body.flow)
@@ -156,7 +155,7 @@ async def put_flow(
         status.HTTP_404_NOT_FOUND: {"model": ResponseData},
     },
 )
-async def delete_flow(request: Request, appId: uuid.UUID, flowId: uuid.UUID) -> JSONResponse:  # noqa: N803
+async def delete_flow(request: Request, appId: uuid.UUID, flowId: str) -> JSONResponse:  # noqa: N803
     """删除流拓扑结构"""
     if not await AppCenterManager.validate_app_belong_to_user(request.state.user_sub, appId):
         return JSONResponse(

@@ -24,7 +24,9 @@ class LLMData(Base):
     """LLM API Key"""
     modelName: Mapped[str] = mapped_column(String(300), nullable=False)  # noqa: N815
     """LLM模型名"""
-    maxToken: Mapped[int] = mapped_column(Integer, default=8192, nullable=False)  # noqa: N815
+    ctxLength: Mapped[int] = mapped_column(Integer, default=8192, nullable=False)  # noqa: N815
+    """LLM总上下文长度"""
+    maxToken: Mapped[int] = mapped_column(Integer, default=2048, nullable=False)  # noqa: N815
     """LLM最大Token数量"""
     temperature: Mapped[float] = mapped_column(Float, default=0.7, nullable=False)
     """LLM温度"""

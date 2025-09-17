@@ -180,7 +180,7 @@ async def update_conversation(
                 conversationId=conv.id,
                 title=conv.title,
                 docCount=await DocumentManager.get_doc_count(user_sub, conv.id),
-                createdTime=datetime.fromtimestamp(conv.createdAt, tz=pytz.timezone("Asia/Shanghai")).strftime(
+                createdTime=datetime.fromtimestamp(conv.createdAt, tz=UTC).strftime(
                     "%Y-%m-%d %H:%M:%S",
                 ),
                 appId=conv.appId if conv.appId else "",
