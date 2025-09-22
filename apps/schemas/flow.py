@@ -13,6 +13,8 @@ from .enum_var import (
     MetadataType,
     PermissionType,
 )
+from .flow_topology import FlowItem
+from .response_data import ResponseData
 
 
 class Edge(BaseModel):
@@ -159,4 +161,41 @@ class AppMetadata(MetadataBase):
     first_questions: list[str] = Field(description="首次提问", default=[])
     history_len: int = Field(description="对话轮次", default=3, le=10)
     permission: Permission | None = Field(description="应用权限配置", default=None)
+    flows: list[AppFlow] = Field(description="Flow列表", default=[])
+
+
+class FlowStructureGetMsg(BaseModel):
+    """GET /api/flow result"""
+
+    flow: FlowItem = Field(default=FlowItem())
+
+
+class FlowStructureGetRsp(ResponseData):
+    """GET /api/flow 返回数据结构"""
+
+    result: FlowStructureGetMsg
+
+
+class FlowStructurePutMsg(BaseModel):
+    """PUT /api/flow result"""
+
+    flow: FlowItem = Field(default=FlowItem())
+
+
+class FlowStructurePutRsp(ResponseData):
+    """PUT /api/flow 返回数据结构"""
+
+    result: FlowStructurePutMsg
+
+
+class FlowStructureDeleteMsg(BaseModel):
+    """DELETE /api/flow/ result"""
+
+    flow_id: str = Field(alias="flowId", default="")
+
+
+class FlowStructureDeleteRsp(ResponseData):
+    """DELETE /api/flow/ 返回数据结构"""
+
+    result: FlowStructureDeleteMsg
     flows: list[AppFlow] = Field(description="Flow列表", default=[])

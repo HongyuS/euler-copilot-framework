@@ -4,9 +4,9 @@ import sys
 from pathlib import Path
 
 project = "openEuler Intelligence Framework"
-copyright = "2025, Huawei Technologies Co., Ltd."
+copyright = "2025, Huawei Technologies Co., Ltd."  # noqa: A001
 author = "sig-intelligence"
-release = "0.9.6"
+release = "0.10.0"
 
 extensions = [
     "sphinx.ext.autodoc",

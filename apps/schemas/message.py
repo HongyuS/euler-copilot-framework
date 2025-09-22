@@ -90,13 +90,6 @@ class DocumentAddContent(BaseModel):
     )
 
 
-class FlowStartContent(BaseModel):
-    """flow.start消息的content"""
-
-    question: str = Field(description="用户问题")
-    params: dict[str, Any] | None = Field(description="预先提供的参数", default=None)
-
-
 class MessageBase(HeartbeatData):
     """基础消息事件结构"""
 

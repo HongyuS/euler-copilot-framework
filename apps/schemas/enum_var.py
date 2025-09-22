@@ -174,27 +174,9 @@ class AppType(str, Enum):
 class AppFilterType(str, Enum):
     """应用过滤类型"""
 
-    ALL = "all"  # 所有已发布的应用
-    USER = "user"  # 用户创建的应用
-    FAVORITE = "favorite"  # 用户收藏的应用
-
-
-class Role(str, Enum):
-    """Message role类型"""
-
-    SYSTEM = "system"
+    ALL = "all"
     USER = "user"
-    ASSISTANT = "assistant"
-    TOOL = "tool"
-
-
-class AgentState(str, Enum):
-    """Agent执行状态"""
-
-    IDLE = "IDLE"
-    RUNNING = "RUNNING"
-    FINISHED = "FINISHED"
-    ERROR = "ERROR"
+    FAVORITE = "favorite"
 
 
 class LanguageType(str, Enum):

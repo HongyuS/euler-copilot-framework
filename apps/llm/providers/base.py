@@ -51,6 +51,7 @@ class BaseProvider:
     async def chat(
         self, messages: list[dict[str, str]],
         *, include_thinking: bool = False,
+        tools: list[LLMFunctions] | None = None,
     ) -> AsyncGenerator[LLMChunk, None]:
         """聊天"""
         raise NotImplementedError
@@ -61,6 +62,3 @@ class BaseProvider:
         raise NotImplementedError
 
 
-    async def tool_call(self, messages: list[dict[str, str]], tools: list[LLMFunctions]) -> str:
-        """工具调用"""
-        raise NotImplementedError

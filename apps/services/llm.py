@@ -13,36 +13,15 @@ from apps.schemas.request_data import (
     UpdateUserSelectedLLMReq,
 )
 from apps.schemas.response_data import (
-    LLMProvider,
     LLMProviderInfo,
     UserSelectedLLMData,
 )
-from apps.templates.generate_llm_operator_config import llm_provider_dict
 
 logger = logging.getLogger(__name__)
 
 
 class LLMManager:
     """大模型管理"""
-
-    @staticmethod
-    async def list_llm_provider() -> list[LLMProvider]:
-        """
-        获取大模型提供商列表
-
-        :return: 大模型提供商列表
-        """
-        provider_list = []
-        for provider in llm_provider_dict.values():
-            item = LLMProvider(
-                provider=provider["provider"],
-                url=provider["url"],
-                description=provider["description"],
-                icon=provider["icon"],
-            )
-            provider_list.append(item)
-        return provider_list
-
 
     @staticmethod
     async def get_user_selected_llm(user_sub: str) -> UserSelectedLLMData | None:
@@ -142,8 +121,8 @@ class LLMManager:
                 if not llm:
                     err = f"[LLMManager] LLM {llm_id} 不存在"
                     raise ValueError(err)
-                llm.baseUrl = req.openai_base_url
-                llm.apiKey = req.openai_api_key
+                llm.baseUrl = req.base_url
+                llm.apiKey = req.api_key
                 llm.modelName = req.model_name
                 llm.maxToken = req.max_tokens
                 llm.provider = req.provider
@@ -153,8 +132,8 @@ class LLMManager:
             else:
                 llm = LLMData(
                     id=llm_id,
-                    baseUrl=req.openai_base_url,
-                    apiKey=req.openai_api_key,
+                    baseUrl=req.base_url,
+                    apiKey=req.api_key,
                     modelName=req.model_name,
                     maxToken=req.max_tokens,
                     provider=req.provider,

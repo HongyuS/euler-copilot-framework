@@ -12,11 +12,11 @@ from fastapi.responses import JSONResponse
 
 from apps.dependency import verify_personal_token, verify_session
 from apps.schemas.document import (
+    BaseDocumentItem,
     ConversationDocumentItem,
     ConversationDocumentMsg,
     ConversationDocumentRsp,
     UploadDocumentMsg,
-    UploadDocumentMsgItem,
     UploadDocumentRsp,
 )
 from apps.schemas.enum_var import DocumentStatus
@@ -46,9 +46,9 @@ async def document_upload(
     await KnowledgeBaseService.send_file_to_rag(request.state.session_id, result)
 
     # 返回所有Framework已知的文档
-    succeed_document: list[UploadDocumentMsgItem] = [
-        UploadDocumentMsgItem(
-            _id=doc.id,
+    succeed_document: list[BaseDocumentItem] = [
+        BaseDocumentItem(
+            id=doc.id,
             name=doc.name,
             type=doc.extension,
             size=doc.size,
@@ -90,7 +90,7 @@ async def get_document_list(
         docs = await DocumentManager.get_used_docs(conversation_id)
         result += [
             ConversationDocumentItem(
-                _id=item.id,
+                id=item.id,
                 name=item.name,
                 type=item.extension,
                 size=round(item.size, 2),
@@ -120,7 +120,7 @@ async def get_document_list(
 
                 result += [
                     ConversationDocumentItem(
-                        _id=current_doc.id,
+                        id=current_doc.id,
                         name=current_doc.name,
                         type=current_doc.extension,
                         size=round(current_doc.size, 2),

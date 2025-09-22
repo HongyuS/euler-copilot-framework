@@ -67,3 +67,8 @@ class ReasoningLLM:
     def output_tokens(self) -> int:
         """获取输出token数"""
         return self._provider.output_tokens
+
+    @property
+    def config(self) -> LLMData:
+        """获取大模型配置"""
+        return self._provider.config

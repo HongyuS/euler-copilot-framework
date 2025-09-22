@@ -77,6 +77,7 @@ class OllamaProvider(BaseProvider):
     async def chat(
         self, messages: list[dict[str, str]],
         *, include_thinking: bool = False,
+        tools: list[LLMFunctions] | None = None,
     ) -> AsyncGenerator[LLMChunk, None]:
         # 检查能力
         if not self._allow_chat:
@@ -93,16 +94,32 @@ class OllamaProvider(BaseProvider):
 
         # 流式返回响应
         last_chunk = None
-        async for chunk in await self._client.chat(
-            model=self.config.modelName,
-            messages=messages,
-            options={
+        chat_kwargs = {
+            "model": self.config.modelName,
+            "messages": messages,
+            "options": {
                 "temperature": self.config.temperature,
                 "num_predict": self.config.maxToken,
             },
-            stream=True,
+            "stream": True,
             **self.config.extraConfig,
-        ):
+        }
+
+        # 如果提供了tools，则传入以启用function-calling模式
+        if tools:
+            functions = []
+            for tool in tools:
+                functions += [{
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.param_schema,
+                    },
+                }]
+            chat_kwargs["tools"] = functions
+
+        async for chunk in await self._client.chat(**chat_kwargs):
             last_chunk = chunk
             if chunk.message.thinking:
                 self.full_thinking += chunk.message.thinking
@@ -110,6 +127,16 @@ class OllamaProvider(BaseProvider):
             if chunk.message.content:
                 self.full_answer += chunk.message.content
                 yield LLMChunk(content=chunk.message.content)
+
+            # 在chat中统一处理工具调用分块（当提供了tools时）
+            if tools and chunk.message.tool_calls:
+                tool_call_dict = {}
+                for tool_call in chunk.message.tool_calls:
+                    tool_call_dict.update({
+                        tool_call.function.name: tool_call.function.arguments,
+                    })
+                if tool_call_dict:
+                    yield LLMChunk(tool_call=tool_call_dict)
 
         # 使用最后一个chunk的usage数据
         self._process_usage_data(last_chunk, messages)
@@ -138,62 +165,4 @@ class OllamaProvider(BaseProvider):
         )
         return self._seq_to_list(result.embeddings)
 
-    @override
-    async def tool_call(
-        self, messages: list[dict[str, str]], tools: list[LLMFunctions],
-    ) -> AsyncGenerator[LLMChunk, None]:
-        """工具调用"""
-        if not self._allow_function:
-            err = "[OllamaProvider] 当前模型不支持Function Call"
-            _logger.error(err)
-            raise RuntimeError(err)
-
-        # 检查消息
-        messages = self._validate_messages(messages)
-
-        # 组装functions
-        functions = []
-        for tool in tools:
-            functions += [{
-                "type": "function",
-                "function": {
-                    "name": tool.name,
-                    "description": tool.description,
-                    "parameters": tool.param_schema,
-                },
-            }]
-
-        # 流式返回响应
-        last_chunk = None
-        async for chunk in await self._client.chat(
-            model=self.config.modelName,
-            messages=messages,
-            tools=functions,
-            options={
-                "temperature": self.config.temperature,
-                "num_predict": self.config.maxToken,
-            },
-            stream=True,
-            **self.config.extraConfig,
-        ):
-            last_chunk = chunk
-            if chunk.message.thinking:
-                self.full_thinking += chunk.message.thinking
-                yield LLMChunk(reasoning_content=chunk.message.thinking)
-            if chunk.message.content:
-                self.full_answer += chunk.message.content
-                yield LLMChunk(content=chunk.message.content)
-            if chunk.message.tool_calls:
-                # 将ToolCall对象转换为字典格式
-                for tool_call in chunk.message.tool_calls:
-                    tool_call_dict = {
-                        "function": {
-                            "name": tool_call.function.name,
-                            "arguments": tool_call.function.arguments,
-                        },
-                    }
-                    yield LLMChunk(tool_call=tool_call_dict)
-
-        # 使用最后一个chunk的usage数据
-        self._process_usage_data(last_chunk, messages)
 

@@ -5,9 +5,11 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import verify_personal_token, verify_session
-from apps.schemas.response_data import ResponseData, UserGetMsp, UserGetRsp
+from apps.schemas.request_data import UpdateUserSelectedLLMReq, UserUpdateRequest
+from apps.schemas.response_data import ResponseData, UserGetMsp, UserGetRsp, UserSelectedLLMData
 from apps.schemas.tag import UserTagListResponse
 from apps.schemas.user import UserInfo
+from apps.services.llm import LLMManager
 from apps.services.user import UserManager
 from apps.services.user_tag import UserTagManager
 
@@ -22,7 +24,7 @@ router = APIRouter(
 async def update_user_info(request: Request, data: UserUpdateRequest) -> JSONResponse:
     """POST /auth/user: 更新当前用户信息"""
     # 更新用户信息
-    await UserManager.update_userinfo_by_user_sub(request.state.user_sub, data)
+    await UserManager.update_user(request.state.user_sub, data)
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -61,11 +63,26 @@ async def list_user(
 )
 async def update_user_llm(
     request: Request,
-    llmId: str,  # noqa: N803
+    llm_request: UpdateUserSelectedLLMReq,
 ) -> JSONResponse:
-    """更新用户所选的大模型"""
+    """更新用户所选的EmbeddingLLM和FunctionLLM"""
     try:
-        await LLMManager.update_user_selected_llm(request.state.user_sub, llmId)
+        await LLMManager.update_user_selected_llm(request.state.user_sub, llm_request)
+
+        # 返回更新后的LLM配置
+        result_data = UserSelectedLLMData.model_validate({
+            "functionLLM": llm_request.functionLLM,
+            "embeddingLLM": llm_request.embeddingLLM,
+        })
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content=ResponseData(
+                code=status.HTTP_200_OK,
+                message="用户LLM配置更新成功",
+                result=result_data,
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
     except ValueError as e:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -75,14 +92,6 @@ async def update_user_llm(
                 result=None,
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content=ResponseData(
-            code=status.HTTP_200_OK,
-            message="success",
-            result=llmId,
-        ).model_dump(exclude_none=True, by_alias=True),
-    )
 
 
 @router.get("/tag",

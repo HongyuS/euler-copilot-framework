@@ -6,6 +6,7 @@ import uuid
 from pydantic import BaseModel, Field
 
 from .enum_var import AppType, PermissionType
+from .response_data import ResponseData
 
 
 class AppCenterCardItem(BaseModel):
@@ -69,6 +70,14 @@ class AppData(BaseModel):
     mcp_service: list[str] = Field(default=[], alias="mcpService", description="MCP服务id列表")
 
 
+class AppMcpServiceInfo(BaseModel):
+    """MCP服务信息"""
+
+    id: uuid.UUID = Field(description="MCP服务ID")
+    name: str = Field(description="MCP服务名称")
+    description: str = Field(description="MCP服务描述")
+
+
 class CreateAppRequest(AppData):
     """POST /api/app 请求数据结构"""
 
@@ -79,3 +88,76 @@ class ChangeFavouriteAppRequest(BaseModel):
     """PUT /api/app/{appId} 请求数据结构"""
 
     favorited: bool = Field(..., description="是否收藏")
+
+
+class GetAppPropertyMsg(AppData):
+    """GET /api/app/{appId} Result数据结构"""
+
+    app_id: str = Field(..., alias="appId", description="应用ID")
+    published: bool = Field(..., description="是否已发布")
+    mcp_service: list[AppMcpServiceInfo] = Field(default=[], alias="mcpService", description="MCP服务信息列表")
+
+
+class GetAppPropertyRsp(ResponseData):
+    """GET /api/app/{appId} 返回数据结构"""
+
+    result: GetAppPropertyMsg
+
+
+class ChangeFavouriteAppMsg(BaseModel):
+    """PUT /api/app/{appId} Result数据结构"""
+
+    app_id: uuid.UUID = Field(..., alias="appId", description="应用ID")
+    favorited: bool = Field(..., description="是否已收藏")
+
+
+class ChangeFavouriteAppRsp(ResponseData):
+    """PUT /api/app/{appId} 返回数据结构"""
+
+    result: ChangeFavouriteAppMsg
+
+
+class GetAppListMsg(BaseModel):
+    """GET /api/app Result数据结构"""
+
+    page_number: int = Field(..., alias="currentPage", description="当前页码")
+    app_count: int = Field(..., alias="totalApps", description="总应用数")
+    applications: list[AppCenterCardItem] = Field(..., description="应用列表")
+
+
+class GetAppListRsp(ResponseData):
+    """GET /api/app 返回数据结构"""
+
+    result: GetAppListMsg
+
+
+class RecentAppListItem(BaseModel):
+    """GET /api/app/recent 列表项数据结构"""
+
+    app_id: uuid.UUID = Field(..., alias="appId", description="应用ID")
+    name: str = Field(..., description="应用名称")
+
+
+class RecentAppList(BaseModel):
+    """GET /api/app/recent Result数据结构"""
+
+    applications: list[RecentAppListItem] = Field(..., description="最近使用的应用列表")
+
+
+class GetRecentAppListRsp(ResponseData):
+    """GET /api/app/recent 返回数据结构"""
+
+    result: RecentAppList
+
+
+class BaseAppOperationMsg(BaseModel):
+    """基础应用操作Result数据结构"""
+
+    app_id: uuid.UUID = Field(..., alias="appId", description="应用ID")
+
+
+class BaseAppOperationRsp(ResponseData):
+    """基础应用操作返回数据结构"""
+
+    result: BaseAppOperationMsg
+

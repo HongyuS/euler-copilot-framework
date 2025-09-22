@@ -10,10 +10,10 @@ SUGGEST_PROMPT: dict[LanguageType, str] = {
         r"""
             <instructions>
                 <instruction>
-                    根据提供的对话和附加信息（用户倾向、历史问题列表、工具信息等），生成三个预测问题。
-                    历史提问列表展示的是用户发生在历史对话之前的提问，仅为背景参考作用。
-                    对话将在<conversation>标签中给出，用户倾向将在<domain>标签中给出，\
-                    历史问题列表将在<history_list>标签中给出，工具信息将在<tool_info>标签中给出。
+                    根据先前的历史对话和提供的附加信息（用户倾向、问题列表、工具信息等）生成三个预测问题。
+                    问题列表展示的是用户的过往问题，请避免重复生成这些问题。
+                    用户倾向将在<domain>标签中给出，历史问题列表将在<history_questions>标签中给出，
+                    工具信息将在<tool_info>标签中给出。
 
                     生成预测问题时的要求：
                         1. 以用户口吻生成预测问题，数量必须为3个，必须为疑问句或祈使句，必须少于30字。
@@ -29,17 +29,13 @@ SUGGEST_PROMPT: dict[LanguageType, str] = {
                             ]
                         }
                         ```
+
                 </instruction>
                 <example>
-                    <conversation>
-                        <user>杭州有哪些著名景点？</user>
-                        <assistant>杭州西湖是中国浙江省杭州市的一个著名景点，以其美丽的自然风光和丰富的文化遗产而闻名。\
-西湖周围有许多著名的景点，包括著名的苏堤、白堤、断桥、三潭印月等。西湖以其清澈的湖水和周围的山脉而著名，是中国最著名的湖泊之一。</assistant>
-                    </conversation>
-                    <history_list>
+                    <history_questions>
                         <question>简单介绍一下杭州</question>
                         <question>杭州有哪些著名景点？</question>
-                    </history_list>
+                    </history_questions>
                     <tool_info>
                         <name>景点查询</name>
                         <description>查询景点信息</description>
@@ -51,8 +47,8 @@ SUGGEST_PROMPT: dict[LanguageType, str] = {
                     {
                         "predicted_questions": [
                             "杭州西湖景区的门票价格是多少？",
-                            "杭州有哪些著名景点？",
-                            "杭州的天气怎么样？"
+                            "杭州的天气怎么样？",
+                            "杭州有什么特色美食？"
                         ]
                     }
                 </example>
@@ -60,21 +56,16 @@ SUGGEST_PROMPT: dict[LanguageType, str] = {
 
             下面是实际的数据：
 
-            <conversation>
-                {% for message in conversation %}
-                    <{{ message.role }}>{{ message.content }}</{{ message.role }}>
+            请参考以下历史问题进行问题生成，避免重复已提出的问题：
+            {% if history %}
+                <history_questions>
+                {% for question in history %}
+                    <question>{{ question }}</question>
                 {% endfor %}
-            </conversation>
-
-            <history_list>
-                {% if history %}
-                    {% for question in history %}
-                        <question>{{ question }}</question>
-                    {% endfor %}
-                {% else %}
-                    (无历史问题)
-                {% endif %}
-            </history_list>
+                </history_questions>
+            {% else %}
+                (无历史问题)
+            {% endif %}
 
             <tool_info>
                 {% if tool %}
@@ -100,14 +91,13 @@ SUGGEST_PROMPT: dict[LanguageType, str] = {
         r"""
             <instructions>
                 <instruction>
-                    Generate three predicted questions based on the provided conversation and additional information \
-(user preferences, historical question list, tool information, etc.).
-                    The historical question list displays questions asked by the user before the historical \
-conversation and is for background reference only.
-                    The conversation will be given in the <conversation> tag, the user preferences will be given in \
-        the <domain> tag,
-                    the historical question list will be given in the <history_list> tag, and the tool information \
-will be given in the <tool_info> tag.
+                    Generate three predicted questions based on the previous historical dialogue and provided \
+additional information (user preferences, historical question list, tool information, etc.).
+                    The question list displays the user's past questions, which should be avoided when generating \
+predictions.
+                    The user preferences will be given in the <domain> tag,
+                    the historical question list will be given in the <history_questions> tag, and the tool \
+information will be given in the <tool_info> tag.
 
                     Requirements for generating predicted questions:
 
@@ -130,18 +120,10 @@ other than the question.
                         ```
                 </instruction>
                 <example>
-                    <conversation>
-                        <user>What are the famous attractions in Hangzhou ? </user>
-                        <assistant>Hangzhou West Lake is a famous scenic spot in Hangzhou, Zhejiang Province, China, \
-known for its beautiful natural scenery and rich cultural heritage. There are many famous attractions around West Lake\
-, including the renowned Su Causeway, Bai Causeway, Broken Bridge, and the Three Pools Mirroring the Moon. \
-West Lake is renowned for its clear waters and surrounding mountains, making it one of China's most famous \
-lakes. </assistant>
-                    </conversation>
-                    <history_list>
+                    <history_questions>
                         <question>Briefly introduce Hangzhou</question>
                         <question>What are the famous attractions in Hangzhou ? </question>
-                    </history_list>
+                    </history_questions>
                     <tool_info>
                         <name>Scenic Spot Search</name>
                         <description>Scenic Spot Information Search</description>
@@ -153,8 +135,8 @@ lakes. </assistant>
                     {
                         "predicted_questions": [
                             "What is the ticket price for the West Lake Scenic Area in Hangzhou?",
-                            "What are the famous attractions in Hangzhou?",
-                            "What's the weather like in Hangzhou?"
+                            "What's the weather like in Hangzhou?",
+                            "What are the local specialties in Hangzhou?"
                         ]
                     }
                 </example>
@@ -162,21 +144,16 @@ lakes. </assistant>
 
             Here's the actual data:
 
-            <conversation>
-                {% for message in conversation %}
-                    <{{ message.role }}>{{ message.content }}</{{ message.role }}>
+            Please refer to the following history questions for question generation, avoiding duplicate questions:
+            {% if history %}
+                <history_questions>
+                {% for question in history %}
+                    <question>{{ question }}</question>
                 {% endfor %}
-            </conversation>
-
-            <history_list>
-                {% if history %}
-                    {% for question in history %}
-                        <question>{{ question }}</question>
-                    {% endfor %}
-                {% else %}
-                    (No history question)
-                {% endif %}
-            </history_list>
+                </history_questions>
+            {% else %}
+                (No history question)
+            {% endif %}
 
             <tool_info>
                 {% if tool %}
@@ -195,7 +172,7 @@ lakes. </assistant>
                 {% endif %}
             </domain>
 
-            Now, generate the question:
+            Now, generate questions:
         """,
     ),
 }

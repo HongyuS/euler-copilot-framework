@@ -104,6 +104,7 @@ class IsParamError(BaseModel):
 
     is_param_error: bool = Field(description="是否是参数错误", default=False)
 
+
 class MCPSelectResult(BaseModel):
     """MCP选择结果"""
 
@@ -135,7 +136,7 @@ class Step(BaseModel):
 class UpdateMCPServiceRequest(BaseModel):
     """POST /api/mcpservice 请求数据结构"""
 
-    service_id: str | None = Field(None, alias="serviceId", description="服务ID（更新时传递）")
+    mcp_id: str = Field(alias="mcpId", description="MCP服务ID（更新时传递）")
     name: str = Field(..., description="MCP服务名称")
     description: str = Field(..., description="MCP服务描述")
     overview: str = Field(..., description="MCP服务概述")

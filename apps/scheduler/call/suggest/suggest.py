@@ -46,7 +46,6 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
     configs: list[SingleFlowSuggestionConfig] = Field(description="问题推荐配置", default=[])
     num: int = Field(default=3, ge=1, le=6, description="推荐问题的总数量（必须大于等于configs中涉及的Flow的数量）")
 
-    context: SkipJsonSchema[list[dict[str, str]]] = Field(description="Executor的上下文", exclude=True)
     conversation_id: SkipJsonSchema[uuid.UUID] = Field(description="对话ID", exclude=True)
 
 
@@ -66,21 +65,10 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
     @classmethod
     async def instance(cls, executor: "StepExecutor", node: NodeInfo | None, **kwargs: Any) -> Self:
         """初始化"""
-        context = [
-            {
-                "role": "user",
-                "content": executor.task.runtime.userInput,
-            },
-            {
-                "role": "assistant",
-                "content": executor.task.runtime.fullAnswer,
-            },
-        ]
         obj = cls(
             name=executor.step.step.name,
             description=executor.step.step.description,
             node=node,
-            context=context,
             conversation_id=executor.task.metadata.conversationId,
             **kwargs,
         )
@@ -163,7 +151,6 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
                 question = config.question
             else:
                 prompt = prompt_tpl.render(
-                    conversation=self.context,
                     history=self._history_questions,
                     tool={
                         "name": config.flow_id,
@@ -171,11 +158,14 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
                     },
                     preference=user_domain,
                 )
+                # 按照正确的顺序：system -> conversation -> prompt
+                messages = [
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    *self._sys_vars.background.conversation,
+                    {"role": "user", "content": prompt},
+                ]
                 result = await self._json(
-                    messages=[
-                        {"role": "system", "content": "You are a helpful assistant."},
-                        {"role": "user", "content": prompt},
-                    ],
+                    messages=messages,
                     schema=SuggestGenResult.model_json_schema(),
                 )
                 questions = SuggestGenResult.model_validate(result)
@@ -195,7 +185,6 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
 
         while pushed_questions < self.num:
             prompt = prompt_tpl.render(
-                conversation=self.context,
                 history=self._history_questions,
                 tool={
                     "name": self._flow_id,
@@ -203,11 +192,14 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
                 },
                 preference=user_domain,
             )
+            # 按照正确的顺序：system -> conversation -> prompt
+            messages = [
+                {"role": "system", "content": "You are a helpful assistant."},
+                *self._sys_vars.background.conversation,
+                {"role": "user", "content": prompt},
+            ]
             result = await self._json(
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": prompt},
-                ],
+                messages=messages,
                 schema=SuggestGenResult.model_json_schema(),
             )
             questions = SuggestGenResult.model_validate(result)

@@ -34,7 +34,7 @@ from apps.schemas.mcp import (
     MCPServerStdioConfig,
     UpdateMCPServiceRequest,
 )
-from apps.schemas.response_data import MCPServiceCardItem
+from apps.schemas.mcp_service import MCPServiceCardItem
 
 logger = logging.getLogger(__name__)
 MCP_ICON_PATH = ICON_PATH / "mcp"
@@ -222,7 +222,7 @@ class MCPServiceManager:
 
 
     @staticmethod
-    async def create_mcpservice(data: UpdateMCPServiceRequest, user_sub: str) -> uuid.UUID:
+    async def create_mcpservice(data: UpdateMCPServiceRequest, user_sub: str) -> str:
         """
         创建MCP服务
 
@@ -235,16 +235,13 @@ class MCPServiceManager:
         else:
             config = MCPServerStdioConfig.model_validate(data.config)
 
-        if not data.service_id:
-            data.service_id = str(uuid.uuid4())
-
         # 构造Server
         mcp_server = MCPServerConfig(
             name=await MCPServiceManager.clean_name(data.name),
             overview=data.overview,
             description=data.description,
             mcpServers={
-                data.service_id: config,
+                data.mcp_id: config,
             },
             mcpType=data.mcp_type,
             author=user_sub,
@@ -259,7 +256,7 @@ class MCPServiceManager:
 
         # 保存并载入配置
         logger.info("[MCPServiceManager] 创建mcp：%s", mcp_server.name)
-        mcp_path = MCP_PATH / "template" / data.service_id / "project"
+        mcp_path = MCP_PATH / "template" / data.mcp_id / "project"
         index = None
         if isinstance(config, MCPServerStdioConfig):
             index = None
@@ -275,28 +272,37 @@ class MCPServiceManager:
                     config.args[index] = str(mcp_path)
             else:
                 config.args += ["--directory", str(mcp_path)]
-        await MCPLoader._insert_template_db(mcp_id=mcp_id, config=mcp_server)
-        await MCPLoader.save_one(mcp_server.id, mcp_server)
-        await MCPLoader.update_template_status(mcp_id, MCPInstallStatus.INIT)
-        return mcp_server.id
+        async with postgres.session() as session:
+            await session.merge(MCPInfo(
+                id=data.mcp_id,
+                name=mcp_server.name,
+                overview=mcp_server.overview,
+                description=mcp_server.description,
+                mcpType=mcp_server.mcpType,
+                author=mcp_server.author or "",
+            ))
+            await session.commit()
+        await MCPLoader.save_one(data.mcp_id, mcp_server)
+        await MCPLoader.update_template_status(data.mcp_id, MCPInstallStatus.INIT)
+        return data.mcp_id
 
 
     @staticmethod
-    async def update_mcpservice(data: UpdateMCPServiceRequest, user_sub: str) -> uuid.UUID:
+    async def update_mcpservice(data: UpdateMCPServiceRequest, user_sub: str) -> str:
         """
         更新MCP服务
 
         :param UpdateMCPServiceRequest data: MCP服务配置
         :return: MCP服务ID
         """
-        if not data.service_id:
+        if not data.mcp_id:
             msg = "[MCPServiceManager] MCP服务ID为空"
             raise ValueError(msg)
 
         async with postgres.session() as session:
             db_service = (await session.scalars(select(MCPInfo).where(
                 and_(
-                    MCPInfo.id == data.service_id,
+                    MCPInfo.id == data.mcp_id,
                     MCPInfo.author == user_sub,
                 ),
             ))).one_or_none()
@@ -304,27 +310,33 @@ class MCPServiceManager:
             msg = "[MCPServiceManager] MCP服务未找到或无权限"
             raise ValueError(msg)
 
-        db_service = MCPCollection.model_validate(db_service)
+        db_service = MCPInfo.model_validate(db_service)
         for user_id in db_service.activated:
-            await MCPServiceManager.deactive_mcpservice(user_sub=user_id, mcp_id=data.service_id)
+            await MCPServiceManager.deactive_mcpservice(user_sub=user_id, mcp_id=data.mcp_id)
 
         mcp_config = MCPServerConfig(
             name=data.name,
             overview=data.overview,
             description=data.description,
-            mcpServers=MCPServerStdioConfig.model_validate(
-                data.config,
-            ) if data.mcp_type == MCPType.STDIO else MCPServerSSEConfig.model_validate(
-                data.config,
-            ),
+            mcpServers={
+                data.mcp_id: config,
+            },
             mcpType=data.mcp_type,
             author=user_sub,
         )
-        await MCPLoader._insert_template_db(mcp_id=data.service_id, config=mcp_config)
-        await MCPLoader.save_one(mcp_id=data.service_id, config=mcp_config)
-        await MCPLoader.update_template_status(data.service_id, MCPInstallStatus.INIT)
-        # 返回服务ID
-        return data.service_id
+        async with postgres.session() as session:
+            await session.merge(MCPInfo(
+                id=data.mcp_id,
+                name=mcp_config.name,
+                overview=mcp_config.overview,
+                description=mcp_config.description,
+                mcpType=mcp_config.mcpType,
+                author=mcp_config.author or "",
+            ))
+            await session.commit()
+        await MCPLoader.save_one(mcp_id=data.mcp_id, config=mcp_config)
+        await MCPLoader.update_template_status(data.mcp_id, MCPInstallStatus.INIT)
+        return data.mcp_id
 
 
     @staticmethod
@@ -469,7 +481,7 @@ class MCPServiceManager:
 
 
     @staticmethod
-    async def install_mcpservice(user_sub: str, service_id: str, install: bool) -> None:
+    async def install_mcpservice(user_sub: str, service_id: str, *, install: bool) -> None:
         """
         安装或卸载MCP服务
 

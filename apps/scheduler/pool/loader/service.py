@@ -114,6 +114,7 @@ class ServiceLoader:
             # 删除旧的数据
             await session.execute(delete(Service).where(Service.id == metadata.id))
             await session.execute(delete(NodeInfo).where(NodeInfo.serviceId == metadata.id))
+            await session.execute(delete(ServiceHashes).where(ServiceHashes.serviceId == metadata.id))
 
             # 插入新的数据
             service_data = Service(
@@ -127,6 +128,16 @@ class ServiceLoader:
 
             for node in nodes:
                 session.add(node)
+
+            # 保存哈希值
+            for file_path, hash_value in metadata.hashes.items():
+                hash_data = ServiceHashes(
+                    serviceId=metadata.id,
+                    filePath=file_path,
+                    hash=hash_value,
+                )
+                session.add(hash_data)
+
             await session.commit()
 
 
