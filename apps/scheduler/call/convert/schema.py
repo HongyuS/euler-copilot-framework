@@ -1,6 +1,8 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Convert工具的Schema"""
 
+from typing import Any
+
 from pydantic import Field
 
 from apps.scheduler.call.core import DataBase
@@ -9,6 +11,9 @@ from apps.scheduler.call.core import DataBase
 class ConvertInput(DataBase):
     """定义Convert工具的输入"""
 
+    text_template: str | None = Field(description="自然语言信息的格式化模板，jinja2语法", default=None)
+    data_template: str | None = Field(description="原始数据的格式化模板，jinja2语法", default=None)
+    extras: dict[str, Any] = Field(description="额外参数", default={})
 
 
 class ConvertOutput(DataBase):

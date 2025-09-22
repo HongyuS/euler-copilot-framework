@@ -8,16 +8,16 @@ from fastapi import APIRouter, Body, Depends, Query, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import verify_personal_token, verify_session
-from apps.schemas.request_data import PutFlowReq
-from apps.schemas.response_data import (
+from apps.schemas.flow import (
     FlowStructureDeleteMsg,
     FlowStructureDeleteRsp,
     FlowStructureGetMsg,
     FlowStructureGetRsp,
     FlowStructurePutMsg,
     FlowStructurePutRsp,
-    ResponseData,
 )
+from apps.schemas.request_data import PutFlowReq
+from apps.schemas.response_data import ResponseData
 from apps.schemas.service import NodeServiceListMsg, NodeServiceListRsp
 from apps.services.appcenter import AppCenterManager
 from apps.services.flow import FlowManager

@@ -1,6 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """提取或格式化Step输出"""
 
+import json
 from collections.abc import AsyncGenerator
 from datetime import datetime
 
@@ -9,7 +10,7 @@ from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
-from apps.scheduler.call.core import CoreCall
+from apps.scheduler.call.core import CallError, CoreCall
 from apps.schemas.enum_var import CallOutputType, LanguageType
 from apps.schemas.scheduler import (
     CallInfo,
@@ -33,11 +34,11 @@ class Convert(CoreCall, input_model=ConvertInput, output_model=ConvertOutput):
         i18n_info = {
             LanguageType.CHINESE: CallInfo(
                 name="模板转换",
-                description="使用jinja2语法和jsonnet语法，将自然语言信息和原始数据进行格式化。",
+                description="使用jinja2语法将自然语言信息和原始数据进行格式化。",
             ),
             LanguageType.ENGLISH: CallInfo(
                 name="Convert",
-                description="Use jinja2 and jsonnet syntax to format natural language information and original data.",
+                description="Use jinja2 syntax to format natural language information and original data.",
             ),
         }
         return i18n_info[language]
@@ -54,35 +55,68 @@ class Convert(CoreCall, input_model=ConvertInput, output_model=ConvertOutput):
             trim_blocks=True,
             lstrip_blocks=True,
         )
-        return ConvertInput()
+
+        # 获取当前时间
+        time = datetime.now(tz=pytz.timezone("Asia/Shanghai")).strftime("%Y-%m-%d %H:%M:%S")
+        # 返回空的ConvertInput，因为输入数据来自上一步的输出
+        self._extras = {
+            "time": time,
+            "history": self._history,
+            "question": self._question,
+            "background": self._sys_vars.background,
+            "ids": self._sys_vars.ids,
+        }
+        return ConvertInput(
+            text_template=self.text_template,
+            data_template=self.data_template,
+            extras=self._extras,
+        )
 
 
     async def _exec(self) -> AsyncGenerator[CallOutputChunk, None]:
-        """
-        调用Convert工具
-
-        :param _slot_data: 经用户确认后的参数（目前未使用）
-        :return: 提取出的字段
-        """
-        # 判断用户是否给了值
-        time = datetime.now(tz=pytz.timezone("Asia/Shanghai")).strftime("%Y-%m-%d %H:%M:%S")
-        if self.text_template is None:
-            result_message = last_output.get("message", "")
+        """调用Convert工具"""
+        # 处理文本模板
+        result_message = ""
+        if self.text_template is not None:
+            try:
+                text_template = self._env.from_string(self.text_template)
+                result_message = text_template.render(**self._extras)
+            except Exception as e:
+                raise CallError(
+                    message=f"文本模板渲染错误: {e!s}",
+                    data={
+                        "template": self.text_template,
+                        "error": str(e),
+                    },
+                ) from e
         else:
-            text_template = self._env.from_string(self.text_template)
-            result_message = text_template.render(time=time, history=self._history, question=self._question)
+            result_message = "未提供文本模板"
 
-        if self.data_template is None:
-            result_data = last_output.get("output", {})
+        # 处理数据模板
+        result_data = {}
+        if self.data_template is not None:
+            try:
+                data_template = self._env.from_string(self.data_template)
+                rendered_data_str = data_template.render(**self._extras)
+                # 尝试解析为JSON对象
+                result_data = json.loads(rendered_data_str)
+            except Exception as e:
+                raise CallError(
+                    message=f"数据模板渲染错误: {e!s}",
+                    data={
+                        "template": self.data_template,
+                        "error": str(e),
+                    },
+                ) from e
         else:
-            data_template = self._env.from_string(self.data_template)
-            result_data = data_template.render(
-                time=time,
-                question=self._question,
-                history=[item.output_data["output"] for item in self._history if "output" in item.output_data],
-            )
+            result_data = {"message": "未提供数据模板"}
 
+        # 返回文本和数据两个部分
+        yield CallOutputChunk(
+            type=CallOutputType.TEXT,
+            content=result_message,
+        )
         yield CallOutputChunk(
             type=CallOutputType.DATA,
-            content=result_message,
+            content=result_data,
         )

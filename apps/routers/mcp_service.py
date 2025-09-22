@@ -99,7 +99,7 @@ async def create_or_update_mcpservice(
     data: UpdateMCPServiceRequest,
 ) -> JSONResponse:
     """PUT /mcp: 新建或更新MCP服务"""
-    if not data.service_id:
+    if not data.mcp_id:
         try:
             service_id = await MCPServiceManager.create_mcpservice(data, request.state.user_sub)
         except Exception as e:
@@ -144,7 +144,7 @@ async def install_mcp_service(
 ) -> JSONResponse:
     """安装MCP服务"""
     try:
-        await MCPServiceManager.install_mcpservice(request.state.user_sub, service_id, install)
+        await MCPServiceManager.install_mcpservice(request.state.user_sub, service_id, install=install)
     except Exception as e:
         err = f"[MCPService] 安装mcp服务失败: {e!s}" if install else f"[MCPService] 卸载mcp服务失败: {e!s}"
         logger.exception(err)

@@ -1,9 +1,7 @@
 """MCP 相关 数据库表"""
 
-import uuid
 from datetime import UTC, datetime
 from enum import Enum as PyEnum
-from hashlib import shake_128
 from typing import Any
 
 from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String, Text
@@ -93,9 +91,10 @@ class MCPTools(Base):
     """MCP 工具输入参数"""
     outputSchema: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)  # noqa: N815
     """MCP 工具输出参数"""
-    id: Mapped[str] = mapped_column(
-        String(32),
+    id: Mapped[int] = mapped_column(
+        BigInteger,
         primary_key=True,
-        default_factory=lambda: shake_128(uuid.uuid4().bytes).hexdigest(8),
+        autoincrement=True,
+        init=False,
     )
     """主键ID"""

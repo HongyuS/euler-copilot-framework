@@ -6,10 +6,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .appcenter import AppCenterCardItem, AppData
-from .flow_topology import (
-    FlowItem,
-)
 from .parameters import (
     BoolOperate,
     DictOperate,
@@ -51,58 +47,6 @@ class HealthCheckRsp(BaseModel):
     status: str
 
 
-class ConversationListItem(BaseModel):
-    """GET /api/conversation Result数据结构"""
-
-    conversation_id: uuid.UUID = Field(alias="conversationId")
-    title: str
-    doc_count: int = Field(alias="docCount")
-    created_time: str = Field(alias="createdTime")
-    app_id: str = Field(alias="appId")
-    debug: bool = Field(alias="debug")
-
-
-class ConversationListMsg(BaseModel):
-    """GET /api/conversation Result数据结构"""
-
-    conversations: list[ConversationListItem]
-
-
-class ConversationListRsp(ResponseData):
-    """GET /api/conversation 返回数据结构"""
-
-    result: ConversationListMsg
-
-
-class DeleteConversationMsg(BaseModel):
-    """DELETE /api/conversation Result数据结构"""
-
-    conversation_id_list: list[str] = Field(alias="conversationIdList")
-
-
-class DeleteConversationRsp(ResponseData):
-    """DELETE /api/conversation 返回数据结构"""
-
-    result: DeleteConversationMsg
-
-
-class AddConversationMsg(BaseModel):
-    """POST /api/conversation Result数据结构"""
-
-    conversation_id: uuid.UUID = Field(alias="conversationId")
-
-
-class AddConversationRsp(ResponseData):
-    """POST /api/conversation 返回数据结构"""
-
-    result: AddConversationMsg
-
-
-class UpdateConversationRsp(ResponseData):
-    """POST /api/conversation 返回数据结构"""
-
-    result: ConversationListItem
-
 
 class RecordListMsg(BaseModel):
     """GET /api/record/{conversation_id} Result数据结构"""
@@ -139,114 +83,6 @@ class ListTeamKnowledgeRsp(ResponseData):
     """GET /api/knowledge 返回数据结构"""
 
     result: ListTeamKnowledgeMsg
-
-
-class BaseAppOperationMsg(BaseModel):
-    """基础应用操作Result数据结构"""
-
-    app_id: uuid.UUID = Field(..., alias="appId", description="应用ID")
-
-
-class BaseAppOperationRsp(ResponseData):
-    """基础应用操作返回数据结构"""
-
-    result: BaseAppOperationMsg
-
-
-class GetAppPropertyMsg(AppData):
-    """GET /api/app/{appId} Result数据结构"""
-
-    app_id: str = Field(..., alias="appId", description="应用ID")
-    published: bool = Field(..., description="是否已发布")
-    mcp_service: list[AppMcpServiceInfo] = Field(default=[], alias="mcpService", description="MCP服务信息列表")
-
-
-class GetAppPropertyRsp(ResponseData):
-    """GET /api/app/{appId} 返回数据结构"""
-
-    result: GetAppPropertyMsg
-
-
-class ChangeFavouriteAppMsg(BaseModel):
-    """PUT /api/app/{appId} Result数据结构"""
-
-    app_id: str = Field(..., alias="appId", description="应用ID")
-    favorited: bool = Field(..., description="是否已收藏")
-
-
-class ChangeFavouriteAppRsp(ResponseData):
-    """PUT /api/app/{appId} 返回数据结构"""
-
-    result: ChangeFavouriteAppMsg
-
-
-class GetAppListMsg(BaseModel):
-    """GET /api/app Result数据结构"""
-
-    page_number: int = Field(..., alias="currentPage", description="当前页码")
-    app_count: int = Field(..., alias="totalApps", description="总应用数")
-    applications: list[AppCenterCardItem] = Field(..., description="应用列表")
-
-
-class GetAppListRsp(ResponseData):
-    """GET /api/app 返回数据结构"""
-
-    result: GetAppListMsg
-
-
-class RecentAppListItem(BaseModel):
-    """GET /api/app/recent 列表项数据结构"""
-
-    app_id: uuid.UUID = Field(..., alias="appId", description="应用ID")
-    name: str = Field(..., description="应用名称")
-
-
-class RecentAppList(BaseModel):
-    """GET /api/app/recent Result数据结构"""
-
-    applications: list[RecentAppListItem] = Field(..., description="最近使用的应用列表")
-
-
-class GetRecentAppListRsp(ResponseData):
-    """GET /api/app/recent 返回数据结构"""
-
-    result: RecentAppList
-
-
-class FlowStructureGetMsg(BaseModel):
-    """GET /api/flow result"""
-
-    flow: FlowItem = Field(default=FlowItem())
-
-
-class FlowStructureGetRsp(ResponseData):
-    """GET /api/flow 返回数据结构"""
-
-    result: FlowStructureGetMsg
-
-
-class FlowStructurePutMsg(BaseModel):
-    """PUT /api/flow result"""
-
-    flow: FlowItem = Field(default=FlowItem())
-
-
-class FlowStructurePutRsp(ResponseData):
-    """PUT /api/flow 返回数据结构"""
-
-    result: FlowStructurePutMsg
-
-
-class FlowStructureDeleteMsg(BaseModel):
-    """DELETE /api/flow/ result"""
-
-    flow_id: str = Field(alias="flowId", default="")
-
-
-class FlowStructureDeleteRsp(ResponseData):
-    """DELETE /api/flow/ 返回数据结构"""
-
-    result: FlowStructureDeleteMsg
 
 
 class UserGetMsp(BaseModel):

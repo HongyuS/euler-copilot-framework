@@ -3,6 +3,7 @@
 
 import logging
 import uuid
+from collections.abc import Sequence
 from hashlib import sha256
 
 from anyio import Path
@@ -22,8 +23,12 @@ class FileChecker:
 
     def __init__(self) -> None:
         """初始化文件检查器"""
-        self.hashes = {}
+        self.hashes: dict[str, dict[str, str]] = {}
         self._dir_path = Path(config.deploy.data_dir) / "semantics"
+
+    async def _hashes_to_dict(self, hashes: Sequence[AppHashes] | Sequence[ServiceHashes]) -> dict[str, str]:
+        """将哈希对象列表转换为字典格式"""
+        return {hash_obj.filePath: hash_obj.hash for hash_obj in hashes}
 
     async def check_one(self, path: Path) -> dict[str, str]:
         """检查单个App/Service文件是否有变动"""
@@ -45,14 +50,20 @@ class FileChecker:
         return hashes
 
 
-    async def diff_one(self, path: Path, previous_hashes: AppHashes | ServiceHashes | None = None) -> bool:
+    async def diff_one(
+        self, path: Path, previous_hashes: Sequence[AppHashes] | Sequence[ServiceHashes] | None = None,
+    ) -> bool:
         """检查文件是否发生变化"""
         self._resource_path = path
         semantics_path = Path(config.deploy.data_dir) / "semantics"
         path_diff = self._resource_path.relative_to(semantics_path)
-        # FIXME 不能使用字典比对，必须一条条比对
         self.hashes[path_diff.as_posix()] = await self.check_one(path)
-        return self.hashes[path_diff.as_posix()] != previous_hashes
+        if previous_hashes is None:
+            # 如果没有之前的哈希记录，则认为发生了变化
+            return True
+        # 将数据库中的哈希记录转换为字典格式进行比较
+        previous_hashes_dict = await self._hashes_to_dict(previous_hashes)
+        return self.hashes[path_diff.as_posix()] != previous_hashes_dict
 
 
     async def diff(self, check_type: MetadataType) -> tuple[list[uuid.UUID], list[uuid.UUID]]:
@@ -80,11 +91,11 @@ class FileChecker:
                 if check_type == MetadataType.APP:
                     hashes = (
                         await session.scalars(select(AppHashes).where(AppHashes.appId == list_item))
-                    ).one()
+                    ).all()
                 elif check_type == MetadataType.SERVICE:
                     hashes = (
                         await session.scalars(select(ServiceHashes).where(ServiceHashes.serviceId == list_item))
-                    ).one()
+                    ).all()
                 # 判断是否发生变化
                 if await self.diff_one(Path(self._dir_path / str(list_item)), hashes):
                     changed_list.append(list_item)

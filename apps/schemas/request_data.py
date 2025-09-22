@@ -52,8 +52,8 @@ class UpdateLLMReq(BaseModel):
     """更新大模型请求体"""
 
     llm_id: str | None = Field(default=None, description="大模型ID", alias="id")
-    openai_base_url: str = Field(default="", description="OpenAI API Base URL", alias="openaiBaseUrl")
-    openai_api_key: str = Field(default="", description="OpenAI API Key", alias="openaiApiKey")
+    base_url: str = Field(default="", description="OpenAI API Base URL", alias="baseUrl")
+    api_key: str = Field(default="", description="OpenAI API Key", alias="apiKey")
     model_name: str = Field(default="", description="模型名称", alias="modelName")
     max_tokens: int = Field(default=8192, description="最大token数", alias="maxTokens")
     provider: LLMProvider = Field(description="大模型提供商", alias="provider")
@@ -68,12 +68,6 @@ class UpdateUserSelectedLLMReq(BaseModel):
     embeddingLLM: str = Field(description="Embedding LLM ID")  # noqa: N815
 
 
-class DeleteLLMReq(BaseModel):
-    """删除大模型请求体"""
-
-    llm_id: str = Field(description="大模型ID", alias="llmId")
-
-
 class UpdateUserKnowledgebaseReq(BaseModel):
     """更新知识库请求体"""
 
@@ -83,4 +77,6 @@ class UpdateUserKnowledgebaseReq(BaseModel):
 class UserUpdateRequest(BaseModel):
     """更新用户信息请求体"""
 
+    user_name: str | None = Field(default=None, description="用户名", alias="userName")
     auto_execute: bool = Field(default=False, description="是否自动执行", alias="autoExecute")
+    agreement_confirmed: bool | None = Field(default=None, description="协议确认状态", alias="agreementConfirmed")

@@ -19,4 +19,3 @@ class AgentAppMetadata(MetadataBase):
     history_len: int = Field(description="对话轮次", default=3, le=10)
     mcp_service: list[str] = Field(default=[], description="MCP服务id列表")
     permission: Permission | None = Field(description="应用权限配置", default=None)
-    version: str = Field(description="元数据版本")

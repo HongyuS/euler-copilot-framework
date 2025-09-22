@@ -86,56 +86,59 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
         )
 
 
-    async def _get_doc_info(self, doc_ids: list[str], data: RAGInput) -> AsyncGenerator[CallOutputChunk, None]:
-        """获取文档信息"""
+    async def _fetch_doc_chunks(self, data: RAGInput) -> list[DocItem]:
+        """从知识库获取文档分片"""
         url = config.rag.rag_service.rstrip("/") + "/chunk/search"
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self._sys_vars.ids.session_id}",
         }
+
         doc_chunk_list = []
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                data_json = data.model_dump(exclude_none=True, by_alias=True)
+                response = await client.post(url, headers=headers, json=data_json)
+                # 检查响应状态码
+                if response.status_code == status.HTTP_200_OK:
+                    result = response.json()
+                    # 对返回的docChunks进行校验
+                    try:
+                        validated_chunks = []
+                        for chunk_data in result["result"]["docChunks"]:
+                            validated_chunk = DocItem.model_validate(chunk_data)
+                            validated_chunks.append(validated_chunk)
+                        doc_chunk_list += validated_chunks
+                    except Exception as e:
+                        _logger.error(f"[RAG] chunk校验失败: {e}")
+                        raise
+        except Exception:
+            _logger.exception("[RAG] 获取文档分片失败")
+
+        return doc_chunk_list
+
+    async def _get_doc_info(self, doc_ids: list[str], data: RAGInput) -> AsyncGenerator[CallOutputChunk, None]:
+        """获取文档信息"""
+        doc_chunk_list = []
+
+        # 处理指定文档ID的情况
         if doc_ids:
             tmp_data = deepcopy(data)
             tmp_data.kbIds = [ uuid.UUID("00000000-0000-0000-0000-000000000000") ]
-            try:
-                async with httpx.AsyncClient(timeout=30) as client:
-                    data_json = tmp_data.model_dump(exclude_none=True, by_alias=True)
-                    response = await client.post(url, headers=headers, json=data_json)
-                    if response.status_code == status.HTTP_200_OK:
-                        result = response.json()
-                        # 对返回的docChunks进行校验
-                        try:
-                            validated_chunks = []
-                            for chunk_data in result["result"]["docChunks"]:
-                                validated_chunk = DocItem.model_validate(chunk_data)
-                                validated_chunks.append(validated_chunk)
-                            doc_chunk_list += validated_chunks
-                        except Exception as e:
-                            _logger.error(f"[RAG] chunk校验失败: {e}")
-                            raise
-            except Exception:
-                _logger.exception("[RAG] 获取文档分片失败")
+            doc_chunk_list.extend(await self._fetch_doc_chunks(tmp_data))
+
+        # 处理知识库ID的情况
         if data.kbIds:
-            try:
-                async with httpx.AsyncClient(timeout=30) as client:
-                    data_json = data.model_dump(exclude_none=True, by_alias=True)
-                    response = await client.post(url, headers=headers, json=data_json)
-                    # 检查响应状态码
-                    if response.status_code == status.HTTP_200_OK:
-                        result = response.json()
-                        # 对返回的docChunks进行校验
-                        try:
-                            validated_chunks = []
-                            for chunk_data in result["result"]["docChunks"]:
-                                validated_chunk = DocItem.model_validate(chunk_data)
-                                validated_chunks.append(validated_chunk)
-                            doc_chunk_list += validated_chunks
-                        except Exception as e:
-                            _logger.error(f"[RAG] chunk校验失败: {e}")
-                            raise
-            except Exception:
-                _logger.exception("[RAG] 获取文档分片失败")
-        return doc_chunk_list
+            doc_chunk_list.extend(await self._fetch_doc_chunks(data))
+
+        # 将文档分片转换为文本片段并返回
+        for doc_chunk in doc_chunk_list:
+            for chunk in doc_chunk.chunks:
+                text = chunk.text.replace("\n", "")
+                yield CallOutputChunk(
+                    type=CallOutputType.DATA,
+                    content=text,
+                )
 
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
@@ -194,7 +197,8 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
                         validated_chunks.append(validated_chunk)
                     doc_chunk_list = validated_chunks
                 except Exception as e:
-                    _logger.error(f"[RAG] chunk校验失败: {e}")
+                    err = f"[RAG] chunk校验失败: {e}"
+                    _logger.error(err)  # noqa: TRY400
                     raise
 
                 corpus = []

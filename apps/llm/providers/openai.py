@@ -5,7 +5,14 @@ import logging
 from collections.abc import AsyncGenerator
 
 from openai import AsyncOpenAI, AsyncStream
-from openai.types.chat import ChatCompletionChunk
+from openai.types.chat import (
+    ChatCompletionAssistantMessageParam,
+    ChatCompletionChunk,
+    ChatCompletionMessageParam,
+    ChatCompletionSystemMessageParam,
+    ChatCompletionToolMessageParam,
+    ChatCompletionUserMessageParam,
+)
 from typing_extensions import override
 
 from apps.llm.token import TokenCalculator
@@ -83,9 +90,10 @@ class OpenAIProvider(BaseProvider):
             }])
 
     @override
-    async def chat(
+    async def chat(  # noqa: C901
         self, messages: list[dict[str, str]],
         *, include_thinking: bool = False,
+        tools: list[LLMFunctions] | None = None,
     ) -> AsyncGenerator[LLMChunk, None]:
         """聊天"""
         # 检查能力
@@ -101,16 +109,31 @@ class OpenAIProvider(BaseProvider):
         # 检查消息
         messages = self._validate_messages(messages)
 
-        stream: AsyncStream[ChatCompletionChunk] = self._client.chat.completions.create(
-            model=self.config.modelName,
-            messages=messages,  # type: ignore[]
-            max_tokens=self.config.maxToken,
-            temperature=self.config.temperature,
-            stream=True,
-            stream_options={"include_usage": True},
+        request_kwargs = {
+            "model": self.config.modelName,
+            "messages": self._convert_messages(messages),
+            "max_tokens": self.config.maxToken,
+            "temperature": self.config.temperature,
+            "stream": True,
+            "stream_options": {"include_usage": True},
             **self.config.extraConfig,
-        )
+        }
 
+        # 如果提供了tools，则启用function-calling模式
+        if tools:
+            functions = []
+            for tool in tools:
+                functions += [{
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.param_schema,
+                    },
+                }]
+            request_kwargs["tools"] = functions
+
+        stream: AsyncStream[ChatCompletionChunk] = await self._client.chat.completions.create(**request_kwargs)
         # 流式返回响应
         last_chunk = None
         async for chunk in stream:
@@ -133,6 +156,17 @@ class OpenAIProvider(BaseProvider):
                     self.full_answer += chunk.choices[0].delta.content
                     yield LLMChunk(content=chunk.choices[0].delta.content)
 
+                # 在chat中统一处理工具调用分块（当提供了tools时）
+                if tools and hasattr(delta, "tool_calls") and delta.tool_calls:
+                    tool_call_dict = {}
+                    for tool_call in delta.tool_calls:
+                        if hasattr(tool_call, "function") and tool_call.function:
+                            tool_call_dict.update({
+                                tool_call.function.name: tool_call.function.arguments,
+                            })
+                    if tool_call_dict:
+                        yield LLMChunk(tool_call=tool_call_dict)
+
         # 处理最后一个Chunk的usage（仅在最后一个chunk会出现）
         self._handle_usage_chunk(last_chunk, messages)
 
@@ -150,17 +184,37 @@ class OpenAIProvider(BaseProvider):
         )
         return [data.embedding for data in response.data]
 
-    @override
-    async def tool_call(self, messages: list[dict[str, str]], tools: list[LLMFunctions]) -> str:
-        if not self._allow_function:
-            info = "[OpenAIProvider] 当前模型不支持Function Call，将使用模拟方式"
-            _logger.error(info)
-            return ""
 
-        # 检查消息
-        messages = self._validate_messages(messages)
+    def _convert_messages(self, messages: list[dict[str, str]]) -> list[ChatCompletionMessageParam]:
+        """将list[dict]形式的消息转换为list[ChatCompletionMessageParam]形式"""
+        converted_messages = []
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
 
-        # 实现tool_call功能
-        return ""
-
-
+            if role == "system":
+                converted_messages.append(
+                    ChatCompletionSystemMessageParam(role="system", content=content),
+                )
+            elif role == "user":
+                converted_messages.append(
+                    ChatCompletionUserMessageParam(role="user", content=content),
+                )
+            elif role == "assistant":
+                converted_messages.append(
+                    ChatCompletionAssistantMessageParam(role="assistant", content=content),
+                )
+            elif role == "tool":
+                tool_call_id = msg.get("tool_call_id", "")
+                converted_messages.append(
+                    ChatCompletionToolMessageParam(
+                        role="tool",
+                        content=content,
+                        tool_call_id=tool_call_id,
+                    ),
+                )
+            else:
+                err = f"[OpenAIProvider] 未知角色: {role}"
+                _logger.error(err)
+                raise ValueError(err)
+        return converted_messages

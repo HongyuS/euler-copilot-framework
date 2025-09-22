@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 
 from apps.common.postgres import postgres
 from apps.models.user import User
+from apps.schemas.request_data import UserUpdateRequest
 
 from .conversation import ConversationManager
 
@@ -47,12 +48,16 @@ class UserManager:
 
 
     @staticmethod
-    async def update_user(user_sub: str) -> None:
+    async def update_user(user_sub: str, data: UserUpdateRequest) -> None:
         """
         根据用户sub更新用户信息
 
         :param user_sub: 用户sub
+        :param data: 更新数据
         """
+        # 将 Pydantic 模型转换为字典
+        update_data = data.model_dump(exclude_unset=True, exclude_none=True)
+
         async with postgres.session() as session:
             user = (
                 await session.scalars(select(User).where(User.userSub == user_sub))
@@ -68,8 +73,23 @@ class UserManager:
                 await session.commit()
                 return
 
+            # 更新指定字段
+            for key, value in update_data.items():
+                if hasattr(user, key) and value is not None:
+                    setattr(user, key, value)
+
             user.lastLogin = datetime.now(tz=UTC)
             await session.commit()
+
+    @staticmethod
+    async def update_userinfo_by_user_sub(user_sub: str, data: UserUpdateRequest) -> None:
+        """
+        根据用户sub更新用户信息（兼容旧接口）
+
+        :param user_sub: 用户sub
+        :param data: 更新数据
+        """
+        await UserManager.update_user(user_sub, data)
 
     @staticmethod
     async def delete_user(user_sub: str) -> None:

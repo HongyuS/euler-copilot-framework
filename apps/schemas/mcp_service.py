@@ -1,7 +1,6 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MCP 服务相关数据结构"""
 
-import uuid
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -44,7 +43,7 @@ class GetMCPServiceListRsp(ResponseData):
 class UpdateMCPServiceMsg(BaseModel):
     """插件中心：MCP服务属性数据结构"""
 
-    service_id: uuid.UUID = Field(..., alias="serviceId", description="MCP服务ID")
+    service_id: str = Field(..., alias="serviceId", description="MCP服务ID")
     name: str = Field(..., description="MCP服务名称")
 
 

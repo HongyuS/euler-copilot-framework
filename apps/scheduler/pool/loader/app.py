@@ -110,6 +110,8 @@ class AppLoader:
         # 重新载入
         file_checker = FileChecker()
         await file_checker.diff_one(app_path)
+        # 保存文件hash到数据库
+        await self._update_db(metadata, file_checker.hashes[f"app/{app_id}"])
         await self.load(app_id, file_checker.hashes[f"app/{app_id}"])
 
 
@@ -134,7 +136,11 @@ class AppLoader:
                 shutil.rmtree(str(app_path), ignore_errors=True)
 
 
-    async def _update_db(self, metadata: AppMetadata | AgentAppMetadata) -> None:
+    async def _update_db(
+        self,
+        metadata: AppMetadata | AgentAppMetadata,
+        file_hashes: dict[str, str] | None = None,
+    ) -> None:
         """更新数据库"""
         if not metadata.hashes:
             err = f"[AppLoader] 应用 {metadata.id} 的哈希值为空"
@@ -166,6 +172,14 @@ class AppLoader:
                         action="",
                     ))
             # 保存AppHashes表
+            if file_hashes:
+                # 清除旧的hash记录
+                await session.execute(delete(AppHashes).where(AppHashes.appId == metadata.id))
+                # 添加新的hash记录
+                for file_path, hash_value in file_hashes.items():
+                    session.add(AppHashes(
+                        appId=metadata.id,
+                        filePath=file_path,
+                        hash=hash_value,
+                    ))
             await session.commit()
-
-            # FIXME 更新Hash值？

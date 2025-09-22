@@ -16,7 +16,7 @@ LLM_CONTEXT_PROMPT: dict[LanguageType, str] = {
             你作为AI，在完成用户指令前，需要获取必要的信息。为此，你调用了一些工具，并获得了它们的输出：
             工具的输出数据将在<tool_data>中给出， 其中<name>为工具的名称，<output>为工具的输出数据。
             <tool_data>
-                {% for tool in history_data %}
+                {% for tool in context_data %}
                     <tool>
                         <name>{{ tool.step_name }}</name>
                         <description>{{ tool.step_description }}</description>
@@ -38,7 +38,7 @@ purpose, you have called some tools and obtained their outputs:
             The output data of the tools will be given in <tool_data>, where <name> is the name of the tool and \
 <output> is the output data of the tool.
             <tool_data>
-                {% for tool in history_data %}
+                {% for tool in context_data %}
                     <tool>
                         <name>{{ tool.step_name }}</name>
                         <description>{{ tool.step_description }}</description>

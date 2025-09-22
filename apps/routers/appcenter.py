@@ -10,20 +10,24 @@ from fastapi.responses import JSONResponse
 
 from apps.dependency.user import verify_personal_token, verify_session
 from apps.exceptions import InstancePermissionError
-from apps.schemas.appcenter import AppFlowInfo, AppPermissionData, ChangeFavouriteAppRequest, CreateAppRequest
-from apps.schemas.enum_var import AppFilterType, AppType
-from apps.schemas.response_data import (
+from apps.schemas.appcenter import (
+    AppFlowInfo,
+    AppMcpServiceInfo,
+    AppPermissionData,
     BaseAppOperationMsg,
     BaseAppOperationRsp,
     ChangeFavouriteAppMsg,
+    ChangeFavouriteAppRequest,
     ChangeFavouriteAppRsp,
+    CreateAppRequest,
     GetAppListMsg,
     GetAppListRsp,
     GetAppPropertyMsg,
     GetAppPropertyRsp,
     GetRecentAppListRsp,
-    ResponseData,
 )
+from apps.schemas.enum_var import AppFilterType, AppType
+from apps.schemas.response_data import ResponseData
 from apps.services.appcenter import AppCenterManager
 from apps.services.mcp_service import MCPServiceManager
 
