@@ -21,7 +21,7 @@ EulerCopilot 是一款智能问答工具，使用 EulerCopilot 可以解决操�
 | authhub-web-service           | 8000            | 鉴权服务前端          |
 | mysql                         | 3306 (内部端口) | MySQL数据库           |
 | redis                         | 6379 (内部端口) | Redis数据库           |
-| minio                         | 9000 (内部端口) 9001(外部部端口) | minio数据库       |
+| minio                         | 9000 (内部端口) 9001(外部端口) | minio数据库       |
 | mongo                         | 27017 (内部端口)         | mongo数据库           |
 | postgres                      | 5432 (内部端口) | 向量数据库             |
 | secret_inject                 | 无              | 配置文件安全复制工具   |
