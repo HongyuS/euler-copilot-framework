@@ -21,6 +21,66 @@ NAMESPACE="euler-copilot"
 TIMEOUT=300   # 最大等待时间（秒）
 INTERVAL=10   # 检查间隔（秒）
 
+# 全局变量声明
+authhub_address=""
+eulercopilot_address=""
+
+# 解析命令行参数
+parse_arguments() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --eulercopilot_address)
+                if [ -n "$2" ]; then
+                    eulercopilot_address="$2"
+                    shift 2
+                else
+                    echo -e "${RED}错误: --eulercopilot_address 需要提供一个值${RESET}" >&2
+                    exit 1
+                fi
+                ;;
+            --authhub_address)
+                if [ -n "$2" ]; then
+                    authhub_address="$2"
+                    shift 2
+                else
+                    echo -e "${RED}错误: --authhub_address 需要提供一个值${RESET}" >&2
+                    exit 1
+                fi
+                ;;
+            *)
+                echo -e "${RED}未知选项: $1${RESET}" >&2
+                exit 1
+                ;;
+        esac
+    done
+}
+
+# 提示用户输入必要参数
+prompt_for_addresses() {
+    # 如果未通过命令行参数提供eulercopilot_address，则提示用户输入
+    if [ -z "$eulercopilot_address" ]; then
+        echo -e "${YELLOW}未提供 EulerCopilot 访问地址${RESET}"
+        read -p "$(echo -e "${CYAN}请输入 EulerCopilot 访问地址 (格式如: http://myhost:30080): ${RESET}")" eulercopilot_address
+        
+        # 验证输入是否为空
+        while [ -z "$eulercopilot_address" ]; do
+            echo -e "${RED}错误: EulerCopilot 访问地址不能为空${RESET}"
+            read -p "$(echo -e "${CYAN}请输入 EulerCopilot 访问地址 (格式如: http://myhost:30080): ${RESET}")" eulercopilot_address
+        done
+    fi
+
+    # 如果未通过命令行参数提供authhub_address，则提示用户输入
+    if [ -z "$authhub_address" ]; then
+        echo -e "${YELLOW}未提供 Authhub 访问地址${RESET}"
+        read -p "$(echo -e "${CYAN}请输入 Authhub 访问地址 (格式如: http://myhost:30081): ${RESET}")" authhub_address
+        
+        # 验证输入是否为空
+        while [ -z "$authhub_address" ]; do
+            echo -e "${RED}错误: Authhub 访问地址不能为空${RESET}"
+            read -p "$(echo -e "${CYAN}请输入 Authhub 访问地址 (格式如: http://myhost:30081): ${RESET}")" authhub_address
+        done
+    fi
+}
 
 # 带颜色输出的进度条函数
 colorful_progress() {
@@ -52,12 +112,13 @@ print_step_title() {
 MAIN_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 cd "$MAIN_DIR" || exit 1
 
-# 带错误检查的脚本执行函数（改进版）
 run_script_with_check() {
     local script_path=$1
     local script_name=$2
     local step_number=$3
     local auto_input=${4:-false}
+    shift 4
+    local extra_args=("$@")  # 使用数组来存储额外参数
 
     # 前置检查：脚本是否存在
     if [ ! -f "$script_path" ]; then
@@ -74,6 +135,7 @@ run_script_with_check() {
 
     echo -e "${DIM}${BLUE}🠖 脚本绝对路径：${YELLOW}${script_abs_path}${RESET}"
     echo -e "${DIM}${BLUE}🠖 执行工作目录：${YELLOW}${script_dir}${RESET}"
+    echo -e "${DIM}${BLUE}🠖 额外参数：${YELLOW}${extra_args[*]}${RESET}"
     echo -e "${DIM}${BLUE}🠖 开始执行时间：${YELLOW}$(date +'%Y-%m-%d %H:%M:%S')${RESET}"
 
     # 创建临时日志文件
@@ -83,9 +145,9 @@ run_script_with_check() {
     # 执行脚本（带自动输入处理和实时日志输出）
     local exit_code=0
     if $auto_input; then
-        (cd "$script_dir" && yes "" | bash "$script_base" 2>&1 | tee "$log_file")
+        (cd "$script_dir" && yes "" | bash "./$script_base" "${extra_args[@]}" 2>&1 | tee "$log_file")
     else
-        (cd "$script_dir" && bash "$script_base" 2>&1 | tee "$log_file")
+        (cd "$script_dir" && bash "./$script_base" "${extra_args[@]}" 2>&1 | tee "$log_file")
     fi
     exit_code=${PIPESTATUS[0]}
 
@@ -160,15 +222,16 @@ show_header() {
     echo -e "\n${BOLD}${MAGENTA}$(printf '✧%.0s' $(seq 1 $(tput cols)))${RESET}"
     echo -e "${BOLD}${WHITE}                  Euler Copilot 一键部署系统                  ${RESET}"
     echo -e "${BOLD}${MAGENTA}$(printf '✧%.0s' $(seq 1 $(tput cols)))${RESET}"
-    echo -e "${CYAN}◈ 主工作目录：${YELLOW}${MAIN_DIR}${RESET}\n"
+    echo -e "${CYAN}◈ 主工作目录：${YELLOW}${MAIN_DIR}${RESET}"
+    echo -e "${CYAN}◈ EulerCopilot地址：${YELLOW}${eulercopilot_address:-未设置}${RESET}"
+    echo -e "${CYAN}◈ Authhub地址：${YELLOW}${authhub_address:-未设置}${RESET}\n"
 }
-
-# 初始化部署流程
+# 修改后的start_deployment函数中的步骤配置
 start_deployment() {
     local total_steps=8
     local current_step=1
 
-    # 步骤配置（脚本路径 脚本名称 自动输入）
+    # 步骤配置（脚本路径 脚本名称 自动输入 额外参数数组）
     local steps=(
         "../1-check-env/check_env.sh 环境检查 false"
         "_conditional_tools_step 基础工具安装(k3s+helm) true"
@@ -176,27 +239,29 @@ start_deployment() {
         "../4-deploy-deepseek/deploy_deepseek.sh Deepseek模型部署 false"
         "../5-deploy-embedding/deploy-embedding.sh Embedding服务部署 false"
         "../6-install-databases/install_databases.sh 数据库集群部署 false"
-        "../7-install-authhub/install_authhub.sh Authhub部署 true"
-	"_conditional_eulercopilot_step EulerCopilot部署 true"
+        "../7-install-authhub/install_authhub.sh Authhub部署 true --authhub_address ${authhub_address}"
+        "_conditional_eulercopilot_step EulerCopilot部署 true"
     )
 
     for step in "${steps[@]}"; do
         local script_path=$(echo "$step" | awk '{print $1}')
-        local script_name=$(echo "$step" | awk '{sub($1 OFS, ""); print $1}')
-        local auto_input=$(echo "$step" | awk '{print $NF}')
-	if [[ "$script_path" == "_conditional_tools_step" ]]; then
+        local script_name=$(echo "$step" | awk '{print $2}')
+        local auto_input=$(echo "$step" | awk '{print $3}')
+        local extra_args=$(echo "$step" | awk '{for(i=4;i<=NF;i++) printf $i" "}')
+
+        # 特殊步骤处理
+        if [[ "$script_path" == "_conditional_tools_step" ]]; then
             handle_tools_step $current_step
         elif [[ "$script_path" == "_conditional_eulercopilot_step" ]]; then
+            sleep 60
             handle_eulercopilot_step $current_step
-	    sleep 60
-        elif ! run_script_with_check "$script_path" "$script_name" $current_step $auto_input; then
-            echo "Error: Script execution failed"
+        else
+            run_script_with_check "$script_path" "$script_name" $current_step $auto_input $extra_args
         fi
 
         colorful_progress $current_step $total_steps
         ((current_step++))
     done
-
 }
 
 # 处理工具安装步骤
@@ -210,14 +275,19 @@ handle_tools_step() {
     fi
 }
 
-# 处理工具安装步骤
 handle_eulercopilot_step() {
     local current_step=$1
-    sleep 60
-    run_script_with_check "../8-install-EulerCopilot/install_eulercopilot.sh" "EulerCopilot部署" $current_step true
-    
+    local extra_args=()
+
+    # 构建额外参数数组
+    [ -n "$authhub_address" ] && extra_args+=(--authhub_address "$authhub_address")
+    [ -n "$eulercopilot_address" ] && extra_args+=(--eulercopilot_address "$eulercopilot_address")
+
+    run_script_with_check "../8-install-EulerCopilot/install_eulercopilot.sh" "EulerCopilot部署" $current_step true "${extra_args[@]}"
 }
 
 # 主执行流程
+parse_arguments "$@"
+prompt_for_addresses
 show_header
 start_deployment
