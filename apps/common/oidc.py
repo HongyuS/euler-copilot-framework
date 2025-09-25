@@ -7,11 +7,10 @@ from typing import Any
 
 from apps.common.postgres import postgres
 from apps.constants import OIDC_ACCESS_TOKEN_EXPIRE_TIME, OIDC_REFRESH_TOKEN_EXPIRE_TIME
-from apps.models.session import Session, SessionType
+from apps.models import Session, SessionType
 
 from .config import config
-from .oidc_provider.authhub import AuthhubOIDCProvider
-from .oidc_provider.openeuler import OpenEulerOIDCProvider
+from .oidc_provider import AuthhubOIDCProvider, OpenEulerOIDCProvider
 
 logger = logging.getLogger(__name__)
 

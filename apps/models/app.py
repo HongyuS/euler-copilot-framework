@@ -2,14 +2,28 @@
 
 import uuid
 from datetime import UTC, datetime
+from enum import Enum as PyEnum
 
 from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from apps.schemas.enum_var import AppType, PermissionType
-
 from .base import Base
+
+
+class AppType(str, PyEnum):
+    """应用中心应用类型"""
+
+    FLOW = "flow"
+    AGENT = "agent"
+
+
+class PermissionType(str, PyEnum):
+    """权限类型"""
+
+    PROTECTED = "protected"
+    PUBLIC = "public"
+    PRIVATE = "private"
 
 
 class App(Base):
@@ -72,3 +86,33 @@ class AppHashes(Base):
     """文件路径"""
     hash: Mapped[str] = mapped_column(String(255), nullable=False)
     """哈希值"""
+
+
+class AppMCP(Base):
+    """App使用MCP情况"""
+
+    __tablename__ = "framework_app_mcp"
+
+    appId: Mapped[uuid.UUID] = mapped_column(  # noqa: N815
+        UUID(as_uuid=True),
+        ForeignKey("framework_app.id"),
+        primary_key=True,
+        nullable=False,
+    )
+    """关联的应用ID"""
+
+    mcpId: Mapped[str] = mapped_column(  # noqa: N815
+        String(255),
+        ForeignKey("framework_mcp.id"),
+        primary_key=True,
+        nullable=False,
+    )
+    """关联的MCP服务ID"""
+
+    createdAt: Mapped[datetime] = mapped_column(  # noqa: N815
+        DateTime(timezone=True),
+        default_factory=lambda: datetime.now(tz=UTC),
+        nullable=False,
+        index=True,
+    )
+    """创建时间"""

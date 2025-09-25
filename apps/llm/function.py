@@ -12,8 +12,7 @@ from jinja2.sandbox import SandboxedEnvironment
 from jsonschema import Draft7Validator
 
 from apps.constants import JSON_GEN_MAX_TRIAL
-from apps.models.llm import LLMData
-from apps.schemas.llm import LLMProvider
+from apps.models import LLMData, LLMProvider
 
 from .prompt import JSON_GEN_BASIC
 from .providers import (

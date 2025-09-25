@@ -4,8 +4,8 @@
 import logging
 from collections.abc import AsyncGenerator
 
-from apps.models.llm import LLMData
-from apps.schemas.llm import LLMChunk, LLMProvider
+from apps.models import LLMData, LLMProvider
+from apps.schemas.llm import LLMChunk
 
 from .providers import (
     BaseProvider,

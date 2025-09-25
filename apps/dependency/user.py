@@ -8,9 +8,7 @@ from starlette.exceptions import HTTPException
 from starlette.requests import HTTPConnection
 
 from apps.common.config import config
-from apps.services.personal_token import PersonalTokenManager
-from apps.services.session import SessionManager
-from apps.services.user import UserManager
+from apps.services import PersonalTokenManager, SessionManager, UserManager
 
 logger = logging.getLogger(__name__)
 
