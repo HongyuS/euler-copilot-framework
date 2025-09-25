@@ -26,7 +26,7 @@ class ConversationListItem(BaseModel):
     title: str
     doc_count: int = Field(alias="docCount")
     created_time: str = Field(alias="createdTime")
-    app_id: str = Field(alias="appId")
+    app_id: uuid.UUID | None = Field(alias="appId")
     debug: bool = Field(alias="debug")
 
 

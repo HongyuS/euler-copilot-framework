@@ -5,7 +5,8 @@ import uuid
 
 from pydantic import BaseModel, Field
 
-from .enum_var import AppType, PermissionType
+from apps.models import AppType, PermissionType
+
 from .response_data import ResponseData
 
 

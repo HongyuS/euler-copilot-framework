@@ -6,13 +6,10 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from apps.models import AppType, PermissionType
+
 from .appcenter import AppLink
-from .enum_var import (
-    AppType,
-    EdgeType,
-    MetadataType,
-    PermissionType,
-)
+from .enum_var import EdgeType, MetadataType
 from .flow_topology import FlowItem
 from .response_data import ResponseData
 
@@ -31,6 +28,7 @@ class PositionItem(BaseModel):
 
     x: float = Field(default=0.0)
     y: float = Field(default=0.0)
+
 
 class Step(BaseModel):
     """Flow中Step的数据"""

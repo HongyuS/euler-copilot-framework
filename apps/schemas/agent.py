@@ -3,10 +3,9 @@
 
 from pydantic import Field
 
-from .enum_var import (
-    AppType,
-    MetadataType,
-)
+from apps.models import AppType
+
+from .enum_var import MetadataType
 from .flow import MetadataBase, Permission
 
 

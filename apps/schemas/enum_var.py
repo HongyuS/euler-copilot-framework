@@ -12,31 +12,6 @@ class SlotType(str, Enum):
     KEYWORD = "keyword"
 
 
-class StepStatus(str, Enum):
-    """步骤状态"""
-
-    UNKNOWN = "unknown"
-    INIT = "init"
-    WAITING = "waiting"
-    RUNNING = "running"
-    SUCCESS = "success"
-    ERROR = "error"
-    PARAM = "param"
-    CANCELLED = "cancelled"
-
-
-class ExecutorStatus(str, Enum):
-    """执行器状态"""
-
-    UNKNOWN = "unknown"
-    INIT = "init"
-    WAITING = "waiting"
-    RUNNING = "running"
-    SUCCESS = "success"
-    ERROR = "error"
-    CANCELLED = "cancelled"
-
-
 class DocumentStatus(str, Enum):
     """文档状态"""
 
@@ -101,14 +76,6 @@ class NodeType(str, Enum):
     CHOICE = "Choice"
 
 
-class PermissionType(str, Enum):
-    """权限类型"""
-
-    PROTECTED = "protected"
-    PUBLIC = "public"
-    PRIVATE = "private"
-
-
 class SearchType(str, Enum):
     """搜索类型"""
 
@@ -156,31 +123,9 @@ class SpecialCallType(str, Enum):
     CHOICE = "Choice"
 
 
-class CommentType(str, Enum):
-    """点赞点踩类型"""
-
-    LIKE = "liked"
-    DISLIKE = "disliked"
-    NONE = "none"
-
-
-class AppType(str, Enum):
-    """应用中心应用类型"""
-
-    FLOW = "flow"
-    AGENT = "agent"
-
-
 class AppFilterType(str, Enum):
     """应用过滤类型"""
 
     ALL = "all"
     USER = "user"
     FAVORITE = "favorite"
-
-
-class LanguageType(str, Enum):
-    """语言"""
-
-    CHINESE = "zh"
-    ENGLISH = "en"

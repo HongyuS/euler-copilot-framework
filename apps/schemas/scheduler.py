@@ -6,12 +6,10 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.llm.embedding import Embedding
-from apps.llm.function import FunctionLLM
-from apps.llm.reasoning import ReasoningLLM
-from apps.models.task import ExecutorHistory
+from apps.llm import Embedding, FunctionLLM, ReasoningLLM
+from apps.models import ExecutorHistory, LanguageType
 
-from .enum_var import CallOutputType, LanguageType
+from .enum_var import CallOutputType
 from .scheduler import ExecutorBackground
 
 
