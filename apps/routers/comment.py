@@ -11,9 +11,9 @@ from apps.dependency import verify_personal_token, verify_session
 from apps.schemas.comment import AddCommentData
 from apps.schemas.record import RecordComment
 from apps.schemas.response_data import ResponseData
-from apps.services.comment import CommentManager
+from apps.services import CommentManager
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/api/comment",
     tags=["comment"],

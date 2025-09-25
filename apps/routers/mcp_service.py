@@ -25,9 +25,9 @@ from apps.schemas.mcp_service import (
     UploadMCPServiceIconRsp,
 )
 from apps.schemas.response_data import ResponseData
-from apps.services.mcp_service import MCPServiceManager
+from apps.services import MCPServiceManager
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/api/mcp",
     tags=["mcp-service"],
@@ -70,7 +70,7 @@ async def get_mcpservice_list(  # noqa: PLR0913
         )
     except Exception as e:
         err = f"[MCPServiceCenter] 获取MCP服务列表失败: {e}"
-        logger.exception(err)
+        _logger.exception(err)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
@@ -103,7 +103,7 @@ async def create_or_update_mcpservice(
         try:
             service_id = await MCPServiceManager.create_mcpservice(data, request.state.user_sub)
         except Exception as e:
-            logger.exception("[MCPServiceCenter] MCP服务创建失败")
+            _logger.exception("[MCPServiceCenter] MCP服务创建失败")
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content=ResponseData(
@@ -116,7 +116,7 @@ async def create_or_update_mcpservice(
         try:
             service_id = await MCPServiceManager.update_mcpservice(data, request.state.user_sub)
         except Exception as e:
-            logger.exception("[MCPService] 更新MCP服务失败")
+            _logger.exception("[MCPService] 更新MCP服务失败")
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content=ResponseData(
@@ -135,7 +135,7 @@ async def create_or_update_mcpservice(
     ).model_dump(exclude_none=True, by_alias=True))
 
 
-@router.post("/{serviceId}/install")
+@admin_router.post("/{serviceId}/install")
 async def install_mcp_service(
         request: Request,
         service_id: Annotated[str, Path(..., alias="serviceId", description="服务ID")],
@@ -147,7 +147,7 @@ async def install_mcp_service(
         await MCPServiceManager.install_mcpservice(request.state.user_sub, service_id, install=install)
     except Exception as e:
         err = f"[MCPService] 安装mcp服务失败: {e!s}" if install else f"[MCPService] 卸载mcp服务失败: {e!s}"
-        logger.exception(err)
+        _logger.exception(err)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
@@ -179,7 +179,7 @@ async def get_service_detail(
         config, icon = await MCPServiceManager.get_mcp_config(service_id)
     except Exception as e:
         err = f"[MCPService] 获取MCP服务API失败: {e}"
-        logger.exception(err)
+        _logger.exception(err)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
@@ -241,7 +241,7 @@ async def delete_service(serviceId: Annotated[str, Path()]) -> JSONResponse:  # 
         await MCPServiceManager.delete_mcpservice(serviceId)
     except Exception as e:
         err = f"[MCPServiceManager] 删除MCP服务失败: {e}"
-        logger.exception(err)
+        _logger.exception(err)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
@@ -286,7 +286,7 @@ async def update_mcp_icon(
         url = await MCPServiceManager.save_mcp_icon(serviceId, icon)
     except Exception as e:
         err = f"[MCPServiceManager] 更新MCP服务图标失败: {e}"
-        logger.exception(err)
+        _logger.exception(err)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
@@ -319,7 +319,7 @@ async def active_or_deactivate_mcp_service(
             await MCPServiceManager.deactive_mcpservice(request.state.user_sub, mcpId)
     except Exception as e:
         err = f"[MCPService] 激活mcp服务失败: {e!s}" if data.active else f"[MCPService] 取消激活mcp服务失败: {e!s}"
-        logger.exception(err)
+        _logger.exception(err)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(

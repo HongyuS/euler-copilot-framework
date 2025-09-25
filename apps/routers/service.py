@@ -8,7 +8,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, Request, status
 from fastapi.responses import JSONResponse
 
-from apps.dependency.user import verify_personal_token, verify_session
+from apps.dependency.user import (
+    verify_admin,
+    verify_personal_token,
+    verify_session,
+)
 from apps.exceptions import InstancePermissionError
 from apps.schemas.enum_var import SearchType
 from apps.schemas.response_data import ResponseData
@@ -26,15 +30,24 @@ from apps.schemas.service import (
     UpdateServiceRequest,
     UpdateServiceRsp,
 )
-from apps.services.service import ServiceCenterManager
+from apps.services import ServiceCenterManager
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/api/service",
     tags=["service-center"],
     dependencies=[
         Depends(verify_session),
         Depends(verify_personal_token),
+    ],
+)
+admin_router = APIRouter(
+    prefix="/api/admin/service",
+    tags=["service-center"],
+    dependencies=[
+        Depends(verify_session),
+        Depends(verify_personal_token),
+        Depends(verify_admin),
     ],
 )
 
@@ -85,7 +98,7 @@ async def get_service_list(  # noqa: PLR0913
                 pageSize,
             )
     except Exception:
-        logger.exception("[ServiceCenter] 获取服务列表失败")
+        _logger.exception("[ServiceCenter] 获取服务列表失败")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
@@ -117,14 +130,14 @@ async def get_service_list(  # noqa: PLR0913
     )
 
 
-@router.post("", response_model=UpdateServiceRsp)
+@admin_router.post("", response_model=UpdateServiceRsp)
 async def update_service(request: Request, data: UpdateServiceRequest) -> JSONResponse:
     """POST /service: 上传并解析服务"""
     if not data.service_id:
         try:
             service_id = await ServiceCenterManager.create_service(request.state.user_sub, data.data)
         except Exception as e:
-            logger.exception("[ServiceCenter] 创建服务失败")
+            _logger.exception("[ServiceCenter] 创建服务失败")
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content=ResponseData(
@@ -146,7 +159,7 @@ async def update_service(request: Request, data: UpdateServiceRequest) -> JSONRe
                 ).model_dump(exclude_none=True, by_alias=True),
             )
         except Exception as e:
-            logger.exception("[ServiceCenter] 更新服务失败")
+            _logger.exception("[ServiceCenter] 更新服务失败")
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content=ResponseData(
@@ -158,7 +171,7 @@ async def update_service(request: Request, data: UpdateServiceRequest) -> JSONRe
     try:
         name, apis = await ServiceCenterManager.get_service_apis(service_id)
     except Exception as e:
-        logger.exception("[ServiceCenter] 获取服务API失败")
+        _logger.exception("[ServiceCenter] 获取服务API失败")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
@@ -192,7 +205,7 @@ async def get_service_detail(
                 ).model_dump(exclude_none=True, by_alias=True),
             )
         except Exception:
-            logger.exception("[ServiceCenter] 获取服务数据失败")
+            _logger.exception("[ServiceCenter] 获取服务数据失败")
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content=ResponseData(
@@ -206,7 +219,7 @@ async def get_service_detail(
         try:
             name, apis = await ServiceCenterManager.get_service_apis(serviceId)
         except Exception:
-            logger.exception("[ServiceCenter] 获取服务API失败")
+            _logger.exception("[ServiceCenter] 获取服务API失败")
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content=ResponseData(
@@ -220,7 +233,7 @@ async def get_service_detail(
     return JSONResponse(status_code=status.HTTP_200_OK, content=rsp.model_dump(exclude_none=True, by_alias=True))
 
 
-@router.delete("/{serviceId}", response_model=DeleteServiceRsp)
+@admin_router.delete("/{serviceId}", response_model=DeleteServiceRsp)
 async def delete_service(request: Request, serviceId: Annotated[uuid.UUID, Path()]) -> JSONResponse:  # noqa: N803
     """DELETE /service/{serviceId}: 删除服务"""
     try:
@@ -235,7 +248,7 @@ async def delete_service(request: Request, serviceId: Annotated[uuid.UUID, Path(
             ).model_dump(exclude_none=True, by_alias=True),
         )
     except Exception:
-        logger.exception("[ServiceCenter] 删除服务失败")
+        _logger.exception("[ServiceCenter] 删除服务失败")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
@@ -272,7 +285,7 @@ async def modify_favorite_service(
                 ).model_dump(exclude_none=True, by_alias=True),
             )
     except Exception:
-        logger.exception("[ServiceCenter] 修改服务收藏状态失败")
+        _logger.exception("[ServiceCenter] 修改服务收藏状态失败")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(

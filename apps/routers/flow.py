@@ -19,9 +19,7 @@ from apps.schemas.flow import (
 from apps.schemas.request_data import PutFlowReq
 from apps.schemas.response_data import ResponseData
 from apps.schemas.service import NodeServiceListMsg, NodeServiceListRsp
-from apps.services.appcenter import AppCenterManager
-from apps.services.flow import FlowManager
-from apps.services.flow_validate import FlowService
+from apps.services import AppCenterManager, FlowManager, FlowServiceManager
 
 router = APIRouter(
     prefix="/api/flow",
@@ -114,9 +112,9 @@ async def put_flow(
                 result=FlowStructurePutMsg(),
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    put_body.flow = await FlowService.remove_excess_structure_from_flow(put_body.flow)
-    await FlowService.validate_flow_illegal(put_body.flow)
-    put_body.flow.check_status.connectivity = await FlowService.validate_flow_connectivity(put_body.flow)
+    put_body.flow = await FlowServiceManager.remove_excess_structure_from_flow(put_body.flow)
+    await FlowServiceManager.validate_flow_illegal(put_body.flow)
+    put_body.flow.check_status.connectivity = await FlowServiceManager.validate_flow_connectivity(put_body.flow)
 
     try:
         await FlowManager.put_flow_by_app_and_flow_id(appId, flowId, put_body.flow)

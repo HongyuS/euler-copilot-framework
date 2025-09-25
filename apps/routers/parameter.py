@@ -8,9 +8,7 @@ from fastapi.responses import JSONResponse
 from apps.dependency.user import verify_personal_token, verify_session
 from apps.schemas.parameters import Type
 from apps.schemas.response_data import GetOperaRsp, GetParamsRsp
-from apps.services.appcenter import AppCenterManager
-from apps.services.flow import FlowManager
-from apps.services.parameter import ParameterManager
+from apps.services import AppCenterManager, FlowManager, ParameterManager
 
 router = APIRouter(
     prefix="/api/parameter",
