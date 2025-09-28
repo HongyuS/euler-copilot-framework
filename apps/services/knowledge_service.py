@@ -8,7 +8,7 @@ import httpx
 from fastapi import status
 
 from apps.common.config import config
-from apps.models.document import Document
+from apps.models import Document
 from apps.schemas.rag_data import (
     RAGFileParseReq,
     RAGFileParseReqItem,

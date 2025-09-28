@@ -18,7 +18,7 @@ from apps.constants import (
     MCP_PATH,
     SERVICE_PAGE_SIZE,
 )
-from apps.models.mcp import (
+from apps.models import (
     MCPActivated,
     MCPInfo,
     MCPInstallStatus,
@@ -310,7 +310,6 @@ class MCPServiceManager:
             msg = "[MCPServiceManager] MCP服务未找到或无权限"
             raise ValueError(msg)
 
-        db_service = MCPInfo.model_validate(db_service)
         for user_id in db_service.activated:
             await MCPServiceManager.deactive_mcpservice(user_sub=user_id, mcp_id=data.mcp_id)
 
@@ -319,7 +318,7 @@ class MCPServiceManager:
             overview=data.overview,
             description=data.description,
             mcpServers={
-                data.mcp_id: config,
+                data.mcp_id: data.config[data.mcp_id],
             },
             mcpType=data.mcp_type,
             author=user_sub,
@@ -490,9 +489,18 @@ class MCPServiceManager:
         :param install: bool: 是否安装
         :return: 无
         """
-        service_collection = MongoDB().get_collection("mcp")
-        db_service = await service_collection.find_one({"_id": service_id, "author": user_sub})
-        db_service = MCPCollection.model_validate(db_service)
+        async with postgres.session() as session:
+            db_service = (await session.scalars(select(MCPInfo).where(
+                and_(
+                    MCPInfo.id == service_id,
+                    MCPInfo.author == user_sub,
+                ),
+            ))).one_or_none()
+
+        if not db_service:
+            err = "[MCPServiceManager] MCP服务未找到或无权限"
+            raise ValueError(err)
+
         if install:
             if db_service.status == MCPInstallStatus.INSTALLING:
                 err = "[MCPServiceManager] MCP服务已处于安装中"

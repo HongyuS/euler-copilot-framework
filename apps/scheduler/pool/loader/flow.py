@@ -13,13 +13,13 @@ from sqlalchemy import and_, delete, func, select
 
 from apps.common.config import config
 from apps.common.postgres import postgres
-from apps.llm.embedding import Embedding
-from apps.models.app import App, AppHashes
-from apps.models.flow import Flow as FlowInfo
+from apps.llm import Embedding
+from apps.models import App, AppHashes
+from apps.models import Flow as FlowInfo
 from apps.scheduler.util import yaml_enum_presenter, yaml_str_presenter
 from apps.schemas.enum_var import EdgeType, NodeType
 from apps.schemas.flow import Flow
-from apps.services.node import NodeManager
+from apps.services import NodeManager
 
 logger = logging.getLogger(__name__)
 BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "app"

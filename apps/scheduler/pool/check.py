@@ -11,8 +11,7 @@ from sqlalchemy import select
 
 from apps.common.config import config
 from apps.common.postgres import postgres
-from apps.models.app import App, AppHashes
-from apps.models.service import Service, ServiceHashes
+from apps.models import App, AppHashes, Service, ServiceHashes
 from apps.schemas.enum_var import MetadataType
 
 logger = logging.getLogger(__name__)

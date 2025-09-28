@@ -12,9 +12,8 @@ from typing import TYPE_CHECKING, Any, ClassVar, Self
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.json_schema import SkipJsonSchema
 
-from apps.models.node import NodeInfo
-from apps.models.task import ExecutorHistory
-from apps.schemas.enum_var import CallOutputType, LanguageType
+from apps.models import ExecutorHistory, LanguageType, NodeInfo
+from apps.schemas.enum_var import CallOutputType
 from apps.schemas.scheduler import (
     CallError,
     CallIds,

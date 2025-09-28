@@ -14,8 +14,9 @@ from jinja2.sandbox import SandboxedEnvironment
 from pydantic import Field
 
 from apps.common.config import config
+from apps.models import LanguageType
 from apps.scheduler.call.core import CoreCall
-from apps.schemas.enum_var import CallOutputType, LanguageType
+from apps.schemas.enum_var import CallOutputType
 from apps.schemas.scheduler import (
     CallError,
     CallInfo,
@@ -109,14 +110,15 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
                             validated_chunk = DocItem.model_validate(chunk_data)
                             validated_chunks.append(validated_chunk)
                         doc_chunk_list += validated_chunks
-                    except Exception as e:
-                        _logger.error(f"[RAG] chunk校验失败: {e}")
+                    except Exception:
+                        _logger.exception("[RAG] chunk校验失败")
                         raise
         except Exception:
             _logger.exception("[RAG] 获取文档分片失败")
 
         return doc_chunk_list
 
+    #TODO：修改为正确的获取临时文档的逻辑
     async def _get_doc_info(self, doc_ids: list[str], data: RAGInput) -> AsyncGenerator[CallOutputChunk, None]:
         """获取文档信息"""
         doc_chunk_list = []
@@ -154,18 +156,12 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
             )
             tmpl = env.from_string(QUESTION_REWRITE[self._sys_vars.language])
 
-            # 从背景对话中提取最近的问答对（user -> assistant）
-            tail_messages = self._sys_vars.background.conversation[-self.history_len:]
-            qa_pairs = []
-            for message in tail_messages:
-                qa_pairs += [{
-                    "question": message["question"],
-                    "answer": message["answer"],
-                }]
-            prompt = tmpl.render(history=qa_pairs, question=data.query)
+            # 仅使用当前问题，不使用历史问答数据
+            prompt = tmpl.render(question=data.query)
 
             # 使用_json方法直接获取JSON结果
             json_result = await self._json([
+                *self._sys_vars.background.conversation[-self.history_len:],
                 {"role": "user", "content": prompt},
             ], schema=QuestionRewriteOutput.model_json_schema())
             # 直接使用解析后的JSON结果
@@ -173,56 +169,18 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
         except Exception:
             _logger.exception("[RAG] 问题重写失败，使用原始问题")
 
-        url = config.rag.rag_service.rstrip("/") + "/chunk/search"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self._sys_vars.ids.session_id}",
-        }
+        # 获取文档片段
+        doc_chunk_list = await self._fetch_doc_chunks(data)
 
-        # 发送请求
-        data_json = data.model_dump(exclude_none=True, by_alias=True)
-        async with httpx.AsyncClient(timeout=300) as client:
-            response = await client.post(url, headers=headers, json=data_json)
+        corpus = []
+        for doc_chunk in doc_chunk_list:
+            for chunk in doc_chunk.chunks:
+                corpus.extend([chunk.text.replace("\n", "")])
 
-            # 检查响应状态码
-            if response.status_code == status.HTTP_200_OK:
-                result = response.json()
-                doc_chunk_list = result["result"]["docChunks"]
-
-                # 对返回的docChunks进行校验
-                try:
-                    validated_chunks = []
-                    for chunk_data in doc_chunk_list:
-                        validated_chunk = DocItem.model_validate(chunk_data)
-                        validated_chunks.append(validated_chunk)
-                    doc_chunk_list = validated_chunks
-                except Exception as e:
-                    err = f"[RAG] chunk校验失败: {e}"
-                    _logger.error(err)  # noqa: TRY400
-                    raise
-
-                corpus = []
-                for doc_chunk in doc_chunk_list:
-                    for chunk in doc_chunk["chunks"]:
-                        corpus.extend([chunk["text"].replace("\n", "")])
-
-                yield CallOutputChunk(
-                    type=CallOutputType.DATA,
-                    content=RAGOutput(
-                        question=data.query,
-                        corpus=corpus,
-                    ).model_dump(exclude_none=True, by_alias=True),
-                )
-                return
-
-            text = response.text
-            _logger.error("[RAG] 调用失败：%s", text)
-
-            raise CallError(
-                message=f"rag调用失败：{text}",
-                data={
-                    "question": data.query,
-                    "status": response.status_code,
-                    "text": text,
-                },
-            )
+        yield CallOutputChunk(
+            type=CallOutputType.DATA,
+            content=RAGOutput(
+                question=data.query,
+                corpus=corpus,
+            ).model_dump(exclude_none=True, by_alias=True),
+        )

@@ -1,6 +1,6 @@
 """图表相关提示词"""
 
-from apps.schemas.enum_var import LanguageType
+from apps.models import LanguageType
 
 GENERATE_STYLE_PROMPT: dict[LanguageType, str] = {
     LanguageType.CHINESE: r"""

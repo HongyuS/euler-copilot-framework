@@ -8,7 +8,7 @@ from typing import Any
 from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 
-from apps.models.mcp import MCPTools
+from apps.models import MCPTools
 from apps.scheduler.mcp_agent.base import MCPBase
 from apps.scheduler.mcp_agent.prompt import (
     CHANGE_ERROR_MESSAGE_TO_DESCRIPTION,
@@ -160,7 +160,7 @@ class MCPPlanner(MCPBase):
         # 解析为结构化数据
         return await self._parse_result(result, schema_with_null)
 
-    async def generate_answer(self, memory: str) -> AsyncGenerator[str, None]:
+    async def generate_answer(self, memory: str) -> AsyncGenerator[LLMChunk, None]:
         """生成最终回答"""
         template = _env.from_string(FINAL_ANSWER[self._language])
         prompt = template.render(
@@ -170,6 +170,5 @@ class MCPPlanner(MCPBase):
         async for chunk in self._llm.reasoning.call(
             [{"role": "user", "content": prompt}],
             streaming=True,
-            temperature=0.07,
         ):
             yield chunk

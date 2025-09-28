@@ -109,7 +109,7 @@ class ExecutorCheckpoint(Base):
     # 执行器级数据
     taskId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("framework_task.id"), nullable=False)  # noqa: N815
     """任务ID"""
-    appId: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)  # noqa: N815
+    appId: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)  # noqa: N815
     """应用ID"""
     executorId: Mapped[str] = mapped_column(String(255), nullable=False)  # noqa: N815
     """执行器ID（例如工作流ID）"""

@@ -12,7 +12,7 @@ from apps.schemas.response_data import (
     OperateAndBindType,
     StepParams,
 )
-from apps.services.node import NodeManager
+from apps.services import NodeManager
 
 logger = logging.getLogger(__name__)
 

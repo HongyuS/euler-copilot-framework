@@ -11,8 +11,8 @@ from sqlalchemy import select
 
 from apps.common.config import config
 from apps.common.postgres import postgres
-from apps.llm.embedding import Embedding
-from apps.models.flow import Flow as FlowInfo
+from apps.llm import Embedding
+from apps.models import Flow as FlowInfo
 from apps.schemas.enum_var import MetadataType
 from apps.schemas.flow import Flow
 
@@ -35,7 +35,8 @@ class Pool:
     在Framework启动时，执行全局的载入流程
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """初始化资源池"""
         self.app_loader = AppLoader()
         self.call_loader = CallLoader()
         self.mcp_loader = MCPLoader()

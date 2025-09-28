@@ -1,7 +1,7 @@
 """总结工具的提示词"""
 from textwrap import dedent
 
-from apps.schemas.enum_var import LanguageType
+from apps.models import LanguageType
 
 SUMMARY_PROMPT: dict[LanguageType, str] = {
     LanguageType.CHINESE: dedent(

@@ -8,7 +8,7 @@ from sqlalchemy import delete, func, select
 from apps.common.postgres import postgres
 from apps.constants import MAX_CONCURRENT_TASKS, SLIDE_WINDOW_QUESTION_COUNT, SLIDE_WINDOW_TIME
 from apps.exceptions import ActivityError
-from apps.models.session import SessionActivity
+from apps.models import SessionActivity
 
 
 class Activity:

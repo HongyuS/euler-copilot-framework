@@ -7,11 +7,15 @@ import uuid
 from sqlalchemy import and_, delete, select
 
 from apps.common.postgres import postgres
-from apps.models.app import App, AppHashes
-from apps.models.flow import Flow as FlowInfo
-from apps.models.node import NodeInfo
-from apps.models.service import Service
-from apps.models.user import UserFavorite, UserFavoriteType
+from apps.models import (
+    App,
+    AppHashes,
+    NodeInfo,
+    Service,
+    UserFavorite,
+    UserFavoriteType,
+)
+from apps.models import Flow as FlowInfo
 from apps.scheduler.pool.pool import Pool
 from apps.scheduler.slot.slot import Slot
 from apps.schemas.enum_var import EdgeType
@@ -34,6 +38,19 @@ logger = logging.getLogger(__name__)
 
 class FlowManager:
     """Flow相关操作"""
+
+    @staticmethod
+    async def get_flows_by_app_id(app_id: uuid.UUID) -> list[FlowInfo]:
+        """
+        通过appId获取应用的所有flow
+
+        :param app_id: 应用的id
+        :return: flow列表
+        """
+        async with postgres.session() as session:
+            return list((await session.scalars(
+                select(FlowInfo).where(FlowInfo.appId == app_id),
+            )).all())
 
     @staticmethod
     async def get_node_id_by_service_id(service_id: uuid.UUID) -> list[NodeMetaDataBase] | None:

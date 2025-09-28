@@ -15,8 +15,8 @@ class SuggestGenResult(BaseModel):
 class SingleFlowSuggestionConfig(BaseModel):
     """涉及单个Flow的问题推荐配置"""
 
-    flow_id: str
-    question: str | None = Field(default=None, description="固定的推荐问题")
+    flow_id: str | None = Field(default=None, description="Flow ID，为None时表示通用问题")
+    question: str = Field(default="", description="固定的推荐问题")
 
 
 class SuggestionInput(DataBase):
@@ -31,6 +31,7 @@ class SuggestionOutput(DataBase):
     """问题推荐结果"""
 
     question: str
-    flow_name: str = Field(alias="flowName")
-    flow_id: str = Field(alias="flowId")
-    flow_description: str = Field(alias="flowDescription")
+    flow_name: str | None = Field(default=None, alias="flowName")
+    flow_id: str | None = Field(default=None, alias="flowId")
+    flow_description: str | None = Field(default=None, alias="flowDescription")
+    is_highlight: bool = Field(default=False, alias="isHighlight")

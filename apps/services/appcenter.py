@@ -11,15 +11,27 @@ from sqlalchemy import and_, func, or_, select
 from apps.common.postgres import postgres
 from apps.constants import APP_DEFAULT_HISTORY_LEN, SERVICE_PAGE_SIZE
 from apps.exceptions import InstancePermissionError
-from apps.models.app import App, AppACL
-from apps.models.user import UserAppUsage, UserFavorite, UserFavoriteType
-from apps.scheduler.pool.loader.app import AppLoader
+from apps.models import (
+    App,
+    AppACL,
+    AppType,
+    PermissionType,
+    UserAppUsage,
+    UserFavorite,
+    UserFavoriteType,
+)
+from apps.scheduler.pool.pool import Pool
 from apps.schemas.agent import AgentAppMetadata
-from apps.schemas.appcenter import AppCenterCardItem, AppData
-from apps.schemas.enum_var import AppFilterType, AppType, PermissionType
+from apps.schemas.appcenter import (
+    AppCenterCardItem,
+    AppData,
+    RecentAppList,
+    RecentAppListItem,
+)
+from apps.schemas.enum_var import AppFilterType
 from apps.schemas.flow import AppMetadata, MetadataType, Permission
-from apps.schemas.response_data import RecentAppList, RecentAppListItem
 
+from .flow import FlowManager
 from .mcp_service import MCPServiceManager
 
 logger = logging.getLogger(__name__)
@@ -249,7 +261,7 @@ class AppCenterManager:
             app_id=app_id,
             user_sub=user_sub,
             data=data,
-            app_data=app_data,
+            published=None,
         )
 
 
@@ -266,8 +278,9 @@ class AppCenterManager:
         app_data = await AppCenterManager._get_app_data(app_id, user_sub)
 
         # 计算发布状态
+        flows = await FlowManager.get_flows_by_app_id(app_id)
         published = True
-        for flow in app_data.flows:
+        for flow in flows:
             if not flow.debug:
                 published = False
                 break
@@ -288,7 +301,7 @@ class AppCenterManager:
             app_type=app_data.appType,
             app_id=app_id,
             user_sub=user_sub,
-            app_data=app_data,
+            data=None,
             published=published,
         )
         return published
@@ -447,7 +460,7 @@ class AppCenterManager:
     async def _create_flow_metadata(
         common_params: dict,
         data: AppData | None = None,
-        app_data: App | None = None,
+        app_data: AppMetadata | None = None,
         *,
         published: bool | None = None,
     ) -> AppMetadata:
@@ -460,7 +473,7 @@ class AppCenterManager:
             metadata.first_questions = data.first_questions
         elif app_data:
             metadata.links = app_data.links
-            metadata.first_questions = app_data.firstQuestions
+            metadata.first_questions = app_data.first_questions
 
         # 处理 'flows' 字段
         if app_data:
@@ -491,7 +504,6 @@ class AppCenterManager:
         common_params: dict,
         user_sub: str,
         data: AppData | None = None,
-        app_data: App | None = None,
         *,
         published: bool | None = None,
     ) -> AgentAppMetadata:
@@ -500,28 +512,21 @@ class AppCenterManager:
 
         # mcp_service 逻辑
         if data is not None and hasattr(data, "mcp_service") and data.mcp_service:
-            # 创建应用场景，验证传入的 mcp_service 状态，确保只使用已经激活的 (create_app)
+            # 验证传入的 mcp_service 状态，确保只使用已经激活的
             activated_mcp_ids = []
             for svc in data.mcp_service:
                 is_activated = await MCPServiceManager.is_active(user_sub, svc)
                 if is_activated:
                     activated_mcp_ids.append(svc)
             metadata.mcp_service = activated_mcp_ids
-        elif data is not None and hasattr(data, "mcp_service"):
-            # 更新应用场景，使用 data 中的 mcp_service (update_app)
-            metadata.mcp_service = data.mcp_service if data.mcp_service is not None else []
-        elif app_data is not None and hasattr(app_data, "mcp_service"):
-            # 更新应用发布状态场景，使用 app_data 中的 mcp_service (update_app_publish_status)
-            metadata.mcp_service = app_data.mcp_service if app_data.mcp_service is not None else []
         else:
-            # 在预期的条件下，如果在 data 或 app_data 中找不到 mcp_service，则默认回退为空列表。
+            # data 中找不到 mcp_service，则默认为空列表。
             metadata.mcp_service = []
 
         # Agent 应用的发布状态逻辑
-        if published is not None:  # 从 update_app_publish_status 调用，'published' 参数已提供
+        if published is not None:
             metadata.published = published
-        else:  # 从 create_app 或 update_app 调用 (此时传递给 _create_metadata 的 'published' 参数为 None)
-            # 'published' 状态重置为 False。
+        else:
             metadata.published = False
 
         return metadata
@@ -532,7 +537,7 @@ class AppCenterManager:
         app_id: uuid.UUID,
         user_sub: str,
         data: AppData | None = None,
-        app_data: App | None = None,
+        app_data: AppMetadata | AgentAppMetadata | None = None,
         *,
         published: bool | None = None,
     ) -> AppMetadata | AgentAppMetadata:
@@ -557,7 +562,6 @@ class AppCenterManager:
         common_params = {
             "type": MetadataType.APP,
             "id": app_id,
-            "version": "1.0.0",
             "author": user_sub,
             "icon": source.icon,
             "name": source.name,
@@ -570,21 +574,23 @@ class AppCenterManager:
         }
 
         # 根据应用类型创建不同的元数据
-        if app_type == AppType.AGENT:
+        if app_type == AppType.AGENT and isinstance(app_data, AgentAppMetadata):
             return await AppCenterManager._create_agent_metadata(
-                common_params, user_sub, data, app_data, published=published,
+                common_params, user_sub, data, published=published,
             )
+        if app_type == AppType.FLOW and isinstance(app_data, AppMetadata):
+            return await AppCenterManager._create_flow_metadata(common_params, data, app_data, published=published)
 
-        return await AppCenterManager._create_flow_metadata(common_params, data, app_data, published=published)
+        msg = "无效的应用类型或元数据类型"
+        raise ValueError(msg)
 
 
     @staticmethod
-    async def _process_app_and_save(  # noqa: PLR0913
+    async def _process_app_and_save(
         app_type: AppType,
         app_id: uuid.UUID,
         user_sub: str,
         data: AppData | None = None,
-        app_data: App | None = None,
         *,
         published: bool | None = None,
     ) -> Any:
@@ -594,9 +600,12 @@ class AppCenterManager:
         :param app_type: 应用类型
         :param app_id: 应用唯一标识
         :param user_sub: 用户唯一标识
-        :param kwargs: 其他可选参数(data, app_data, published)
+        :param data: 应用数据，用于新建或更新时提供
+        :param published: 发布状态，用于更新时提供
         :return: 应用元数据
         """
+        # 获取现有的应用元数据
+        app_data = await Pool().app_loader.read_metadata(app_id)
         # 创建应用元数据
         metadata = await AppCenterManager._create_metadata(
             app_type=app_type,
@@ -608,5 +617,5 @@ class AppCenterManager:
         )
 
         # 保存应用
-        await AppLoader.save(metadata, app_id)
+        await Pool().app_loader.save(metadata, app_id)
         return metadata

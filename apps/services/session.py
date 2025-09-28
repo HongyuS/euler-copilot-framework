@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from apps.common.postgres import postgres
 from apps.constants import SESSION_TTL
-from apps.models.session import Session, SessionType
+from apps.models import Session, SessionType
 
 from .blacklist import UserBlacklistManager
 

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import select
 
 from apps.common.postgres import postgres
-from apps.models.node import NodeInfo
+from apps.models import NodeInfo
 from apps.scheduler.pool.pool import Pool
 from apps.schemas.enum_var import SpecialCallType
 

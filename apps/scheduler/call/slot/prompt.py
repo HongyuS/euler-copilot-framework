@@ -1,7 +1,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """自动参数填充工具的提示词"""
 
-from apps.schemas.enum_var import LanguageType
+from apps.models import LanguageType
 
 SLOT_GEN_PROMPT: dict[LanguageType, str] = {
     LanguageType.CHINESE: r"""

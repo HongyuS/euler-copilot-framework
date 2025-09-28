@@ -6,8 +6,7 @@ import logging
 from sqlalchemy import and_, select
 
 from apps.common.postgres import postgres
-from apps.models.tag import Tag
-from apps.models.user import UserTag
+from apps.models import Tag, UserTag
 from apps.schemas.tag import UserTagInfo
 
 logger = logging.getLogger(__name__)

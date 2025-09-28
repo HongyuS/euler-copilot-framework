@@ -6,8 +6,8 @@ from typing import Any
 
 from pydantic import Field
 
+from apps.models import LanguageType
 from apps.scheduler.call.core import CoreCall
-from apps.schemas.enum_var import LanguageType
 from apps.schemas.scheduler import CallInfo, CallOutputChunk
 
 

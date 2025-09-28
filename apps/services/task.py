@@ -7,8 +7,13 @@ import uuid
 from sqlalchemy import and_, delete, select
 
 from apps.common.postgres import postgres
-from apps.models.conversation import Conversation
-from apps.models.task import ExecutorCheckpoint, ExecutorHistory, Task, TaskRuntime
+from apps.models import (
+    Conversation,
+    ExecutorCheckpoint,
+    ExecutorHistory,
+    Task,
+    TaskRuntime,
+)
 from apps.schemas.task import TaskData
 
 logger = logging.getLogger(__name__)

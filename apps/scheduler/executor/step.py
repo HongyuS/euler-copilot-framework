@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import ConfigDict
 
-from apps.models.task import ExecutorHistory
+from apps.models import ExecutorHistory, StepStatus
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.call.empty import Empty
 from apps.scheduler.call.facts.facts import FactsCall
@@ -21,11 +21,10 @@ from apps.scheduler.pool.pool import Pool
 from apps.schemas.enum_var import (
     EventType,
     SpecialCallType,
-    StepStatus,
 )
 from apps.schemas.message import TextAddContent
 from apps.schemas.scheduler import CallError, CallOutputChunk
-from apps.services.node import NodeManager
+from apps.services import NodeManager
 
 from .base import BaseExecutor
 

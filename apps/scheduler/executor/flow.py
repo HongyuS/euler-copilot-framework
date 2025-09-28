@@ -8,8 +8,13 @@ from datetime import UTC, datetime
 
 from pydantic import Field
 
-from apps.models.task import ExecutorCheckpoint
-from apps.schemas.enum_var import EventType, ExecutorStatus, LanguageType, SpecialCallType, StepStatus
+from apps.models import (
+    ExecutorCheckpoint,
+    ExecutorStatus,
+    LanguageType,
+    StepStatus,
+)
+from apps.schemas.enum_var import EventType, SpecialCallType
 from apps.schemas.flow import Flow, Step
 from apps.schemas.request_data import RequestDataApp
 from apps.schemas.task import StepQueueItem

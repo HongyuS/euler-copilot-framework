@@ -8,9 +8,10 @@ from typing import Any
 
 from pydantic import Field
 
+from apps.models import LanguageType
 from apps.scheduler.call.core import CallError, CoreCall
 from apps.scheduler.mcp import MCPHost, MCPPlanner, MCPSelector
-from apps.schemas.enum_var import CallOutputType, LanguageType
+from apps.schemas.enum_var import CallOutputType
 from apps.schemas.mcp import MCPPlanItem
 from apps.schemas.scheduler import (
     CallInfo,

@@ -8,7 +8,7 @@ from sqlalchemy import and_, select
 from apps.common.postgres import postgres
 from apps.common.singleton import SingletonMeta
 from apps.constants import MCP_PATH
-from apps.models.mcp import MCPActivated, MCPType
+from apps.models import MCPActivated, MCPType
 from apps.schemas.mcp import MCPServerConfig
 
 from .client import MCPClient
