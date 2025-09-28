@@ -6,7 +6,7 @@ from abc import abstractmethod
 from collections.abc import AsyncGenerator
 
 from apps.constants import LLM_TIMEOUT
-from apps.models.llm import LLMData
+from apps.models import LLMData
 from apps.schemas.llm import LLMChunk, LLMFunctions
 
 _logger = logging.getLogger(__name__)

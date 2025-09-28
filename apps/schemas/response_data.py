@@ -98,21 +98,6 @@ class UserGetRsp(ResponseData):
     result: UserGetMsp
 
 
-class LLMProvider(BaseModel):
-    """LLM提供商数据结构"""
-
-    provider: str = Field(description="LLM提供商")
-    description: str = Field(description="LLM提供商描述")
-    url: str | None = Field(default=None, description="LLM提供商URL")
-    icon: str = Field(description="LLM提供商图标")
-
-
-class ListLLMProviderRsp(ResponseData):
-    """GET /api/llm/provider 返回数据结构"""
-
-    result: list[LLMProvider] = Field(default=[], title="Result")
-
-
 class LLMProviderInfo(BaseModel):
     """LLM数据结构"""
 

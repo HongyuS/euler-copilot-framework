@@ -7,7 +7,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.schemas.enum_var import EventType, ExecutorStatus, StepStatus
+from apps.models import ExecutorStatus, StepStatus
+from apps.schemas.enum_var import EventType
 
 from .record import RecordMetadata
 

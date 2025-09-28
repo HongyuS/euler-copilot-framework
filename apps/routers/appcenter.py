@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 
 from apps.dependency.user import verify_personal_token, verify_session
 from apps.exceptions import InstancePermissionError
+from apps.models import AppType
 from apps.schemas.appcenter import (
     AppFlowInfo,
     AppMcpServiceInfo,
@@ -26,10 +27,9 @@ from apps.schemas.appcenter import (
     GetAppPropertyRsp,
     GetRecentAppListRsp,
 )
-from apps.schemas.enum_var import AppFilterType, AppType
+from apps.schemas.enum_var import AppFilterType
 from apps.schemas.response_data import ResponseData
-from apps.services.appcenter import AppCenterManager
-from apps.services.mcp_service import MCPServiceManager
+from apps.services import AppCenterManager, MCPServiceManager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(

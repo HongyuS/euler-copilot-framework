@@ -25,7 +25,7 @@ models:
   # 用于Function Call的模型；建议使用特定推理框架
   functionCall:
     # 推理框架类型，默认为ollama
-    # 可用的框架类型：["vllm", "ollama", "function_call", "json_mode", "structured_output"]
+    # 可用的框架类型：["vllm", "sglang", "ollama", "openai"]
     backend:
     # [必填] 模型地址；请根据 API 提供商文档确定是否需要带上“v1”后缀
     # 选择不填则与问答模型一致
@@ -89,8 +89,8 @@ euler_copilot:
   framework:
     # [必填] 是否部署Framework后端框架服务
     enabled: true
-    # 镜像设置；默认为hub.oepkgs.net/neocopilot/euler-copilot-framework:0.9.6-x86
-    # 镜像标签：["0.9.6-x86", "0.9.6-arm"]
+    # 镜像设置；默认为hub.oepkgs.net/neocopilot/euler-copilot-framework:0.10.0-x86
+    # 镜像标签：["0.10.0-x86", "0.10.0-arm"]
     image:
     # 容器根目录只读
     readOnly:
@@ -106,8 +106,8 @@ euler_copilot:
   web:
     # [必填] 是否部署Web前端用户界面
     enabled: true
-    # 镜像设置；默认为hub.oepkgs.net/neocopilot/euler-copilot-web:0.9.6-x86
-    # 镜像标签：["0.9.6-x86", "0.9.6-arm"]
+    # 镜像设置；默认为hub.oepkgs.net/neocopilot/euler-copilot-web:0.10.0-x86
+    # 镜像标签：["0.10.0-x86", "0.10.0-arm"]
     image:
     # 容器根目录只读
     readOnly:
@@ -123,8 +123,8 @@ euler_copilot:
   rag_web:
     # [必填] 是否部署RAG Web前端用户界面
     enabled: true
-    # 镜像设置；默认为hub.oepkgs.net/neocopilot/data_chain_web:0.9.6-x86
-    # 镜像标签：["0.9.6-x86", "0.9.6-arm"]
+    # 镜像设置；默认为hub.oepkgs.net/neocopilot/data_chain_web:0.10.0-x86
+    # 镜像标签：["0.10.0-x86", "0.10.0-arm"]
     image:
     # 容器根目录只读
     readOnly:
@@ -140,8 +140,8 @@ euler_copilot:
   rag:
     # [必填] 是否部署RAG后端服务
     enabled: true
-    # 镜像设置；默认为hub.oepkgs.net/neocopilot/data_chain_back_end:0.9.6-x86
-    # 镜像标签：["0.9.6-x86", "0.9.6-arm"]
+    # 镜像设置；默认为hub.oepkgs.net/neocopilot/data_chain_back_end:0.10.0-x86
+    # 镜像标签：["0.10.0-x86", "0.10.0-arm"]
     image:
     # 容器根目录只读
     readOnly:
@@ -153,3 +153,5 @@ euler_copilot:
       type:
       # 当类型为NodePort时，填写主机的端口号
       nodePort:
+
+

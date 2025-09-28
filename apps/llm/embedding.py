@@ -9,8 +9,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base
 
 from apps.common.postgres import postgres
-from apps.models.llm import LLMData
-from apps.schemas.llm import LLMProvider
+from apps.models import LLMData, LLMProvider
 
 from .providers import BaseProvider, OpenAIProvider, TEIProvider
 

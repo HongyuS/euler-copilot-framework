@@ -5,7 +5,7 @@ import uuid
 
 from pydantic import BaseModel
 
-from apps.models.blacklist import Blacklist
+from apps.models import Blacklist
 from apps.schemas.response_data import ResponseData
 
 

@@ -2,13 +2,14 @@
 """FastAPI 请求体"""
 
 import uuid
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .enum_var import LanguageType
+from apps.models import LanguageType, LLMProvider
+
 from .flow_topology import FlowItem
-from .llm import LLMProvider
 from .message import FlowParams
 
 
@@ -80,3 +81,4 @@ class UserUpdateRequest(BaseModel):
     user_name: str | None = Field(default=None, description="用户名", alias="userName")
     auto_execute: bool = Field(default=False, description="是否自动执行", alias="autoExecute")
     agreement_confirmed: bool | None = Field(default=None, description="协议确认状态", alias="agreementConfirmed")
+    last_login: datetime | None = Field(default=None, description="最后一次登录时间", alias="lastLogin")

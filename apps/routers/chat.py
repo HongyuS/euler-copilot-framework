@@ -13,20 +13,23 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from apps.common.queue import MessageQueue
 from apps.common.wordscheck import WordsCheck
 from apps.dependency import verify_personal_token, verify_session
+from apps.models import ExecutorStatus
 from apps.scheduler.scheduler import Scheduler
 from apps.scheduler.scheduler.context import save_data
-from apps.schemas.enum_var import ExecutorStatus
 from apps.schemas.request_data import RequestData, RequestDataApp
 from apps.schemas.response_data import ResponseData
-from apps.services.activity import Activity
-from apps.services.blacklist import QuestionBlacklistManager, UserBlacklistManager
-from apps.services.conversation import ConversationManager
-from apps.services.flow import FlowManager
-from apps.services.record import RecordManager
-from apps.services.task import TaskManager
+from apps.services import (
+    Activity,
+    ConversationManager,
+    FlowManager,
+    QuestionBlacklistManager,
+    RecordManager,
+    TaskManager,
+    UserBlacklistManager,
+)
 
 RECOMMEND_TRES = 5
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/api",
     tags=["chat"],
@@ -73,7 +76,7 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
         # 敏感词检查
         if await WordsCheck().check(post_body.question) != 1:
             yield "data: [SENSITIVE]\n\n"
-            logger.info("[Chat] 问题包含敏感词！")
+            _logger.info("[Chat] 问题包含敏感词！")
             await Activity.remove_active(user_sub)
             return
 
@@ -85,7 +88,7 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
 
         # 在单独Task中运行Scheduler，拉齐queue.get的时机
         scheduler = Scheduler(task, queue, post_body)
-        logger.info(f"[Chat] 用户是否活跃: {await Activity.is_active(user_sub)}")
+        _logger.info(f"[Chat] 用户是否活跃: {await Activity.is_active(user_sub)}")
         scheduler_task = asyncio.create_task(scheduler.run())
 
         # 处理每一条消息
@@ -100,7 +103,7 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
         # 获取最终答案
         task = scheduler.task
         if task.state.flow_status == ExecutorStatus.ERROR:
-            logger.error("[Chat] 生成答案失败")
+            _logger.error("[Chat] 生成答案失败")
             yield "data: [ERROR]\n\n"
             await Activity.remove_active(user_sub)
             return
@@ -108,7 +111,7 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
         # 对结果进行敏感词检查
         if await WordsCheck().check(task.runtime.answer) != 1:
             yield "data: [SENSITIVE]\n\n"
-            logger.info("[Chat] 答案包含敏感词！")
+            _logger.info("[Chat] 答案包含敏感词！")
             await Activity.remove_active(user_sub)
             return
 
@@ -125,7 +128,7 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
         yield "data: [DONE]\n\n"
 
     except Exception:
-        logger.exception("[Chat] 生成答案失败")
+        _logger.exception("[Chat] 生成答案失败")
         yield "data: [ERROR]\n\n"
 
     finally:

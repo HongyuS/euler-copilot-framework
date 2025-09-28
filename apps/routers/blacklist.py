@@ -18,7 +18,7 @@ from apps.schemas.blacklist import (
 from apps.schemas.response_data import (
     ResponseData,
 )
-from apps.services.blacklist import (
+from apps.services import (
     AbuseManager,
     QuestionBlacklistManager,
     UserBlacklistManager,
@@ -33,7 +33,7 @@ admin_router = APIRouter(
         Depends(verify_admin),
     ],
 )
-user_router = APIRouter(
+router = APIRouter(
     prefix="/api/blacklist",
     tags=["blacklist"],
     dependencies=[
@@ -141,7 +141,7 @@ async def change_blacklist_question(request: QuestionBlacklistRequest) -> JSONRe
     ).model_dump(exclude_none=True, by_alias=True))
 
 
-@user_router.post("/complaint", response_model=ResponseData)
+@router.post("/complaint", response_model=ResponseData)
 async def abuse_report(raw_request: Request, request: AbuseRequest) -> JSONResponse:
     """POST /blacklist/complaint: 用户实施举报"""
     result = await AbuseManager.change_abuse_report(

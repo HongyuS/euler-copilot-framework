@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from apps.common.security import Security
 from apps.dependency import verify_personal_token, verify_session
-from apps.models.task import ExecutorHistory
+from apps.models import ExecutorHistory
 from apps.schemas.record import (
     RecordContent,
     RecordData,
@@ -23,10 +23,12 @@ from apps.schemas.response_data import (
     RecordListRsp,
     ResponseData,
 )
-from apps.services.conversation import ConversationManager
-from apps.services.document import DocumentManager
-from apps.services.record import RecordManager
-from apps.services.task import TaskManager
+from apps.services import (
+    ConversationManager,
+    DocumentManager,
+    RecordManager,
+    TaskManager,
+)
 
 router = APIRouter(
     prefix="/api/record",

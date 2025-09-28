@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-from apps.schemas.enum_var import CommentType
+from apps.models import CommentType
 
 
 class AddCommentData(BaseModel):

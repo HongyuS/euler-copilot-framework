@@ -2,15 +2,46 @@
 
 import uuid
 from datetime import UTC, datetime
+from enum import Enum as PyEnum
 from typing import Any
 
 from sqlalchemy import DateTime, Enum, Float, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from apps.schemas.enum_var import ExecutorStatus, LanguageType, StepStatus
-
 from .base import Base
+
+
+class ExecutorStatus(str, PyEnum):
+    """执行器状态"""
+
+    UNKNOWN = "unknown"
+    INIT = "init"
+    WAITING = "waiting"
+    RUNNING = "running"
+    SUCCESS = "success"
+    ERROR = "error"
+    CANCELLED = "cancelled"
+
+
+class LanguageType(str, PyEnum):
+    """语言"""
+
+    CHINESE = "zh"
+    ENGLISH = "en"
+
+
+class StepStatus(str, PyEnum):
+    """步骤状态"""
+
+    UNKNOWN = "unknown"
+    INIT = "init"
+    WAITING = "waiting"
+    RUNNING = "running"
+    SUCCESS = "success"
+    ERROR = "error"
+    PARAM = "param"
+    CANCELLED = "cancelled"
 
 
 class Task(Base):

@@ -2,6 +2,7 @@
 """FastAPI 用户认证相关路由"""
 
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -13,6 +14,7 @@ from apps.common.config import config
 from apps.common.oidc import oidc_provider
 from apps.dependency import verify_personal_token, verify_session
 from apps.schemas.personal_token import PostPersonalTokenMsg, PostPersonalTokenRsp
+from apps.schemas.request_data import UserUpdateRequest
 from apps.schemas.response_data import (
     AuthUserMsg,
     AuthUserRsp,
@@ -20,25 +22,27 @@ from apps.schemas.response_data import (
     OidcRedirectRsp,
     ResponseData,
 )
-from apps.services.personal_token import PersonalTokenManager
-from apps.services.session import SessionManager
-from apps.services.token import TokenManager
-from apps.services.user import UserManager
+from apps.services import (
+    PersonalTokenManager,
+    SessionManager,
+    TokenManager,
+    UserManager,
+)
 
-router = APIRouter(
+admin_router = APIRouter(
     prefix="/api/auth",
     tags=["auth"],
 )
-user_router = APIRouter(
+router = APIRouter(
     prefix="/api/auth",
     tags=["auth"],
     dependencies=[Depends(verify_session), Depends(verify_personal_token)],
 )
-logger = logging.getLogger(__name__)
-templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates")
+_logger = logging.getLogger(__name__)
+_templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates")
 
 
-@router.get("/login")
+@admin_router.get("/login")
 async def oidc_login(request: Request, code: str) -> HTMLResponse:
     """
     GET /auth/login?code=xxx: 用户登录EulerCopilot
@@ -55,41 +59,40 @@ async def oidc_login(request: Request, code: str) -> HTMLResponse:
         if user_sub:
             await oidc_provider.set_token(user_sub, token["access_token"], token["refresh_token"])
     except Exception as e:
-        logger.exception("User login failed")
+        _logger.exception("User login failed")
         status_code = status.HTTP_400_BAD_REQUEST if "auth error" in str(e) else status.HTTP_403_FORBIDDEN
-        return templates.TemplateResponse(
+        return _templates.TemplateResponse(
             "login_failed.html.j2",
             {"request": request, "reason": "无法验证登录信息，请关闭本窗口并重试。"},
             status_code=status_code,
         )
-
+    # 获取用户信息
     if not request.client:
-        return templates.TemplateResponse(
+        return _templates.TemplateResponse(
             "login_failed.html.j2",
             {"request": request, "reason": "无法获取用户信息，请关闭本窗口并重试。"},
             status_code=status.HTTP_403_FORBIDDEN,
         )
     user_host = request.client.host
-
+    # 获取用户sub
     if not user_sub:
-        logger.error("OIDC no user_sub associated.")
-        return templates.TemplateResponse(
+        _logger.error("OIDC no user_sub associated.")
+        return _templates.TemplateResponse(
             "login_failed.html.j2",
             {"request": request, "reason": "未能获取用户信息，请关闭本窗口并重试。"},
             status_code=status.HTTP_403_FORBIDDEN,
         )
-
-    await UserManager.update_user(user_sub)
-
+    # 更新用户信息
+    await UserManager.update_user(user_sub, UserUpdateRequest(lastLogin=datetime.now(UTC)))
+    # 创建会话
     current_session = await SessionManager.create_session(user_sub, user_host)
-    return templates.TemplateResponse(
+    return _templates.TemplateResponse(
         "login_success.html.j2",
         {"request": request, "current_session": current_session},
     )
 
-
 # 用户主动logout
-@user_router.get("/logout", response_model=ResponseData)
+@router.get("/logout", response_model=ResponseData)
 async def logout(request: Request) -> JSONResponse:
     """GET /auth/logout: 用户登出EulerCopilot"""
     if not request.client:
@@ -116,7 +119,7 @@ async def logout(request: Request) -> JSONResponse:
     )
 
 
-@router.get("/redirect", response_model=OidcRedirectRsp)
+@admin_router.get("/redirect", response_model=OidcRedirectRsp)
 async def oidc_redirect() -> JSONResponse:
     """GET /auth/redirect: 前端获取OIDC重定向URL"""
     redirect_url = await oidc_provider.get_redirect_url()
@@ -131,7 +134,7 @@ async def oidc_redirect() -> JSONResponse:
 
 
 # TODO(zwt): OIDC主动触发logout
-@router.post("/logout", response_model=ResponseData)
+@admin_router.post("/logout", response_model=ResponseData)
 async def oidc_logout(token: Annotated[str, Body()]) -> JSONResponse:
     """POST /auth/logout: OIDC主动告知后端用户已在其他SSO站点登出"""
     return JSONResponse(
@@ -144,7 +147,7 @@ async def oidc_logout(token: Annotated[str, Body()]) -> JSONResponse:
     )
 
 
-@user_router.get("/user", response_model=AuthUserRsp)
+@router.get("/user", response_model=AuthUserRsp)
 async def userinfo(request: Request) -> JSONResponse:
     """GET /auth/user: 获取当前用户信息"""
     user = await UserManager.get_user(user_sub=request.state.user_sub)
@@ -173,7 +176,7 @@ async def userinfo(request: Request) -> JSONResponse:
     )
 
 
-@user_router.post("/key", responses={
+@router.post("/key", responses={
     400: {"model": ResponseData},
 }, response_model=PostPersonalTokenRsp)
 async def change_personal_token(request: Request) -> JSONResponse:

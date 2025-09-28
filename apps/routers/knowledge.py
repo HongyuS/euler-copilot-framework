@@ -13,7 +13,7 @@ from apps.schemas.response_data import (
     ListTeamKnowledgeRsp,
     ResponseData,
 )
-from apps.services.knowledge import KnowledgeBaseManager
+from apps.services import KnowledgeBaseManager
 
 router = APIRouter(
     prefix="/api/knowledge",

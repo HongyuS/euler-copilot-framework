@@ -3,17 +3,13 @@
 
 import logging
 import uuid
-from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import JSONResponse
 
 from apps.dependency import verify_personal_token, verify_session
-from apps.models.conversation import Conversation
 from apps.schemas.conversation import (
-    AddConversationMsg,
-    AddConversationRsp,
     ChangeConversationData,
     ConversationListItem,
     ConversationListMsg,
@@ -24,9 +20,7 @@ from apps.schemas.conversation import (
     UpdateConversationRsp,
 )
 from apps.schemas.response_data import ResponseData
-from apps.services.appcenter import AppCenterManager
-from apps.services.conversation import ConversationManager
-from apps.services.document import DocumentManager
+from apps.services import ConversationManager, DocumentManager
 
 router = APIRouter(
     prefix="/api/conversation",
@@ -36,29 +30,8 @@ router = APIRouter(
         Depends(verify_personal_token),
     ],
 )
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
-
-async def create_new_conversation(
-    title: str, user_sub: str, app_id: uuid.UUID | None = None,
-    *,
-    debug: bool = False,
-) -> Conversation:
-    """判断并创建新对话"""
-    # 新建对话
-    if app_id and not await AppCenterManager.validate_user_app_access(user_sub, app_id):
-        err = "Invalid app_id."
-        raise RuntimeError(err)
-    new_conv = await ConversationManager.add_conversation_by_user_sub(
-        title=title,
-        user_sub=user_sub,
-        app_id=app_id,
-        debug=debug,
-    )
-    if not new_conv:
-        err = "Create new conversation failed."
-        raise RuntimeError(err)
-    return new_conv
 
 @router.get("", response_model=ConversationListRsp, responses={
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": ResponseData},
@@ -92,55 +65,17 @@ async def get_conversation_list(request: Request) -> JSONResponse:
     )
 
 
-@router.post("", response_model=AddConversationRsp)
-async def add_conversation(
-    request: Request,
-    appId: Annotated[uuid.UUID | None, Query()] = None,  # noqa: N803
-    title: str = "New Chat",
-    *,
-    debug: Annotated[bool, Query()] = False,
-) -> JSONResponse:
-    """POST /conversation: 手动创建新对话"""
-    # 尝试创建新对话
-    try:
-        debug = debug if debug is not None else False
-        new_conv = await create_new_conversation(
-            title=title,
-            user_sub=request.state.user_sub,
-            app_id=appId,
-            debug=debug,
-        )
-    except RuntimeError as e:
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=ResponseData(
-                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                message=str(e),
-                result={},
-            ).model_dump(exclude_none=True, by_alias=True),
-        )
-
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content=AddConversationRsp(
-            code=status.HTTP_200_OK,
-            message="success",
-            result=AddConversationMsg(conversationId=new_conv.id),
-        ).model_dump(exclude_none=True, by_alias=True),
-    )
-
-
-@router.put("", response_model=UpdateConversationRsp)
+@router.post("", response_model=UpdateConversationRsp)
 async def update_conversation(
-    user_sub: Annotated[str, Depends(get_user)],
-    conversation_id: Annotated[str, Query(..., alias="conversationId")],
+    request: Request,
+    conversation_id: Annotated[uuid.UUID, Query(alias="conversationId")],
     post_body: ChangeConversationData,
 ) -> JSONResponse:
-    """PUT /conversation: 更新特定Conversation的数据"""
+    """PUT /conversation: 更新特定Conversation的信息"""
     # 判断Conversation是否合法
-    conv = await ConversationManager.get_conversation_by_conversation_id(user_sub, conversation_id)
-    if not conv or conv.userSub != user_sub:
-        logger.error("[Conversation] conversation_id 不存在")
+    conv = await ConversationManager.get_conversation_by_conversation_id(request.state.user_sub, conversation_id)
+    if not conv or conv.userSub != request.state.user_sub:
+        _logger.error("[Conversation] conversation_id 不存在")
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content=ResponseData(
@@ -153,13 +88,14 @@ async def update_conversation(
     # 更新Conversation数据
     try:
         await ConversationManager.update_conversation_by_conversation_id(
-            user_sub,
+            request.state.user_sub,
             conversation_id,
             {
                 "title": post_body.title,
             },
         )
-    except Exception as e:
+    except Exception:
+        _logger.exception("[Conversation] 更新对话数据失败")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ResponseData(
@@ -177,12 +113,10 @@ async def update_conversation(
             result=ConversationListItem(
                 conversationId=conv.id,
                 title=conv.title,
-                docCount=await DocumentManager.get_doc_count(user_sub, conv.id),
-                createdTime=datetime.fromtimestamp(conv.createdAt, tz=UTC).strftime(
-                    "%Y-%m-%d %H:%M:%S",
-                ),
-                appId=conv.appId if conv.appId else "",
-                debug=conv.debug if conv.debug else False,
+                docCount=await DocumentManager.get_doc_count(conv.id),
+                createdTime=conv.createdAt.strftime("%Y-%m-%d %H:%M:%S"),
+                appId=conv.appId,
+                debug=conv.isTemporary,
             ),
         ).model_dump(exclude_none=True, by_alias=True),
     )

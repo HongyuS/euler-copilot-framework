@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from apps.schemas.enum_var import CommentType, ExecutorStatus, StepStatus
+from apps.models import CommentType, ExecutorStatus, StepStatus
 
 
 class RecordDocument(BaseModel):
