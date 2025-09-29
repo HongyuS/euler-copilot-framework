@@ -11,7 +11,7 @@ from apps.schemas.enum_var import EventType
 from apps.schemas.message import TextAddContent
 from apps.schemas.record import RecordContent
 from apps.schemas.scheduler import ExecutorBackground
-from apps.services.record import RecordManager
+from apps.services import RecordManager
 
 if TYPE_CHECKING:
     from apps.common.queue import MessageQueue

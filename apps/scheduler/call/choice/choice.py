@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import Field
 
+from apps.models import LanguageType
 from apps.scheduler.call.choice.condition_handler import ConditionHandler
 from apps.scheduler.call.choice.schema import (
     ChoiceBranch,
@@ -18,7 +19,7 @@ from apps.scheduler.call.choice.schema import (
     Logic,
 )
 from apps.scheduler.call.core import CoreCall
-from apps.schemas.enum_var import CallOutputType, LanguageType
+from apps.schemas.enum_var import CallOutputType
 from apps.schemas.scheduler import (
     CallError,
     CallInfo,

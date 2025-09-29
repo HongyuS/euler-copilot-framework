@@ -3,7 +3,7 @@
 
 from textwrap import dedent
 
-from apps.schemas.enum_var import LanguageType
+from apps.models import LanguageType
 
 MCP_SELECT: dict[LanguageType, str] = {
     LanguageType.CHINESE: dedent(

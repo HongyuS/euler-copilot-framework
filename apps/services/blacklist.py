@@ -8,9 +8,7 @@ from sqlalchemy import and_, select
 
 from apps.common.postgres import postgres
 from apps.common.security import Security
-from apps.models.blacklist import Blacklist
-from apps.models.record import Record
-from apps.models.user import User
+from apps.models import Blacklist, Record, User
 from apps.schemas.record import RecordContent
 
 logger = logging.getLogger(__name__)

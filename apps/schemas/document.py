@@ -26,6 +26,19 @@ class BaseDocumentItem(BaseModel):
         populate_by_name = True
 
 
+class DocumentInfo(BaseModel):
+    """RAG使用的文档信息"""
+
+    id: uuid.UUID = Field(description="文档ID")
+    order: int = Field(description="文档顺序")
+    name: str = Field(default="", description="文档名称")
+    author: str = Field(default="", description="文档作者")
+    extension: str = Field(default="", description="文档扩展名")
+    abstract: str = Field(default="", description="文档摘要")
+    size: int = Field(default=0, description="文档大小")
+    created_at: float = Field(description="创建时间")
+
+
 class ConversationDocumentItem(BaseDocumentItem):
     """GET /api/document/{conversation_id} Result内元素数据结构"""
 

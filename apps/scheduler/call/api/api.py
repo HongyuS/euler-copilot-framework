@@ -13,16 +13,16 @@ from pydantic import Field
 from pydantic.json_schema import SkipJsonSchema
 
 from apps.common.oidc import oidc_provider
+from apps.models import LanguageType
 from apps.scheduler.call.core import CoreCall
-from apps.schemas.enum_var import CallOutputType, ContentType, HTTPMethod, LanguageType
+from apps.schemas.enum_var import CallOutputType, ContentType, HTTPMethod
 from apps.schemas.scheduler import (
     CallError,
     CallInfo,
     CallOutputChunk,
     CallVars,
 )
-from apps.services.service import ServiceCenterManager
-from apps.services.token import TokenManager
+from apps.services import ServiceCenterManager, TokenManager
 
 from .schema import APIInput, APIOutput
 

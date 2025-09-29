@@ -6,8 +6,7 @@ import logging
 from sqlalchemy import select
 
 from apps.common.postgres import postgres
-from apps.models.llm import LLMData
-from apps.models.user import User
+from apps.models import LLMData, User
 from apps.schemas.request_data import (
     UpdateLLMReq,
     UpdateUserSelectedLLMReq,

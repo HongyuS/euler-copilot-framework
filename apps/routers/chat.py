@@ -5,9 +5,8 @@ import asyncio
 import logging
 import uuid
 from collections.abc import AsyncGenerator
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from apps.common.queue import MessageQueue
@@ -18,6 +17,7 @@ from apps.scheduler.scheduler import Scheduler
 from apps.scheduler.scheduler.context import save_data
 from apps.schemas.request_data import RequestData, RequestDataApp
 from apps.schemas.response_data import ResponseData
+from apps.schemas.task import TaskData
 from apps.services import (
     Activity,
     ConversationManager,
@@ -40,7 +40,7 @@ router = APIRouter(
 )
 
 
-async def init_task(post_body: RequestData, user_sub: str, session_id: str) -> Task:
+async def init_task(post_body: RequestData, user_sub: str, session_id: str) -> TaskData:
     """初始化Task"""
     # 更改信息并刷新数据库
     if post_body.task_id is None:
@@ -87,7 +87,8 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
         await queue.init()
 
         # 在单独Task中运行Scheduler，拉齐queue.get的时机
-        scheduler = Scheduler(task, queue, post_body)
+        scheduler = Scheduler()
+        await scheduler.init(task.metadata.id, queue, post_body, user_sub)
         _logger.info(f"[Chat] 用户是否活跃: {await Activity.is_active(user_sub)}")
         scheduler_task = asyncio.create_task(scheduler.run())
 
@@ -159,9 +160,9 @@ async def chat(request: Request, post_body: RequestData) -> StreamingResponse:
 
 
 @router.post("/stop", response_model=ResponseData)
-async def stop_generation(taskId: Annotated[uuid.UUID, Query()]) -> JSONResponse:  # noqa: N803
+async def stop_generation(request: Request) -> JSONResponse:
     """停止生成"""
-    await Activity.remove_active(taskId)
+    await Activity.remove_active(request.state.user_sub)
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,

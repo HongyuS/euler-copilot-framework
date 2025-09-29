@@ -9,9 +9,8 @@ from typing import Literal
 from sqlalchemy import and_, select
 
 from apps.common.postgres import postgres
-from apps.models.conversation import Conversation
-from apps.models.record import Record as PgRecord
-from apps.schemas.enum_var import ExecutorStatus
+from apps.models import Conversation, ExecutorStatus
+from apps.models import Record as PgRecord
 from apps.schemas.record import Record
 
 logger = logging.getLogger(__name__)

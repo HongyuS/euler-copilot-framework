@@ -7,7 +7,7 @@ import uuid
 from sqlalchemy import select
 
 from apps.common.postgres import postgres
-from apps.models.user import User
+from apps.models import User
 
 logger = logging.getLogger(__name__)
 

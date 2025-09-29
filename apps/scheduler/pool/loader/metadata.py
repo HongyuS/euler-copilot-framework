@@ -10,9 +10,10 @@ from anyio import Path
 from fastapi.encoders import jsonable_encoder
 
 from apps.common.config import config
+from apps.models import AppType
 from apps.scheduler.util import yaml_str_presenter
 from apps.schemas.agent import AgentAppMetadata
-from apps.schemas.enum_var import AppType, MetadataType
+from apps.schemas.enum_var import MetadataType
 from apps.schemas.flow import (
     AppMetadata,
     ServiceMetadata,

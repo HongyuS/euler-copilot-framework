@@ -3,20 +3,19 @@
 
 from textwrap import dedent
 
-from apps.schemas.enum_var import LanguageType
+from apps.models import LanguageType
 
 SUGGEST_PROMPT: dict[LanguageType, str] = {
     LanguageType.CHINESE: dedent(
         r"""
             <instructions>
                 <instruction>
-                    根据先前的历史对话和提供的附加信息（用户倾向、问题列表、工具信息等）生成三个预测问题。
-                    问题列表展示的是用户的过往问题，请避免重复生成这些问题。
-                    用户倾向将在<domain>标签中给出，历史问题列表将在<history_questions>标签中给出，
-                    工具信息将在<tool_info>标签中给出。
+                    根据先前的历史对话和提供的附加信息（用户倾向、问题列表、工具信息等）生成指定数量的预测问题。
+                    <question_list>中包含了用户已提出过的所有问题，请避免重复生成这些问题。
+                    用户倾向将在<domain>标签中给出，工具信息将在<tool_info>标签中给出。
 
                     生成预测问题时的要求：
-                        1. 以用户口吻生成预测问题，数量必须为3个，必须为疑问句或祈使句，必须少于30字。
+                        1. 以用户口吻生成预测问题，数量必须为指定的数量，必须为疑问句或祈使句，必须少于30字。
                         2. 预测问题必须精简，不得发生重复，不得在问题中掺杂非必要信息，不得输出除问题以外的文字。
                         3. 输出必须按照如下格式：
 
@@ -25,17 +24,19 @@ SUGGEST_PROMPT: dict[LanguageType, str] = {
                             "predicted_questions": [
                                 "预测问题1",
                                 "预测问题2",
-                                "预测问题3"
+                                ...
                             ]
                         }
                         ```
-
                 </instruction>
+
                 <example>
-                    <history_questions>
+                    <question_list>
                         <question>简单介绍一下杭州</question>
                         <question>杭州有哪些著名景点？</question>
-                    </history_questions>
+                        <question>杭州西湖景区的门票价格是多少？</question>
+                    </question_list>
+                    <target_num>3</target_num>
                     <tool_info>
                         <name>景点查询</name>
                         <description>查询景点信息</description>
@@ -46,7 +47,6 @@ SUGGEST_PROMPT: dict[LanguageType, str] = {
 
                     {
                         "predicted_questions": [
-                            "杭州西湖景区的门票价格是多少？",
                             "杭州的天气怎么样？",
                             "杭州有什么特色美食？"
                         ]
@@ -56,15 +56,22 @@ SUGGEST_PROMPT: dict[LanguageType, str] = {
 
             下面是实际的数据：
 
-            请参考以下历史问题进行问题生成，避免重复已提出的问题：
-            {% if history %}
-                <history_questions>
+            以下是问题列表，请参考其内容并避免重复生成：
+            {% if history or generated %}
+                <question_list>
                 {% for question in history %}
                     <question>{{ question }}</question>
                 {% endfor %}
-                </history_questions>
+                {% for question in generated %}
+                    <question>{{ question }}</question>
+                {% endfor %}
+                </question_list>
             {% else %}
-                (无历史问题)
+                (无已知问题)
+            {% endif %}
+
+            {% if target_num %}
+            请生成{{ target_num }}个问题。
             {% endif %}
 
             <tool_info>
@@ -91,42 +98,42 @@ SUGGEST_PROMPT: dict[LanguageType, str] = {
         r"""
             <instructions>
                 <instruction>
-                    Generate three predicted questions based on the previous historical dialogue and provided \
-additional information (user preferences, historical question list, tool information, etc.).
-                    The question list displays the user's past questions, which should be avoided when generating \
-predictions.
-                    The user preferences will be given in the <domain> tag,
-                    the historical question list will be given in the <history_questions> tag, and the tool \
-information will be given in the <tool_info> tag.
+                    Generate the specified number of predicted questions based on the previous historical
+                    dialogue and provided additional information (user preferences, question list,
+                    tool information, etc.).
+                    The <question_list> contains all the questions that the user has asked before,
+                    please avoid duplicating these questions when generating predictions.
+                    User preferences will be given in the <domain> tag, and tool information will be
+                    given in the <tool_info> tag.
 
                     Requirements for generating predicted questions:
-
-                        1. Generate three predicted questions in the user's voice. They must be interrogative or \
-imperative sentences and must be less than 30 words.
-
-                        2. Predicted questions must be concise, without repetition, unnecessary information, or text \
-other than the question.
-
-                        3. Output must be in the following format:
+                        1. Generate predicted questions in the user's voice, the quantity must be the specified
+                           number, must be interrogative or imperative sentences, and must be less than 30 words.
+                        2. Predicted questions must be concise, without duplication, without unnecessary
+                           information, and without text other than the questions.
+                        3. The output must be in the following format:
 
                         ```json
                         {
                             "predicted_questions": [
                                 "Predicted question 1",
                                 "Predicted question 2",
-                                "Predicted question 3"
+                                ...
                             ]
                         }
                         ```
                 </instruction>
+
                 <example>
-                    <history_questions>
+                    <question_list>
                         <question>Briefly introduce Hangzhou</question>
-                        <question>What are the famous attractions in Hangzhou ? </question>
-                    </history_questions>
+                        <question>What are the famous attractions in Hangzhou?</question>
+                        <question>What is the ticket price for the West Lake Scenic Area in Hangzhou?</question>
+                    </question_list>
+                    <target_num>3</target_num>
                     <tool_info>
                         <name>Scenic Spot Search</name>
-                        <description>Scenic Spot Information Search</description>
+                        <description>Search for scenic spot information</description>
                     </tool_info>
                     <domain>["Hangzhou", "Tourism"]</domain>
 
@@ -134,7 +141,6 @@ other than the question.
 
                     {
                         "predicted_questions": [
-                            "What is the ticket price for the West Lake Scenic Area in Hangzhou?",
                             "What's the weather like in Hangzhou?",
                             "What are the local specialties in Hangzhou?"
                         ]
@@ -142,17 +148,24 @@ other than the question.
                 </example>
             </instructions>
 
-            Here's the actual data:
+            Here is the actual data:
 
-            Please refer to the following history questions for question generation, avoiding duplicate questions:
-            {% if history %}
-                <history_questions>
+            The following is a list of questions, please refer to its content and avoid duplicate generation:
+            {% if history or generated %}
+                <question_list>
                 {% for question in history %}
                     <question>{{ question }}</question>
                 {% endfor %}
-                </history_questions>
+                {% for question in generated %}
+                    <question>{{ question }}</question>
+                {% endfor %}
+                </question_list>
             {% else %}
-                (No history question)
+                (No known questions)
+            {% endif %}
+
+            {% if target_num %}
+            Please generate {{ target_num }} questions.
             {% endif %}
 
             <tool_info>
@@ -168,7 +181,7 @@ other than the question.
                 {% if preference %}
                     {{ preference }}
                 {% else %}
-                    (no user preference)
+                    (No user preference)
                 {% endif %}
             </domain>
 

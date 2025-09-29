@@ -7,7 +7,7 @@ import uuid
 from sqlalchemy import select
 
 from apps.common.postgres import postgres
-from apps.models.comment import Comment
+from apps.models import Comment
 from apps.schemas.record import RecordComment
 
 logger = logging.getLogger(__name__)

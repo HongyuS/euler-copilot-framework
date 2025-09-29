@@ -4,7 +4,8 @@
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from apps.schemas.enum_var import CallOutputType, LanguageType
+from apps.models import LanguageType
+from apps.schemas.enum_var import CallOutputType
 from apps.schemas.scheduler import CallInfo, CallOutputChunk, CallVars
 
 from .core import CoreCall, DataBase

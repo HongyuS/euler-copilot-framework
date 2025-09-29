@@ -12,16 +12,21 @@ from sqlalchemy import Select, and_, delete, func, or_, select
 
 from apps.common.config import config
 from apps.common.postgres import postgres
-from apps.models.node import NodeInfo
-from apps.models.service import Service, ServiceACL
-from apps.models.user import User, UserFavorite, UserFavoriteType
+from apps.models import (
+    NodeInfo,
+    PermissionType,
+    Service,
+    ServiceACL,
+    User,
+    UserFavorite,
+    UserFavoriteType,
+)
 from apps.scheduler.openapi import ReducedOpenAPISpec
 from apps.scheduler.pool.loader.openapi import OpenAPILoader
 from apps.scheduler.pool.loader.service import ServiceLoader
 from apps.schemas.enum_var import SearchType
 from apps.schemas.flow import (
     Permission,
-    PermissionType,
     ServiceApiConfig,
     ServiceMetadata,
 )

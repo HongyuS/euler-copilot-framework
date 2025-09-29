@@ -12,11 +12,15 @@ from sqlalchemy import and_, func, select
 
 from apps.common.minio import MinioClient
 from apps.common.postgres import postgres
-from apps.models.conversation import ConvDocAssociated, Conversation, ConversationDocument
-from apps.models.document import Document
-from apps.models.record import Record
+from apps.models import (
+    ConvDocAssociated,
+    Conversation,
+    ConversationDocument,
+    Document,
+    Record,
+)
 
-from .knowledge_base import KnowledgeBaseService
+from .knowledge_service import KnowledgeBaseService
 from .session import SessionManager
 
 logger = logging.getLogger(__name__)

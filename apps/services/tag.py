@@ -7,8 +7,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 
 from apps.common.postgres import postgres
-from apps.models.tag import Tag
-from apps.models.user import UserTag
+from apps.models import Tag, UserTag
 from apps.schemas.request_data import PostTagData
 
 logger = logging.getLogger(__name__)

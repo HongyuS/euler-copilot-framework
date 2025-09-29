@@ -9,8 +9,7 @@ from typing import Any
 from sqlalchemy import and_, func, select
 
 from apps.common.postgres import postgres
-from apps.models.conversation import Conversation
-from apps.models.user import UserAppUsage
+from apps.models import Conversation, UserAppUsage
 
 from .task import TaskManager
 

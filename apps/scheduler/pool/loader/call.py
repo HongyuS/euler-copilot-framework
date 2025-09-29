@@ -8,8 +8,8 @@ from sqlalchemy import delete
 import apps.scheduler.call as system_call
 from apps.common.postgres import postgres
 from apps.common.singleton import SingletonMeta
-from apps.llm.embedding import Embedding
-from apps.models.node import NodeInfo
+from apps.llm import Embedding
+from apps.models import NodeInfo
 from apps.schemas.scheduler import CallInfo
 
 _logger = logging.getLogger(__name__)

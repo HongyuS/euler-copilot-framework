@@ -9,7 +9,7 @@ from typing import Any
 import yaml
 from anyio import Path
 
-from apps.models.node import NodeInfo
+from apps.models import NodeInfo
 from apps.scheduler.openapi import (
     ReducedOpenAPIEndpoint,
     ReducedOpenAPISpec,

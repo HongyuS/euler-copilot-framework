@@ -3,7 +3,7 @@
 
 from textwrap import dedent
 
-from apps.schemas.enum_var import LanguageType
+from apps.models import LanguageType
 
 GENERATE_FLOW_NAME: dict[LanguageType, str] = {
     LanguageType.CHINESE: dedent(

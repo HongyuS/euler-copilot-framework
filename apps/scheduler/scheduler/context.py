@@ -6,16 +6,17 @@ import re
 from datetime import UTC, datetime
 
 from apps.common.security import Security
-from apps.models.record import Record, RecordMetadata
-from apps.schemas.enum_var import StepStatus
+from apps.models import Record, RecordMetadata, StepStatus
 from apps.schemas.record import (
     FlowHistory,
     RecordContent,
 )
-from apps.services.appcenter import AppCenterManager
-from apps.services.document import DocumentManager
-from apps.services.record import RecordManager
-from apps.services.task import TaskManager
+from apps.services import (
+    AppCenterManager,
+    DocumentManager,
+    RecordManager,
+    TaskManager,
+)
 
 logger = logging.getLogger(__name__)
 

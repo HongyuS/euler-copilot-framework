@@ -1,5 +1,5 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""Scheduler模块"""
+"""调度器；负责任务的分发与执行"""
 
 import asyncio
 import logging
@@ -10,14 +10,11 @@ from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 
 from apps.common.queue import MessageQueue
-from apps.llm.embedding import Embedding
-from apps.llm.function import FunctionLLM, JsonGenerator
-from apps.llm.reasoning import ReasoningLLM
-from apps.models.task import Task, TaskRuntime
-from apps.models.user import User
-from apps.scheduler.executor import FlowExecutor, MCPAgentExecutor, QAExecutor
+from apps.llm import Embedding, FunctionLLM, JsonGenerator, ReasoningLLM
+from apps.models import AppType, ExecutorStatus, Task, TaskRuntime, User
+from apps.scheduler.executor import FlowExecutor, MCPAgentExecutor
 from apps.scheduler.pool.pool import Pool
-from apps.schemas.enum_var import AppType, EventType, ExecutorStatus
+from apps.schemas.enum_var import EventType
 from apps.schemas.message import (
     InitContent,
     InitContentFeature,
@@ -25,12 +22,14 @@ from apps.schemas.message import (
 from apps.schemas.request_data import RequestData
 from apps.schemas.scheduler import ExecutorBackground, LLMConfig, TopFlow
 from apps.schemas.task import TaskData
-from apps.services.activity import Activity
-from apps.services.appcenter import AppCenterManager
-from apps.services.knowledge import KnowledgeBaseManager
-from apps.services.llm import LLMManager
-from apps.services.task import TaskManager
-from apps.services.user import UserManager
+from apps.services import (
+    Activity,
+    AppCenterManager,
+    KnowledgeBaseManager,
+    LLMManager,
+    TaskManager,
+    UserManager,
+)
 
 from .prompt import FLOW_SELECT
 
@@ -239,6 +238,36 @@ class Scheduler:
         ], schema).generate()
         result = TopFlow.model_validate(result_str)
         return result.choice
+
+    async def create_new_conversation(
+        title: str, user_sub: str, app_id: uuid.UUID | None = None,
+        *,
+        debug: bool = False,
+    ) -> Conversation:
+        """判断并创建新对话"""
+        # 新建对话
+        if app_id and not await AppCenterManager.validate_user_app_access(user_sub, app_id):
+            err = "Invalid app_id."
+            raise RuntimeError(err)
+        new_conv = await ConversationManager.add_conversation_by_user_sub(
+            title=title,
+            user_sub=user_sub,
+            app_id=app_id,
+            debug=debug,
+        )
+        if not new_conv:
+            err = "Create new conversation failed."
+            raise RuntimeError(err)
+        return new_conv
+
+
+    async def _init_task(self) -> None:
+        """初始化Task"""
+        self.task = await TaskManager.get_task_data_by_task_id(self.post_body.task_id)
+        if not self.task:
+            self.task = await TaskManager.init_new_task(self.post_body.task_id, self.post_body.conversation_id, self.post_body.language, self.post_body.app.app_id)
+        self.task.runtime.question = self.post_body.question
+        self.task.state.app_id = self.post_body.app.app_id if self.post_body.app else None
 
 
     async def run(self) -> None:

@@ -6,11 +6,11 @@ import logging
 from sqlalchemy import select
 
 from apps.common.postgres import postgres
-from apps.llm.function import JsonGenerator
-from apps.models.mcp import MCPTools
+from apps.llm import JsonGenerator
+from apps.models import MCPTools
 from apps.schemas.mcp import MCPSelectResult
 from apps.schemas.scheduler import LLMConfig
-from apps.services.mcp_service import MCPServiceManager
+from apps.services import MCPServiceManager
 
 logger = logging.getLogger(__name__)
 

@@ -10,15 +10,14 @@ from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 from mcp.types import TextContent
 
-from apps.llm.function import JsonGenerator
-from apps.models.mcp import MCPTools
+from apps.llm import JsonGenerator
+from apps.models import LanguageType, MCPTools
 from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
 from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.pool import MCPPool
-from apps.schemas.enum_var import LanguageType
 from apps.schemas.mcp import MCPContext, MCPPlanItem
 from apps.schemas.scheduler import LLMConfig
-from apps.services.mcp_service import MCPServiceManager
+from apps.services import MCPServiceManager
 
 logger = logging.getLogger(__name__)
 

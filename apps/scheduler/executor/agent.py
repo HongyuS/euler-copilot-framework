@@ -9,18 +9,15 @@ from mcp.types import TextContent
 from pydantic import Field
 
 from apps.constants import AGENT_FINAL_STEP_NAME, AGENT_MAX_RETRY_TIMES, AGENT_MAX_STEPS
-from apps.models.mcp import MCPTools
-from apps.models.task import ExecutorHistory
+from apps.models import ExecutorHistory, ExecutorStatus, MCPTools, StepStatus
 from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.mcp_agent.host import MCPHost
 from apps.scheduler.mcp_agent.plan import MCPPlanner
 from apps.scheduler.pool.mcp.pool import MCPPool
-from apps.schemas.enum_var import EventType, ExecutorStatus, StepStatus
+from apps.schemas.enum_var import EventType
 from apps.schemas.mcp import Step
 from apps.schemas.message import FlowParams
-from apps.services.appcenter import AppCenterManager
-from apps.services.mcp_service import MCPServiceManager
-from apps.services.user import UserManager
+from apps.services import AppCenterManager, MCPServiceManager, UserManager
 
 _logger = logging.getLogger(__name__)
 

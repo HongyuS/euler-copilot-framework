@@ -10,13 +10,23 @@ from sqlalchemy import delete
 
 from apps.common.config import config
 from apps.common.postgres import postgres
-from apps.models.app import App, AppACL, AppHashes
-from apps.models.flow import Flow
-from apps.models.user import UserAppUsage, UserFavorite
+from apps.models import (
+    App,
+    AppACL,
+    AppHashes,
+    AppType,
+    Flow,
+    PermissionType,
+    UserAppUsage,
+    UserFavorite,
+)
 from apps.scheduler.pool.check import FileChecker
 from apps.schemas.agent import AgentAppMetadata
-from apps.schemas.enum_var import AppType
-from apps.schemas.flow import AppFlow, AppMetadata, MetadataType, PermissionType
+from apps.schemas.flow import (
+    AppFlow,
+    AppMetadata,
+    MetadataType,
+)
 
 from .flow import FlowLoader
 from .metadata import MetadataLoader
@@ -80,7 +90,6 @@ class AppLoader:
                 raise RuntimeError(err) from e
         await self._update_db(metadata)
 
-
     async def read_metadata(self, app_id: uuid.UUID) -> AppMetadata | AgentAppMetadata:
         """读取应用元数据"""
         metadata_path = BASE_PATH / str(app_id) / "metadata.yaml"
@@ -92,7 +101,6 @@ class AppLoader:
             err = f"[AppLoader] 元数据类型错误: {metadata_path}"
             raise TypeError(err)
         return metadata
-
 
     async def save(self, metadata: AppMetadata | AgentAppMetadata, app_id: uuid.UUID) -> None:
         """
@@ -114,7 +122,6 @@ class AppLoader:
         await self._update_db(metadata, file_checker.hashes[f"app/{app_id}"])
         await self.load(app_id, file_checker.hashes[f"app/{app_id}"])
 
-
     async def delete(self, app_id: uuid.UUID, *, is_reload: bool = False) -> None:
         """
         删除App，并更新数据库
@@ -134,7 +141,6 @@ class AppLoader:
             app_path = BASE_PATH / str(app_id)
             if await app_path.exists():
                 shutil.rmtree(str(app_path), ignore_errors=True)
-
 
     async def _update_db(
         self,

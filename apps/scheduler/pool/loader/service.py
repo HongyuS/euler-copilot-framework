@@ -10,11 +10,16 @@ from sqlalchemy import delete
 
 from apps.common.config import config
 from apps.common.postgres import postgres
-from apps.llm.embedding import Embedding
-from apps.models.node import NodeInfo
-from apps.models.service import Service, ServiceACL, ServiceHashes
+from apps.llm import Embedding
+from apps.models import (
+    NodeInfo,
+    PermissionType,
+    Service,
+    ServiceACL,
+    ServiceHashes,
+)
 from apps.scheduler.pool.check import FileChecker
-from apps.schemas.flow import PermissionType, ServiceMetadata
+from apps.schemas.flow import ServiceMetadata
 
 from .metadata import MetadataLoader, MetadataType
 from .openapi import OpenAPILoader

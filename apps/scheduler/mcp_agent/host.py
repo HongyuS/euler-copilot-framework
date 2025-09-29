@@ -8,13 +8,11 @@ from typing import Any
 from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 
-from apps.llm.function import JsonGenerator
-from apps.models.mcp import MCPTools
-from apps.models.task import ExecutorHistory, TaskRuntime
+from apps.llm import JsonGenerator
+from apps.models import ExecutorHistory, LanguageType, MCPTools, TaskRuntime
 from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
 from apps.scheduler.mcp_agent.base import MCPBase
 from apps.scheduler.mcp_agent.prompt import GEN_PARAMS, REPAIR_PARAMS
-from apps.schemas.enum_var import LanguageType
 
 _logger = logging.getLogger(__name__)
 _env = SandboxedEnvironment(

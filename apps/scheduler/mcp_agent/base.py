@@ -4,8 +4,8 @@
 import logging
 from typing import Any
 
-from apps.llm.function import JsonGenerator
-from apps.schemas.enum_var import LanguageType
+from apps.llm import JsonGenerator
+from apps.models import LanguageType
 from apps.schemas.scheduler import LLMConfig
 from apps.schemas.task import TaskData
 
@@ -38,8 +38,6 @@ class MCPBase:
         async for chunk in self._llm.reasoning.call(
             message,
             streaming=False,
-            temperature=0.07,
-            result_only=False,
         ):
             result += chunk
 

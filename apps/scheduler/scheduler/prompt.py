@@ -1,6 +1,6 @@
 """Scheduler相关的大模型提示词"""
 
-from apps.schemas.enum_var import LanguageType
+from apps.models import LanguageType
 
 FLOW_SELECT: dict[LanguageType, str] = {
     LanguageType.CHINESE: r"""

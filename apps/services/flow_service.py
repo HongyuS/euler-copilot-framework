@@ -19,7 +19,7 @@ BRANCH_ILLEGAL_CHARS = [
 ]
 
 
-class FlowService:
+class FlowServiceManager:
     """flow拓扑相关函数"""
 
     @staticmethod
@@ -116,13 +116,13 @@ class FlowService:
     async def validate_flow_illegal(flow_item: FlowItem) -> tuple[uuid.UUID, uuid.UUID]:
         """验证流程图是否合法；当流程图不合法时抛出异常"""
         # 验证节点ID并获取起始和终止节点
-        start_id, end_id = await FlowService._validate_node_ids(flow_item)
+        start_id, end_id = await FlowServiceManager._validate_node_ids(flow_item)
 
         # 验证边的合法性并获取节点的入度和出度
-        in_deg, out_deg = await FlowService._validate_edges(flow_item.edges)
+        in_deg, out_deg = await FlowServiceManager._validate_edges(flow_item.edges)
 
         # 验证起始和终止节点的入度和出度
-        await FlowService._validate_node_degrees(str(start_id), str(end_id), in_deg, out_deg)
+        await FlowServiceManager._validate_node_degrees(str(start_id), str(end_id), in_deg, out_deg)
 
         return start_id, end_id
 
