@@ -3,7 +3,6 @@
 
 import asyncio
 import logging
-import uuid
 from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -15,16 +14,12 @@ from apps.dependency import verify_personal_token, verify_session
 from apps.models import ExecutorStatus
 from apps.scheduler.scheduler import Scheduler
 from apps.scheduler.scheduler.context import save_data
-from apps.schemas.request_data import RequestData, RequestDataApp
+from apps.schemas.request_data import RequestData
 from apps.schemas.response_data import ResponseData
-from apps.schemas.task import TaskData
 from apps.services import (
     Activity,
-    ConversationManager,
     FlowManager,
     QuestionBlacklistManager,
-    RecordManager,
-    TaskManager,
     UserBlacklistManager,
 )
 
@@ -38,34 +33,6 @@ router = APIRouter(
         Depends(verify_personal_token),
     ],
 )
-
-
-async def init_task(post_body: RequestData, user_sub: str, session_id: str) -> TaskData:
-    """初始化Task"""
-    # 更改信息并刷新数据库
-    if post_body.task_id is None:
-        conversation = await ConversationManager.get_conversation_by_conversation_id(
-            user_sub=user_sub,
-            conversation_id=post_body.conversation_id,
-        )
-        if not conversation:
-            err = "[Chat] 用户没有权限访问该对话！"
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=err)
-        task_ids = await TaskManager.delete_tasks_by_conversation_id(post_body.conversation_id)
-        await RecordManager.update_record_flow_status_to_cancelled_by_task_ids(task_ids)
-        task = await TaskManager.init_new_task(user_sub=user_sub, session_id=session_id, post_body=post_body)
-        task.runtime.question = post_body.question
-        task.state.app_id = post_body.app.app_id if post_body.app else ""
-    else:
-        if not post_body.task_id:
-            err = "[Chat] task_id 不可为空！"
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="task_id cannot be empty")
-        task = await TaskManager.get_task_data_by_task_id(post_body.task_id)
-        post_body.app = RequestDataApp(appId=task.state.app_id)
-        post_body.conversation_id = task.ids.conversation_id
-        post_body.language = task.language
-        post_body.question = task.runtime.question
-    return task
 
 
 async def chat_generator(post_body: RequestData, user_sub: str, session_id: str) -> AsyncGenerator[str, None]:
@@ -103,14 +70,14 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
 
         # 获取最终答案
         task = scheduler.task
-        if task.state.flow_status == ExecutorStatus.ERROR:
+        if task.state.executorStatus == ExecutorStatus.ERROR:
             _logger.error("[Chat] 生成答案失败")
             yield "data: [ERROR]\n\n"
             await Activity.remove_active(user_sub)
             return
 
         # 对结果进行敏感词检查
-        if await WordsCheck().check(task.runtime.answer) != 1:
+        if await WordsCheck().check(task.runtime.fullAnswer) != 1:
             yield "data: [SENSITIVE]\n\n"
             _logger.info("[Chat] 答案包含敏感词！")
             await Activity.remove_active(user_sub)

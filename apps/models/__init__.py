@@ -14,7 +14,16 @@ from .record import FootNoteType, Record, RecordFootNote, RecordMetadata
 from .service import Service, ServiceACL, ServiceHashes
 from .session import Session, SessionActivity, SessionType
 from .tag import Tag
-from .task import ExecutorCheckpoint, ExecutorHistory, ExecutorStatus, LanguageType, StepStatus, Task, TaskRuntime
+from .task import (
+    ExecutorCheckpoint,
+    ExecutorHistory,
+    ExecutorStatus,
+    LanguageType,
+    StepStatus,
+    StepType,
+    Task,
+    TaskRuntime,
+)
 from .user import User, UserAppUsage, UserFavorite, UserFavoriteType, UserTag
 
 __all__ = [
@@ -57,6 +66,7 @@ __all__ = [
     "SessionActivity",
     "SessionType",
     "StepStatus",
+    "StepType",
     "Tag",
     "Task",
     "TaskRuntime",
