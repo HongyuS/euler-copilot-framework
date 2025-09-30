@@ -10,7 +10,6 @@ from apps.llm import Embedding, FunctionLLM, ReasoningLLM
 from apps.models import ExecutorHistory, LanguageType
 
 from .enum_var import CallOutputType
-from .scheduler import ExecutorBackground
 
 
 class LLMConfig(BaseModel):
@@ -36,6 +35,15 @@ class CallIds(BaseModel):
     session_id: str | None = Field(description="当前用户的Session ID")
     app_id: uuid.UUID | None = Field(description="当前应用的ID")
     user_sub: str = Field(description="当前用户的用户ID")
+    conversation_id: uuid.UUID | None = Field(description="当前对话的ID")
+
+
+class ExecutorBackground(BaseModel):
+    """Executor的背景信息"""
+
+    num: int = Field(description="对话记录最大数量", default=0)
+    conversation: list[dict[str, str]] = Field(description="对话记录", default=[])
+    facts: list[str] = Field(description="当前Executor的背景信息", default=[])
 
 
 class CallVars(BaseModel):
@@ -48,14 +56,6 @@ class CallVars(BaseModel):
     background: ExecutorBackground = Field(description="Executor的背景信息")
     ids: CallIds = Field(description="Call的ID")
     language: LanguageType = Field(description="语言", default=LanguageType.CHINESE)
-
-
-class ExecutorBackground(BaseModel):
-    """Executor的背景信息"""
-
-    num: int = Field(description="对话记录最大数量", default=0)
-    conversation: list[dict[str, str]] = Field(description="对话记录", default=[])
-    facts: list[str] = Field(description="当前Executor的背景信息", default=[])
 
 
 class CallError(Exception):

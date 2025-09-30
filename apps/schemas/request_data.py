@@ -25,15 +25,14 @@ class RequestData(BaseModel):
     """POST /api/chat 请求的总的数据结构"""
 
     question: str = Field(max_length=2000, description="用户输入")
-    conversation_id: uuid.UUID = Field(
-        default=uuid.UUID("00000000-0000-0000-0000-000000000000"), alias="conversationId", description="聊天ID",
+    conversation_id: uuid.UUID | None = Field(
+        default=None, alias="conversationId", description="聊天ID",
     )
     language: LanguageType = Field(default=LanguageType.CHINESE, description="语言")
-    files: list[str] = Field(default=[], description="文件列表")
     app: RequestDataApp | None = Field(default=None, description="应用")
-    debug: bool = Field(default=False, description="是否调试")
     task_id: str | None = Field(default=None, alias="taskId", description="任务ID")
     llm_id: str = Field(alias="llmId", description="大模型ID")
+    kb_ids: list[uuid.UUID] = Field(default=[], description="知识库ID列表")
 
 
 class PostTagData(BaseModel):
