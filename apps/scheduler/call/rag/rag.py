@@ -23,6 +23,7 @@ from apps.schemas.scheduler import (
     CallOutputChunk,
     CallVars,
 )
+from apps.services import DocumentManager
 
 from .prompt import QUESTION_REWRITE
 from .schema import (
@@ -118,29 +119,37 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
 
         return doc_chunk_list
 
-    #TODO：修改为正确的获取临时文档的逻辑
-    async def _get_doc_info(self, doc_ids: list[str], data: RAGInput) -> AsyncGenerator[CallOutputChunk, None]:
-        """获取文档信息"""
-        doc_chunk_list = []
 
-        # 处理指定文档ID的情况
+    async def _get_temp_docs(self, conversation_id: uuid.UUID) -> list[str]:
+        """获取当前会话的临时文档"""
+        doc_ids = []
+        # 从Conversation中获取刚上传的文档
+        docs = await DocumentManager.get_unused_docs(conversation_id)
+        # 从最近10条Record中获取文档
+        docs += await DocumentManager.get_used_docs(conversation_id, 10, "question")
+        doc_ids += [doc.id for doc in docs]
+        return doc_ids
+
+
+    async def _get_doc_info(self, doc_ids: list[str], data: RAGInput) -> list[DocItem]:
+        """获取文档信息，支持临时文档和知识库文档"""
+        doc_chunk_list: list[DocItem] = []
+
+        # 处理临时文档
         if doc_ids:
             tmp_data = deepcopy(data)
-            tmp_data.kbIds = [ uuid.UUID("00000000-0000-0000-0000-000000000000") ]
+            tmp_data.kbIds = [uuid.UUID("00000000-0000-0000-0000-000000000000")]
+            tmp_data.docIds = doc_ids
             doc_chunk_list.extend(await self._fetch_doc_chunks(tmp_data))
 
         # 处理知识库ID的情况
         if data.kbIds:
-            doc_chunk_list.extend(await self._fetch_doc_chunks(data))
+            kb_data = deepcopy(data)
+            # 知识库查询时不使用docIds，只使用kbIds
+            kb_data.docIds = None
+            doc_chunk_list.extend(await self._fetch_doc_chunks(kb_data))
 
-        # 将文档分片转换为文本片段并返回
-        for doc_chunk in doc_chunk_list:
-            for chunk in doc_chunk.chunks:
-                text = chunk.text.replace("\n", "")
-                yield CallOutputChunk(
-                    type=CallOutputType.DATA,
-                    content=text,
-                )
+        return doc_chunk_list
 
 
     async def _exec(self, input_data: dict[str, Any]) -> AsyncGenerator[CallOutputChunk, None]:
@@ -155,8 +164,6 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
                 lstrip_blocks=True,
             )
             tmpl = env.from_string(QUESTION_REWRITE[self._sys_vars.language])
-
-            # 仅使用当前问题，不使用历史问答数据
             prompt = tmpl.render(question=data.query)
 
             # 使用_json方法直接获取JSON结果
@@ -169,18 +176,22 @@ class RAG(CoreCall, input_model=RAGInput, output_model=RAGOutput):
         except Exception:
             _logger.exception("[RAG] 问题重写失败，使用原始问题")
 
-        # 获取文档片段
-        doc_chunk_list = await self._fetch_doc_chunks(data)
+        # 获取临时文档ID列表
+        if self._sys_vars.ids.conversation_id:
+            temp_doc_ids = await self._get_temp_docs(self._sys_vars.ids.conversation_id)
+        else:
+            temp_doc_ids = []
 
-        corpus = []
-        for doc_chunk in doc_chunk_list:
-            for chunk in doc_chunk.chunks:
-                corpus.extend([chunk.text.replace("\n", "")])
+        # 合并传入的doc_ids和临时文档ID
+        all_doc_ids = list(set((data.docIds or []) + temp_doc_ids))
+
+        # 获取文档片段
+        doc_chunk_list = await self._get_doc_info(all_doc_ids, data)
 
         yield CallOutputChunk(
             type=CallOutputType.DATA,
             content=RAGOutput(
                 question=data.query,
-                corpus=corpus,
+                corpus=doc_chunk_list,
             ).model_dump(exclude_none=True, by_alias=True),
         )

@@ -53,6 +53,8 @@ class MCPAgentExecutor(BaseExecutor):
             _logger.error(err)
             raise RuntimeError(err)
         self._user = user
+        # 获取历史
+        await self._load_history()
 
     async def load_mcp(self) -> None:
         """加载MCP服务器列表"""
@@ -168,7 +170,7 @@ class MCPAgentExecutor(BaseExecutor):
             return
 
         try:
-            output_data = await mcp_client.call_tool(mcp_tool.name, self._current_input)
+            output_data = await mcp_client.call_tool(mcp_tool.toolName, self._current_input)
         except anyio.ClosedResourceError as e:
             _logger.exception("[MCPAgentExecutor] MCP客户端连接已关闭: %s", mcp_tool.mcpId)
             # 停止当前用户MCP进程
@@ -418,7 +420,7 @@ class MCPAgentExecutor(BaseExecutor):
                         )
                     await self.get_next_step()
                 else:
-                    mcp_tool = self.tools[self.task.state.toolId]
+                    mcp_tool = self.tools[self.task.state.stepName]
                     is_param_error = await self._planner.is_param_error(
                         await self._host.assemble_memory(self.task.runtime, self.task.context),
                         self.task.state.errorMessage,

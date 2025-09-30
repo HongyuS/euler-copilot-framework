@@ -104,6 +104,7 @@ class CoreCall(BaseModel):
                 session_id=executor.task.runtime.sessionId,
                 user_sub=executor.task.metadata.userSub,
                 app_id=executor.task.state.appId,
+                conversation_id=executor.task.metadata.conversationId,
             ),
             question=executor.question,
             step_data=history,

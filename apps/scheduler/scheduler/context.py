@@ -23,26 +23,6 @@ logger = logging.getLogger(__name__)
 
 async def save_data(scheduler: "Scheduler") -> None:
     """保存当前Executor、Task、Record等的数据"""
-    # 构造RecordContent
-    used_docs = []
-    order_to_id = {}
-    for docs in task.runtime.documents:
-        used_docs.append(
-            RecordGroupDocument(
-                _id=docs["id"],
-                author=docs.get("author", ""),
-                order=docs.get("order", 0),
-                name=docs["name"],
-                abstract=docs.get("abstract", ""),
-                extension=docs.get("extension", ""),
-                size=docs.get("size", 0),
-                associated="answer",
-                created_at=docs.get("created_at", round(datetime.now(UTC).timestamp(), 3)),
-            ),
-        )
-        if docs.get("order") is not None:
-            order_to_id[docs["order"]] = docs["id"]
-
     foot_note_pattern = re.compile(r"\[\[(\d+)\]\]")
     footnote_list = []
     offset = 0
