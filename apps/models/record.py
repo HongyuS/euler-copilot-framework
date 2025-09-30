@@ -54,7 +54,7 @@ class RecordMetadata(Base):
     """问答对输入token数"""
     outputTokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # noqa: N815
     """问答对输出token数"""
-    featureSwitch: Mapped[dict[str, Any]] = mapped_column(JSONB, default={}, nullable=False)  # noqa: N815
+    featureSwitch: Mapped[dict[str, Any]] = mapped_column(JSONB, default_factory=dict, nullable=False)  # noqa: N815
     """问答对功能开关"""
 
 

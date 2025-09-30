@@ -107,13 +107,13 @@ class TaskRuntime(Base):
     """用户输入"""
     fullAnswer: Mapped[str] = mapped_column(Text, nullable=False, default="")  # noqa: N815
     """完整输出"""
-    fact: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=[])
+    fact: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default_factory=list)
     """记忆"""
     reasoning: Mapped[str] = mapped_column(Text, nullable=False, default="")
     """中间推理"""
-    filledSlot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default={})  # noqa: N815
+    filledSlot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default_factory=dict)  # noqa: N815
     """计划"""
-    document: Mapped[list[dict[uuid.UUID, Any]]] = mapped_column(JSONB, nullable=False, default={})
+    document: Mapped[list[dict[uuid.UUID, Any]]] = mapped_column(JSONB, nullable=False, default_factory=dict)
     """关联文档"""
     language: Mapped[LanguageType] = mapped_column(Enum(LanguageType), nullable=False, default=LanguageType.CHINESE)
     """语言"""
@@ -148,9 +148,9 @@ class ExecutorCheckpoint(Base):
     """检查点ID"""
     executorDescription: Mapped[str] = mapped_column(Text, nullable=False, default="")  # noqa: N815
     """执行器描述"""
-    data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default={})
+    data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default_factory=dict)
     """步骤额外数据"""
-    errorMessage: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default={})  # noqa: N815
+    errorMessage: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default_factory=dict)  # noqa: N815
     """错误信息"""
 
 
@@ -177,11 +177,11 @@ class ExecutorHistory(Base):
     """步骤状态"""
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default_factory=uuid.uuid4)
     """执行器历史ID"""
-    inputData: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default={})  # noqa: N815
+    inputData: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default_factory=dict)  # noqa: N815
     """步骤输入数据"""
-    outputData: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default={})  # noqa: N815
+    outputData: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default_factory=dict)  # noqa: N815
     """步骤输出数据"""
-    extraData: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default={})  # noqa: N815
+    extraData: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default_factory=dict)  # noqa: N815
     """步骤额外数据"""
     updatedAt: Mapped[datetime] = mapped_column(  # noqa: N815
         DateTime(timezone=True), nullable=False, default_factory=lambda: datetime.now(UTC),
