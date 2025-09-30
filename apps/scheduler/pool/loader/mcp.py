@@ -177,16 +177,11 @@ class MCPLoader(metaclass=SingletonMeta):
     async def cancel_all_installing_task() -> None:
         """取消正在安装的MCP模板任务"""
         template_path = MCP_PATH / "template"
-        logger.info("[MCPLoader] 初始化所有MCP模板: %s", template_path)
+        logger.info("[MCPLoader] 取消正在安装的MCP模板任务: %s", template_path)
 
-        # 遍历所有模板
-        mcp_ids = []
-        async for mcp_dir in template_path.iterdir():
-            # 不是目录
-            if not await mcp_dir.is_dir():
-                logger.warning("[MCPLoader] 跳过非目录: %s", mcp_dir.as_posix())
-                continue
-            mcp_ids.append(mcp_dir.name)
+        # 获取所有MCP ID
+        mcp_configs = await MCPLoader._get_all_mcp_configs()
+        mcp_ids = list(mcp_configs.keys())
 
         async with postgres.session() as session:
             await session.execute(
@@ -201,15 +196,14 @@ class MCPLoader(metaclass=SingletonMeta):
 
 
     @staticmethod
-    async def _init_all_template() -> None:
+    async def _get_all_mcp_configs() -> dict[str, MCPServerConfig]:
         """
-        初始化所有文件夹中的MCP模板
+        获取所有MCP模板的配置
 
-        遍历 ``template`` 目录下的所有MCP模板，并初始化。在Framework启动时进行此流程，确保所有MCP均可正常使用。
-        这一过程会与数据库内的条目进行对比，若发生修改，则重新创建数据库条目。
+        :return: MCP ID到配置的映射
         """
+        mcp_configs = {}
         template_path = MCP_PATH / "template"
-        logger.info("[MCPLoader] 初始化所有MCP模板: %s", template_path)
 
         # 遍历所有模板
         async for mcp_dir in template_path.iterdir():
@@ -224,12 +218,32 @@ class MCPLoader(metaclass=SingletonMeta):
                 logger.warning("[MCPLoader] 跳过没有配置文件的MCP模板: %s", mcp_dir.as_posix())
                 continue
 
-            # 读取配置并加载
-            config = await MCPLoader._load_config(config_path)
+            try:
+                # 读取配置
+                config = await MCPLoader._load_config(config_path)
+                mcp_configs[mcp_dir.name] = config
+            except Exception as e:  # noqa: BLE001
+                logger.warning("[MCPLoader] 加载MCP配置失败: %s, 错误: %s", mcp_dir.name, str(e))
+                continue
 
+        return mcp_configs
+
+    @staticmethod
+    async def _init_all_template() -> None:
+        """
+        初始化所有文件夹中的MCP模板
+
+        遍历 ``template`` 目录下的所有MCP模板，并初始化。在Framework启动时进行此流程，确保所有MCP均可正常使用。
+        这一过程会与数据库内的条目进行对比，若发生修改，则重新创建数据库条目。
+        """
+        template_path = MCP_PATH / "template"
+        logger.info("[MCPLoader] 初始化所有MCP模板: %s", template_path)
+
+        mcp_configs = await MCPLoader._get_all_mcp_configs()
+        for mcp_id, config in mcp_configs.items():
             # 初始化第一个MCP Server
-            logger.info("[MCPLoader] 初始化MCP模板: %s", mcp_dir.as_posix())
-            await MCPLoader.init_one_template(mcp_dir.name, config)
+            logger.info("[MCPLoader] 初始化MCP模板: %s", mcp_id)
+            await MCPLoader.init_one_template(mcp_id, config)
 
 
     @staticmethod
@@ -638,6 +652,33 @@ class MCPLoader(metaclass=SingletonMeta):
                     ))
             await session.commit()
 
+
+    @staticmethod
+    async def set_vector(embedding_model: Embedding) -> None:
+        """
+        将MCP工具描述进行向量化并存入数据库
+
+        :param Embedding embedding_model: 嵌入模型
+        :return: 无
+        """
+        try:
+            # 获取所有MCP配置
+            mcp_configs = await MCPLoader._get_all_mcp_configs()
+
+            for mcp_id, config in mcp_configs.items():
+                try:
+                    # 进行向量化
+                    await MCPLoader._insert_template_tool_vector(mcp_id, config, embedding_model)
+                    logger.info("[MCPLoader] MCP工具向量化完成: %s", mcp_id)
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("[MCPLoader] MCP工具向量化失败: %s, 错误: %s", mcp_id, str(e))
+                    continue
+
+            logger.info("[MCPLoader] 所有MCP工具向量化完成")
+        except Exception as e:
+            err = "[MCPLoader] MCP工具向量化失败"
+            logger.exception(err)
+            raise RuntimeError(err) from e
 
     @staticmethod
     async def init() -> None:

@@ -150,7 +150,6 @@ class QAExecutor(BaseExecutor):
         await rag_exec.run()
 
 
-
         # 解析并推送文档信息
         if first_chunk and isinstance(first_chunk.content, dict):
             rag_output = RAGOutput.model_validate(first_chunk.content)

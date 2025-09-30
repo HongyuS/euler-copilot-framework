@@ -6,7 +6,7 @@ import shutil
 import uuid
 
 from anyio import Path
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
 from apps.common.config import config
 from apps.common.postgres import postgres
@@ -30,6 +30,23 @@ BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "service"
 
 class ServiceLoader:
     """Service 加载器"""
+
+    @staticmethod
+    async def _load_all_services() -> list[tuple[Service, list[NodeInfo]]]:
+        """从数据库加载所有服务和对应的节点"""
+        async with postgres.session() as session:
+            # 查询所有服务
+            services_query = select(Service)
+            services = list((await session.scalars(services_query)).all())
+
+            # 为每个服务查询对应的节点
+            service_nodes = []
+            for service in services:
+                nodes_query = select(NodeInfo).where(NodeInfo.serviceId == service.id)
+                nodes = list((await session.scalars(nodes_query)).all())
+                service_nodes.append((service, nodes))
+
+            return service_nodes
 
     @staticmethod
     async def load(service_id: uuid.UUID, hashes: dict[str, str]) -> None:
@@ -145,11 +162,29 @@ class ServiceLoader:
 
             await session.commit()
 
+    @staticmethod
+    async def set_vector(embedding_model: Embedding) -> None:
+        """将所有服务和节点的向量化数据存入数据库"""
+        service_nodes = await ServiceLoader._load_all_services()
+
+        # 为每个服务调用现有的update_vector方法
+        for service, nodes in service_nodes:
+            await ServiceLoader._update_vector(
+                nodes,
+                service.id,
+                service.description,
+                embedding_model,
+            )
 
     @staticmethod
-    async def _update_vector(nodes: list[NodeInfo], metadata: ServiceMetadata, embedding_model: Embedding) -> None:
+    async def _update_vector(
+        nodes: list[NodeInfo],
+        service_id: uuid.UUID,
+        service_description: str,
+        embedding_model: Embedding,
+    ) -> None:
         """更新向量数据"""
-        service_vecs = await embedding_model.get_embedding([metadata.description])
+        service_vecs = await embedding_model.get_embedding([service_description])
         node_descriptions = []
         for node in nodes:
             node_descriptions += [node.description]
@@ -158,20 +193,20 @@ class ServiceLoader:
         async with postgres.session() as session:
             # 删除旧数据
             await session.execute(
-                delete(embedding_model.ServicePoolVector).where(embedding_model.ServicePoolVector.id == metadata.id),
+                delete(embedding_model.ServicePoolVector).where(embedding_model.ServicePoolVector.id == service_id),
             )
             await session.execute(
-                delete(embedding_model.NodePoolVector).where(embedding_model.NodePoolVector.serviceId == metadata.id),
+                delete(embedding_model.NodePoolVector).where(embedding_model.NodePoolVector.serviceId == service_id),
             )
             # 插入新数据
             session.add(embedding_model.ServicePoolVector(
-                id=metadata.id,
+                id=service_id,
                 embedding=service_vecs[0],
             ))
             for vec in node_vecs:
                 node_data = embedding_model.NodePoolVector(
                     id=node.id,
-                    serviceId=metadata.id,
+                    serviceId=service_id,
                     embedding=vec,
                 )
                 session.add(node_data)

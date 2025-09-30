@@ -6,7 +6,9 @@ import logging
 from sqlalchemy import select
 
 from apps.common.postgres import postgres
+from apps.llm import Embedding
 from apps.models import LLMData, User
+from apps.scheduler.pool.pool import Pool
 from apps.schemas.request_data import (
     UpdateLLMReq,
     UpdateUserSelectedLLMReq,
@@ -185,6 +187,10 @@ class LLMManager:
         req: UpdateUserSelectedLLMReq,
     ) -> None:
         """更新用户的默认LLM"""
+        # 检查embedding模型是否发生变化
+        old_embedding_llm = None
+        new_embedding_llm = req.embeddingLLM
+
         async with postgres.session() as session:
             user = (await session.scalars(
                 select(User).where(User.userSub == user_sub),
@@ -192,6 +198,28 @@ class LLMManager:
             if not user:
                 err = f"[LLMManager] 用户 {user_sub} 不存在"
                 raise ValueError(err)
+
+            old_embedding_llm = user.embeddingLLM
             user.functionLLM = req.functionLLM
             user.embeddingLLM = req.embeddingLLM
             await session.commit()
+
+        # 如果embedding模型发生变化，触发向量化过程
+        if old_embedding_llm != new_embedding_llm and new_embedding_llm:
+            try:
+                # 获取新的embedding模型配置
+                embedding_llm_config = await LLMManager.get_llm(new_embedding_llm)
+                if embedding_llm_config:
+                    # 创建Embedding实例
+                    embedding_model = Embedding(embedding_llm_config)
+                    await embedding_model.init()
+
+                    # 获取Pool实例并触发向量化
+                    pool = Pool()
+                    await pool.set_vector(embedding_model)
+
+                    logger.info("[LLMManager] 用户 %s 的embedding模型已更新，向量化过程已完成", user_sub)
+                else:
+                    logger.error("[LLMManager] 用户 %s 选择的embedding模型 %s 不存在", user_sub, new_embedding_llm)
+            except Exception:
+                logger.exception("[LLMManager] 用户 %s 的embedding模型向量化过程失败", user_sub)
