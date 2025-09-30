@@ -10,5 +10,4 @@
 .. toctree::
    :maxdepth: 2
 
-   lance
    mongo
