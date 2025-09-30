@@ -10,6 +10,8 @@
 
 ![img](./pictures/虚拟机部署/镜像地址3.jpg) 
 
+![img](./pictures/虚拟机部署/镜像地址4.jpg) 
+
 根据物理机架构选择合适的版本，提供shell端和web端，包含qcow2镜像文件和对应的xml配置文件。
 
 说明：shell端指通过shell命令行使用openEuler-intelligence，web端指通过浏览器web界面使用openEuler-intelligence。
@@ -512,3 +514,16 @@ oi会识别用户信息组织mcp工具，此处为提示是否执行mcp工具，
 
 
 
+### 5、使用iso镜像安装openeuler-intelligence
+
+5.1、下载iso镜像
+
+​		![img](./pictures/虚拟机部署/iso镜像.jpg)
+
+下载镜像并安装操作系统
+
+5.2、进行openeuler-intelligence初始化
+
+​	命令行执行 oi --init 进行大模型配置和openeuler-intelligence初始化
+
+​	参考：[docs/部署 & 使用手册.md · openEuler/euler-copilot-shell - 码云 - 开源中国](https://gitee.com/openeuler/euler-copilot-shell/blob/dev/docs/部署 & 使用手册.md)
