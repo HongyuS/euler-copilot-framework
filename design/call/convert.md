@@ -5,6 +5,7 @@
 Convert模块是欧拉助手框架中的一个核心工具，主要用于对生成的文字信息和原始数据进行格式化处理。该模块基于Jinja2模板引擎，支持灵活的模板语法，可以将各种数据转换为特定格式的文本或结构化数据，为系统中的数据展示和传递提供了强大的支持。
 
 **主要功能特性：**
+
 - 支持Jinja2模板语法的文本格式化
 - 支持JSON数据的模板渲染和解析
 - 提供多语言的工具名称和描述信息
@@ -28,13 +29,6 @@ apps/scheduler/call/convert/
 
 `Convert` 类是模块的核心，继承自 `CoreCall` 基类，实现了模板转换的核心逻辑。
 
-```python
-class Convert(CoreCall, input_model=ConvertInput, output_model=ConvertOutput):
-    """Convert 工具，用于对生成的文字信息和原始数据进行格式化"""
-    text_template: str | None = Field(description="自然语言信息的格式化模板，jinja2语法", default=None)
-    data_template: str | None = Field(description="原始数据的格式化模板，jinja2语法", default=None)
-```
-
 ### 3.2 主要属性
 
 | 属性名 | 类型 | 默认值 | 描述 |
@@ -49,126 +43,76 @@ class Convert(CoreCall, input_model=ConvertInput, output_model=ConvertOutput):
 **功能描述**：提供Convert工具的名称和描述信息，支持多语言国际化。
 
 **主要特点**：
+
 - 支持中英文两种语言切换
 - 返回标准的CallInfo对象，包含工具名称和功能描述
 - 中文版本名称为"模板转换"，英文版本名称为"Convert"
 - 描述信息说明了工具的核心功能：使用Jinja2语法格式化自然语言信息和原始数据
 
-```python
-@classmethod
-def info(cls, language: LanguageType = LanguageType.CHINESE) -> CallInfo:
-    """返回Call的名称和描述"""
-    i18n_info = {
-        LanguageType.CHINESE: CallInfo(
-            name="模板转换",
-            description="使用jinja2语法将自然语言信息和原始数据进行格式化。",
-        ),
-        LanguageType.ENGLISH: CallInfo(
-            name="Convert",
-            description="Use jinja2 syntax to format natural language information and original data.",
-        ),
-    }
-    return i18n_info[language]
-```
+**实现逻辑**：
+
+1. 接收语言类型参数，默认为中文
+2. 根据语言类型返回对应的工具信息
+3. 中文环境下返回"模板转换"名称和中文描述
+4. 英文环境下返回"Convert"名称和英文描述
 
 #### 3.3.2 _init方法
 
 **功能描述**：初始化Convert工具，准备模板渲染所需的环境和变量。
 
 **主要特点**：
+
 - 继承自CoreCall基类并进行扩展
 - 创建SandboxedEnvironment环境以安全地执行模板
 - 收集和准备模板渲染所需的额外变量（如时间、历史记录、问题等）
 
-```python
-async def _init(self, call_vars: CallVars) -> ConvertInput:
-    """初始化工具"""
-    await super()._init(call_vars)
+**实现逻辑**：
 
-    self._history = call_vars.step_data
-    self._question = call_vars.question
-    self._env = SandboxedEnvironment(
-        loader=BaseLoader(),
-        autoescape=False,
-        trim_blocks=True,
-        lstrip_blocks=True,
-    )
-
-    # 获取当前时间
-    time = datetime.now(tz=pytz.timezone("Asia/Shanghai")).strftime("%Y-%m-%d %H:%M:%S")
-    # 返回空的ConvertInput，因为输入数据来自上一步的输出
-    self._extras = {
-        "time": time,
-        "history": self._history,
-        "question": self._question,
-        "background": self._sys_vars.background,
-        "ids": self._sys_vars.ids,
-    }
-    return ConvertInput(
-        text_template=self.text_template,
-        data_template=self.data_template,
-        extras=self._extras,
-    )
-```
+1. 调用父类的初始化方法，完成基础设置
+2. 从调用变量中提取历史数据和问题信息
+3. 创建安全的Jinja2沙盒环境，配置模板处理选项
+4. 获取当前时间（使用亚洲/上海时区）
+5. 构建扩展变量字典，包含：
+   - 当前时间
+   - 历史记录数据
+   - 用户问题
+   - 系统背景信息
+   - 相关ID信息
+6. 返回ConvertInput对象，包含模板内容和扩展变量
 
 #### 3.3.3 _exec方法
 
 **功能描述**：执行模板转换操作，处理文本模板和数据模板，并流式返回结果。
 
 **主要特点**：
+
 - 分别处理文本模板和数据模板
 - 对模板渲染过程中的异常进行捕获和处理
 - 支持流式输出，分别返回文本和数据两种类型的结果
 
-```python
-async def _exec(self) -> AsyncGenerator[CallOutputChunk, None]:
-    """调用Convert工具"""
-    # 处理文本模板
-    result_message = ""
-    if self.text_template is not None:
-        try:
-            text_template = self._env.from_string(self.text_template)
-            result_message = text_template.render(**self._extras)
-        except Exception as e:
-            raise CallError(
-                message=f"文本模板渲染错误: {e!s}",
-                data={
-                    "template": self.text_template,
-                    "error": str(e),
-                },
-            ) from e
-    else:
-        result_message = "未提供文本模板"
+**实现逻辑**：
 
-    # 处理数据模板
-    result_data = {}
-    if self.data_template is not None:
-        try:
-            data_template = self._env.from_string(self.data_template)
-            rendered_data_str = data_template.render(**self._extras)
-            # 尝试解析为JSON对象
-            result_data = json.loads(rendered_data_str)
-        except Exception as e:
-            raise CallError(
-                message=f"数据模板渲染错误: {e!s}",
-                data={
-                    "template": self.data_template,
-                    "error": str(e),
-                },
-            ) from e
-    else:
-        result_data = {"message": "未提供数据模板"}
+**文本模板处理：**
 
-    # 返回文本和数据两个部分
-    yield CallOutputChunk(
-        type=CallOutputType.TEXT,
-        content=result_message,
-    )
-    yield CallOutputChunk(
-        type=CallOutputType.DATA,
-        content=result_data,
-    )
-```
+1. 检查是否提供了文本模板
+2. 如果存在模板，使用Jinja2环境进行渲染
+3. 将扩展变量传递给模板进行渲染
+4. 捕获渲染异常并抛出详细的错误信息
+5. 如果未提供模板，返回默认提示信息
+
+**数据模板处理：**
+
+1. 检查是否提供了数据模板
+2. 如果存在模板，先进行Jinja2渲染得到字符串结果
+3. 尝试将渲染结果解析为JSON对象
+4. 捕获渲染或解析异常并抛出详细错误信息
+5. 如果未提供模板，返回包含默认消息的对象
+
+**结果输出：**
+
+1. 以流式方式返回文本类型的结果块
+2. 以流式方式返回数据类型的结果块
+3. 每个结果块包含对应的内容和类型标识
 
 ## 4. 数据结构
 
@@ -321,13 +265,15 @@ sequenceDiagram
 ### 6.1 文本模板示例
 
 **配置参数：**
+
 ```json
 {
   "text_template": "用户的问题是：{{ question }}\n当前时间：{{ time }}\n历史步骤数：{{ history | length }}"
 }
 ```
 
-**输入数据(CallVars)：**
+**输入数据（CallVars）：**
+
 ```json
 {
   "question": "什么是欧拉助手?",
@@ -336,8 +282,9 @@ sequenceDiagram
 }
 ```
 
-**输出结果(文本部分)：**
-```
+**输出结果（文本部分）：**
+
+```text
 用户的问题是：什么是欧拉助手?
 当前时间：2023-01-01 12:00:00
 历史步骤数：2
@@ -346,13 +293,15 @@ sequenceDiagram
 ### 6.2 数据模板示例
 
 **配置参数：**
+
 ```json
 {
   "data_template": "{\"question\": \"{{ question }}\", \"timestamp\": \"{{ time }}\", \"history_count\": {{ history | length }} }"
 }
 ```
 
-**输入数据(CallVars)：**
+**输入数据（CallVars）：**
+
 ```json
 {
   "question": "什么是欧拉助手?",
@@ -361,7 +310,8 @@ sequenceDiagram
 }
 ```
 
-**输出结果(数据部分)：**
+**输出结果（数据部分）：**
+
 ```json
 {
   "question": "什么是欧拉助手?",

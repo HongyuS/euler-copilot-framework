@@ -22,21 +22,20 @@ apps/scheduler/call/llm/
 
 `LLM` 类是模块的核心，继承自 `CoreCall` 基类，实现了与大模型的交互逻辑。
 
-```python
-class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
-    """大模型调用工具"""
-    # 配置参数
-    to_user: bool = Field(default=True)
-    temperature: float = Field(description="大模型温度（随机化程度）", default=0.7)
-    step_history_size: int = Field(description="上下文信息中包含的步骤历史数量", default=3, ge=0, le=10)
-    history_length: int = Field(description="历史对话记录数量", default=0, ge=0)
-    system_prompt: str = Field(description="大模型系统提示词", default="You are a helpful assistant.")
-    user_prompt: str = Field(description="大模型用户提示词", default=LLM_DEFAULT_PROMPT)
-```
+### 3.2 主要属性
 
-### 3.2 主要方法
+| 属性名 | 类型 | 默认值 | 描述 |
+|--------|------|--------|------|
+| `to_user` | bool | True | 是否需要将输出返回给用户 |
+| `temperature` | float | 0.7 | 大模型温度（随机化程度），控制输出的随机性 |
+| `step_history_size` | int | 3 | 上下文信息中包含的步骤历史数量，范围0-10 |
+| `history_length` | int | 0 | 历史对话记录数量，用于提供上下文信息 |
+| `system_prompt` | str | "You are a helpful assistant." | 大模型系统提示词，定义AI的角色和行为 |
+| `user_prompt` | str | LLM_DEFAULT_PROMPT | 大模型用户提示词模板，使用Jinja2语法 |
 
-#### 3.2.1 info方法
+### 3.3 主要方法
+
+#### 3.3.1 info方法
 
 **功能描述**：提供LLM工具的名称和描述信息，支持多语言国际化。
 
@@ -47,7 +46,7 @@ class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
 - 中文版本名称为"大模型"，英文版本名称为"LLM"
 - 描述信息说明了工具的核心功能：使用指定提示词和上下文信息调用大模型
 
-#### 3.2.2 _prepare_message方法
+#### 3.3.2 _prepare_message方法
 
 **功能描述**：准备输入给大模型的消息列表，是整个LLM调用流程的核心预处理方法。
 
@@ -63,7 +62,7 @@ class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
 
 **输出格式**：返回包含role和content字段的消息字典列表
 
-#### 3.2.3 _init方法
+#### 3.3.3 _init方法
 
 **功能描述**：初始化LLM工具，准备调用所需的输入数据。
 
@@ -74,7 +73,7 @@ class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
 - 将消息列表封装为LLMInput对象
 - 返回准备好的输入数据供后续执行使用
 
-#### 3.2.4 _exec方法
+#### 3.3.4 _exec方法
 
 **功能描述**：执行实际的大模型调用，并以流式方式返回处理结果。
 
