@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """用于执行智能问答的Executor"""
 
 import logging
@@ -10,7 +11,6 @@ from apps.scheduler.call.rag.schema import DocItem, RAGOutput
 from apps.schemas.document import DocumentInfo
 from apps.schemas.enum_var import EventType, SpecialCallType
 from apps.schemas.flow import Step
-from apps.schemas.message import DocumentAddContent
 from apps.schemas.task import StepQueueItem
 
 from .base import BaseExecutor

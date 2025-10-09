@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """大模型信息 数据库表"""
 
 from datetime import UTC, datetime

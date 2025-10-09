@@ -1,4 +1,4 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """语义接口中心 Manager"""
 
 import logging
@@ -341,7 +341,6 @@ class ServiceCenterManager:
             id=service_id,
             name=validated_data.id,
             description=validated_data.description,
-            version=validated_data.version,
             author=user_sub,
             api=ServiceApiConfig(server=validated_data.servers),
             permission=Permission(type=PermissionType.PUBLIC),  # 默认公开
@@ -380,7 +379,6 @@ class ServiceCenterManager:
             id=service_id,
             name=validated_data.id,
             description=validated_data.description,
-            version=validated_data.version,
             author=user_sub,
             api=ServiceApiConfig(server=validated_data.servers),
         )

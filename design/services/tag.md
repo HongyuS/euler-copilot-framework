@@ -2,7 +2,7 @@
 
 ## 概述
 
-Tag模块是Euler Copilot框架中的用户标签管理系统，用于管理用户分类标签的定义、创建、更新和删除操作。该模块支持标签的CRUD操作，并提供用户标签关联功能。
+Tag模块是openEuler Intelligence框架中的用户标签管理系统，用于管理用户分类标签的定义、创建、更新和删除操作。该模块支持标签的CRUD操作，并提供用户标签关联功能。
 
 ## 核心功能
 
@@ -13,35 +13,56 @@ Tag模块是Euler Copilot框架中的用户标签管理系统，用于管理用�
 
 ## 数据模型
 
-### Tag实体
+```mermaid
+erDiagram
+    framework_user ||--o{ framework_user_tag : "用户拥有标签"
+    framework_tag ||--o{ framework_user_tag : "标签被用户使用"
+    
+    framework_user {
+        BigInteger id PK "主键"
+        string userSub UK "用户标识"
+        datetime lastLogin "最后登录时间"
+        boolean isActive "是否活跃"
+        boolean isWhitelisted "是否白名单"
+        integer credit "风控分"
+        string personalToken "个人令牌"
+        string functionLLM "函数模型ID"
+        string embeddingLLM "向量模型ID"
+        boolean autoExecute "自动执行"
+    }
+    
+    framework_tag {
+        BigInteger id PK "主键"
+        string name UK "标签名称(唯一索引)"
+        string definition "标签定义"
+        datetime updatedAt "更新时间(时区感知)"
+    }
+    
+    framework_user_tag {
+        BigInteger id PK "主键"
+        string userSub FK "用户标识(外键)"
+        BigInteger tag FK "标签ID(外键)"
+        integer count "标签使用频次(默认0)"
+    }
+```
 
-- **表名**: `framework_tag`
-- **主键**: `id` (BigInteger, 自增)
-- **字段**:
-  - `name`: 标签名称 (String(255), 唯一索引)
-  - `definition`: 标签定义 (String(2000))
-  - `updatedAt`: 更新时间 (DateTime, 时区感知)
+### 数据表说明
 
-### UserTag关联实体
-
-- **表名**: `framework_user_tag`
-- **主键**: `id` (BigInteger, 自增)
-- **字段**:
-  - `userSub`: 用户标识 (String(50), 外键关联framework_user.userSub)
-  - `tag`: 标签ID (BigInteger, 外键关联framework_tag.id)
-  - `count`: 标签使用频次 (Integer, 默认0)
+- **framework_tag**: 标签基础信息表，存储标签的定义和元数据
+- **framework_user_tag**: 用户标签关联表，记录用户与标签的多对多关系及使用频次
+- **framework_user**: 用户基础信息表，通过userSub字段与标签系统关联
 
 ## API接口
 
 ### 管理接口 (需要管理员权限)
 
-#### GET /api/admin/tag
+#### GET /api/tag
 
 - **功能**: 获取所有标签列表
 - **权限**: 管理员
 - **返回**: 标签信息列表
 
-#### POST /api/admin/tag
+#### POST /api/tag
 
 - **功能**: 添加或更新标签
 - **权限**: 管理员
@@ -50,7 +71,7 @@ Tag模块是Euler Copilot框架中的用户标签管理系统，用于管理用�
   - `description`: 标签描述
 - **逻辑**: 如果标签不存在则创建，存在则更新
 
-#### DELETE /api/admin/tag
+#### DELETE /api/tag
 
 - **功能**: 删除标签
 - **权限**: 管理员
@@ -80,7 +101,7 @@ sequenceDiagram
     participant DB as 数据库
 
     Note over Client, DB: 标签查询流程
-    Client->>Router: GET /api/admin/tag
+    Client->>Router: GET /api/tag
     Router->>Service: get_all_tag()
     Service->>DB: SELECT * FROM framework_tag
     DB-->>Service: 返回标签列表
@@ -88,7 +109,7 @@ sequenceDiagram
     Router-->>Client: 返回JSON响应
 
     Note over Client, DB: 标签创建/更新流程
-    Client->>Router: POST /api/admin/tag
+    Client->>Router: POST /api/tag
     Router->>Service: update_tag_by_name(data)
     Service->>DB: SELECT * FROM framework_tag WHERE name=?
     DB-->>Service: 返回查询结果
@@ -102,7 +123,7 @@ sequenceDiagram
     Router-->>Client: 返回成功响应
 
     Note over Client, DB: 标签删除流程
-    Client->>Router: DELETE /api/admin/tag
+    Client->>Router: DELETE /api/tag
     Router->>Service: delete_tag(data)
     Service->>DB: SELECT * FROM framework_tag WHERE name=?
     DB-->>Service: 返回查询结果
@@ -116,7 +137,7 @@ sequenceDiagram
     Router-->>Client: 返回响应结果
 
     Note over Client, DB: 用户标签查询流程
-    Client->>Router: GET /api/admin/tag?userSub=xxx
+    Client->>Router: GET /api/user/tag
     Router->>Service: get_tag_by_user_sub(user_sub)
     Service->>DB: SELECT * FROM framework_user_tag WHERE userSub=?
     DB-->>Service: 返回用户标签关联
@@ -126,41 +147,6 @@ sequenceDiagram
     end
     Service-->>Router: 返回用户标签列表
     Router-->>Client: 返回JSON响应
-```
-
-## ER图
-
-```mermaid
-erDiagram
-    User ||--o{ UserTag : "用户拥有标签"
-    Tag ||--o{ UserTag : "标签被用户使用"
-    
-    User {
-        BigInteger id PK
-        string userSub UK "用户标识"
-        datetime lastLogin "最后登录时间"
-        boolean isActive "是否活跃"
-        boolean isWhitelisted "是否白名单"
-        integer credit "风控分"
-        string personalToken "个人令牌"
-        string functionLLM "函数模型ID"
-        string embeddingLLM "向量模型ID"
-        boolean autoExecute "自动执行"
-    }
-    
-    Tag {
-        BigInteger id PK
-        string name UK "标签名称"
-        string definition "标签定义"
-        datetime updatedAt "更新时间"
-    }
-    
-    UserTag {
-        BigInteger id PK
-        string userSub FK "用户标识"
-        BigInteger tag FK "标签ID"
-        integer count "使用频次"
-    }
 ```
 
 ## 流程图
@@ -257,19 +243,3 @@ flowchart LR
 
 1. **权限控制**: 所有标签管理操作需要管理员权限
 2. **数据验证**: 输入数据长度和格式验证
-3. **错误处理**: 完善的异常处理和错误信息返回
-4. **SQL注入防护**: 使用SQLAlchemy ORM防止SQL注入
-
-## 性能优化
-
-1. **索引优化**: 标签名称建立唯一索引，提高查询效率
-2. **连接池**: 使用数据库连接池管理连接
-3. **异步操作**: 所有数据库操作使用异步方式
-4. **缓存策略**: 可考虑对频繁查询的标签信息进行缓存
-
-## 扩展性
-
-1. **标签分类**: 可扩展支持标签分类和层级结构
-2. **标签权限**: 可扩展支持标签级别的权限控制
-3. **标签统计**: 可扩展更丰富的标签使用统计分析
-4. **批量操作**: 可扩展支持批量标签管理操作

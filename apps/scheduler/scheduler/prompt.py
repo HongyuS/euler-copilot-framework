@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Scheduler相关的大模型提示词"""
 
 from apps.models import LanguageType

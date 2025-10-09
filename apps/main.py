@@ -1,10 +1,5 @@
-"""
-主程序
-
-Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
-"""
-
-from __future__ import annotations
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
+"""主程序"""
 
 import asyncio
 import logging
@@ -30,7 +25,6 @@ from .routers import (
     document,
     flow,
     health,
-    knowledge,
     llm,
     mcp_service,
     parameter,
@@ -64,7 +58,6 @@ app.include_router(conversation.router)
 app.include_router(document.router)
 app.include_router(flow.router)
 app.include_router(health.router)
-app.include_router(knowledge.router)
 app.include_router(llm.router)
 app.include_router(llm.admin_router)
 app.include_router(mcp_service.router)

@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """评论相关的数据结构"""
 
 from pydantic import BaseModel, Field
