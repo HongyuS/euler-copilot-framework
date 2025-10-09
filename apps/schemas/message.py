@@ -2,7 +2,6 @@
 """队列中的消息结构"""
 
 import uuid
-from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -31,20 +30,16 @@ class HeartbeatData(BaseModel):
 class MessageFlow(BaseModel):
     """消息中有关Flow信息的部分"""
 
-    app_id: uuid.UUID = Field(description="插件ID", alias="appId")
-    flow_id: str = Field(description="Flow ID", alias="flowId")
-    flow_name: str = Field(description="Flow名称", alias="flowName")
-    flow_status: ExecutorStatus = Field(description="Flow状态", alias="flowStatus", default=ExecutorStatus.UNKNOWN)
+    app_id: uuid.UUID | None = Field(description="插件ID", alias="appId", default=None)
+    executor_id: str = Field(description="Flow ID", alias="executorId")
+    executor_name: str = Field(description="Flow名称", alias="executorName")
+    executor_status: ExecutorStatus = Field(
+        description="Flow状态", alias="executorStatus", default=ExecutorStatus.UNKNOWN,
+    )
     step_id: uuid.UUID = Field(description="当前步骤ID", alias="stepId")
     step_name: str = Field(description="当前步骤名称", alias="stepName")
-    sub_step_id: str | None = Field(description="当前子步骤ID", alias="subStepId", default=None)
-    sub_step_name: str | None = Field(description="当前子步骤名称", alias="subStepName", default=None)
+    step_type: str = Field(description="当前步骤类型", alias="stepType")
     step_status: StepStatus = Field(description="当前步骤状态", alias="stepStatus")
-    step_description: str | None = Field(
-        description="当前步骤描述",
-        alias="stepDescription",
-        default=None,
-    )
 
 
 class MessageMetadata(RecordMetadata):
@@ -75,28 +70,11 @@ class TextAddContent(BaseModel):
     text: str = Field(min_length=1, description="流式生成的文本内容")
 
 
-class DocumentAddContent(BaseModel):
-    """document.add消息的content"""
-
-    document_id: str = Field(description="文档UUID", alias="documentId")
-    document_order: int = Field(description="文档在对话中的顺序，从1开始", alias="documentOrder")
-    document_author: str = Field(description="文档作者", alias="documentAuthor", default="")
-    document_name: str = Field(description="文档名称", alias="documentName")
-    document_abstract: str = Field(description="文档摘要", alias="documentAbstract", default="")
-    document_type: str = Field(description="文档MIME类型", alias="documentType", default="")
-    document_size: float = Field(ge=0, description="文档大小，单位是KB，保留两位小数", alias="documentSize", default=0)
-    created_at: float = Field(
-        description="文档创建时间，单位是秒", alias="createdAt",
-        default_factory=lambda: round(datetime.now(tz=UTC).timestamp(), 3),
-    )
-
-
 class MessageBase(HeartbeatData):
     """基础消息事件结构"""
 
-    id: str = Field(min_length=36, max_length=36)
-    conversation_id: uuid.UUID = Field(min_length=36, max_length=36, alias="conversationId")
-    task_id: uuid.UUID = Field(min_length=36, max_length=36, alias="taskId")
+    id: uuid.UUID = Field(min_length=36, max_length=36)
+    conversation_id: uuid.UUID | None = Field(min_length=36, max_length=36, alias="conversationId", default=None)
     flow: MessageFlow | None = None
     content: Any | None = Field(default=None, description="消息内容")
     metadata: MessageMetadata

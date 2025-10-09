@@ -26,7 +26,6 @@ class BaseExecutor(BaseModel, ABC):
     msg_queue: "MessageQueue"
     llm: "LLMConfig"
 
-    background: "ExecutorBackground"
     question: str
 
     model_config = ConfigDict(
@@ -42,6 +41,14 @@ class BaseExecutor(BaseModel, ABC):
 
     async def _load_history(self, n: int = 3) -> None:
         """加载历史记录"""
+        # 不存在conversationId，为首个问题
+        if not self.task.metadata.conversationId:
+            self.background = ExecutorBackground(
+                conversation=[],
+                facts=[],
+                num=n,
+            )
+            return
         # 获取最后n+5条Record
         records = await RecordManager.query_record_by_conversation_id(
             self.task.metadata.userSub, self.task.metadata.conversationId, n + 5,

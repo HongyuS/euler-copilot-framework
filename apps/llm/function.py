@@ -120,6 +120,7 @@ class JsonGenerator:
             autoescape=False,
             trim_blocks=True,
             lstrip_blocks=True,
+            extensions=["jinja2.ext.loopcontrols"],
         )
         self._err_info = ""
 

@@ -55,12 +55,12 @@ class LLMData(Base):
     """LLM最大Token数量"""
     temperature: Mapped[float] = mapped_column(Float, default=0.7, nullable=False)
     """LLM温度"""
-    llmType: Mapped[list[LLMType]] = mapped_column(ARRAY(Enum(LLMType)), default=[], nullable=False)  # noqa: N815
+    llmType: Mapped[list[LLMType]] = mapped_column(ARRAY(Enum(LLMType)), default_factory=list, nullable=False)  # noqa: N815
     """LLM类型"""
     provider: Mapped[LLMProvider] = mapped_column(
         Enum(LLMProvider), default=None, nullable=True,
     )
-    extraConfig: Mapped[dict[str, Any]] = mapped_column(JSONB, default={}, nullable=False)  # noqa: N815
+    extraConfig: Mapped[dict[str, Any]] = mapped_column(JSONB, default_factory=dict, nullable=False)  # noqa: N815
     """大模型API类型"""
     createdAt: Mapped[DateTime] = mapped_column(  # noqa: N815
         DateTime,

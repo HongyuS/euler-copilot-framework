@@ -28,7 +28,6 @@ class EventType(str, Enum):
     INIT = "init"
     TEXT_ADD = "text.add"
     GRAPH = "graph"
-    DOCUMENT_ADD = "document.add"
     STEP_WAITING_FOR_START = "step.waiting_for_start"
     STEP_WAITING_FOR_PARAM = "step.waiting_for_param"
     FLOW_START = "flow.start"

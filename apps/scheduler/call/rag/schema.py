@@ -53,7 +53,7 @@ class RAGOutput(DataBase):
     """RAG工具的输出"""
 
     question: str = Field(description="用户输入")
-    corpus: list[str] = Field(description="知识库的语料列表")
+    corpus: list[DocItem] = Field(description="知识库的语料列表")
 
 
 class RAGInput(DataBase):

@@ -13,6 +13,7 @@ from apps.models import (
     ExecutorStatus,
     LanguageType,
     StepStatus,
+    StepType,
 )
 from apps.schemas.enum_var import EventType, SpecialCallType
 from apps.schemas.flow import Flow, Step
@@ -89,6 +90,7 @@ class FlowExecutor(BaseExecutor):
                 stepStatus=StepStatus.RUNNING,
                 stepId=self.flow.basicConfig.startStep,
                 stepName=self.flow.steps[self.flow.basicConfig.startStep].name,
+                stepType=StepType(self.flow.steps[self.flow.basicConfig.startStep].type),
             )
         # 是否到达Flow结束终点（变量）
         self._reached_end: bool = False

@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime
 from hashlib import sha256
 
-from sqlalchemy import ARRAY, BigInteger, Boolean, DateTime, Enum, ForeignKey, Integer, String
+from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -34,8 +34,6 @@ class User(Base):
         String(100), default_factory=lambda: sha256(str(uuid.uuid4()).encode()).hexdigest()[:16], nullable=False,
     )
     """用户个人令牌"""
-    selectedKB: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID), default=[], nullable=False)  # noqa: N815
-    """用户选择的知识库的ID"""
     functionLLM: Mapped[str | None] = mapped_column(String(255), default=None, nullable=True)  # noqa: N815
     """用户选择的函数模型ID"""
     embeddingLLM: Mapped[str | None] = mapped_column(String(255), default=None, nullable=True)  # noqa: N815

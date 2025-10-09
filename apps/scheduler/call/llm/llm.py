@@ -64,6 +64,7 @@ class LLM(CoreCall, input_model=LLMInput, output_model=LLMOutput):
             autoescape=False,
             trim_blocks=True,
             lstrip_blocks=True,
+            extensions=["jinja2.ext.loopcontrols"],
         )
 
         # 上下文信息

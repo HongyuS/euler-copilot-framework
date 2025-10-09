@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import ConfigDict
 
-from apps.models import ExecutorHistory, StepStatus
+from apps.models import ExecutorHistory, StepStatus, StepType
 from apps.scheduler.call.core import CoreCall
 from apps.scheduler.call.empty import Empty
 from apps.scheduler.call.facts.facts import FactsCall
@@ -23,7 +23,7 @@ from apps.schemas.enum_var import (
     SpecialCallType,
 )
 from apps.schemas.message import TextAddContent
-from apps.schemas.scheduler import CallError, CallOutputChunk
+from apps.schemas.scheduler import CallError, CallOutputChunk, ExecutorBackground
 from apps.services import NodeManager
 
 from .base import BaseExecutor
@@ -38,6 +38,7 @@ class StepExecutor(BaseExecutor):
     """工作流中步骤相关函数"""
 
     step: "StepQueueItem"
+    background: "ExecutorBackground"
 
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
@@ -90,7 +91,7 @@ class StepExecutor(BaseExecutor):
 
         # State写入ID和运行状态
         self.task.state.stepId = self.step.step_id
-        self.task.state.stepDescription = self.step.step.description
+        self.task.state.stepType = StepType(self.step.step.type)
         self.task.state.stepName = self.step.step.name
 
         # 获取并验证Call类
@@ -264,7 +265,7 @@ class StepExecutor(BaseExecutor):
             executorStatus=self.task.state.executorStatus,
             stepId=self.step.step_id,
             stepName=self.step.step.name,
-            stepDescription=self.step.step.description,
+            stepType=StepType(self.step.step.type),
             stepStatus=self.task.state.stepStatus,
             inputData=self.obj.input,
             outputData=output_data,

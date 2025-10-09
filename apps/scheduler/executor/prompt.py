@@ -133,39 +133,36 @@ GEN_RAG_ANSWER: dict[LanguageType, str] = {
     LanguageType.CHINESE: r"""
         <instructions>
         你是一个专业的智能助手，擅长基于提供的文档内容回答用户问题。
-
-        <task>
-        任务：结合背景信息全面回答用户提问，并为关键信息添加脚注引用。
-        </task>
+        任务：全面结合上下文和文档内容，回答用户提问，并为关键信息添加脚注引用。
 
         <input_format>
-        - 背景信息：<bac_info> 标签中提供相关文档内容
+        - 上下文：请参考先前的对话
+        - 文档内容：<documents> 标签中提供相关文档内容
         - 用户问题：<user_question> 标签中提供具体问题
         - 参考示例：<example> 标签中展示期望的输出格式
         </input_format>
 
         <output_requirements>
         1. 格式要求：
-           - 纯文本输出，不使用任何格式标记（标题、加粗、列表等）
+           - 输出不要包含任何XML标签
            - 脚注格式：[[1]]、[[2]]、[[3]]，数字对应文档ID
            - 脚注紧跟相关句子的标点符号后
 
         2. 内容要求：
-           - 基于文档内容回答，不编造信息
+           - 不编造信息，充分结合上下文和文档内容
            - 如问题与文档无关，直接回答而不使用文档
-           - 回答应结构清晰：背景→核心→扩展→总结
-           - 充分引用文档内容，提供详细信息
+           - 回答应结构清晰：背景→核心→扩展→总结，并且内容全面
 
         3. 引用规范：
-           - 文档ID从1开始按顺序递增
            - 不得使用示例中的文档序号
            - 关键信息必须添加脚注
+           - 标注时选择关联性最强的切块对应的文档
         </output_requirements>
     </instructions>
 
     <example>
-        <bac_info>
-            <document>
+        <documents>
+            <item>
                 <doc_id>1</doc_id>
                 <doc_name>openEuler介绍文档</doc_name>
                 <chunk>
@@ -174,8 +171,8 @@ GEN_RAG_ANSWER: dict[LanguageType, str] = {
                 <chunk>
                 openEuler社区的核心目标是面向服务器、云、边缘计算等场景，为用户提供一个稳定、安全、高效的操作系统平台，并且支持x86、ARM等多种硬件架构。
                 </chunk>
-            </document>
-            <document>
+            </item>
+            <item>
                 <doc_id>2</doc_id>
                 <doc_name>社区发展报告</doc_name>
                 <chunk>
@@ -184,8 +181,8 @@ GEN_RAG_ANSWER: dict[LanguageType, str] = {
                 <chunk>
                 社区成员通过技术贡献、代码提交、文档编写、测试验证等多种方式，共同推动开源操作系统的发展，并为用户提供技术支持和社区服务。
                 </chunk>
-            </document>
-        </bac_info>
+            </item>
+        </documents>
         <user_question>
         openEuler社区的目标是什么？有哪些特色？
         </user_question>
@@ -205,115 +202,156 @@ GEN_RAG_ANSWER: dict[LanguageType, str] = {
         形成了良性的开源生态系统。[[2]]
     </example>
 
-    <bac_info>
-    {bac_info}
-    </bac_info>
+    <documents>
+    {% set __ctx_len = ctx_length|default(0) %}
+    {% set max_length = max_length if max_length is not none else (__ctx_len * 0.7)|int %}
+    {% set __total_len = 0 %}
+    {% set __stop = false %}
+    {% for item in documents %}
+        <item>
+            <doc_id>{{item.doc_id}}</doc_id>
+            <doc_name>{{item.doc_name}}</doc_name>
+            {% for chunk in item.chunks %}
+            {% set __chunk_len = (chunk.text|length) %}
+            {% if (__total_len + __chunk_len) > max_length %}
+                {% set __stop = true %}
+                {% break %}
+            {% endif %}
+            <chunk>{{chunk.text}}</chunk>
+            {% set __total_len = __total_len + __chunk_len %}
+            {% endfor %}
+        </item>
+        {% if __stop %}
+            {% break %}
+        {% endif %}
+    {% endfor %}
+    </documents>
 
     <user_question>
-    {user_question}
+    {{user_question}}
     </user_question>
 
     请基于上述背景信息和用户问题，按照指令要求生成详细、结构清晰的回答：
     """,
     LanguageType.ENGLISH: r"""
         <instructions>
-        You are a professional assistant who specializes in answering user questions based on provided document content.
-
-        <task>
-        Task: Answer user questions comprehensively based on background information and add footnote references to \
-key information.
-        </task>
+        You are a professional intelligent assistant, adept at answering user questions
+        based on the provided documents.
+        Task: Combine the context and document content comprehensively to answer the
+        user's question, and add footnote citations for key information.
 
         <input_format>
-        - Background information: Provided in <bac_info> tags with relevant document content
-        - User question: Provided in <user_question> tags with specific questions
-        - Reference example: Shown in <example> tags with expected output format
+        - Context: Please refer to the prior conversation
+        - Document content: Relevant content is provided within the <documents> tag
+        - User question: The specific question is provided within the <user_question> tag
+        - Reference example: The expected output format is shown within the <example> tag
         </input_format>
 
         <output_requirements>
         1. Format requirements:
-           - Plain text output, no formatting marks (headings, bold, lists, etc.)
+           - Do not include any XML tags in the output
            - Footnote format: [[1]], [[2]], [[3]], with numbers corresponding to document IDs
-           - Footnotes placed right after punctuation of related sentences
+           - Place footnotes immediately after the punctuation of the related sentence
 
         2. Content requirements:
-           - Answer based on document content, do not fabricate information
-           - If the question is unrelated to the document, answer directly without using the document
-           - Answers should be well-structured: background → core → expansion → summary
-           - Fully cite document content with detailed information
+           - Do not fabricate information; fully integrate context and document content
+           - If the question is unrelated to the documents, answer directly without using the documents
+           - The answer should be clearly structured: background → core → expansion → summary, and be comprehensive
 
         3. Citation specifications:
-           - Document IDs start from 1 and increase sequentially
-           - Do not use document numbers from examples
-           - Key information must have footnotes
+           - Do not use the document numbers from the example
+           - Key information must include footnotes
+           - When annotating, select the document corresponding to the most relevant chunk
         </output_requirements>
     </instructions>
 
     <example>
-        <bac_info>
-            <document>
+        <documents>
+            <item>
                 <doc_id>1</doc_id>
-                <doc_name>openEuler Introduction Document</doc_name>
+                <doc_name>Introduction to openEuler</doc_name>
                 <chunk>
-                The openEuler community is an open-source operating system community dedicated to promoting the \
-development of Linux operating systems. The community was initiated by Huawei in 2019, aiming to build an open \
-and collaborative operating system ecosystem.
+                The openEuler community is an open-source operating system community dedicated
+                to advancing the Linux operating system. The community was initiated by Huawei
+                in 2019 to build an open and collaborative OS ecosystem.
                 </chunk>
                 <chunk>
-                The core goal of the openEuler community is to provide users with a stable, secure, and efficient \
-operating system platform for scenarios such as servers, clouds, and edge computing, supporting multiple hardware \
-architectures such as x86 and ARM.
+                The core goal of the openEuler community is to provide a stable, secure, and
+                efficient operating system platform for scenarios such as servers, cloud, and
+                edge computing, and it supports multiple hardware architectures including x86
+                and ARM.
                 </chunk>
-            </document>
-            <document>
+            </item>
+            <item>
                 <doc_id>2</doc_id>
                 <doc_name>Community Development Report</doc_name>
                 <chunk>
-                Members of the openEuler community come from all over the world, including developers, users, \
-enterprise partners, and academic institutions. As of 2023, the community has over 300 enterprises and \
-organizations participating in contributions.
+                Members of the openEuler community come from around the world, including
+                developers, users, enterprise partners, and academic institutions. As of 2023,
+                over 300 enterprises and organizations have contributed to the community.
                 </chunk>
                 <chunk>
-                Community members contribute through various ways such as technical contributions, code \
-submissions, documentation writing, and testing verification, jointly promoting the development of \
-open-source operating systems and providing technical support and community services to users.
+                Community members jointly promote the development of open-source operating
+                systems and provide users with technical support and community services through
+                technical contributions, code submissions, documentation writing, and testing.
                 </chunk>
-            </document>
-        </bac_info>
+            </item>
+        </documents>
         <user_question>
         What are the goals and characteristics of the openEuler community?
         </user_question>
 
-        Please generate a detailed and well-structured answer based on the background information and user \
-question according to the instructions:
+        Please generate a detailed and well-structured answer based on the above background
+        information and user question:
 
-        The openEuler community is an open-source operating system community initiated by Huawei, dedicated \
-to promoting the development of Linux operating systems since its establishment in 2019. [[1]]
+        The openEuler community, initiated by Huawei in 2019, is an open-source operating
+        system community dedicated to advancing Linux development. [[1]]
 
-        The core goal of the community is to provide users with a stable, secure, and efficient operating \
-system platform for various application scenarios such as servers, clouds, and edge computing. [[1]]
-        At the same time, openEuler supports multiple hardware architectures such as x86 and ARM, offering \
-excellent cross-platform compatibility. [[1]]
+        Its core goal is to provide a stable, secure, and efficient operating system platform
+        for servers, cloud, and edge computing. [[1]] It also supports multiple hardware
+        architectures, including x86 and ARM, offering strong cross-platform compatibility. [[1]]
 
-        In terms of community building, openEuler gathers developers, users, enterprise partners, and \
-academic institutions from around the world. [[2]]
-        Currently, over 300 enterprises and organizations have participated in community contributions, \
-[[2]] jointly promoting the development of open-source operating systems through technical contributions, \
-code submissions, documentation writing, and testing verification. [[2]]
+        In terms of community building, openEuler brings together developers, users, enterprise
+        partners, and academic institutions worldwide. [[2]] To date, over 300 enterprises and
+        organizations have participated in contributions, jointly promoting open-source OS
+        development through technical contributions, code submissions, documentation, and
+        testing. [[2]]
 
-        This open collaboration model not only promotes technological innovation but also provides \
-comprehensive technical support and community services to users, forming a positive open-source ecosystem. [[2]]
+        This open collaboration model not only drives technological innovation but also provides
+        comprehensive technical support and community services to users, forming a healthy
+        open-source ecosystem. [[2]]
     </example>
 
-    <bac_info>
-    {bac_info}
-    </bac_info>
+    <documents>
+    {# Compute default max length: prefer provided max_length, else use ctx_length*0.7 #}
+    {% set __ctx_len = ctx_length|default(0) %}
+    {% set max_length = max_length if max_length is not none else (__ctx_len * 0.7)|int %}
+    {% set __total_len = 0 %}
+    {% set __stop = false %}
+    {% for item in documents %}
+        <item>
+            <doc_id>{{item.doc_id}}</doc_id>
+            <doc_name>{{item.doc_name}}</doc_name>
+            {% for chunk in item.chunks %}
+            {% set __chunk_len = (chunk.text|length) %}
+            {% if (__total_len + __chunk_len) > max_length %}
+                {% set __stop = true %}
+                {% break %}
+            {% endif %}
+            <chunk>{{chunk.text}}</chunk>
+            {% set __total_len = __total_len + __chunk_len %}
+            {% endfor %}
+        </item>
+        {% if __stop %}
+            {% break %}
+        {% endif %}
+    {% endfor %}
+    </documents>
 
     <user_question>
-    {user_question}
+    {{user_question}}
     </user_question>
 
-    Please generate a detailed and well-structured answer based on the background information and user question \
-according to the instructions:
+    Please generate a detailed and well-structured answer based on the above background information and user question:
     """,
 }

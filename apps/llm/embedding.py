@@ -103,7 +103,7 @@ class Embedding:
         embedding = await self.get_embedding(["测试文本"])
         return len(embedding[0])
 
-    async def _delete_vector(self) -> None:
+    async def delete_vector(self) -> None:
         """删除所有Vector表"""
         async with postgres.session() as session:
             await session.execute(text("DROP TABLE IF EXISTS framework_flow_vector"))
@@ -148,7 +148,6 @@ class Embedding:
 
     async def init(self) -> None:
         """在使用Embedding前初始化数据库表等资源"""
-        await self._delete_vector()
         # 检测维度
         dim = await self._get_embedding_dimension()
         await self._create_vector_table(dim)

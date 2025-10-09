@@ -9,7 +9,7 @@ from typing import Any
 import magic
 from fastapi import UploadFile
 from PIL import Image
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, delete, or_, select
 
 from apps.common.postgres import postgres
 from apps.constants import (
@@ -25,6 +25,7 @@ from apps.models import (
     MCPTools,
     MCPType,
 )
+from apps.models.app import AppMCP
 from apps.scheduler.pool.loader.mcp import MCPLoader
 from apps.scheduler.pool.mcp.pool import MCPPool
 from apps.schemas.enum_var import SearchType
@@ -310,8 +311,15 @@ class MCPServiceManager:
             msg = "[MCPServiceManager] MCP服务未找到或无权限"
             raise ValueError(msg)
 
-        for user_id in db_service.activated:
-            await MCPServiceManager.deactive_mcpservice(user_sub=user_id, mcp_id=data.mcp_id)
+        # 查询所有激活该MCP服务的用户
+        async with postgres.session() as session:
+            activated_users = (await session.scalars(select(MCPActivated).where(
+                MCPActivated.mcpId == data.mcp_id,
+            ))).all()
+
+        # 为每个激活的用户取消激活
+        for activated_user in activated_users:
+            await MCPServiceManager.deactive_mcpservice(user_sub=activated_user.userSub, mcp_id=data.mcp_id)
 
         mcp_config = MCPServerConfig(
             name=data.name,
@@ -349,12 +357,11 @@ class MCPServiceManager:
         # 删除对应的mcp
         await MCPLoader.delete_mcp(mcp_id)
 
-        # 遍历所有应用，将其中的MCP依赖删除
-        app_collection = MongoDB().get_collection("application")
-        await app_collection.update_many(
-            {"mcp_service": mcp_id},
-            {"$pull": {"mcp_service": mcp_id}},
-        )
+        # 从PostgreSQL中删除所有应用对应该MCP服务的关联记录
+        async with postgres.session() as session:
+            stmt = delete(AppMCP).where(AppMCP.mcpId == mcp_id)
+            await session.execute(stmt)
+            await session.commit()
 
 
     @staticmethod

@@ -56,22 +56,21 @@ class MessageQueue:
             # 如果使用了Flow
             flow = MessageFlow(
                 appId=task.state.appId,
-                flowId=task.state.executorId,
-                flowName=task.state.executorName,
-                flowStatus=task.state.executorStatus,
+                executorId=task.state.executorId,
+                executorName=task.state.executorName,
+                executorStatus=task.state.executorStatus,
                 stepId=task.state.stepId,
                 stepName=task.state.stepName,
-                stepDescription=task.state.stepDescription,
                 stepStatus=task.state.stepStatus,
+                stepType=task.state.stepType,
             )
         else:
             flow = None
 
         message = MessageBase(
             event=event_type,
-            id=task.metadata.record_id,
+            id=task.metadata.id,
             conversationId=task.metadata.conversationId,
-            taskId=task.metadata.id,
             metadata=metadata,
             flow=flow,
             content=data,

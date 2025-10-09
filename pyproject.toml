@@ -49,4 +49,5 @@ dev = [
     "ruff==0.12.5",
     "sphinx==8.2.3",
     "sphinx-rtd-theme==3.0.2",
+    "sphinxcontrib-plantuml>=0.31",
 ]

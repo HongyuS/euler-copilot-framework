@@ -15,7 +15,7 @@ from openai.types.chat import (
 )
 from typing_extensions import override
 
-from apps.llm import TokenCalculator
+from apps.llm.token import TokenCalculator
 from apps.models import LLMType
 from apps.schemas.llm import LLMChunk, LLMFunctions
 

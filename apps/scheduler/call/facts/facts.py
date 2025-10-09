@@ -83,6 +83,7 @@ class FactsCall(CoreCall, input_model=FactsInput, output_model=FactsOutput):
             autoescape=False,
             trim_blocks=True,
             lstrip_blocks=True,
+            extensions=["jinja2.ext.loopcontrols"],
         )
 
         # 提取事实信息
