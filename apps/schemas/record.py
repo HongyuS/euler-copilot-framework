@@ -64,8 +64,6 @@ class RecordMetadata(BaseModel):
     output_tokens: int = Field(default=0, alias="outputTokens")
     time_cost: float = Field(default=0, alias="timeCost")
     feature: dict[str, Any] = {}
-    foot_note_metadata_list: list[FootNoteMetaData] = Field(
-        default=[], alias="footNoteMetadataList", description="脚注元信息列表")
 
 
 class RecordComment(BaseModel):

@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Embedding模型"""
 
 import logging
@@ -19,6 +20,7 @@ _flow_pool_vector_table = {
     "appId": Column(UUID(as_uuid=True), ForeignKey("framework_app.id"), nullable=False),
     "id": Column(String(255), ForeignKey("framework_flow.id"), primary_key=True),
     "__table_args__": (
+        {"extend_existing": True},
         Index(
             "hnsw_index",
             "embedding",
@@ -32,6 +34,7 @@ _service_pool_vector_table = {
     "__tablename__": "framework_service_vector",
     "id": Column(UUID(as_uuid=True), ForeignKey("framework_service.id"), primary_key=True),
     "__table_args__": (
+        {"extend_existing": True},
         Index(
             "hnsw_index",
             "embedding",
@@ -46,6 +49,7 @@ _node_pool_vector_table = {
     "id": Column(String(255), ForeignKey("framework_node.id"), primary_key=True),
     "serviceId": Column(UUID(as_uuid=True), ForeignKey("framework_service.id"), nullable=True),
     "__table_args__": (
+        {"extend_existing": True},
         Index(
             "hnsw_index",
             "embedding",
@@ -59,6 +63,7 @@ _mcp_vector_table = {
     "__tablename__": "framework_mcp_vector",
     "id": Column(String(255), ForeignKey("framework_mcp.id"), primary_key=True),
     "__table_args__": (
+        {"extend_existing": True},
         Index(
             "hnsw_index",
             "embedding",
@@ -73,6 +78,7 @@ _mcp_tool_vector_table = {
     "id": Column(String(255), ForeignKey("framework_mcp_tool.id"), primary_key=True),
     "mcpId": Column(String(255), ForeignKey("framework_mcp.id"), nullable=False),
     "__table_args__": (
+        {"extend_existing": True},
         Index(
             "hnsw_index",
             "embedding",

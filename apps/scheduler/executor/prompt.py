@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Executor相关大模型提示词"""
 
 from textwrap import dedent

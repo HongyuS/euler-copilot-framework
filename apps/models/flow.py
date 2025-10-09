@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Flow 数据库表"""
 
 import uuid
@@ -41,6 +42,7 @@ class Flow(Base):
     )
     """Flow的更新时间"""
     __table_args__ = (
+        {"extend_existing": True},
         Index("idx_app_id_id", "appId", "id"),
         Index("idx_app_id_name", "appId", "name"),
     )

@@ -46,7 +46,6 @@ classDiagram
     
     class Summary {
         +context: ExecutorBackground
-        +Field(description="对话上下文")
         +info() CallInfo
         +instance() Self
         +_init() DataBase

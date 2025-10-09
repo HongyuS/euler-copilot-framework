@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """SQLAlchemy 数据库表结构"""
 
 from .app import App, AppACL, AppHashes, AppMCP, AppType, PermissionType

@@ -1,4 +1,4 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """User用户信息数据结构"""
 
 from pydantic import BaseModel, Field

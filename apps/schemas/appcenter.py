@@ -1,4 +1,4 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """应用中心相关 API 基础数据结构定义"""
 
 import uuid

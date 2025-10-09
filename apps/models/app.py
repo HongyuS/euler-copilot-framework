@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """应用 数据库表"""
 
 import uuid
@@ -57,6 +58,7 @@ class App(Base):
     )
     """权限类型"""
     __table_args__ = (
+        {"extend_existing": True},
         Index("idx_published_updated_at", "isPublished", "updatedAt"),
         Index("idx_author_id_name", "author", "id", "name"),
     )

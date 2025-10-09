@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """文件 数据库表"""
 
 import uuid
@@ -37,5 +38,6 @@ class Document(Base):
     )
     """文件的创建时间"""
     __table_args__ = (
+        {"extend_existing": True},
         Index("idx_user_sub_conversation_id", "userSub", "conversationId"),
     )

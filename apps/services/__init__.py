@@ -8,7 +8,6 @@ from .conversation import ConversationManager
 from .document import DocumentManager
 from .flow import FlowManager
 from .flow_service import FlowServiceManager
-from .knowledge import KnowledgeBaseManager
 from .knowledge_service import KnowledgeBaseService
 from .llm import LLMManager
 from .mcp_service import MCPServiceManager
@@ -33,7 +32,6 @@ __all__ = [
     "DocumentManager",
     "FlowManager",
     "FlowServiceManager",
-    "KnowledgeBaseManager",
     "KnowledgeBaseService",
     "LLMManager",
     "MCPServiceManager",

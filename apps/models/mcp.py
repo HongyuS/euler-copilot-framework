@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """MCP 相关 数据库表"""
 
 from datetime import UTC, datetime

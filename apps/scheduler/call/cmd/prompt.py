@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """命令行生成器相关提示词"""
 
 from textwrap import dedent
