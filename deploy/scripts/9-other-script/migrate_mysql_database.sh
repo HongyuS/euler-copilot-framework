@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# MySQL数据库恢复脚本
-# 描述：用于Euler Copilot项目的MySQL数据库恢复
+# MySQL Database Recovery Script
+# Description: Used for Euler Copilot project MySQL database recovery
 
-set -e  # 遇到错误立即退出
+set -e  # Exit immediately on error
 
-# 颜色定义
+# Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -14,7 +14,7 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# 打印函数
+# Print functions
 print_color() {
     local color=$1
     shift
@@ -30,11 +30,11 @@ info() {
 }
 
 warning() {
-    print_color "${YELLOW}" "[$(date '+%Y-%m-%d %H:%M:%S')] 警告: $1"
+    print_color "${YELLOW}" "[$(date '+%Y-%m-%d %H:%M:%S')] Warning: $1"
 }
 
 error() {
-    print_color "${RED}" "[$(date '+%Y-%m-%d %H:%M:%S')] 错误: $1" >&2
+    print_color "${RED}" "[$(date '+%Y-%m-%d %H:%M:%S')] Error: $1" >&2
     exit 1
 }
 
@@ -43,7 +43,7 @@ step() {
     print_color "${PURPLE}" "[$(date '+%Y-%m-%d %H:%M:%S')] === $1 ==="
 }
 
-# 配置变量
+# Configuration variables
 NAMESPACE="euler-copilot"
 SECRET_NAME="authhub-secret"
 PASSWORD_KEY="mysql-password"
@@ -52,183 +52,183 @@ DB_NAME="oauth2"
 BACKUP_FILE="/home/dump/mysql/mysql.sql"
 POD_BACKUP_PATH="/home/mysql.sql"
 
-# 显示横幅
+# Show banner
 show_banner() {
     echo
     print_color "${PURPLE}" "================================================"
-    print_color "${PURPLE}" "            MySQL 数据库恢复脚本"
-    print_color "${PURPLE}" "            Euler Copilot 项目专用"
+    print_color "${PURPLE}" "            MySQL Database Recovery Script"
+    print_color "${PURPLE}" "            Euler Copilot Project Specific"
     print_color "${PURPLE}" "================================================"
     echo
 }
 
-# 检查必要工具
+# Check required tools
 check_dependencies() {
-    step "检查必要工具"
-    command -v kubectl >/dev/null 2>&1 || error "kubectl 未安装"
-    command -v base64 >/dev/null 2>&1 || error "base64 未安装"
-    log "依赖检查通过"
+    step "Checking required tools"
+    command -v kubectl >/dev/null 2>&1 || error "kubectl not installed"
+    command -v base64 >/dev/null 2>&1 || error "base64 not installed"
+    log "Dependency check passed"
 }
 
-# 获取MySQL Pod名称
+# Get MySQL Pod name
 get_mysql_pod() {
-    step "查找MySQL Pod"
+    step "Finding MySQL Pod"
     POD_NAME=$(kubectl get pod -n $NAMESPACE 2>/dev/null | grep mysql | grep Running | awk '{print $1}')
-    
+
     if [ -z "$POD_NAME" ]; then
-        error "未找到运行的MySQL Pod"
+        error "No running MySQL Pod found"
     fi
-    log "找到Pod: $POD_NAME"
+    log "Found Pod: $POD_NAME"
 }
 
-# 获取MySQL密码
+# Get MySQL password
 get_mysql_password() {
-    step "获取MySQL密码"
+    step "Getting MySQL password"
     MYSQL_PASSWORD=$(kubectl get secret $SECRET_NAME -n $NAMESPACE -o jsonpath="{.data.$PASSWORD_KEY}" 2>/dev/null | base64 --decode)
-    
+
     if [ -z "$MYSQL_PASSWORD" ]; then
-        error "无法获取MySQL密码，请检查secret是否存在"
+        error "Unable to get MySQL password, please check if secret exists"
     fi
-    log "密码获取成功"
+    log "Password obtained successfully"
 }
 
-# 检查备份文件是否存在
+# Check if backup file exists
 check_backup_file() {
-    step "检查备份文件"
+    step "Checking backup file"
     if [ ! -f "$BACKUP_FILE" ]; then
-        error "备份文件 $BACKUP_FILE 不存在"
+        error "Backup file $BACKUP_FILE does not exist"
     fi
-    
-    # 显示文件信息
+
+    # Display file information
     local file_size=$(du -h "$BACKUP_FILE" | cut -f1)
-    local file_lines=$(wc -l < "$BACKUP_FILE" 2>/dev/null || echo "未知")
-    info "文件路径: $BACKUP_FILE"
-    info "文件大小: $file_size"
-    info "文件行数: $file_lines"
-    
-    log "备份文件检查通过"
+    local file_lines=$(wc -l < "$BACKUP_FILE" 2>/dev/null || echo "Unknown")
+    info "File path: $BACKUP_FILE"
+    info "File size: $file_size"
+    info "File lines: $file_lines"
+
+    log "Backup file check passed"
 }
 
-# 拷贝备份文件到Pod
+# Copy backup file to Pod
 copy_backup_to_pod() {
-    step "拷贝备份文件到Pod"
-    info "从本地拷贝到Pod: $BACKUP_FILE -> $POD_NAME:$POD_BACKUP_PATH"
-    
+    step "Copying backup file to Pod"
+    info "Copying from local to Pod: $BACKUP_FILE -> $POD_NAME:$POD_BACKUP_PATH"
+
     kubectl cp "$BACKUP_FILE" "$POD_NAME:$POD_BACKUP_PATH" -n $NAMESPACE
-    
+
     if [ $? -eq 0 ]; then
-        log "备份文件拷贝完成"
+        log "Backup file copy completed"
     else
-        error "文件拷贝失败"
+        error "File copy failed"
     fi
 }
 
-# 验证数据库连接
+# Verify database connection
 test_database_connection() {
-    step "测试数据库连接"
-    info "测试用户 $DB_USER 连接到数据库 $DB_NAME"
-    
+    step "Testing database connection"
+    info "Testing user $DB_USER connection to database $DB_NAME"
+
     kubectl exec $POD_NAME -n $NAMESPACE -- bash -c "
         mysql -u$DB_USER -p'$MYSQL_PASSWORD' -e 'SELECT 1;' $DB_NAME 2>/dev/null
     " >/dev/null 2>&1
-    
+
     if [ $? -eq 0 ]; then
-        log "数据库连接测试成功"
+        log "Database connection test successful"
     else
-        error "数据库连接失败，请检查密码和网络连接"
+        error "Database connection failed, please check password and network connection"
     fi
 }
 
-# 执行数据库恢复
+# Execute database recovery
 restore_database() {
-    step "执行数据库恢复"
-    warning "此操作将覆盖现有数据库数据！"
-    
-    info "开始恢复数据库..."
+    step "Executing database recovery"
+    warning "This operation will overwrite existing database data!"
+
+    info "Starting database recovery..."
     kubectl exec $POD_NAME -n $NAMESPACE -- bash -c "
         mysql -u$DB_USER -p'$MYSQL_PASSWORD' $DB_NAME < $POD_BACKUP_PATH
     "
-    
+
     local restore_status=$?
-    
+
     if [ $restore_status -eq 0 ]; then
-        log "数据库恢复成功"
+        log "Database recovery successful"
     else
-        error "数据库恢复失败，退出码: $restore_status"
+        error "Database recovery failed, exit code: $restore_status"
     fi
 }
 
-# 验证恢复结果
+# Verify recovery result
 verify_restore() {
-    step "验证恢复结果"
-    info "检查数据库表信息..."
-    
+    step "Verifying recovery result"
+    info "Checking database table information..."
+
     local table_count=$(kubectl exec $POD_NAME -n $NAMESPACE -- bash -c "
         mysql -u$DB_USER -p'$MYSQL_PASSWORD' -N -e \\
         \"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '$DB_NAME';\" 2>/dev/null
     " 2>/dev/null)
-    
+
     if [ -n "$table_count" ] && [ "$table_count" -gt 0 ]; then
-        log "恢复验证成功，数据库包含 $table_count 张表"
-        
-        # 显示部分表名
-        info "数据库表列表:"
+        log "Recovery verification successful, database contains $table_count tables"
+
+        # Display some table names
+        info "Database table list:"
         kubectl exec $POD_NAME -n $NAMESPACE -- bash -c "
             mysql -u$DB_USER -p'$MYSQL_PASSWORD' -e \\
             \"SELECT table_name FROM information_schema.tables WHERE table_schema = '$DB_NAME' LIMIT 10;\" 2>/dev/null
         " 2>/dev/null
     else
-        warning "无法获取表信息，但恢复操作已完成"
+        warning "Unable to get table information, but recovery operation completed"
     fi
 }
 
-# 清理临时文件
+# Clean up temporary files
 cleanup() {
-    step "清理临时文件"
-    info "删除Pod内的备份文件: $POD_BACKUP_PATH"
-    
+    step "Cleaning up temporary files"
+    info "Deleting backup file in Pod: $POD_BACKUP_PATH"
+
     kubectl exec $POD_NAME -n $NAMESPACE -- rm -f "$POD_BACKUP_PATH" 2>/dev/null || true
-    
-    log "清理完成"
+
+    log "Cleanup completed"
 }
 
-# 显示使用说明
+# Show usage instructions
 usage() {
     show_banner
-    print_color "${YELLOW}" "用法: $0"
+    print_color "${YELLOW}" "Usage: $0"
     echo
-    print_color "${CYAN}" "说明: 该脚本用于恢复Euler Copilot项目的MySQL数据库"
+    print_color "${CYAN}" "Description: This script is used to recover MySQL database for Euler Copilot project"
     echo
-    print_color "${CYAN}" "前提条件:"
-    print_color "${WHITE}" "  1. kubectl已配置并可访问集群"
-    print_color "${WHITE}" "  2. mysql.sql文件存在于当前目录"
-    print_color "${WHITE}" "  3. 具有足够的集群权限"
+    print_color "${CYAN}" "Prerequisites:"
+    print_color "${WHITE}" "  1. kubectl configured and able to access cluster"
+    print_color "${WHITE}" "  2. mysql.sql file exists in current directory"
+    print_color "${WHITE}" "  3. Has sufficient cluster permissions"
     echo
-    print_color "${RED}" "警告: 此操作将覆盖现有数据库数据！"
+    print_color "${RED}" "Warning: This operation will overwrite existing database data!"
     echo
 }
 
-# 确认操作
+# Confirm operation
 confirm_operation() {
-    print_color "${YELLOW}" "警告: 此操作将清空现有数据库数据并导入新数据！"
+    print_color "${YELLOW}" "Warning: This operation will clear existing database data and import new data!"
     echo
-    read -p "$(print_color "${YELLOW}" "确认执行数据库恢复操作？(y/N): ")" confirm
+    read -p "$(print_color "${YELLOW}" "Confirm execution of database recovery operation? (y/N): ")" confirm
     case $confirm in
         [yY] | [yY][eE][sS])
             return 0
             ;;
         *)
-            warning "操作已取消"
+            warning "Operation cancelled"
             exit 0
             ;;
     esac
 }
 
-# 主函数
+# Main function
 main() {
     show_banner
-    step "开始MySQL数据库恢复流程"
-    
+    step "Starting MySQL database recovery process"
+
     check_dependencies
     get_mysql_pod
     get_mysql_password
@@ -239,21 +239,21 @@ main() {
     restore_database
     verify_restore
     cleanup
-    
+
     echo
     print_color "${GREEN}" "================================================"
-    print_color "${GREEN}" "           Mysql数据恢复已完成！"
+    print_color "${GREEN}" "           MySQL Data Recovery Completed!"
     print_color "${GREEN}" "================================================"
     echo
-    print_color "${GREEN}" "✓ 备份文件检查完成"
-    print_color "${GREEN}" "✓ 数据库连接测试通过"
-    print_color "${GREEN}" "✓ 数据恢复执行成功"
-    print_color "${GREEN}" "✓ 临时文件清理完成"
+    print_color "${GREEN}" "✓ Backup file check completed"
+    print_color "${GREEN}" "✓ Database connection test passed"
+    print_color "${GREEN}" "✓ Data recovery executed successfully"
+    print_color "${GREEN}" "✓ Temporary files cleanup completed"
     echo
-    print_color "${BLUE}" "提示: 建议检查应用运行状态以确保数据恢复成功。"
+    print_color "${BLUE}" "Tip: It is recommended to check application running status to ensure data recovery success."
 }
 
-# 脚本入口
+# Script entry point
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     usage
     exit 0
