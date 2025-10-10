@@ -21,6 +21,7 @@ from apps.scheduler.mcp_agent.prompt import (
     RISK_EVALUATE,
 )
 from apps.scheduler.slot.slot import Slot
+from apps.schemas.llm import LLMChunk
 from apps.schemas.mcp import (
     FlowName,
     FlowRisk,
@@ -45,7 +46,7 @@ class MCPPlanner(MCPBase):
         """获取当前流程的名称"""
         template = _env.from_string(GENERATE_FLOW_NAME[self._language])
         prompt = template.render(goal=self._goal)
-        result = await self.get_resoning_result(prompt)
+        result = await self.get_reasoning_result(prompt)
         result = await self._parse_result(result, FlowName.model_json_schema())
         return FlowName.model_validate(result)
 
@@ -54,7 +55,7 @@ class MCPPlanner(MCPBase):
         # 获取推理结果
         template = _env.from_string(GEN_STEP[self._language])
         prompt = template.render(goal=self._goal, history=history, tools=tools)
-        result = await self.get_resoning_result(prompt)
+        result = await self.get_reasoning_result(prompt)
 
         # 解析为结构化数据
         schema = Step.model_json_schema()
@@ -74,7 +75,7 @@ class MCPPlanner(MCPBase):
             goal=self._goal,
             tools=tools,
         )
-        result = await self.get_resoning_result(prompt)
+        result = await self.get_reasoning_result(prompt)
         result = await self._parse_result(result, FlowRisk.model_json_schema())
         # 使用FlowRisk模型解析结果
         return FlowRisk.model_validate(result)
@@ -94,7 +95,7 @@ class MCPPlanner(MCPBase):
             input_param=input_param,
             additional_info=additional_info,
         )
-        result = await self.get_resoning_result(prompt)
+        result = await self.get_reasoning_result(prompt)
 
         schema = ToolRisk.model_json_schema()
         risk = await self._parse_result(result, schema)
@@ -121,7 +122,7 @@ class MCPPlanner(MCPBase):
             input_params=input_params,
             error_message=error_message,
         )
-        result = await self.get_resoning_result(prompt)
+        result = await self.get_reasoning_result(prompt)
         # 解析为结构化数据
         schema = IsParamError.model_json_schema()
         is_param_error = await self._parse_result(result, schema)
@@ -140,7 +141,7 @@ class MCPPlanner(MCPBase):
             input_schema=tool.inputSchema,
             input_params=input_params,
         )
-        return await self.get_resoning_result(prompt)
+        return await self.get_reasoning_result(prompt)
 
     async def get_missing_param(
         self, tool: MCPTools, input_param: dict[str, Any], error_message: dict[str, Any],
@@ -156,7 +157,7 @@ class MCPPlanner(MCPBase):
             schema=schema_with_null,
             error_message=error_message,
         )
-        result = await self.get_resoning_result(prompt)
+        result = await self.get_reasoning_result(prompt)
         # 解析为结构化数据
         return await self._parse_result(result, schema_with_null)
 

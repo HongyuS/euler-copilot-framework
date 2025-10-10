@@ -143,7 +143,7 @@ class ExecutorCheckpoint(Base):
     """步骤名称"""
     stepStatus: Mapped[StepStatus] = mapped_column(Enum(StepStatus), nullable=False)  # noqa: N815
     """步骤状态"""
-    stepType: Mapped[StepType] = mapped_column(Enum(StepType), nullable=False)  # noqa: N815
+    stepType: Mapped[str] = mapped_column(String(255), nullable=False)  # noqa: N815
     """步骤类型"""
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default_factory=uuid.uuid4)
     """检查点ID"""
@@ -172,7 +172,7 @@ class ExecutorHistory(Base):
     """步骤ID"""
     stepName: Mapped[str] = mapped_column(String(255), nullable=False)  # noqa: N815
     """步骤名称"""
-    stepType: Mapped[StepType] = mapped_column(Enum(StepType), nullable=False)  # noqa: N815
+    stepType: Mapped[str] = mapped_column(String(255), nullable=False)  # noqa: N815
     """步骤类型"""
     stepStatus: Mapped[StepStatus] = mapped_column(Enum(StepStatus), nullable=False)  # noqa: N815
     """步骤状态"""

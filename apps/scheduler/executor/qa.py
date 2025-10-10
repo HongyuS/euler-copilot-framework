@@ -92,6 +92,7 @@ class QAExecutor(BaseExecutor):
             stepStatus=StepStatus.RUNNING,
             stepId=uuid.uuid4(),
             stepName="QAExecutor",
+            stepType="",
             appId=None,
         )
 

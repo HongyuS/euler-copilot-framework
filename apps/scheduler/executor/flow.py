@@ -90,7 +90,8 @@ class FlowExecutor(BaseExecutor):
                 stepStatus=StepStatus.RUNNING,
                 stepId=self.flow.basicConfig.startStep,
                 stepName=self.flow.steps[self.flow.basicConfig.startStep].name,
-                stepType=StepType(self.flow.steps[self.flow.basicConfig.startStep].type),
+                # 先转换为StepType，再转换为str，确定Flow的类型在其中
+                stepType=str(StepType(self.flow.steps[self.flow.basicConfig.startStep].type)),
             )
         # 是否到达Flow结束终点（变量）
         self._reached_end: bool = False

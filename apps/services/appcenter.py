@@ -203,21 +203,29 @@ class AppCenterManager:
 
 
     @staticmethod
-    async def fetch_app_data_by_id(app_id: uuid.UUID) -> App:
+    async def fetch_app_metadata_by_id(app_id: uuid.UUID) -> AppMetadata | AgentAppMetadata:
         """
-        根据应用ID获取应用元数据（使用PostgreSQL）
+        根据应用ID获取应用元数据（先检查数据库，再使用Loader）
 
         :param app_id: 应用唯一标识
-        :return: 应用数据
+        :return: 应用元数据
         """
+        # 先在数据库中检查应用是否存在
         async with postgres.session() as session:
-            app_obj = (await session.scalars(
-                select(App).where(App.id == app_id),
+            app_exists = (await session.scalars(
+                select(App.id).where(App.id == app_id),
             )).one_or_none()
-            if not app_obj:
+            if not app_exists:
                 msg = f"[AppCenterManager] 应用不存在: {app_id}"
                 raise ValueError(msg)
-            return app_obj
+
+        # 应用存在，使用Loader获取Metadata
+        try:
+            return await Pool().app_loader.read_metadata(app_id)
+        except ValueError as e:
+            # 如果Loader抛出ValueError，说明metadata文件不存在
+            msg = f"[AppCenterManager] 应用元数据文件不存在: {app_id}"
+            raise ValueError(msg) from e
 
 
     @staticmethod

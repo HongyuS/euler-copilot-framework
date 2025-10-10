@@ -91,7 +91,7 @@ class StepExecutor(BaseExecutor):
 
         # State写入ID和运行状态
         self.task.state.stepId = self.step.step_id
-        self.task.state.stepType = StepType(self.step.step.type)
+        self.task.state.stepType = str(StepType(self.step.step.type))
         self.task.state.stepName = self.step.step.name
 
         # 获取并验证Call类
@@ -265,7 +265,7 @@ class StepExecutor(BaseExecutor):
             executorStatus=self.task.state.executorStatus,
             stepId=self.step.step_id,
             stepName=self.step.step.name,
-            stepType=StepType(self.step.step.type),
+            stepType=self.task.state.stepType,
             stepStatus=self.task.state.stepStatus,
             inputData=self.obj.input,
             outputData=output_data,
