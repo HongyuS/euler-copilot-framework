@@ -27,7 +27,7 @@ class MCPBase:
         self._goal = task.runtime.userInput
         self._language = task.runtime.language
 
-    async def get_resoning_result(self, prompt: str) -> str:
+    async def get_reasoning_result(self, prompt: str) -> str:
         """获取推理结果"""
         # 调用推理大模型
         message = [

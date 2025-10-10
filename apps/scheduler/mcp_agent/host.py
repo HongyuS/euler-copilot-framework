@@ -59,7 +59,7 @@ class MCPHost(MCPBase):
             background_info=await self.assemble_memory(runtime, context),
         )
         _logger.info("[MCPHost] 填充工具参数: %s", prompt)
-        result = await self.get_resoning_result(prompt)
+        result = await self.get_reasoning_result(prompt)
         # 使用JsonGenerator解析结果
         return await self._parse_result(
             result,

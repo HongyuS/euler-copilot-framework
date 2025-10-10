@@ -293,7 +293,7 @@ class Scheduler:
                 self.task, self.queue, self.task.ids.user_sub, llm, history, doc_ids, rag_data))
         else:
             # 查找对应的App元数据
-            app_data = await AppCenterManager.fetch_app_data_by_id(self.post_body.app.app_id)
+            app_data = await AppCenterManager.fetch_app_metadata_by_id(self.post_body.app.app_id)
             if not app_data:
                 _logger.error("[Scheduler] App %s 不存在", self.post_body.app.app_id)
                 await self.queue.close()

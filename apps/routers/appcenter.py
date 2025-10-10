@@ -192,7 +192,7 @@ async def get_recently_used_applications(
 async def get_application(appId: Annotated[uuid.UUID, Path()]) -> JSONResponse:  # noqa: N803
     """获取应用详情"""
     try:
-        app_data = await AppCenterManager.fetch_app_data_by_id(appId)
+        app_data = await AppCenterManager.fetch_app_metadata_by_id(appId)
     except ValueError:
         logger.exception("[AppCenter] 获取应用详情请求无效")
         return JSONResponse(
