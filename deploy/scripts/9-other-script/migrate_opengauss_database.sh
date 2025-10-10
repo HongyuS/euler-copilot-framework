@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# OpenGauss数据库导入脚本
-# 描述：用于Euler Copilot项目的数据库数据导入
+# OpenGauss Database Import Script
+# Description: Used for Euler Copilot project database data import
 
-set -e  # 遇到错误立即退出
+set -e  # Exit immediately on error
 
-# 颜色定义
+# Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -14,7 +14,7 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# 打印函数
+# Print functions
 log() {
     echo -e "${GREEN}[$(date '+%Y-%m-%d %H:%M:%S')] $1${NC}"
 }
@@ -24,11 +24,11 @@ info() {
 }
 
 warning() {
-    echo -e "${YELLOW}[$(date '+%Y-%m-%d %H:%M:%S')] 警告: $1${NC}"
+    echo -e "${YELLOW}[$(date '+%Y-%m-%d %H:%M:%S')] Warning: $1${NC}"
 }
 
 error() {
-    echo -e "${RED}[$(date '+%Y-%m-%d %H:%M:%S')] 错误: $1${NC}" >&2
+    echo -e "${RED}[$(date '+%Y-%m-%d %H:%M:%S')] Error: $1${NC}" >&2
     exit 1
 }
 
@@ -36,115 +36,115 @@ step() {
     echo -e "${PURPLE}[$(date '+%Y-%m-%d %H:%M:%S')] === $1 ===${NC}"
 }
 
-# 配置变量
+# Configuration variables
 NAMESPACE="euler-copilot"
 SECRET_NAME="euler-copilot-database"
 PASSWORD_KEY="gauss-password"
 BACKUP_FILE="/home/dump/opengauss/opengauss.sql"
 POD_BACKUP_PATH="/home/omm/opengauss.sql"
 
-# 检查必要工具
+# Check required tools
 check_dependencies() {
-    step "检查必要工具"
-    command -v kubectl >/dev/null 2>&1 || error "kubectl 未安装"
-    command -v base64 >/dev/null 2>&1 || error "base64 未安装"
-    log "依赖检查通过"
+    step "Checking required tools"
+    command -v kubectl >/dev/null 2>&1 || error "kubectl not installed"
+    command -v base64 >/dev/null 2>&1 || error "base64 not installed"
+    log "Dependency check passed"
 }
 
-# 获取数据库密码
+# Get database password
 get_database_password() {
-    step "获取数据库密码"
+    step "Getting database password"
     PASSWORD=$(kubectl get secret $SECRET_NAME -n $NAMESPACE -o jsonpath="{.data.$PASSWORD_KEY}" 2>/dev/null | base64 --decode)
-    
+
     if [ -z "$PASSWORD" ]; then
-        error "无法获取数据库密码，请检查secret是否存在"
+        error "Unable to get database password, please check if secret exists"
     fi
-    log "密码获取成功"
+    log "Password obtained successfully"
 }
 
-# 获取OpenGauss Pod名称
+# Get OpenGauss Pod name
 get_opengauss_pod() {
-    step "查找OpenGauss Pod"
+    step "Finding OpenGauss Pod"
     POD_NAME=$(kubectl get pod -n $NAMESPACE 2>/dev/null | grep opengauss | grep Running | awk '{print $1}')
-    
+
     if [ -z "$POD_NAME" ]; then
-        error "未找到运行的OpenGauss Pod"
+        error "No running OpenGauss Pod found"
     fi
-    log "找到Pod: $POD_NAME"
+    log "Found Pod: $POD_NAME"
 }
 
-# 检查备份文件是否存在
+# Check if backup file exists
 check_backup_file() {
-    step "检查备份文件"
+    step "Checking backup file"
     if [ ! -f "$BACKUP_FILE" ]; then
-        error "备份文件 $BACKUP_FILE 不存在"
+        error "Backup file $BACKUP_FILE does not exist"
     fi
-    log "备份文件检查通过: $BACKUP_FILE"
+    log "Backup file check passed: $BACKUP_FILE"
 }
 
-# 拷贝备份文件到Pod
+# Copy backup file to Pod
 copy_backup_to_pod() {
-    step "拷贝备份文件到Pod"
+    step "Copying backup file to Pod"
     kubectl cp "$BACKUP_FILE" "$POD_NAME:$POD_BACKUP_PATH" -n $NAMESPACE
     kubectl exec -it "$POD_NAME" -n $NAMESPACE -- bash -c "chown omm:omm $POD_BACKUP_PATH"
-    log "备份文件拷贝完成"
+    log "Backup file copy completed"
 }
 
-# 执行数据库导入
+# Execute database import
 import_database() {
-    step "执行数据库导入操作"
-    
-    info "步骤1: 禁用外键约束..."
+    step "Executing database import operation"
+
+    info "Step 1: Disabling foreign key constraints..."
     kubectl exec -it "$POD_NAME" -n $NAMESPACE -- su - omm -s /bin/bash -c \
         "gsql -d postgres -U postgres -W '$PASSWORD' -c \"SET session_replication_role = replica;\""
-    log "外键约束已禁用"
-    
-    info "步骤2: 清空表数据..."
+    log "Foreign key constraints disabled"
+
+    info "Step 2: Clearing table data..."
     kubectl exec -it "$POD_NAME" -n $NAMESPACE -- su - omm -s /bin/bash -c \
         "gsql -d postgres -U postgres -W '$PASSWORD' -c \"
-TRUNCATE TABLE 
-    action, team, knowledge_base, document, chunk, document_type, 
+TRUNCATE TABLE
+    action, team, knowledge_base, document, chunk, document_type,
     role, role_action, users, task, task_report, team_user, user_role,
-    dataset, dataset_doc, image, qa, task_queue, team_message, 
+    dataset, dataset_doc, image, qa, task_queue, team_message,
     testcase, testing, user_message
 CASCADE;\""
-    log "表数据清空完成"
-    
-    info "步骤3: 导入数据..."
+    log "Table data cleared"
+
+    info "Step 3: Importing data..."
     kubectl exec -it "$POD_NAME" -n $NAMESPACE -- su - omm -s /bin/bash -c \
         "gsql -d postgres -U postgres -f $POD_BACKUP_PATH -W '$PASSWORD'"
-    log "数据导入完成"
-    
-    info "步骤4: 启用外键约束..."
+    log "Data import completed"
+
+    info "Step 4: Enabling foreign key constraints..."
     kubectl exec -it "$POD_NAME" -n $NAMESPACE -- su - omm -s /bin/bash -c \
         "gsql -d postgres -U postgres -W '$PASSWORD' -c \"SET session_replication_role = origin;\""
-    log "外键约束已启用"
-    
-    log "数据库导入操作全部完成"
+    log "Foreign key constraints enabled"
+
+    log "Database import operation fully completed"
 }
 
-# 清理临时文件
+# Clean up temporary files
 cleanup() {
-    step "清理临时文件"
+    step "Cleaning up temporary files"
     kubectl exec -it "$POD_NAME" -n $NAMESPACE -- rm -f "$POD_BACKUP_PATH" 2>/dev/null || true
-    log "清理完成"
+    log "Cleanup completed"
 }
 
-# 显示横幅
+# Show banner
 show_banner() {
     echo -e "${PURPLE}"
     echo "================================================================"
-    echo "                OpenGauss 数据库导入脚本"
-    echo "                Euler Copilot 项目专用"
+    echo "                OpenGauss Database Import Script"
+    echo "                Euler Copilot Project Specific"
     echo "================================================================"
     echo -e "${NC}"
 }
 
-# 主函数
+# Main function
 main() {
     show_banner
-    step "开始OpenGauss数据库导入流程"
-    
+    step "Starting OpenGauss database import process"
+
     check_dependencies
     get_database_password
     get_opengauss_pod
@@ -152,51 +152,51 @@ main() {
     copy_backup_to_pod
     import_database
     cleanup
-    
+
     echo -e "${GREEN}"
     echo "================================================================"
-    echo "                   OpenGauss数据导入已完成！"
+    echo "                   OpenGauss Data Import Completed!"
     echo "================================================================"
     echo -e "${NC}"
-    
-    echo -e "${GREEN}✓ 外键约束已禁用${NC}"
-    echo -e "${GREEN}✓ 表数据已清空${NC}"
-    echo -e "${GREEN}✓ 新数据已导入${NC}"
-    echo -e "${GREEN}✓ 外键约束已重新启用${NC}"
+
+    echo -e "${GREEN}✓ Foreign key constraints disabled${NC}"
+    echo -e "${GREEN}✓ Table data cleared${NC}"
+    echo -e "${GREEN}✓ New data imported${NC}"
+    echo -e "${GREEN}✓ Foreign key constraints re-enabled${NC}"
     echo ""
-    echo -e "${BLUE}提示: 建议检查应用运行状态以确保数据导入成功。${NC}"
+    echo -e "${BLUE}Tip: It is recommended to check application running status to ensure data import success.${NC}"
 }
 
-# 显示使用说明
+# Show usage instructions
 usage() {
     show_banner
-    echo -e "${YELLOW}用法: $0${NC}"
+    echo -e "${YELLOW}Usage: $0${NC}"
     echo ""
-    echo -e "说明: 该脚本用于导入Euler Copilot项目的OpenGauss数据库数据"
+    echo -e "Description: This script is used to import OpenGauss database data for Euler Copilot project"
     echo ""
-    echo -e "${CYAN}前提条件:${NC}"
-    echo -e "  1. kubectl已配置并可访问集群"
-    echo -e "  2. opengauss.sql文件存在于当前目录"
-    echo -e "  3. 具有足够的集群权限"
+    echo -e "${CYAN}Prerequisites:${NC}"
+    echo -e "  1. kubectl configured and able to access cluster"
+    echo -e "  2. opengauss.sql file exists in current directory"
+    echo -e "  3. Has sufficient cluster permissions"
     echo ""
-    echo -e "${RED}警告: 此操作将清空现有数据库数据并导入新数据！${NC}"
+    echo -e "${RED}Warning: This operation will clear existing database data and import new data!${NC}"
 }
 
-# 脚本入口
+# Script entry point
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     usage
     exit 0
 fi
 
-# 修复颜色显示问题
-echo -e "${YELLOW}警告: 此操作将清空现有数据库数据并导入新数据！${NC}"
+# Fix color display issue
+echo -e "${YELLOW}Warning: This operation will clear existing database data and import new data!${NC}"
 
-# 方法1：使用临时变量
-yellow_text="${YELLOW}确认执行数据库导入操作？(y/N): ${NC}"
+# Method 1: Use temporary variable
+yellow_text="${YELLOW}Confirm execution of database import operation? (y/N): ${NC}"
 read -p "$(echo -e "$yellow_text")" confirm
 
-# 方法2：或者直接使用echo -e（备选方案）
-# echo -e "${YELLOW}确认执行数据库导入操作？(y/N): ${NC}\c"
+# Method 2: Or use echo -e directly (alternative)
+# echo -e "${YELLOW}Confirm execution of database import operation? (y/N): ${NC}\c"
 # read confirm
 
 case $confirm in
@@ -204,7 +204,7 @@ case $confirm in
         main
         ;;
     *)
-        warning "操作已取消"
+        warning "Operation cancelled"
         exit 0
         ;;
 esac

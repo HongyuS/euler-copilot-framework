@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# 颜色定义
+# Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -10,7 +10,7 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# 备份目录
+# Backup directories
 BACKUP_BASE="/home/dump"
 MYSQL_BACKUP_DIR="$BACKUP_BASE/mysql"
 OPENGAUSS_BACKUP_DIR="$BACKUP_BASE/opengauss"
@@ -23,14 +23,12 @@ MYSQL_TABLE_NAME="user"
 GS_USERNAME="postgres"
 GS_DB="postgres"
 
-
-
-# 时间戳函数
+# Timestamp function
 timestamp() {
     echo -n "$(date '+%Y-%m-%d %H:%M:%S')"
 }
 
-# 日志函数
+# Log functions
 log_info() {
     echo -e "$(timestamp) ${BLUE}=== $1 ${NC}"
 }
@@ -51,11 +49,11 @@ log_step() {
     echo -e "$(timestamp) ${PURPLE} $1 ${NC}"
 }
 
-# 打印横幅
+# Print banner
 print_banner() {
     echo -e "${GREEN}"
     echo "================================================================"
-    echo "                  Euler Copilot 数据备份脚本"
+    echo "                  Euler Copilot Data Backup Script"
     echo "                     MySQL + OpenGauss + MinIO"
     echo "================================================================"
     echo -e "${NC}"
@@ -64,12 +62,12 @@ print_banner() {
 print_completion_banner() {
     echo -e "${GREEN}"
     echo "================================================================"
-    echo "             MySQL + OpenGauss + MinIO 数据备份已完成！"
+    echo "             MySQL + OpenGauss + MinIO Data Backup Completed!"
     echo "================================================================"
     echo -e "${NC}"
 }
 
-# 检查命令执行结果
+# Check command execution result
 check_command() {
     if [ $? -eq 0 ]; then
         log_success "$1"
@@ -79,213 +77,213 @@ check_command() {
     fi
 }
 
-# 创建备份目录
+# Create backup directories
 create_backup_directories() {
-    log_step "创建备份目录"
-    
+    log_step "Creating backup directories"
+
     mkdir -p "$MYSQL_BACKUP_DIR" "$OPENGAUSS_BACKUP_DIR" "$MINIO_BACKUP_DIR"
-    check_command "备份目录创建完成" "备份目录创建失败"
-    
-    log_info "MySQL备份目录: $MYSQL_BACKUP_DIR"
-    log_info "OpenGauss备份目录: $OPENGAUSS_BACKUP_DIR"
-    log_info "MinIO备份目录: $MINIO_BACKUP_DIR"
+    check_command "Backup directories created" "Failed to create backup directories"
+
+    log_info "MySQL backup directory: $MYSQL_BACKUP_DIR"
+    log_info "OpenGauss backup directory: $OPENGAUSS_BACKUP_DIR"
+    log_info "MinIO backup directory: $MINIO_BACKUP_DIR"
 }
 
-# 备份MySQL数据
+# Backup MySQL data
 backup_mysql() {
-    log_step "开始备份MySQL数据"
-    
-    # 获取MySQL Pod名称
-    log_info "查找MySQL Pod..."
+    log_step "Starting MySQL data backup"
+
+    # Get MySQL Pod name
+    log_info "Finding MySQL Pod..."
     local pod_name=$(kubectl get pod -n euler-copilot | grep mysql | awk '{print $1}')
     if [ -z "$pod_name" ]; then
-        log_error "未找到MySQL Pod"
+        log_error "MySQL Pod not found"
         return 1
     fi
-    log_success "找到Pod: $pod_name"
-    
-    # 获取MySQL密码
-    log_info "获取MySQL密码..."
+    log_success "Found Pod: $pod_name"
+
+    # Get MySQL password
+    log_info "Getting MySQL password..."
     local mysql_password=$(kubectl get secret authhub-secret -n euler-copilot -o jsonpath='{.data.mysql-password}' | base64 --decode)
     if [ -z "$mysql_password" ]; then
-        log_error "获取MySQL密码失败"
+        log_error "Failed to get MySQL password"
         return 1
     fi
-    log_success "密码获取成功"
-    
-    # 导出user表
-    log_info "导出user表数据..."
+    log_success "Password obtained successfully"
+
+    # Export user table
+    log_info "Exporting user table data..."
     kubectl exec $pod_name -n euler-copilot -- bash -c "mysqldump -u${MYSQL_USER} -p${mysql_password} --no-tablespaces ${MYSQL_DB_NAME} ${MYSQL_TABLE_NAME} > ${MYSQL_DATA_PATH}"
-    check_command "user表导出完成" "user表导出失败"
-    
-    # 拷贝备份文件到本地
-    log_info "拷贝备份文件到本地..."
+    check_command "User table export completed" "User table export failed"
+
+    # Copy backup file to local
+    log_info "Copying backup file to local..."
     kubectl cp $pod_name:${MYSQL_DATA_PATH} $MYSQL_BACKUP_DIR/mysql.sql -n euler-copilot
-    check_command "MySQL备份文件拷贝完成" "MySQL备份文件拷贝失败"
-    
-    # 验证备份文件
+    check_command "MySQL backup file copy completed" "MySQL backup file copy failed"
+
+    # Verify backup file
     if [ -f "$MYSQL_BACKUP_DIR/mysql.sql" ]; then
         local file_size=$(du -h "$MYSQL_BACKUP_DIR/mysql.sql" | cut -f1)
-        log_success "MySQL备份完成，文件大小: $file_size"
+        log_success "MySQL backup completed, file size: $file_size"
     else
-        log_error "MySQL备份文件未找到"
+        log_error "MySQL backup file not found"
         return 1
     fi
 }
 
-# 备份OpenGauss数据
+# Backup OpenGauss data
 backup_opengauss() {
-    log_step "开始备份OpenGauss数据"
-    
-    # 获取OpenGauss Pod名称
-    log_info "查找OpenGauss Pod..."
+    log_step "Starting OpenGauss data backup"
+
+    # Get OpenGauss Pod name
+    log_info "Finding OpenGauss Pod..."
     local pod_name=$(kubectl get pod -n euler-copilot | grep opengauss | awk '{print $1}')
     if [ -z "$pod_name" ]; then
-        log_error "未找到OpenGauss Pod"
+        log_error "OpenGauss Pod not found"
         return 1
     fi
-    log_success "找到Pod: $pod_name"
-    
-    # 获取OpenGauss密码
-    log_info "获取OpenGauss密码..."
+    log_success "Found Pod: $pod_name"
+
+    # Get OpenGauss password
+    log_info "Getting OpenGauss password..."
     local gauss_password=$(kubectl get secret euler-copilot-database -n euler-copilot -o jsonpath='{.data.gauss-password}' | base64 --decode)
     if [ -z "$gauss_password" ]; then
-        log_error "获取OpenGauss密码失败"
+        log_error "Failed to get OpenGauss password"
         return 1
     fi
-    log_success "密码获取成功"
-    
-    # 导出数据库
-    log_info "导出OpenGauss数据库..."
+    log_success "Password obtained successfully"
+
+    # Export database
+    log_info "Exporting OpenGauss database..."
     kubectl exec -it "$pod_name" -n euler-copilot -- /bin/sh -c "su - omm -c 'source ~/.bashrc && gs_dump -U ${GS_USERNAME} -f ${OPENGAUSS_DATA_PATH} -p 5432 ${GS_DB} -F p -W \"${gauss_password}\"'"
-    check_command "OpenGauss数据库导出完成" "OpenGauss数据库导出失败"
-    
-    # 拷贝备份文件到本地
-    log_info "拷贝备份文件到本地..."
+    check_command "OpenGauss database export completed" "OpenGauss database export failed"
+
+    # Copy backup file to local
+    log_info "Copying backup file to local..."
     kubectl cp $pod_name:${OPENGAUSS_DATA_PATH} $OPENGAUSS_BACKUP_DIR/opengauss.sql -n euler-copilot
-    check_command "OpenGauss备份文件拷贝完成" "OpenGauss备份文件拷贝失败"
-    
-    # 验证备份文件
+    check_command "OpenGauss backup file copy completed" "OpenGauss backup file copy failed"
+
+    # Verify backup file
     if [ -f "$OPENGAUSS_BACKUP_DIR/opengauss.sql" ]; then
         local file_size=$(du -h "$OPENGAUSS_BACKUP_DIR/opengauss.sql" | cut -f1)
-        log_success "OpenGauss备份完成，文件大小: $file_size"
+        log_success "OpenGauss backup completed, file size: $file_size"
     else
-        log_error "OpenGauss备份文件未找到"
+        log_error "OpenGauss backup file not found"
         return 1
     fi
 }
 
-# 备份MinIO数据
+# Backup MinIO data
 backup_minio() {
-    log_step "开始备份MinIO数据"
-    
-    # 获取PV名称
-    log_info "查找MinIO PV..."
+    log_step "Starting MinIO data backup"
+
+    # Get PV name
+    log_info "Finding MinIO PV..."
     local pv_name=$(kubectl get pv -n euler-copilot | grep minio | awk '{print $1}')
     if [ -z "$pv_name" ]; then
-        log_error "未找到MinIO PV"
+        log_error "MinIO PV not found"
         return 1
     fi
-    log_success "找到PV: $pv_name"
-    
-    # MinIO数据目录
+    log_success "Found PV: $pv_name"
+
+    # MinIO data directory
     local minio_storage_dir="/var/lib/rancher/k3s/storage/${pv_name}_euler-copilot_minio-storage/"
-    
-    # 检查源目录是否存在
+
+    # Check if source directory exists
     if [ ! -d "$minio_storage_dir" ]; then
-        log_error "MinIO存储目录不存在: $minio_storage_dir"
+        log_error "MinIO storage directory does not exist: $minio_storage_dir"
         return 1
     fi
-    
-    # 备份MinIO数据
-    log_info "开始备份MinIO数据..."
+
+    # Backup MinIO data
+    log_info "Starting MinIO data backup..."
     cp -r "$minio_storage_dir"* "$MINIO_BACKUP_DIR"/
-    check_command "MinIO数据备份完成" "MinIO数据备份失败"
-    
-    # 验证备份
+    check_command "MinIO data backup completed" "MinIO data backup failed"
+
+    # Verify backup
     local source_count=$(find "$minio_storage_dir" -type f 2>/dev/null | wc -l)
     local backup_count=$(find "$MINIO_BACKUP_DIR" -type f 2>/dev/null | wc -l)
-    
-    log_info "源文件数: $source_count, 备份文件数: $backup_count"
-    
+
+    log_info "Source file count: $source_count, Backup file count: $backup_count"
+
     if [ "$source_count" -eq "$backup_count" ]; then
-        log_success "MinIO备份验证成功"
+        log_success "MinIO backup verification successful"
     else
-        log_warning "文件数量不一致，但备份已完成"
+        log_warning "File count mismatch, but backup completed"
     fi
 }
 
-# 显示备份摘要
+# Show backup summary
 show_backup_summary() {
-    log_step "备份摘要"
-    
+    log_step "Backup Summary"
+
     echo -e "${CYAN}"
-    echo "备份位置: $BACKUP_BASE"
+    echo "Backup Location: $BACKUP_BASE"
     echo "----------------------------------------"
-    
-    # MySQL备份信息
+
+    # MySQL backup information
     if [ -f "$MYSQL_BACKUP_DIR/mysql.sql" ]; then
         local mysql_size=$(du -h "$MYSQL_BACKUP_DIR/mysql.sql" | cut -f1)
         echo "MySQL:    $MYSQL_BACKUP_DIR/mysql.sql ($mysql_size)"
     else
-        echo "MySQL:    备份失败"
+        echo "MySQL:    Backup failed"
     fi
-    
-    # OpenGauss备份信息
+
+    # OpenGauss backup information
     if [ -f "$OPENGAUSS_BACKUP_DIR/opengauss.sql" ]; then
         local gauss_size=$(du -h "$OPENGAUSS_BACKUP_DIR/opengauss.sql" | cut -f1)
         echo "OpenGauss: $OPENGAUSS_BACKUP_DIR/opengauss.sql ($gauss_size)"
     else
-        echo "OpenGauss: 备份失败"
+        echo "OpenGauss: Backup failed"
     fi
-    
-    # MinIO备份信息
+
+    # MinIO backup information
     if [ -d "$MINIO_BACKUP_DIR" ]; then
-        local minio_size=$(du -sh "$MINIO_BACKUP_DIR" 2>/dev/null | cut -f1 || echo "未知")
+        local minio_size=$(du -sh "$MINIO_BACKUP_DIR" 2>/dev/null | cut -f1 || echo "Unknown")
         local minio_count=$(find "$MINIO_BACKUP_DIR" -type f 2>/dev/null | wc -l)
-        echo "MinIO:    $MINIO_BACKUP_DIR/ ($minio_size, $minio_count 个文件)"
+        echo "MinIO:    $MINIO_BACKUP_DIR/ ($minio_size, $minio_count files)"
     else
-        echo "MinIO:    备份失败"
+        echo "MinIO:    Backup failed"
     fi
     echo -e "${NC}"
 }
 
-# 主函数
+# Main function
 main() {
     print_banner
-    
-    log_step "开始数据备份流程"
-    
-    # 创建备份目录
+
+    log_step "Starting data backup process"
+
+    # Create backup directories
     create_backup_directories
-    
-    # 备份MySQL
+
+    # Backup MySQL
     if backup_mysql; then
-        log_success "MySQL备份成功"
+        log_success "MySQL backup successful"
     else
-        log_error "MySQL备份失败"
+        log_error "MySQL backup failed"
     fi
-    
-    # 备份OpenGauss
+
+    # Backup OpenGauss
     if backup_opengauss; then
-        log_success "OpenGauss备份成功"
+        log_success "OpenGauss backup successful"
     else
-        log_error "OpenGauss备份失败"
+        log_error "OpenGauss backup failed"
     fi
-    
-    # 备份MinIO
+
+    # Backup MinIO
     if backup_minio; then
-        log_success "MinIO备份成功"
+        log_success "MinIO backup successful"
     else
-        log_error "MinIO备份失败"
+        log_error "MinIO backup failed"
     fi
-    
-    # 显示备份摘要
+
+    # Show backup summary
     show_backup_summary
-    
+
     print_completion_banner
-    log_success "数据备份流程已完成"
+    log_success "Data backup process completed"
 }
 
-# 执行主函数
+# Execute main function
 main "$@"
