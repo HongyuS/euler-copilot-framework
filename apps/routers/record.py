@@ -23,12 +23,10 @@ from apps.schemas.response_data import (
     RecordListRsp,
     ResponseData,
 )
-from apps.services import (
-    ConversationManager,
-    DocumentManager,
-    RecordManager,
-    TaskManager,
-)
+from apps.services.conversation import ConversationManager
+from apps.services.document import DocumentManager
+from apps.services.record import RecordManager
+from apps.services.task import TaskManager
 
 router = APIRouter(
     prefix="/api/record",

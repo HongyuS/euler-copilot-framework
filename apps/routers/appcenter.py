@@ -29,7 +29,8 @@ from apps.schemas.appcenter import (
 )
 from apps.schemas.enum_var import AppFilterType
 from apps.schemas.response_data import ResponseData
-from apps.services import AppCenterManager, MCPServiceManager
+from apps.services.appcenter import AppCenterManager
+from apps.services.mcp_service import MCPServiceManager
 
 logger = logging.getLogger(__name__)
 router = APIRouter(

@@ -3,6 +3,7 @@
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any, ClassVar
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -41,8 +42,12 @@ class Flow(Base):
         nullable=False,
     )
     """Flow的更新时间"""
-    __table_args__ = (
+    # 索引
+    idx_app_id_id: ClassVar[Index] = Index("idx_app_id_id", "appId", "id")
+    idx_app_id_name: ClassVar[Index] = Index("idx_app_id_name", "appId", "name")
+
+    __table_args__: ClassVar[tuple[Any, ...]] = (
+        idx_app_id_id,
+        idx_app_id_name,
         {"extend_existing": True},
-        Index("idx_app_id_id", "appId", "id"),
-        Index("idx_app_id_name", "appId", "name"),
     )

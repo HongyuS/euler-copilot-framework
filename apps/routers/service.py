@@ -30,7 +30,7 @@ from apps.schemas.service import (
     UpdateServiceRequest,
     UpdateServiceRsp,
 )
-from apps.services import ServiceCenterManager
+from apps.services.service import ServiceCenterManager
 
 _logger = logging.getLogger(__name__)
 router = APIRouter(

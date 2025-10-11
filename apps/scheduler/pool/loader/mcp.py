@@ -12,7 +12,6 @@ from sqlalchemy import and_, delete, select, update
 
 from apps.common.postgres import postgres
 from apps.common.process_handler import ProcessHandler
-from apps.common.singleton import SingletonMeta
 from apps.constants import MCP_PATH
 from apps.llm import Embedding
 from apps.models.mcp import MCPActivated, MCPInfo, MCPInstallStatus, MCPTools, MCPType
@@ -27,7 +26,7 @@ from apps.schemas.mcp import (
 logger = logging.getLogger(__name__)
 
 
-class MCPLoader(metaclass=SingletonMeta):
+class MCPLoader:
     """
     MCP加载模块
 

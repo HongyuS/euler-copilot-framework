@@ -117,13 +117,13 @@ class RecordManager:
             return records
 
 
-    @staticmethod
-    async def update_record_flow_status_to_cancelled_by_task_ids(task_ids: list[str]) -> None:
-        """更新Record关联的Flow状态"""
-        try:
-                {"records.task_id": {"$in": task_ids}, "records.flow.flow_status": {"$nin": [ExecutorStatus.ERROR.value, ExecutorStatus.SUCCESS.value]}},
-                {"$set": {"records.$[elem].flow.flow_status": ExecutorStatus.CANCELLED}},
-                array_filters=[{"elem.flow.flow_id": {"$in": task_ids}}],
-            )
-        except Exception:
-            logger.exception("[RecordManager] 更新Record关联的Flow状态失败")
+    # @staticmethod
+    # async def update_record_flow_status_to_cancelled_by_task_ids(task_ids: list[str]) -> None:
+    #     """更新Record关联的Flow状态"""
+    #     try:
+    #             {"records.task_id": {"$in": task_ids}, "records.flow.flow_status": {"$nin": [ExecutorStatus.ERROR.value, ExecutorStatus.SUCCESS.value]}},
+    #             {"$set": {"records.$[elem].flow.flow_status": ExecutorStatus.CANCELLED}},
+    #             array_filters=[{"elem.flow.flow_id": {"$in": task_ids}}],
+    #         )
+    #     except Exception:
+    #         logger.exception("[RecordManager] 更新Record关联的Flow状态失败")

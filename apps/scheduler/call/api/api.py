@@ -22,7 +22,8 @@ from apps.schemas.scheduler import (
     CallOutputChunk,
     CallVars,
 )
-from apps.services import ServiceCenterManager, TokenManager
+from apps.services.service import ServiceCenterManager
+from apps.services.token import TokenManager
 
 from .schema import APIInput, APIOutput
 

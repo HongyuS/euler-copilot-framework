@@ -4,6 +4,7 @@
 import uuid
 from datetime import UTC, datetime
 from enum import Enum as PyEnum
+from typing import Any, ClassVar
 
 from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import UUID
@@ -57,10 +58,14 @@ class App(Base):
         Enum(PermissionType), default=PermissionType.PUBLIC, nullable=False,
     )
     """权限类型"""
-    __table_args__ = (
+    # 索引
+    idx_published_updated_at: ClassVar[Index] = Index("idx_published_updated_at", "isPublished", "updatedAt")
+    idx_author_id_name: ClassVar[Index] = Index("idx_author_id_name", "author", "id", "name")
+
+    __table_args__: ClassVar[tuple[Any, ...]] = (
+        idx_published_updated_at,
+        idx_author_id_name,
         {"extend_existing": True},
-        Index("idx_published_updated_at", "isPublished", "updatedAt"),
-        Index("idx_author_id_name", "author", "id", "name"),
     )
 
 

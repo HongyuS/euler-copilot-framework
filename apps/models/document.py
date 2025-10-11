@@ -3,6 +3,7 @@
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any, ClassVar
 
 from sqlalchemy import DateTime, Float, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import UUID
@@ -37,7 +38,10 @@ class Document(Base):
         nullable=False,
     )
     """文件的创建时间"""
-    __table_args__ = (
+    # 索引
+    idx_user_conversation: ClassVar[Index] = Index("idx_user_sub_conversation_id", "userSub", "conversationId")
+
+    __table_args__: ClassVar[tuple[Any, ...]] = (
+        idx_user_conversation,
         {"extend_existing": True},
-        Index("idx_user_sub_conversation_id", "userSub", "conversationId"),
     )

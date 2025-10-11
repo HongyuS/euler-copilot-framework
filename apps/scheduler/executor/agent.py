@@ -19,7 +19,9 @@ from apps.schemas.agent import AgentAppMetadata
 from apps.schemas.enum_var import EventType
 from apps.schemas.mcp import Step
 from apps.schemas.message import FlowParams
-from apps.services import AppCenterManager, MCPServiceManager, UserManager
+from apps.services.appcenter import AppCenterManager
+from apps.services.mcp_service import MCPServiceManager
+from apps.services.user import UserManager
 
 if TYPE_CHECKING:
     from apps.models.task import ExecutorCheckpoint

@@ -18,11 +18,7 @@ from apps.schemas.blacklist import (
 from apps.schemas.response_data import (
     ResponseData,
 )
-from apps.services import (
-    AbuseManager,
-    QuestionBlacklistManager,
-    UserBlacklistManager,
-)
+from apps.services.blacklist import AbuseManager, QuestionBlacklistManager, UserBlacklistManager
 
 admin_router = APIRouter(
     prefix="/api/blacklist",

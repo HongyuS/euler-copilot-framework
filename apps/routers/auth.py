@@ -22,12 +22,10 @@ from apps.schemas.response_data import (
     OidcRedirectRsp,
     ResponseData,
 )
-from apps.services import (
-    PersonalTokenManager,
-    SessionManager,
-    TokenManager,
-    UserManager,
-)
+from apps.services.personal_token import PersonalTokenManager
+from apps.services.session import SessionManager
+from apps.services.token import TokenManager
+from apps.services.user import UserManager
 
 admin_router = APIRouter(
     prefix="/api/auth",

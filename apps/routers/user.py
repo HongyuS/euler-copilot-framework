@@ -9,7 +9,9 @@ from apps.schemas.request_data import UpdateUserSelectedLLMReq, UserUpdateReques
 from apps.schemas.response_data import ResponseData, UserGetMsp, UserGetRsp, UserSelectedLLMData
 from apps.schemas.tag import UserTagListResponse
 from apps.schemas.user import UserInfo
-from apps.services import LLMManager, UserManager, UserTagManager
+from apps.services.llm import LLMManager
+from apps.services.user import UserManager
+from apps.services.user_tag import UserTagManager
 
 router = APIRouter(
     prefix="/api/user",

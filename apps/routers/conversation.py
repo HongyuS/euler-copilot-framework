@@ -20,7 +20,8 @@ from apps.schemas.conversation import (
     UpdateConversationRsp,
 )
 from apps.schemas.response_data import ResponseData
-from apps.services import ConversationManager, DocumentManager
+from apps.services.conversation import ConversationManager
+from apps.services.document import DocumentManager
 
 router = APIRouter(
     prefix="/api/conversation",

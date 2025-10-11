@@ -6,10 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from apps.schemas.enum_var import SpecialCallType
-from apps.schemas.flow import FlowBasicConfig, FlowCheckStatus, PositionItem
-
-from .enum_var import EdgeType
+from .enum_var import EdgeType, SpecialCallType
 
 
 class NodeMetaDataBase(BaseModel):
@@ -37,6 +34,13 @@ class NodeServiceItem(BaseModel):
     created_at: str | None = Field(default=None, alias="createdAt", description="创建时间")
 
 
+class PositionItem(BaseModel):
+    """请求/响应中的前端相对位置变量类"""
+
+    x: float = Field(default=0.0)
+    y: float = Field(default=0.0)
+
+
 class NodeItem(BaseModel):
     """请求/响应中的节点变量类"""
 
@@ -58,6 +62,21 @@ class EdgeItem(BaseModel):
     target_branch: str = Field(alias="targetNode")
     type: str = Field(default=EdgeType.NORMAL.value)
     branch_id: str = Field(alias="branchId")
+
+
+class FlowBasicConfig(BaseModel):
+    """Flow的基本配置"""
+
+    startStep: uuid.UUID = Field(description="开始节点ID")  # noqa: N815
+    endStep: uuid.UUID = Field(description="结束节点ID")  # noqa: N815
+    focusPoint: PositionItem | None = Field(description="当前焦点节点", default=PositionItem(x=0, y=0))  # noqa: N815
+
+
+class FlowCheckStatus(BaseModel):
+    """Flow的配置检查状态"""
+
+    debug: bool = Field(description="是否经过调试", default=False)
+    connectivity: bool = Field(default=False, description="图的开始节点和结束节点是否联通，并且除结束节点都有出边")
 
 
 class FlowItem(BaseModel):

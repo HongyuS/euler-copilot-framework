@@ -19,7 +19,9 @@ from apps.schemas.flow import (
 from apps.schemas.request_data import PutFlowReq
 from apps.schemas.response_data import ResponseData
 from apps.schemas.service import NodeServiceListMsg, NodeServiceListRsp
-from apps.services import AppCenterManager, FlowManager, FlowServiceManager
+from apps.services.appcenter import AppCenterManager
+from apps.services.flow import FlowManager
+from apps.services.flow_service import FlowServiceManager
 
 router = APIRouter(
     prefix="/api/flow",

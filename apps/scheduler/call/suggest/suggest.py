@@ -22,7 +22,9 @@ from apps.schemas.scheduler import (
     CallOutputChunk,
     CallVars,
 )
-from apps.services import FlowManager, RecordManager, UserTagManager
+from apps.services.flow import FlowManager
+from apps.services.record import RecordManager
+from apps.services.user_tag import UserTagManager
 
 from .prompt import SUGGEST_PROMPT
 from .schema import (
@@ -44,7 +46,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
     configs: list[SingleFlowSuggestionConfig] = Field(description="问题推荐配置", default=[])
     num: int = Field(default=3, ge=1, le=6, description="推荐问题的总数量（当appId为None时使用）")
 
-    conversation_id: SkipJsonSchema[uuid.UUID] = Field(description="对话ID", exclude=True)
+    conversation_id: SkipJsonSchema[uuid.UUID | None] = Field(description="对话ID", exclude=True)
 
 
     @classmethod
@@ -76,10 +78,13 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
 
     async def _init(self, call_vars: CallVars) -> SuggestionInput:
         """初始化"""
-        self._history_questions = await self._get_history_questions(
-            call_vars.ids.user_sub,
-            self.conversation_id,
-        )
+        if self.conversation_id is None:
+            self._history_questions = []
+        else:
+            self._history_questions = await self._get_history_questions(
+                call_vars.ids.user_sub,
+                self.conversation_id,
+            )
         self._app_id = call_vars.ids.app_id
         self._flow_id = call_vars.ids.executor_id
         self._env = SandboxedEnvironment(
@@ -91,6 +96,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
 
         self._avaliable_flows = {}
         # 只有当_app_id不为None时才获取Flow信息
+
         if self._app_id is not None:
             flows = await FlowManager.get_flows_by_app_id(self._app_id)
             for flow in flows:

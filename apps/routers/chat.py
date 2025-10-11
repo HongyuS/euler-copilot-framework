@@ -16,12 +16,9 @@ from apps.scheduler.scheduler import Scheduler
 from apps.scheduler.scheduler.context import save_data
 from apps.schemas.request_data import RequestData
 from apps.schemas.response_data import ResponseData
-from apps.services import (
-    Activity,
-    FlowManager,
-    QuestionBlacklistManager,
-    UserBlacklistManager,
-)
+from apps.services.activity import Activity
+from apps.services.blacklist import QuestionBlacklistManager, UserBlacklistManager
+from apps.services.flow import FlowManager
 
 RECOMMEND_TRES = 5
 _logger = logging.getLogger(__name__)

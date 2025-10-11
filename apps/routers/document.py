@@ -18,7 +18,9 @@ from apps.schemas.document import (
 )
 from apps.schemas.enum_var import DocumentStatus
 from apps.schemas.response_data import ResponseData
-from apps.services import ConversationManager, DocumentManager, KnowledgeBaseService
+from apps.services.conversation import ConversationManager
+from apps.services.document import DocumentManager
+from apps.services.knowledge_service import KnowledgeBaseService
 
 router = APIRouter(
     prefix="/api/document",

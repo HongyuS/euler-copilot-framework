@@ -17,7 +17,7 @@ from apps.scheduler.pool.mcp.client import MCPClient
 from apps.scheduler.pool.mcp.pool import MCPPool
 from apps.schemas.mcp import MCPContext, MCPPlanItem
 from apps.schemas.scheduler import LLMConfig
-from apps.services import MCPServiceManager
+from apps.services.mcp_service import MCPServiceManager
 
 logger = logging.getLogger(__name__)
 
