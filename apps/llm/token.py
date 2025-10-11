@@ -5,12 +5,10 @@ import logging
 
 import tiktoken
 
-from apps.common.singleton import SingletonMeta
-
 logger = logging.getLogger(__name__)
 
 
-class TokenCalculator(metaclass=SingletonMeta):
+class _TokenCalculator:
     """用于计算Token消耗量"""
 
     def __init__(self) -> None:
@@ -39,3 +37,7 @@ class TokenCalculator(metaclass=SingletonMeta):
         encodings = self._encoder.encode(content)
         encodings = encodings[:k]
         return self._encoder.decode(encodings, errors="ignore")
+
+
+# 创建单例对象
+token_calculator = _TokenCalculator()

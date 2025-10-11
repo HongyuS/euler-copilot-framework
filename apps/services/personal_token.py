@@ -52,6 +52,7 @@ class PersonalTokenManager:
                 await session.execute(
                     update(User).where(User.id == user_sub).values(personal_token=personal_token),
                 )
+                await session.commit()
         except Exception:
             logger.exception("[PersonalTokenManager] 更新Personal Token失败")
             return None

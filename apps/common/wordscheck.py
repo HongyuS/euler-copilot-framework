@@ -5,13 +5,12 @@ import logging
 from pathlib import Path
 
 from .config import config
-from .singleton import SingletonMeta
 
 logger = logging.getLogger(__name__)
 
 
-class WordsCheck(metaclass=SingletonMeta):
-    """敏感词检查工具"""
+class _WordsCheck:
+    """敏感词检查工具（内部类）"""
 
     def __init__(self) -> None:
         """初始化"""
@@ -44,3 +43,7 @@ class WordsCheck(metaclass=SingletonMeta):
             return await self._check_wordlist(message)
         # 不设置检查类型，默认不拦截
         return 1
+
+
+# 全局单例对象
+words_check = _WordsCheck()

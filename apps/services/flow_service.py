@@ -6,7 +6,7 @@ import uuid
 from typing import TYPE_CHECKING
 
 from apps.exceptions import FlowBranchValidationError, FlowEdgeValidationError, FlowNodeValidationError
-from apps.scheduler.pool.pool import Pool
+from apps.scheduler.pool.pool import pool
 from apps.schemas.enum_var import NodeType, SpecialCallType
 from apps.schemas.flow_topology import EdgeItem, FlowItem
 
@@ -29,7 +29,7 @@ class FlowServiceManager:
         for node in flow_item.nodes:
             if node.node_id not in {"start", "end", SpecialCallType.EMPTY.value}:
                 try:
-                    call_class: type[BaseModel] = await Pool().get_call(node.call_id)
+                    call_class: type[BaseModel] = await pool.get_call(node.call_id)
                     if not call_class:
                         node.node_id = SpecialCallType.EMPTY.value
                         node.description = "【对应的api工具被删除！节点不可用！请联系相关人员！】\n\n"+node.description

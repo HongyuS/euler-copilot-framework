@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from apps.common.queue import MessageQueue
-from apps.common.wordscheck import WordsCheck
+from apps.common.wordscheck import words_check
 from apps.dependency import verify_personal_token, verify_session
 from apps.models import ExecutorStatus
 from apps.scheduler.scheduler import Scheduler
@@ -38,7 +38,7 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
         await Activity.set_active(user_sub)
 
         # 敏感词检查
-        if await WordsCheck().check(post_body.question) != 1:
+        if await words_check.check(post_body.question) != 1:
             yield "data: [SENSITIVE]\n\n"
             _logger.info("[Chat] 问题包含敏感词！")
             await Activity.remove_active(user_sub)
@@ -74,7 +74,7 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
             return
 
         # 对结果进行敏感词检查
-        if await WordsCheck().check(task.runtime.fullAnswer) != 1:
+        if await words_check.check(task.runtime.fullAnswer) != 1:
             yield "data: [SENSITIVE]\n\n"
             _logger.info("[Chat] 答案包含敏感词！")
             await Activity.remove_active(user_sub)

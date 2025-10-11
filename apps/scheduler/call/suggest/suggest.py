@@ -22,7 +22,6 @@ from apps.schemas.scheduler import (
     CallOutputChunk,
     CallVars,
 )
-from apps.services.flow import FlowManager
 from apps.services.record import RecordManager
 from apps.services.user_tag import UserTagManager
 
@@ -96,6 +95,7 @@ class Suggestion(CoreCall, input_model=SuggestionInput, output_model=SuggestionO
 
         self._avaliable_flows = {}
         # 只有当_app_id不为None时才获取Flow信息
+        from apps.services.flow import FlowManager  # noqa: PLC0415
 
         if self._app_id is not None:
             flows = await FlowManager.get_flows_by_app_id(self._app_id)

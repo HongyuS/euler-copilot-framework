@@ -8,6 +8,7 @@ from apps.dependency.user import verify_admin, verify_personal_token, verify_ses
 from apps.schemas.blacklist import (
     AbuseProcessRequest,
     AbuseRequest,
+    BlacklistSchema,
     GetBlacklistQuestionMsg,
     GetBlacklistQuestionRsp,
     GetBlacklistUserMsg,
@@ -98,10 +99,12 @@ async def get_blacklist_question(page: int = 0) -> JSONResponse:
         page * PAGE_SIZE,
         is_audited=True,
     )
+    # 将SQLAlchemy模型转换为Pydantic模型
+    question_schemas = [BlacklistSchema.model_validate(q) for q in question_list]
     return JSONResponse(status_code=status.HTTP_200_OK, content=GetBlacklistQuestionRsp(
         code=status.HTTP_200_OK,
         message="ok",
-        result=GetBlacklistQuestionMsg(question_list=question_list),
+        result=GetBlacklistQuestionMsg(question_list=question_schemas),
     ).model_dump(exclude_none=True, by_alias=True))
 
 @admin_router.post("/question", response_model=ResponseData)
@@ -169,10 +172,12 @@ async def get_abuse_report(page: int = 0) -> JSONResponse:
         page * PAGE_SIZE,
         is_audited=False,
     )
+    # 将SQLAlchemy模型转换为Pydantic模型
+    result_schemas = [BlacklistSchema.model_validate(r) for r in result]
     return JSONResponse(status_code=status.HTTP_200_OK, content=GetBlacklistQuestionRsp(
         code=status.HTTP_200_OK,
         message="ok",
-        result=GetBlacklistQuestionMsg(question_list=result),
+        result=GetBlacklistQuestionMsg(question_list=result_schemas),
     ).model_dump(exclude_none=True, by_alias=True))
 
 @admin_router.post("/abuse", response_model=ResponseData)

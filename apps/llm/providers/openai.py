@@ -15,7 +15,7 @@ from openai.types.chat import (
 )
 from typing_extensions import override
 
-from apps.llm.token import TokenCalculator
+from apps.llm.token import token_calculator
 from apps.models import LLMType
 from apps.schemas.llm import LLMChunk, LLMFunctions
 
@@ -84,8 +84,8 @@ class OpenAIProvider(BaseProvider):
 
         # 如果没有从服务端获取到token计数，使用本地估算
         if not self.input_tokens or not self.output_tokens:
-            self.input_tokens = TokenCalculator().calculate_token_length(messages)
-            self.output_tokens = TokenCalculator().calculate_token_length([{
+            self.input_tokens = token_calculator.calculate_token_length(messages)
+            self.output_tokens = token_calculator.calculate_token_length([{
                 "role": "assistant",
                 "content": "<think>" + self.full_thinking + "</think>" + self.full_answer,
             }])

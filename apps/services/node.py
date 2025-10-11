@@ -58,8 +58,8 @@ class NodeManager:
     @staticmethod
     async def get_node_params(node_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
         """获取Node数据"""
-        # 在此处获取Pool单例，避免循环导入
-        from apps.scheduler.pool.pool import Pool  # noqa: PLC0415
+        # 在此处获取pool单例，避免循环导入
+        from apps.scheduler.pool.pool import pool  # noqa: PLC0415
 
         # 查找Node信息
         if node_id == SpecialCallType.EMPTY.value:
@@ -71,7 +71,7 @@ class NodeManager:
 
         # 查找Call信息
         logger.info("[NodeManager] 获取Call %s", call_id)
-        call_class: type[BaseModel] = await Pool().get_call(str(call_id))
+        call_class: type[BaseModel] = await pool.get_call(str(call_id))
         if not call_class:
             err = f"[NodeManager] Call {call_id} 不存在"
             logger.error(err)

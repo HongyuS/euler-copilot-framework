@@ -14,7 +14,7 @@ from apps.llm import JsonGenerator
 from apps.models import LanguageType, MCPTools
 from apps.scheduler.mcp.prompt import MEMORY_TEMPLATE
 from apps.scheduler.pool.mcp.client import MCPClient
-from apps.scheduler.pool.mcp.pool import MCPPool
+from apps.scheduler.pool.mcp.pool import mcp_pool
 from apps.schemas.mcp import MCPContext, MCPPlanItem
 from apps.schemas.scheduler import LLMConfig
 from apps.services.mcp_service import MCPServiceManager
@@ -51,7 +51,7 @@ class MCPHost:
 
         # 获取MCP配置
         try:
-            return await MCPPool().get(mcp_id, self._user_sub)
+            return await mcp_pool.get(mcp_id, self._user_sub)
         except KeyError:
             logger.warning("用户 %s 的MCP %s 没有运行中的实例，请检查环境", self._user_sub, mcp_id)
             return None
@@ -131,7 +131,7 @@ class MCPHost:
     async def call_tool(self, tool: MCPTools, plan_item: MCPPlanItem) -> list[dict[str, Any]]:
         """调用工具"""
         # 拿到Client
-        client = await MCPPool().get(tool.mcpId, self._user_sub)
+        client = await mcp_pool.get(tool.mcpId, self._user_sub)
         if client is None:
             err = f"[MCPHost] MCP Server不合法: {tool.mcpId}"
             logger.error(err)
