@@ -11,24 +11,23 @@ from sqlalchemy import select
 
 from apps.common.config import config
 from apps.common.postgres import postgres
+from apps.common.singleton import SingletonMeta
 from apps.llm import Embedding
 from apps.models import Flow as FlowInfo
 from apps.schemas.enum_var import MetadataType
 from apps.schemas.flow import Flow
 
 from .check import FileChecker
-from .loader import (
-    AppLoader,
-    CallLoader,
-    FlowLoader,
-    MCPLoader,
-    ServiceLoader,
-)
+from .loader.app import AppLoader
+from .loader.call import CallLoader
+from .loader.flow import FlowLoader
+from .loader.mcp import MCPLoader
+from .loader.service import ServiceLoader
 
 logger = logging.getLogger(__name__)
 
 
-class Pool:
+class Pool(metaclass=SingletonMeta):
     """
     资源池
 

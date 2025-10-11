@@ -19,6 +19,11 @@ class LLMConfig(BaseModel):
     function: FunctionLLM | None = Field(description="函数LLM")
     embedding: Embedding | None = Field(description="Embedding")
 
+    class Config:
+        """配置"""
+
+        arbitrary_types_allowed = True
+
 
 class CallInfo(BaseModel):
     """Call的名称和描述"""

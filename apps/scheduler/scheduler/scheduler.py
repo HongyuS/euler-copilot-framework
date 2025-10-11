@@ -12,7 +12,9 @@ from jinja2.sandbox import SandboxedEnvironment
 from apps.common.queue import MessageQueue
 from apps.llm import Embedding, FunctionLLM, JsonGenerator, ReasoningLLM
 from apps.models import AppType, Conversation, ExecutorStatus, Task, TaskRuntime, User
-from apps.scheduler.executor import FlowExecutor, MCPAgentExecutor, QAExecutor
+from apps.scheduler.executor.agent import MCPAgentExecutor
+from apps.scheduler.executor.flow import FlowExecutor
+from apps.scheduler.executor.qa import QAExecutor
 from apps.scheduler.pool.pool import Pool
 from apps.schemas.enum_var import EventType
 from apps.schemas.message import (
@@ -22,15 +24,12 @@ from apps.schemas.message import (
 from apps.schemas.request_data import RequestData
 from apps.schemas.scheduler import LLMConfig, TopFlow
 from apps.schemas.task import TaskData
-from apps.services import (
-    Activity,
-    AppCenterManager,
-    ConversationManager,
-    KnowledgeBaseManager,
-    LLMManager,
-    TaskManager,
-    UserManager,
-)
+from apps.services.activity import Activity
+from apps.services.appcenter import AppCenterManager
+from apps.services.conversation import ConversationManager
+from apps.services.llm import LLMManager
+from apps.services.task import TaskManager
+from apps.services.user import UserManager
 
 from .prompt import FLOW_SELECT
 

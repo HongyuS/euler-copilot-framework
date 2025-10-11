@@ -12,7 +12,7 @@ from apps.schemas.response_data import (
     ListLLMRsp,
     ResponseData,
 )
-from apps.services import LLMManager
+from apps.services.llm import LLMManager
 
 router = APIRouter(
     prefix="/api/llm",

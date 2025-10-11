@@ -25,7 +25,7 @@ from apps.schemas.mcp_service import (
     UploadMCPServiceIconRsp,
 )
 from apps.schemas.response_data import ResponseData
-from apps.services import MCPServiceManager
+from apps.services.mcp_service import MCPServiceManager
 
 _logger = logging.getLogger(__name__)
 router = APIRouter(

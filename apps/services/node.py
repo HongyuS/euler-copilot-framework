@@ -8,7 +8,6 @@ from sqlalchemy import select
 
 from apps.common.postgres import postgres
 from apps.models import NodeInfo
-from apps.scheduler.pool.pool import Pool
 from apps.schemas.enum_var import SpecialCallType
 
 if TYPE_CHECKING:
@@ -59,6 +58,9 @@ class NodeManager:
     @staticmethod
     async def get_node_params(node_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
         """获取Node数据"""
+        # 在此处获取Pool单例，避免循环导入
+        from apps.scheduler.pool.pool import Pool  # noqa: PLC0415
+
         # 查找Node信息
         if node_id == SpecialCallType.EMPTY.value:
             # 如果是空节点，返回空Schema

@@ -10,7 +10,7 @@ from apps.models import AppType, PermissionType
 
 from .appcenter import AppLink
 from .enum_var import EdgeType, MetadataType
-from .flow_topology import FlowItem
+from .flow_topology import FlowBasicConfig, FlowCheckStatus, FlowItem, PositionItem
 from .response_data import ResponseData
 
 
@@ -21,13 +21,6 @@ class Edge(BaseModel):
     edge_from: str = Field(description="边的来源节点ID")
     edge_to: str = Field(description="边的目标节点ID")
     edge_type: EdgeType | None = Field(description="边的类型", default=EdgeType.NORMAL)
-
-
-class PositionItem(BaseModel):
-    """请求/响应中的前端相对位置变量类"""
-
-    x: float = Field(default=0.0)
-    y: float = Field(default=0.0)
 
 
 class Step(BaseModel):
@@ -46,21 +39,6 @@ class FlowError(BaseModel):
 
     use_llm: bool = Field(description="是否使用LLM处理错误")
     output_format: str | None = Field(description="错误处理节点的输出格式", default=None)
-
-
-class FlowBasicConfig(BaseModel):
-    """Flow的基本配置"""
-
-    startStep: uuid.UUID = Field(description="开始节点ID")  # noqa: N815
-    endStep: uuid.UUID = Field(description="结束节点ID")  # noqa: N815
-    focusPoint: PositionItem | None = Field(description="当前焦点节点", default=PositionItem(x=0, y=0))  # noqa: N815
-
-
-class FlowCheckStatus(BaseModel):
-    """Flow的配置检查状态"""
-
-    debug: bool = Field(description="是否经过调试", default=False)
-    connectivity: bool = Field(default=False, description="图的开始节点和结束节点是否联通，并且除结束节点都有出边")
 
 
 class Flow(BaseModel):

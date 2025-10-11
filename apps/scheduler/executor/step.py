@@ -24,7 +24,7 @@ from apps.schemas.enum_var import (
 )
 from apps.schemas.message import TextAddContent
 from apps.schemas.scheduler import CallError, CallOutputChunk, ExecutorBackground
-from apps.services import NodeManager
+from apps.services.node import NodeManager
 
 from .base import BaseExecutor
 

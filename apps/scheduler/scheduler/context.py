@@ -11,12 +11,10 @@ from apps.schemas.record import (
     FlowHistory,
     RecordContent,
 )
-from apps.services import (
-    AppCenterManager,
-    DocumentManager,
-    RecordManager,
-    TaskManager,
-)
+from apps.services.appcenter import AppCenterManager
+from apps.services.document import DocumentManager
+from apps.services.record import RecordManager
+from apps.services.task import TaskManager
 
 logger = logging.getLogger(__name__)
 

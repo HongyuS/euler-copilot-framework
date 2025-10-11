@@ -23,7 +23,7 @@ from apps.schemas.scheduler import (
     CallOutputChunk,
     CallVars,
 )
-from apps.services import DocumentManager
+from apps.services.document import DocumentManager
 
 from .prompt import QUESTION_REWRITE
 from .schema import (

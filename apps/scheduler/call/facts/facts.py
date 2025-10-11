@@ -12,7 +12,7 @@ from apps.models import LanguageType, NodeInfo
 from apps.scheduler.call.core import CoreCall
 from apps.schemas.enum_var import CallOutputType
 from apps.schemas.scheduler import CallInfo, CallOutputChunk, CallVars
-from apps.services import UserTagManager
+from apps.services.user_tag import UserTagManager
 
 from .prompt import DOMAIN_PROMPT, FACTS_PROMPT
 from .schema import (

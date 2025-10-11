@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from apps.dependency.user import verify_admin, verify_personal_token, verify_session
 from apps.schemas.request_data import PostTagData
 from apps.schemas.response_data import ResponseData
-from apps.services import TagManager
+from apps.services.tag import TagManager
 
 admin_router = APIRouter(
     prefix="/api/tag",

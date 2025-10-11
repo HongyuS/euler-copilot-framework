@@ -1,13 +1,12 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
 """Call 加载器"""
 
+import importlib
 import logging
 
 from sqlalchemy import delete
 
-import apps.scheduler.call as system_call
 from apps.common.postgres import postgres
-from apps.common.singleton import SingletonMeta
 from apps.llm import Embedding
 from apps.models import NodeInfo
 from apps.schemas.scheduler import CallInfo
@@ -15,12 +14,15 @@ from apps.schemas.scheduler import CallInfo
 _logger = logging.getLogger(__name__)
 
 
-class CallLoader(metaclass=SingletonMeta):
+class CallLoader:
     """Call 加载器"""
 
     async def _load_system_call(self) -> dict[str, CallInfo]:
         """加载系统Call"""
         call_metadata = {}
+
+        # 动态导入 apps.scheduler.call 模块
+        system_call = importlib.import_module("apps.scheduler.call")
 
         # 检查合法性
         for call_id in system_call.__all__:

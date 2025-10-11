@@ -19,7 +19,7 @@ from apps.models import Flow as FlowInfo
 from apps.scheduler.util import yaml_enum_presenter, yaml_str_presenter
 from apps.schemas.enum_var import EdgeType, NodeType
 from apps.schemas.flow import Flow
-from apps.services import NodeManager
+from apps.services.node import NodeManager
 
 logger = logging.getLogger(__name__)
 BASE_PATH = Path(config.deploy.data_dir) / "semantics" / "app"

@@ -10,7 +10,7 @@ from apps.llm import JsonGenerator
 from apps.models import MCPTools
 from apps.schemas.mcp import MCPSelectResult
 from apps.schemas.scheduler import LLMConfig
-from apps.services import MCPServiceManager
+from apps.services.mcp_service import MCPServiceManager
 
 logger = logging.getLogger(__name__)
 
