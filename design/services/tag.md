@@ -2,11 +2,11 @@
 
 ## 概述
 
-Tag模块是openEuler Intelligence框架中的用户标签管理系统，用于管理用户分类标签的定义、创建、更新和删除操作。该模块支持标签的CRUD操作，并提供用户标签关联功能。
+Tag 模块是 openEuler Intelligence 框架中的用户标签管理系统，用于管理用户分类标签的定义、更新和删除操作，并提供用户标签关联功能。当前公开的管理 API 仅支持查询/修改/删除已有标签，新增标签需通过后端内部调用 `TagManager.add_tag` 完成。
 
 ## 核心功能
 
-- **标签管理**: 创建、查询、更新、删除标签
+- **标签管理**: 查询、更新、删除标签（新增操作需后端内部调用）
 - **用户标签关联**: 管理用户与标签的关联关系
 - **标签统计**: 统计标签使用频次
 - **权限控制**: 仅管理员可进行标签管理操作
@@ -64,12 +64,12 @@ erDiagram
 
 #### POST /api/tag
 
-- **功能**: 添加或更新标签
+- **功能**: 更新已有标签定义
 - **权限**: 管理员
 - **请求体**: `PostTagData`
   - `tag`: 标签名称
   - `description`: 标签描述
-- **逻辑**: 如果标签不存在则创建，存在则更新
+- **逻辑**: 标签存在时更新 `definition` 和 `updatedAt`；标签不存在时抛出 `ValueError`（接口返回 500）。
 
 #### DELETE /api/tag
 
@@ -87,8 +87,8 @@ erDiagram
 - `get_all_tag()`: 获取所有标签
 - `get_tag_by_name(name)`: 根据名称获取标签
 - `get_tag_by_user_sub(user_sub)`: 获取用户的所有标签
-- `add_tag(data)`: 添加新标签
-- `update_tag_by_name(data)`: 更新标签定义
+- `add_tag(data)`: 添加新标签（当前路由未调用）
+- `update_tag_by_name(data)`: 更新标签定义，标签不存在时抛出 `ValueError`
 - `delete_tag(data)`: 删除标签
 
 ## 时序图
@@ -108,19 +108,20 @@ sequenceDiagram
     Service-->>Router: 返回标签数据
     Router-->>Client: 返回JSON响应
 
-    Note over Client, DB: 标签创建/更新流程
+    Note over Client, DB: 标签更新流程
     Client->>Router: POST /api/tag
     Router->>Service: update_tag_by_name(data)
     Service->>DB: SELECT * FROM framework_tag WHERE name=?
     DB-->>Service: 返回查询结果
     alt 标签不存在
-        Service->>DB: INSERT INTO framework_tag
+        Service-->>Router: 抛出异常
+        Router-->>Client: 返回500错误
     else 标签存在
         Service->>DB: UPDATE framework_tag SET definition=?, updatedAt=?
+        DB-->>Service: 操作完成
+        Service-->>Router: 返回操作结果
+        Router-->>Client: 返回成功响应
     end
-    DB-->>Service: 操作完成
-    Service-->>Router: 返回操作结果
-    Router-->>Client: 返回成功响应
 
     Note over Client, DB: 标签删除流程
     Client->>Router: DELETE /api/tag
@@ -158,7 +159,7 @@ flowchart TD
     B -->|验证成功| D{请求类型}
     
     D -->|GET| E[获取标签列表]
-    D -->|POST| F[创建/更新标签]
+    D -->|POST| F[更新标签]
     D -->|DELETE| G[删除标签]
     
     E --> H[TagManager.get_all_tag]
@@ -168,12 +169,11 @@ flowchart TD
     
     F --> L[TagManager.update_tag_by_name]
     L --> M{标签是否存在}
-    M -->|不存在| N[创建新标签]
+    M -->|不存在| N[返回500错误]
     M -->|存在| O[更新标签定义]
-    N --> P[INSERT操作]
     O --> Q[UPDATE操作]
-    P --> R[返回成功响应]
-    Q --> R
+    N --> R[返回错误响应]
+    Q --> R[返回成功响应]
     
     G --> S[TagManager.delete_tag]
     S --> T{标签是否存在}

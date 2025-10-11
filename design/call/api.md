@@ -72,7 +72,7 @@ classDiagram
 
     class APIOutput {
         +http_code: int
-        +result: dict | str
+        +result: dict
     }
 
     CoreCall <|-- API
@@ -165,9 +165,9 @@ flowchart TD
     CheckSession -->|不存在| Error[抛出CallError]
     CheckSession -->|存在| InitVars[初始化认证变量]
 
-    InitVars --> req_header[req_header = {}]
-    InitVars --> req_cookie[req_cookie = {}]
-    InitVars --> req_params[req_params = {}]
+    InitVars --> req_header["req_header = {}"]
+    InitVars --> req_cookie["req_cookie = {}"]
+    InitVars --> req_params["req_params = {}"]
 
     req_header --> CheckAuth{检查_auth}
     req_cookie --> CheckAuth
@@ -311,7 +311,7 @@ sequenceDiagram
 
     alt session_id不存在
         Auth->>Auth: 抛出CallError
-        Auth-->>-API: 错误
+        Auth-->>API: 错误
     else session_id存在
         Auth->>Auth: 初始化req_header/cookie/params
 
@@ -432,7 +432,7 @@ graph TB
 
     JSON --> JSONHandler[json参数]
     Form --> FormHandler[data参数]
-    Multipart --> MultipartHandler[data + files参数]
+    Multipart --> MultipartHandler[data参数（files参数尚未接入输入模型）]
 
     style ContentType fill:#673ab7,color:#fff
     style JSON fill:#9c27b0,color:#fff
@@ -477,12 +477,19 @@ graph LR
     S2xx --> S201[201 Created]
     S2xx --> S202[202 Accepted]
     S2xx --> S204[204 No Content]
+    S2xx --> S203[203 Non-Authoritative Information]
+    S2xx --> S205[205 Reset Content]
     S2xx --> S206[206 Partial Content]
+    S2xx --> S207[207 Multi-Status]
+    S2xx --> S208[208 Already Reported]
+    S2xx --> S226[226 IM Used]
 
     S3xx --> S301[301 Moved Permanently]
     S3xx --> S302[302 Found]
+    S3xx --> S303[303 See Other]
     S3xx --> S304[304 Not Modified]
     S3xx --> S307[307 Temporary Redirect]
+    S3xx --> S308[308 Permanent Redirect]
 
     style Success fill:#4caf50,color:#fff
     style S2xx fill:#66bb6a
@@ -535,11 +542,17 @@ graph TB
 | `url` | str | 必填 | API接口的完整URL |
 | `method` | HTTPMethod | 必填 | HTTP方法 |
 | `content_type` | ContentType | None | Content-Type |
-| `timeout` | int | 300 | 超时时间（秒），最小30 |
+| `timeout` | int | 300 | 超时时间（秒），必须大于30 |
 | `body` | dict | {} | 已知的部分请求体 |
 | `query` | dict | {} | 已知的部分请求参数 |
 | `enable_filling` | bool | True | 是否需要自动参数填充 |
 | `to_user` | bool | False | 是否将输出返回给用户 |
+
+## 实现注意事项
+
+- 认证信息虽然会在 `_apply_auth` 中生成 Header/Cookie/Query 三类数据，但当前实现仅将 Cookie 和 Query 透传至 `httpx` 请求，Header 信息尚未写入请求参数，依赖 Header 的认证策略暂时无效。
+- `files` 参数作为占位符传入 `_make_api_call`，但 `APIInput` 尚未提供文件字段，Multipart 上传只能提交表单字段，文件内容暂未接入。
+- 当外部返回的响应体不是合法 JSON 时会抛出 `CallError`，不会返回原始字符串结果。
 
 ### 配置关系图
 
