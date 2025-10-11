@@ -1,8 +1,8 @@
-# openEuler Copilot Framework AppCenter 设计文档
+# openEuler Intelligence 框架 AppCenter 设计文档
 
 ## 1. 整体设计
 
-AppCenter 是 openEuler Copilot Framework 的应用中心模块, 主要提供以下功能:
+AppCenter 是 openEuler Intelligence 框架的应用中心模块, 主要提供以下功能:
 
 - 应用的 CRUD 操作 (创建、读取、更新、删除)
 - 应用收藏管理

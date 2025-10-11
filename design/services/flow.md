@@ -2,7 +2,7 @@
 
 ## 1. 概述
 
-FlowManager 模块是 Euler Copilot Framework 中负责工作流（Flow）管理的核心模块。该模块提供了完整的工作流生命周期管理功能，包括创建、读取、更新、删除工作流，以及节点元数据管理、服务管理等功能。
+FlowManager 模块是 openEuler Intelligence 框架中负责工作流（Flow）管理的核心模块。当前实现重点覆盖已有 Flow 的读取、更新、删除，以及节点元数据管理、服务管理等功能（独立的“新建 Flow”流程尚未单独提供专用接口）。
 
 ### 1.1 核心组件
 
@@ -174,12 +174,14 @@ sequenceDiagram
     FM->>FM: is_flow_config_equal()
     FM->>FL: save(app_id, flow_id, flow)
     FL->>FS: 写入 YAML 文件
-    FL->>DB: 更新 Flow 记录
+    FL->>DB: 以 appId 为范围删除旧 Flow 记录并写入最新元数据
     FL->>DB: 更新 AppHashes
     FL-->>FM: 保存成功
     FM-->>API: 更新完成
     API-->>Client: 返回更新结果
 ```
+
+Note: 上述流程不会自动触发向量索引同步，如需同步需在业务层额外调用 `_update_vector` 或传入 embedding 模型。
 
 ### 3.2 节点和服务管理流程
 
@@ -282,7 +284,7 @@ sequenceDiagram
     FL->>FS: 检查文件是否存在
     FL->>FS: 删除 YAML 文件
     FL->>DB: 删除 Flow 记录
-    FL->>DB: 删除向量数据(如果有)
+    FL->>DB: 删除向量数据(仅当调用方向 FlowLoader.delete 传入 embedding_model 时)
     FL->>DB: commit
     FL-->>FM: 删除成功
 
@@ -481,15 +483,20 @@ Authorization: Bearer <token>
 
 | 方法 | 功能 | 异常 |
 |------|------|------|
-| `load` | 从文件系统加载工作流 | `FileNotFoundError`, `RuntimeError` |
-| `save` | 保存工作流到文件系统 | - |
-| `delete` | 删除工作流文件和数据 | - |
+| `load` | 从文件系统加载工作流，并刷新数据库中的基本元数据 | `FileNotFoundError`, `RuntimeError` |
+| `save` | 保存工作流到文件系统，并在数据库中以“先删后插”方式写入最新元数据 | - |
+| `delete` | 删除工作流文件和数据库记录（不传 embedding_model 时不会触发向量清理） | - |
 | `_load_yaml_file` | 加载YAML文件 | - |
 | `_validate_basic_fields` | 验证基本字段 | - |
-| `_process_edges` | 处理边的转换 | - |
-| `_process_steps` | 处理步骤的转换 | `ValueError` |
-| `_update_db` | 更新数据库记录 | - |
-| `_update_vector` | 更新向量数据 | - |
+| `_process_edges` | 将 YAML 的 `from/to/type` 转换为内部字段，分支通过 `stepId.branchId` 字符串表示 | - |
+| `_process_steps` | 处理步骤的类型和文档信息 | `ValueError` |
+| `_update_db` | 同步 FlowInfo 和 AppHashes（覆盖同一 appId 的旧记录） | - |
+| `_update_vector` | 预留的向量更新方法（当前调用路径未触发） | - |
+
+> **实现提示**
+>
+> - FlowLoader 的 `save`/`load` 都会调用 `_update_db`，该方法会删除同一 `appId` 下的旧 `FlowInfo` 记录后再写入新记录，调用侧需要在保存多个 Flow 时显式传入完整集合。
+> - 向量数据的增量更新需要外部显式调用 `_update_vector` 或在删除时传入 embedding 模型；默认调用路径不会同步向量索引。
 
 ## 6. 状态管理
 
@@ -763,4 +770,4 @@ FlowManager 模块提供了完整的工作流管理功能，具有以下特点:
 ✅ **扩展性强**: 支持自定义节点和边类型
 ✅ **数据一致性**: 数据库与文件系统双重存储保证一致性
 
-该模块是 Euler Copilot Framework 工作流引擎的核心组件，为上层应用提供了稳定可靠的工作流管理服务。
+该模块是 openEuler Intelligence 框架工作流引擎的核心组件，为上层应用提供了稳定可靠的工作流管理服务。
