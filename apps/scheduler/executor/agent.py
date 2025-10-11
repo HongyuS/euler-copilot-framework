@@ -14,7 +14,7 @@ from apps.models import ExecutorHistory, ExecutorStatus, MCPTools, StepStatus
 from apps.scheduler.executor.base import BaseExecutor
 from apps.scheduler.mcp_agent.host import MCPHost
 from apps.scheduler.mcp_agent.plan import MCPPlanner
-from apps.scheduler.pool.mcp.pool import MCPPool
+from apps.scheduler.pool.mcp.pool import mcp_pool
 from apps.schemas.agent import AgentAppMetadata
 from apps.schemas.enum_var import EventType
 from apps.schemas.mcp import Step
@@ -48,7 +48,6 @@ class MCPAgentExecutor(BaseExecutor):
         # 初始化必要变量
         self._step_cnt = 0
         self._retry_times = 0
-        self._mcp_pool = MCPPool()
         self._mcp_list = []
         self._current_input = {}
         self._current_tool = None
@@ -232,7 +231,7 @@ class MCPAgentExecutor(BaseExecutor):
         self._validate_current_tool()
         current_tool = cast("MCPTools", self._current_tool)
 
-        mcp_client = await self._mcp_pool.get(current_tool.mcpId, self.task.metadata.userSub)
+        mcp_client = await mcp_pool.get(current_tool.mcpId, self.task.metadata.userSub)
         if not mcp_client:
             _logger.exception("[MCPAgentExecutor] MCP客户端不存在: %s", current_tool.mcpId)
             state.stepStatus = StepStatus.ERROR
@@ -248,7 +247,7 @@ class MCPAgentExecutor(BaseExecutor):
         except anyio.ClosedResourceError as e:
             _logger.exception("[MCPAgentExecutor] MCP客户端连接已关闭: %s", current_tool.mcpId)
             # 停止当前用户MCP进程
-            await self._mcp_pool.stop(current_tool.mcpId, self.task.metadata.userSub)
+            await mcp_pool.stop(current_tool.mcpId, self.task.metadata.userSub)
             state.stepStatus = StepStatus.ERROR
             state.errorMessage = {
                 "err_msg": str(e),
@@ -540,6 +539,6 @@ class MCPAgentExecutor(BaseExecutor):
         finally:
             for mcp_service in self._mcp_list:
                 try:
-                    await self._mcp_pool.stop(mcp_service.id, self.task.metadata.userSub)
+                    await mcp_pool.stop(mcp_service.id, self.task.metadata.userSub)
                 except Exception:
                     _logger.exception("[MCPAgentExecutor] 停止MCP客户端时发生错误")

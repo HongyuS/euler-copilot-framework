@@ -11,7 +11,6 @@ from sqlalchemy import select
 
 from apps.common.config import config
 from apps.common.postgres import postgres
-from apps.common.singleton import SingletonMeta
 from apps.llm import Embedding
 from apps.models import Flow as FlowInfo
 from apps.schemas.enum_var import MetadataType
@@ -27,7 +26,7 @@ from .loader.service import ServiceLoader
 logger = logging.getLogger(__name__)
 
 
-class Pool(metaclass=SingletonMeta):
+class Pool:
     """
     资源池
 
@@ -162,3 +161,7 @@ class Pool(metaclass=SingletonMeta):
         """[Exception] 拿到Call的信息"""
         call_module = sys.modules.get("apps.scheduler.call")
         return getattr(call_module, call_id)
+
+
+# 全局单例对象
+pool = Pool()

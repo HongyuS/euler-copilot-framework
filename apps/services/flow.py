@@ -16,7 +16,7 @@ from apps.models import (
     UserFavoriteType,
 )
 from apps.models import Flow as FlowInfo
-from apps.scheduler.pool.pool import Pool
+from apps.scheduler.pool.pool import pool
 from apps.scheduler.slot.slot import Slot
 from apps.schemas.enum_var import EdgeType
 from apps.schemas.flow import AppMetadata, Edge, Flow, PositionItem, Step
@@ -193,7 +193,7 @@ class FlowManager:
                 logger.error(err)
                 raise ValueError(err)
 
-            flow_config = await Pool().flow_loader.load(app_id, flow_id)
+            flow_config = await pool.flow_loader.load(app_id, flow_id)
             flow_item = FlowItem(
                 flowId=flow_id,
                 name=flow_config.name,
@@ -354,11 +354,11 @@ class FlowManager:
                 flow_config.edges.append(edge_config)
 
             # 检查是否是修改动作；检查修改前后是否等价
-            old_flow_config = await Pool().flow_loader.load(app_id, flow_id)
+            old_flow_config = await pool.flow_loader.load(app_id, flow_id)
             if old_flow_config and old_flow_config.checkStatus.debug:
                 flow_config.checkStatus.debug = await FlowManager.is_flow_config_equal(old_flow_config, flow_config)
 
-            await Pool().flow_loader.save(app_id, flow_id, flow_config)
+            await pool.flow_loader.save(app_id, flow_id, flow_config)
 
 
     @staticmethod
@@ -369,7 +369,7 @@ class FlowManager:
         :param app_id: 应用的id
         :param flow_id: 流的id
         """
-        await Pool().flow_loader.delete(app_id, flow_id)
+        await pool.flow_loader.delete(app_id, flow_id)
 
         async with postgres.session() as session:
             key = f"flow/{flow_id}.yaml"
@@ -382,7 +382,7 @@ class FlowManager:
                 ),
             )
             # 同步更新metadata yaml文件中的hash值
-            metadata = await Pool().app_loader.read_metadata(app_id)
+            metadata = await pool.app_loader.read_metadata(app_id)
             if not isinstance(metadata, AppMetadata):
                 err = f"[FlowManager] 应用 {app_id} 不是Flow应用"
                 logger.error(err)
@@ -393,7 +393,7 @@ class FlowManager:
                 del metadata.hashes[key]
 
             metadata.flows = [flow for flow in metadata.flows if flow.id != flow_id]
-            await Pool().app_loader.save(metadata, app_id)
+            await pool.app_loader.save(metadata, app_id)
 
 
     @staticmethod
@@ -407,11 +407,11 @@ class FlowManager:
         :return: 是否更新成功
         """
         # 由于调用位置，从文件系统中获取Flow数据
-        flow = await Pool().flow_loader.load(app_id, flow_id)
+        flow = await pool.flow_loader.load(app_id, flow_id)
         if flow is None:
             return False
 
         flow.checkStatus.debug = debug
         # 保存到文件系统
-        await Pool().flow_loader.save(app_id=app_id, flow_id=flow_id, flow=flow)
+        await pool.flow_loader.save(app_id=app_id, flow_id=flow_id, flow=flow)
         return True

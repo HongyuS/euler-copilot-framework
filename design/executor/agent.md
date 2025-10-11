@@ -46,7 +46,6 @@ classDiagram
         +FlowParams params
         -int _step_cnt
         -int _retry_times
-        -MCPPool _mcp_pool
         -list _mcp_list
         -dict _current_input
         -MCPTools _current_tool

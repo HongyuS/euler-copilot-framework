@@ -13,8 +13,6 @@ from rich.logging import RichHandler
 
 from .common.config import config
 from .common.postgres import postgres
-from .common.wordscheck import WordsCheck
-from .llm.token import TokenCalculator
 from .routers import (
     appcenter,
     auth,
@@ -33,7 +31,7 @@ from .routers import (
     tag,
     user,
 )
-from .scheduler.pool.pool import Pool
+from .scheduler.pool.pool import pool
 
 # 定义FastAPI app
 app = FastAPI(redoc_url=None)
@@ -85,10 +83,8 @@ logging.basicConfig(
 
 async def init_resources() -> None:
     """初始化必要资源"""
-    WordsCheck()
     await postgres.init()
-    await Pool().init()
-    TokenCalculator()
+    await pool.init()
 
 # 运行
 if __name__ == "__main__":

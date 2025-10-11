@@ -8,7 +8,7 @@ from sqlalchemy import select
 from apps.common.postgres import postgres
 from apps.llm import Embedding
 from apps.models import LLMData, User
-from apps.scheduler.pool.pool import Pool
+from apps.scheduler.pool.pool import pool
 from apps.schemas.request_data import (
     UpdateLLMReq,
     UpdateUserSelectedLLMReq,
@@ -214,8 +214,7 @@ class LLMManager:
                     embedding_model = Embedding(embedding_llm_config)
                     await embedding_model.init()
 
-                    # 获取Pool实例并触发向量化
-                    pool = Pool()
+                    # 触发向量化
                     await pool.set_vector(embedding_model)
 
                     logger.info("[LLMManager] 用户 %s 的embedding模型已更新，向量化过程已完成", user_sub)

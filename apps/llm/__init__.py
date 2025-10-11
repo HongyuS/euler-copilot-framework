@@ -4,12 +4,12 @@
 from .embedding import Embedding
 from .function import FunctionLLM, JsonGenerator
 from .reasoning import ReasoningLLM
-from .token import TokenCalculator
+from .token import token_calculator
 
 __all__ = [
     "Embedding",
     "FunctionLLM",
     "JsonGenerator",
     "ReasoningLLM",
-    "TokenCalculator",
+    "token_calculator",
 ]

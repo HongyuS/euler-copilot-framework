@@ -10,7 +10,7 @@ from typing import Self
 from unittest.mock import MagicMock, patch
 
 from apps.common.config import Config
-from apps.common.wordscheck import WordsCheck
+from apps.common.wordscheck import words_check
 
 
 class MockConfig:
@@ -42,17 +42,17 @@ class TestWordsCheck(unittest.IsolatedAsyncioTestCase):
         self.patcher.stop()
 
     def test_singleton(self) -> None:
-        """测试单例模式"""
-        instance1 = WordsCheck()
-        instance2 = WordsCheck()
+        """测试单例模式（全局对象）"""
+        # 验证全局对象总是同一个实例
+        from apps.common.wordscheck import words_check as instance1
+        from apps.common.wordscheck import words_check as instance2
         assert instance1 is instance2
 
     async def test_check_disabled(self) -> None:
         """测试检查功能关闭的情况"""
         self.mock_config.check.enable = False
 
-        checker = WordsCheck()
-        result = await checker.check("test message")
+        result = await words_check.check("test message")
         assert result == 1
 
     @patch.object(Path, "open")
@@ -63,8 +63,7 @@ class TestWordsCheck(unittest.IsolatedAsyncioTestCase):
 
         mock_open.return_value.__enter__.return_value.read.return_value = "敏感词1\n敏感词2\n"
 
-        checker = WordsCheck()
-        result = await checker.check("敏感词1")
+        result = await words_check.check("敏感词1")
         assert result == 1
 
     @patch.object(Path, "open")
@@ -75,8 +74,7 @@ class TestWordsCheck(unittest.IsolatedAsyncioTestCase):
 
         mock_open.return_value.__enter__.return_value.read.return_value = "敏感词1\n敏感词2\n"
 
-        checker = WordsCheck()
-        result = await checker.check("正常消息")
+        result = await words_check.check("正常消息")
         assert result == 0
 
     @patch.object(Path, "open", side_effect=Exception("文件读取错误"))
@@ -85,8 +83,7 @@ class TestWordsCheck(unittest.IsolatedAsyncioTestCase):
         self.mock_config.check.enable = True
         self.mock_config.check.words_list = "words.txt"
 
-        checker = WordsCheck()
-        result = await checker.check("test message")
+        result = await words_check.check("test message")
         assert result == -1
 
 

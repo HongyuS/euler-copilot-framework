@@ -8,7 +8,7 @@ from typing import Any
 from ollama import AsyncClient, ChatResponse
 from typing_extensions import override
 
-from apps.llm.token import TokenCalculator
+from apps.llm.token import token_calculator
 from apps.models import LLMType
 from apps.schemas.llm import LLMChunk, LLMFunctions
 
@@ -69,8 +69,8 @@ class OllamaProvider(BaseProvider):
         else:
             # 如果无法获取统计数据，回退到本地估算
             _logger.warning("[OllamaProvider] 无法获取Ollama统计数据，使用本地估算逻辑")
-            self.input_tokens = TokenCalculator().calculate_token_length(messages)
-            self.output_tokens = TokenCalculator().calculate_token_length([{
+            self.input_tokens = token_calculator.calculate_token_length(messages)
+            self.output_tokens = token_calculator.calculate_token_length([{
                 "role": "assistant",
                 "content": "<think>" + self.full_thinking + "</think>" + self.full_answer,
             }])

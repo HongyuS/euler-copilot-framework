@@ -20,7 +20,7 @@ from apps.models import (
     UserFavorite,
     UserFavoriteType,
 )
-from apps.scheduler.pool.pool import Pool
+from apps.scheduler.pool.pool import pool
 from apps.schemas.agent import AgentAppMetadata
 from apps.schemas.appcenter import (
     AppCenterCardItem,
@@ -221,7 +221,7 @@ class AppCenterManager:
 
         # 应用存在，使用Loader获取Metadata
         try:
-            return await Pool().app_loader.read_metadata(app_id)
+            return await pool.app_loader.read_metadata(app_id)
         except ValueError as e:
             # 如果Loader抛出ValueError，说明metadata文件不存在
             msg = f"[AppCenterManager] 应用元数据文件不存在: {app_id}"
@@ -613,7 +613,7 @@ class AppCenterManager:
         :return: 应用元数据
         """
         # 获取现有的应用元数据
-        app_data = await Pool().app_loader.read_metadata(app_id)
+        app_data = await pool.app_loader.read_metadata(app_id)
         # 创建应用元数据
         metadata = await AppCenterManager._create_metadata(
             app_type=app_type,
@@ -625,5 +625,5 @@ class AppCenterManager:
         )
 
         # 保存应用
-        await Pool().app_loader.save(metadata, app_id)
+        await pool.app_loader.save(metadata, app_id)
         return metadata

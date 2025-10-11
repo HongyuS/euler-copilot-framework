@@ -6,7 +6,6 @@ import logging
 from sqlalchemy import and_, select
 
 from apps.common.postgres import postgres
-from apps.common.singleton import SingletonMeta
 from apps.constants import MCP_PATH
 from apps.models import MCPActivated, MCPType
 from apps.schemas.mcp import MCPServerConfig
@@ -17,8 +16,8 @@ logger = logging.getLogger(__name__)
 MCP_USER_PATH = MCP_PATH / "users"
 
 
-class MCPPool(metaclass=SingletonMeta):
-    """MCP池"""
+class _MCPPool:
+    """MCP池（内部类）"""
 
     def __init__(self) -> None:
         """初始化MCP池"""
@@ -100,3 +99,7 @@ class MCPPool(metaclass=SingletonMeta):
         """停止MCP客户端"""
         await self.pool[user_sub][mcp_id].stop()
         del self.pool[user_sub][mcp_id]
+
+
+# 创建单例对象
+mcp_pool = _MCPPool()

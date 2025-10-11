@@ -17,7 +17,7 @@ from apps.scheduler.call.facts.facts import FactsCall
 from apps.scheduler.call.slot.schema import SlotOutput
 from apps.scheduler.call.slot.slot import Slot
 from apps.scheduler.call.summary.summary import Summary
-from apps.scheduler.pool.pool import Pool
+from apps.scheduler.pool.pool import pool
 from apps.schemas.enum_var import (
     EventType,
     SpecialCallType,
@@ -71,7 +71,7 @@ class StepExecutor(BaseExecutor):
             return Slot
 
         # 从Pool中获取对应的Call
-        call_cls: type[CoreCall] = await Pool().get_call(call_id)
+        call_cls: type[CoreCall] = await pool.get_call(call_id)
 
         # 检查Call合法性
         if not await StepExecutor.check_cls(call_cls):

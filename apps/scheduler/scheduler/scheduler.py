@@ -15,7 +15,7 @@ from apps.models import AppType, Conversation, ExecutorStatus, Task, TaskRuntime
 from apps.scheduler.executor.agent import MCPAgentExecutor
 from apps.scheduler.executor.flow import FlowExecutor
 from apps.scheduler.executor.qa import QAExecutor
-from apps.scheduler.pool.pool import Pool
+from apps.scheduler.pool.pool import pool
 from apps.schemas.enum_var import EventType
 from apps.schemas.message import (
     InitContent,
@@ -211,7 +211,7 @@ class Scheduler:
             _logger.error(err)
             raise RuntimeError(err)
 
-        flow_list = await Pool().get_flow_metadata(self.post_body.app.app_id)
+        flow_list = await pool.get_flow_metadata(self.post_body.app.app_id)
         if not flow_list:
             err = "[Scheduler] 未找到应用中合法的Flow"
             _logger.error(err)
@@ -354,7 +354,7 @@ class Scheduler:
             return
 
         _logger.info("[Scheduler] 获取工作流元数据")
-        flow_info = await Pool().get_flow_metadata(self.post_body.app.app_id)
+        flow_info = await pool.get_flow_metadata(self.post_body.app.app_id)
 
         # 如果flow_info为空，则直接返回
         if not flow_info:
@@ -369,7 +369,7 @@ class Scheduler:
             # 如果用户没有选特定的Flow，则根据语义选择一个Flow
             flow_id = self.post_body.app.flow_id
         _logger.info("[Scheduler] 获取工作流定义")
-        flow_data = await Pool().get_flow(self.post_body.app.app_id, flow_id)
+        flow_data = await pool.get_flow(self.post_body.app.app_id, flow_id)
 
         # 如果flow_data为空，则直接返回
         if not flow_data:

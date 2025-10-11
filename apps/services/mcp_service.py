@@ -27,7 +27,7 @@ from apps.models import (
 )
 from apps.models.app import AppMCP
 from apps.scheduler.pool.loader.mcp import MCPLoader
-from apps.scheduler.pool.mcp.pool import MCPPool
+from apps.scheduler.pool.mcp.pool import mcp_pool
 from apps.schemas.enum_var import SearchType
 from apps.schemas.mcp import (
     MCPServerConfig,
@@ -408,7 +408,6 @@ class MCPServiceManager:
         :param mcp_id: str: MCP服务ID
         :return: 无
         """
-        mcp_pool = MCPPool()
         try:
             await mcp_pool.stop(mcp_id=mcp_id, user_sub=user_sub)
         except KeyError:
