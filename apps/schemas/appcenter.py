@@ -48,7 +48,7 @@ class AppLink(BaseModel):
 class AppFlowInfo(BaseModel):
     """应用工作流数据结构"""
 
-    id: str = Field(..., description="工作流ID")
+    id: uuid.UUID = Field(..., description="工作流ID")
     name: str = Field(default="", description="工作流名称")
     description: str = Field(default="", description="工作流简介")
     debug: bool = Field(default=False, description="是否经过调试")

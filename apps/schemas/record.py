@@ -36,7 +36,7 @@ class RecordFlowStep(BaseModel):
     ex_data: dict[str, Any] | None = Field(default=None, alias="exData")
 
 
-class RecordFlow(BaseModel):
+class RecordExecutor(BaseModel):
     """Flow的执行信息"""
 
     id: str
@@ -83,7 +83,7 @@ class RecordData(BaseModel):
     conversation_id: uuid.UUID = Field(alias="conversationId")
     task_id: uuid.UUID | None = Field(alias="taskId", default=None)
     document: list[RecordDocument] = []
-    flow: RecordFlow | None = None
+    flow: RecordExecutor | None = None
     content: RecordContent
     metadata: RecordMetadata
     comment: CommentType = Field(default=CommentType.NONE)
