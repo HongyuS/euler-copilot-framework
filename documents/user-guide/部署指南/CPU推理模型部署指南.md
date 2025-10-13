@@ -70,11 +70,11 @@ wget https://hf-mirror.com/shenzhi-wang/Llama3-8B-Chinese-Chat-GGUF-4bit/resolve
 docker pull hub.oepkgs.net/neocopilot/syshax@sha256:7d7d35e6e7a7eb43c31cebe093ae47b4f8fdcad67d36722b6e5a88522158f318
 ```
 
-## EulerCopilot轻量化部署
+## openEuler Intelligence轻量化部署
 
 ### 轻量化部署视图
 
-轻量化部署视图如下，接入Copilot需要切换至CPU大模型，具体如下:
+轻量化部署视图如下，接入openEuler Intelligence需要切换至CPU大模型，具体如下:
 
 ![轻量化部署视图](./pictures/CPU推理部署/轻量化部署视图.png)
 
@@ -101,7 +101,7 @@ docker run -it \
 
 #### 接口功能测试
 
-按照openai官方文档构建的python脚本，用于验证功能，验证无误后可接入EulerCopilot。
+按照openai官方文档构建的python脚本，用于验证功能，验证无误后可接入openEuler Intelligence。
 
 ```python
 # request.py
@@ -129,17 +129,17 @@ for chunk in completion:
 
 ![测试接口成功图](./pictures/CPU推理部署/测试接口成功.png)
 
-### EulerCopilot部署更改
+### openEuler Intelligence部署更改
 
 更改`deploy/chart/euler_copilot/values.yaml`下的`llm`选项，具体如下：
 
-![Copilot大模型部署差异](./pictures/CPU推理部署/Copilot大模型部署差异.png)
+![openEuler Intelligence大模型部署差异](./pictures/CPU推理部署/Copilot大模型部署差异.png)
 
-其他部分EulerCopilot正常部署。
+其他部分openEuler Intelligence正常部署。
 
 
 
-### 对接EulerCopilot效果
+### 对接openEuler Intelligence效果
 
 接入效果图1：
 

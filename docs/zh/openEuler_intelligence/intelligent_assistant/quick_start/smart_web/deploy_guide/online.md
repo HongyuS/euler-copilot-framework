@@ -1,4 +1,4 @@
-# **EulerCopilot 智能助手部署指南**
+# **openEuler Intelligence 智能助手部署指南**
 
 版本信息
 当前版本：v0.9.5
@@ -6,9 +6,9 @@
 
 ## 产品概述
 
-EulerCopilot 是一款智能问答工具，使用 EulerCopilot 可以解决操作系统知识获取的便捷性，并且为OS领域模型赋能开发者及运维人员。作为获取操作系统知识，使能操作系统生产力工具 (如 A-Ops / A-Tune / x2openEuler / EulerMaker / EulerDevOps / StratoVirt / iSulad 等)，颠覆传统命令交付方式，由传统命令交付方式向自然语义进化，并结合智能体任务规划能力，降低开发、使用操作系统特性的门槛。
+openEuler Intelligence 是一款智能问答工具，使用 openEuler Intelligence 可以解决操作系统知识获取的便捷性，并且为OS领域模型赋能开发者及运维人员。作为获取操作系统知识，使能操作系统生产力工具 (如 A-Ops / A-Tune / x2openEuler / EulerMaker / EulerDevOps / StratoVirt / iSulad 等)，颠覆传统命令交付方式，由传统命令交付方式向自然语义进化，并结合智能体任务规划能力，降低开发、使用操作系统特性的门槛。
 
-本指南提供基于自动化脚本的EulerCopilot智能助手系统部署说明，支持一键自动部署和手动分步部署两种方式。
+本指南提供基于自动化脚本的openEuler Intelligence智能助手系统部署说明，支持一键自动部署和手动分步部署两种方式。
 
 ### 组件介绍
 
@@ -32,7 +32,7 @@ EulerCopilot 是一款智能问答工具，使用 EulerCopilot 可以解决操�
 |----------------| -------------------------------------|--------------------------------------|
 | 操作系统    | openEuler 22.03 LTS 及以上版本         | 无                                   |
 | K3s        | >= v1.30.2，带有 Traefik Ingress 工具   | K3s 提供轻量级的 Kubernetes 集群，易于部署和管理 |
-| Helm       | >= v3.15.3                           | Helm 是一个 Kubernetes 的包管理工具，其目的是快速安装、升级、卸载 EulerCopilot 服务 |
+| Helm       | >= v3.15.3                           | Helm 是一个 Kubernetes 的包管理工具，其目的是快速安装、升级、卸载 openEuler Intelligence 服务 |
 | python     | >=3.9.9                              | python3.9.9 以上版本为模型的下载和安装提供运行环境 |
 
 ---
@@ -65,7 +65,7 @@ EulerCopilot 是一款智能问答工具，使用 EulerCopilot 可以解决操�
 需准备以下两个服务域名：
 
 - authhub认证服务：authhub.eulercopilot.local
-- EulerCopilot web服务：www.eulercopilot.local
+- openEuler Intelligence web服务：www.eulercopilot.local
 
 ```bash
 # 本地Windows主机中进行配置
@@ -79,7 +79,7 @@ EulerCopilot 是一款智能问答工具，使用 EulerCopilot 可以解决操�
 
 ### 1. 获取部署脚本
 
-- 从 EulerCopilot 的官方Git仓库 [euler-copilot-framework](https://gitee.com/openeuler/euler-copilot-framework) 下载最新的部署仓库
+- 从 openEuler Intelligence 的官方Git仓库 [euler-copilot-framework](https://gitee.com/openeuler/euler-copilot-framework) 下载最新的部署仓库
 - 如果您正在使用 Kubernetes，则不需要安装 k3s 工具。
 
 ```bash
@@ -100,7 +100,7 @@ cd euler-copilot-framework/deploy/scripts
 chmod -R +x ./*
 ```
 
-### 2. 部署EulerCopilot
+### 2. 部署openEuler Intelligence
 
 #### **一键部署**
 
@@ -208,7 +208,7 @@ sudo ./deploy.sh
 
 **关键说明**：
 
-- 在部署过程中，您需要输入 Authhub 域名和 EulerCopilot 域名, 不输入则使用默认域名`authhub.eulercopilot.local`, `www.eulercopilot.local`。
+- 在部署过程中，您需要输入 Authhub 域名和 openEuler Intelligence 域名, 不输入则使用默认域名`authhub.eulercopilot.local`, `www.eulercopilot.local`。
 - 资源不足时可参考 FAQ 中的评估资源可用性解决
 - 查看组件日志
 
@@ -222,7 +222,7 @@ kubectl logs <pod名称> -n euler-copilot
 kubectl get pod -n euler-copilot
 ```
 
-- 大模型配置修改并更新EulerCopilot
+- 大模型配置修改并更新openEuler Intelligence
 
 ```bash
 cd /home/euler-copilot-framework/deploy/chart/euler-copilot
@@ -238,7 +238,7 @@ helm upgrade euler-copilot -n euler-copilot .
 
 ## 验证安装
 
-恭喜您，**EulerCopilot** 已成功部署！为了开始您的体验，请在浏览器中输入 `https://您的EulerCopilot域名` 链接访问 EulerCopilot 的网页界面：
+恭喜您，**openEuler Intelligence** 已成功部署！为了开始您的体验，请在浏览器中输入 `https://您的openEuler Intelligence域名` 链接访问 openEuler Intelligence 的网页界面：
 
 首次访问时，您需要点击页面上的 **立即注册** 按钮来创建一个新的账号，并完成登录过程。
 

@@ -1,4 +1,4 @@
-该插件包样例为EulerCopilot本地数据文件夹内semantics/子文件夹的目录结构与示例。
+该插件包样例为openEuler Intelligence本地数据文件夹内semantics/子文件夹的目录结构与示例。
 
 结构定义如下：
 

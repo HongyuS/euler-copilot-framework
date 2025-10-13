@@ -322,7 +322,7 @@ oe运维助手,用于诊断oe环境和执行shell命令
 
 ##### 4.1.4.4、智能调优
 
-基于EulerCopilot Tune通过采集系统、微架构、应用等维度的指标数据，结合大模型和定制化的prompt工程，针对不同应用的可调参数给出可靠的参数推荐，同时根据推荐的参数运行benchmark，与baseline做对比并计算出推荐参数对应用性能的提升值。
+基于openEuler Intelligence Tune通过采集系统、微架构、应用等维度的指标数据，结合大模型和定制化的prompt工程，针对不同应用的可调参数给出可靠的参数推荐，同时根据推荐的参数运行benchmark，与baseline做对比并计算出推荐参数对应用性能的提升值。
 
 需要修改配置文件针对具体调优场景才能使用
 
@@ -468,7 +468,7 @@ systemctl restart oi-runtime
 
 ![img](./pictures/虚拟机部署/浏览器登录2.jpg)![img](./pictures/虚拟机部署/授权.jpg)
 
-可以看到已有一个EulerCopilot，点击进入详情
+可以看到已有一个openEuler Intelligence，点击进入详情
 
 ![img](./pictures/虚拟机部署/授权配置.jpg)
 

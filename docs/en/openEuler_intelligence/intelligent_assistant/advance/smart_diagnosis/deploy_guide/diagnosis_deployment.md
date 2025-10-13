@@ -2,7 +2,7 @@
 
 ## 准备工作
 
-+ 提前安装 [EulerCopilot 命令行（智能 Shell）客户端](../../../quick_start/smart_shell/user_guide/shell.md)
++ 提前安装 [openEuler Intelligenc 命令行（智能 Shell）客户端](../../../quick_start/smart_shell/user_guide/shell.md)
 
 + 被诊断机器不能安装 crictl 和 isula，只能有 docker 一个容器管理工具
 
@@ -112,7 +112,7 @@ curl -X PUT http://localhost:9999/container -d json='{"state": "stopped"}'
 源码部署：
 
 ```bash
-# 请指定分支为 930eulercopilot
+# 请指定分支为 930openEuler Intelligenc
 git clone https://gitee.com/GS-Stephen_Curry/gala-anteater.git
 ```
 

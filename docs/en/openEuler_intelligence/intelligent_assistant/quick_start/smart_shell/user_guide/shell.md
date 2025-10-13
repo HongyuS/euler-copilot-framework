@@ -2,7 +2,7 @@
 
 ## 简介
 
-EulerCopilot 命令行助手是一个命令行（Shell）AI 助手，您可以通过它来快速生成 Shell 命令并执行，从而提高您的工作效率。除此之外，基于 Gitee AI 在线服务的标准版本还内置了 openEuler 的相关知识，可以助力您学习与使用 openEuler 操作系统。
+openEuler Intelligence 命令行助手是一个命令行（Shell）AI 助手，您可以通过它来快速生成 Shell 命令并执行，从而提高您的工作效率。除此之外，基于 Gitee AI 在线服务的标准版本还内置了 openEuler 的相关知识，可以助力您学习与使用 openEuler 操作系统。
 
 ## 环境要求
 
@@ -13,7 +13,7 @@ EulerCopilot 命令行助手是一个命令行（Shell）AI 助手，您可以�
 
 ## 安装
 
-EulerCopilot 命令行助手支持通过 OEPKGS 仓库进行安装。
+openEuler Intelligence 命令行助手支持通过 OEPKGS 仓库进行安装。
 
 ### 配置 OEPKGS 仓库
 

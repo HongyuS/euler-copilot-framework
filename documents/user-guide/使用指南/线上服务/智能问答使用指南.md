@@ -13,14 +13,14 @@
 
 ### 多轮连续对话
 
-EulerCopilot 智能问答支持多轮连续对话。只需要在同一个对话中继续追问即可使用，如图 2 所示。
+openEuler Intelligence 智能问答支持多轮连续对话。只需要在同一个对话中继续追问即可使用，如图 2 所示。
 
 - 图 2 多轮对话
   ![多轮对话](./pictures/context-support.png)
 
 ### 重新生成
 
-如遇到 AI 生成的内容有误或不完整的特殊情况，可以要求 AI 重新回答问题。单击对话回答左下侧的“重新生成”文字，可让 EulerCopilot 重新回答用户问题，重新回答后，在对话回答右下侧，会出现回答翻页的图标![向前翻页](./pictures/icon-arrow-prev.png)和![向后翻页](./pictures/icon-arrow-next.png)，单击![向前翻页](./pictures/icon-arrow-prev.png)或![向后翻页](./pictures/icon-arrow-next.png)可查看不同的回答，如图 3 所示。
+如遇到 AI 生成的内容有误或不完整的特殊情况，可以要求 AI 重新回答问题。单击对话回答左下侧的“重新生成”文字，可让 openEuler Intelligence 重新回答用户问题，重新回答后，在对话回答右下侧，会出现回答翻页的图标![向前翻页](./pictures/icon-arrow-prev.png)和![向后翻页](./pictures/icon-arrow-next.png)，单击![向前翻页](./pictures/icon-arrow-prev.png)或![向后翻页](./pictures/icon-arrow-next.png)可查看不同的回答，如图 3 所示。
 
 - 图 3 重新生成
   ![重新生成](./pictures/regenerate.png)
@@ -34,7 +34,7 @@ EulerCopilot 智能问答支持多轮连续对话。只需要在同一个对话�
 
 ## 自定义背景知识
 
-EulerCopilot 支持上传文件功能。上传文件后，AI 会将上传的文件内容作为背景知识，在回答问题时，会结合背景知识进行回答。上传的背景知识只会作用于当前对话，不会影响其他对话。
+openEuler Intelligence 支持上传文件功能。上传文件后，AI 会将上传的文件内容作为背景知识，在回答问题时，会结合背景知识进行回答。上传的背景知识只会作用于当前对话，不会影响其他对话。
 
 ### 上传文件
 
@@ -176,4 +176,4 @@ EulerCopilot 支持上传文件功能。上传文件后，AI 会将上传的文�
 
 ### 用户信息导出说明
 
-EulerCopilot 后台存在用户信息导出功能，如用户需要，需主动通过 <contact@openeuler.io> 邮箱联系我们，运维会将导出的用户信息通过邮箱回送给用户。
+openEuler Intelligence 后台存在用户信息导出功能，如用户需要，需主动通过 <contact@openeuler.io> 邮箱联系我们，运维会将导出的用户信息通过邮箱回送给用户。
