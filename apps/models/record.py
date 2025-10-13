@@ -3,10 +3,9 @@
 
 import uuid
 from datetime import UTC, datetime
-from enum import Enum as PyEnum
 from typing import Any
 
-from sqlalchemy import BigInteger, DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -57,31 +56,3 @@ class RecordMetadata(Base):
     """问答对输出token数"""
     featureSwitch: Mapped[dict[str, Any]] = mapped_column(JSONB, default_factory=dict, nullable=False)  # noqa: N815
     """问答对功能开关"""
-
-
-class FootNoteType(str, PyEnum):
-    """脚注类型"""
-
-    RAG = "rag"
-    FRAMEWORK = "framework"
-    WEB = "web"
-
-
-class RecordFootNote(Base):
-    """问答对脚注"""
-
-    __tablename__ = "framework_record_foot_note"
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True, init=False)
-    """主键ID"""
-    recordId: Mapped[uuid.UUID] = mapped_column(  # noqa: N815
-        UUID(as_uuid=True), ForeignKey("framework_record.id"), nullable=False,
-    )
-    """问答对ID"""
-    releatedId: Mapped[str] = mapped_column(String(64), default="", nullable=False)  # noqa: N815
-    """脚注数字"""
-    insertPosition: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # noqa: N815
-    """插入位置"""
-    footSource: Mapped[str] = mapped_column(String(4096), default="", nullable=False)  # noqa: N815
-    """脚注来源"""
-    footType: Mapped[FootNoteType] = mapped_column(Enum(FootNoteType), default=FootNoteType.RAG, nullable=False)  # noqa: N815
-    """脚注类型"""
