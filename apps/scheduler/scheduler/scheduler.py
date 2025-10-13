@@ -10,8 +10,19 @@ from jinja2 import BaseLoader
 from jinja2.sandbox import SandboxedEnvironment
 
 from apps.common.queue import MessageQueue
+from apps.common.security import Security
 from apps.llm import Embedding, FunctionLLM, JsonGenerator, ReasoningLLM
-from apps.models import AppType, Conversation, ExecutorStatus, Task, TaskRuntime, User
+from apps.models import (
+    AppType,
+    Conversation,
+    ExecutorStatus,
+    Record,
+    RecordMetadata,
+    StepStatus,
+    Task,
+    TaskRuntime,
+    User,
+)
 from apps.scheduler.executor.agent import MCPAgentExecutor
 from apps.scheduler.executor.flow import FlowExecutor
 from apps.scheduler.executor.qa import QAExecutor
@@ -21,13 +32,16 @@ from apps.schemas.message import (
     InitContent,
     InitContentFeature,
 )
+from apps.schemas.record import FlowHistory, RecordContent
 from apps.schemas.request_data import RequestData
 from apps.schemas.scheduler import LLMConfig, TopFlow
 from apps.schemas.task import TaskData
 from apps.services.activity import Activity
 from apps.services.appcenter import AppCenterManager
 from apps.services.conversation import ConversationManager
+from apps.services.document import DocumentManager
 from apps.services.llm import LLMManager
+from apps.services.record import RecordManager
 from apps.services.task import TaskManager
 from apps.services.user import UserManager
 
@@ -68,23 +82,8 @@ class Scheduler:
             raise RuntimeError(err)
         self.user = user
 
-        # 获取Task
-        task = await TaskManager.get_task_data_by_task_id(task_id)
-        if not task:
-            _logger.info("[Scheduler] 新建任务")
-            task = TaskData(
-                metadata=Task(
-                    id=task_id,
-                    userSub=user_sub,
-                    conversationId=self.post_body.conversation_id,
-                ),
-                runtime=TaskRuntime(
-                    taskId=task_id,
-                ),
-                state=None,
-                context=[],
-            )
-        self.task = task
+        # 初始化Task
+        await self._init_task(task_id, user_sub)
 
         # Jinja2
         self._env = SandboxedEnvironment(
@@ -96,7 +95,7 @@ class Scheduler:
         )
 
         # LLM
-        await self._get_scheduler_llm(post_body.llm_id)
+        self.llm = await self._get_scheduler_llm(post_body.llm_id)
 
 
     async def _push_init_message(
@@ -130,6 +129,120 @@ class Scheduler:
             event_type=EventType.INIT.value,
             data=InitContent(feature=feature, createdAt=created_at).model_dump(exclude_none=True, by_alias=True),
         )
+
+    async def _push_done_message(self) -> None:
+        """推送任务完成消息"""
+        _logger.info("[Scheduler] 发送结束消息")
+        await self.queue.push_output(self.task, self.llm, event_type=EventType.DONE.value, data={})
+
+    async def _determine_app_id(self) -> uuid.UUID | None:
+        """
+        确定最终使用的 app_id
+
+        Returns:
+            final_app_id: 最终使用的 app_id，如果为 None 则使用 QA 模式
+
+        """
+        conversation = None
+
+        if self.task.metadata.conversationId:
+            conversation = await ConversationManager.get_conversation_by_conversation_id(
+                self.task.metadata.userSub,
+                self.task.metadata.conversationId,
+            )
+
+        if conversation and conversation.appId:
+            # Conversation中有appId，使用它
+            final_app_id = conversation.appId
+            _logger.info("[Scheduler] 使用Conversation中的appId: %s", final_app_id)
+
+            # 如果post_body中也有app_id且与Conversation不符，忽略post_body中的app信息
+            if self.post_body.app and self.post_body.app.app_id and self.post_body.app.app_id != conversation.appId:
+                _logger.warning(
+                    "[Scheduler] post_body中的app_id(%s)与Conversation中的appId(%s)不符，忽略post_body中的app信息",
+                    self.post_body.app.app_id,
+                    conversation.appId,
+                )
+                # 清空post_body中的app信息，以Conversation为准
+                self.post_body.app.app_id = conversation.appId
+        elif self.post_body.app and self.post_body.app.app_id:
+            # Conversation中appId为None，使用post_body中的app信息
+            final_app_id = self.post_body.app.app_id
+            _logger.info("[Scheduler] Conversation中无appId，使用post_body中的app_id: %s", final_app_id)
+        else:
+            # 两者都为None，fallback到QAExecutor
+            final_app_id = None
+            _logger.info("[Scheduler] Conversation和post_body中均无appId，fallback到智能问答")
+
+        return final_app_id
+
+    async def _create_executor_task(self, final_app_id: uuid.UUID | None) -> asyncio.Task | None:
+        """
+        根据 app_id 创建对应的执行器任务
+
+        Args:
+            final_app_id: 要使用的 app_id，None 表示使用 QA 模式
+
+        Returns:
+            创建的异步任务，如果发生错误则返回 None
+
+        """
+        if final_app_id is None:
+            # 没有app相关信息，运行QAExecutor
+            _logger.info("[Scheduler] 运行智能问答模式")
+            await self._push_init_message(3, is_flow=False)
+            return asyncio.create_task(self._run_qa())
+
+        # 有app信息，获取app详情和元数据
+        try:
+            app_data = await AppCenterManager.fetch_app_metadata_by_id(final_app_id)
+        except ValueError:
+            _logger.exception("[Scheduler] App %s 不存在或元数据文件缺失", final_app_id)
+            await self.queue.close()
+            return None
+
+        # 获取上下文窗口并根据app类型决定执行器
+        context_num = app_data.history_len
+        _logger.info("[Scheduler] App上下文窗口: %d", context_num)
+
+        if app_data.app_type == AppType.FLOW:
+            _logger.info("[Scheduler] 运行Flow应用")
+            await self._push_init_message(context_num, is_flow=True)
+            return asyncio.create_task(self._run_flow())
+
+        _logger.info("[Scheduler] 运行MCP Agent应用")
+        await self._push_init_message(context_num, is_flow=False)
+        return asyncio.create_task(self._run_agent())
+
+    async def _handle_task_cancellation(self, main_task: asyncio.Task) -> None:
+        """
+        处理任务取消的逻辑
+
+        Args:
+            main_task: 需要取消的主任务
+
+        """
+        _logger.warning("[Scheduler] 用户取消执行，正在终止...")
+        main_task.cancel()
+        try:
+            await main_task
+        except asyncio.CancelledError:
+            _logger.info("[Scheduler] 主任务已取消")
+        except Exception:
+            _logger.exception("[Scheduler] 终止工作流时发生错误")
+
+        # 检查ExecutorState，若为init、running或waiting，将状态改为cancelled
+        if self.task.state and self.task.state.executorStatus in [
+            ExecutorStatus.INIT,
+            ExecutorStatus.RUNNING,
+            ExecutorStatus.WAITING,
+        ]:
+            self.task.state.executorStatus = ExecutorStatus.CANCELLED
+            _logger.info("[Scheduler] ExecutorStatus已设置为CANCELLED")
+        elif self.task.state:
+            _logger.info("[Scheduler] ExecutorStatus为 %s，保持不变", self.task.state.executorStatus)
+        else:
+            _logger.warning("[Scheduler] task.state为None，无法更新ExecutorStatus")
 
     async def _monitor_activity(self, kill_event: asyncio.Event, user_sub: str) -> None:
         """监控用户活动状态，不活跃时终止工作流"""
@@ -263,75 +376,104 @@ class Scheduler:
         return new_conv
 
 
-    async def _init_task(self) -> None:
+    def _create_new_task(self, task_id: uuid.UUID, user_sub: str, conversation_id: uuid.UUID | None) -> TaskData:
+        """创建新的TaskData"""
+        return TaskData(
+            metadata=Task(
+                id=task_id,
+                userSub=user_sub,
+                conversationId=conversation_id,
+            ),
+            runtime=TaskRuntime(
+                taskId=task_id,
+            ),
+            state=None,
+            context=[],
+        )
+
+    async def _init_task(self, task_id: uuid.UUID, user_sub: str) -> None:
         """初始化Task"""
-        self.task = await TaskManager.get_task_data_by_task_id(self.post_body.task_id)
-        if not self.task:
-            self.task = await TaskManager.init_new_task(self.post_body.task_id, self.post_body.conversation_id, self.post_body.language, self.post_body.app.app_id)
-        self.task.runtime.question = self.post_body.question
-        self.task.state.app_id = self.post_body.app.app_id if self.post_body.app else None
+        conversation_id = self.post_body.conversation_id
+
+        # 若没有Conversation ID则直接创建task
+        if not conversation_id:
+            _logger.info("[Scheduler] 无Conversation ID，直接创建新任务")
+            self.task = self._create_new_task(task_id, user_sub, None)
+            return
+
+        # 有ConversationID则尝试从ConversationID中恢复task
+        _logger.info("[Scheduler] 尝试从Conversation ID %s 恢复任务", conversation_id)
+
+        # 尝试恢复任务
+        restored = False
+        try:
+            # 先验证conversation是否存在且属于该用户
+            conversation = await ConversationManager.get_conversation_by_conversation_id(
+                user_sub,
+                conversation_id,
+            )
+
+            if conversation:
+                # 尝试从Conversation中获取最后一个Task
+                last_task = await TaskManager.get_task_by_conversation_id(conversation_id, user_sub)
+
+                # 如果能获取到task，则加载完整的TaskData
+                if last_task and last_task.id:
+                    _logger.info("[Scheduler] 从Conversation恢复任务 %s", last_task.id)
+                    task_data = await TaskManager.get_task_data_by_task_id(last_task.id)
+                    if task_data:
+                        self.task = task_data
+                        # 更新task_id为新的task_id
+                        self.task.metadata.id = task_id
+                        self.task.runtime.taskId = task_id
+                        if self.task.state:
+                            self.task.state.taskId = task_id
+                        restored = True
+            else:
+                _logger.warning(
+                    "[Scheduler] Conversation %s 不存在或无权访问，创建新任务",
+                    conversation_id,
+                )
+        except Exception:
+            _logger.exception("[Scheduler] 从Conversation恢复任务失败，创建新任务")
+
+        # 恢复不成功则新建task
+        if not restored:
+            _logger.info("[Scheduler] 无法恢复任务，创建新任务")
+            self.task = self._create_new_task(task_id, user_sub, conversation_id)
 
 
     async def run(self) -> None:
         """运行调度器"""
-        # 如果是智能问答，直接执行
         _logger.info("[Scheduler] 开始执行")
-        # 创建用于通信的事件
+
+        # 创建用于通信的事件和监控任务
         kill_event = asyncio.Event()
         monitor = asyncio.create_task(self._monitor_activity(kill_event, self.task.metadata.userSub))
 
-        rag_method = True
-        if self.post_body.app and self.post_body.app.app_id:
-            rag_method = False
+        # 确定最终使用的 app_id
+        final_app_id = await self._determine_app_id()
 
-        if rag_method:
-            kb_ids = await KnowledgeBaseManager.get_selected_kb(self.task.metadata.userSub)
-            await self._push_init_message(3, is_flow=False)
-            # 启动监控任务和主任务
-            main_task = asyncio.create_task(self._run_qa(
-                self.task, self.queue, self.task.ids.user_sub, llm, history, doc_ids, rag_data))
-        else:
-            # 查找对应的App元数据
-            app_data = await AppCenterManager.fetch_app_metadata_by_id(self.post_body.app.app_id)
-            if not app_data:
-                _logger.error("[Scheduler] App %s 不存在", self.post_body.app.app_id)
-                await self.queue.close()
-                return
+        # 根据 app_id 创建对应的执行器任务
+        main_task = await self._create_executor_task(final_app_id)
+        if main_task is None:
+            # 创建任务失败（通常是因为 app 不存在），直接返回
+            return
 
-            # 获取上下文
-            if app_data.app_type == AppType.FLOW:
-                # 需要执行Flow
-                is_flow = True
-            else:
-                # Agent 应用
-                is_flow = False
-            # 启动监控任务和主任务
-            main_task = asyncio.create_task(self._run_agent(self.queue, self.post_body, executor_background))
         # 等待任一任务完成
         done, pending = await asyncio.wait(
             [main_task, monitor],
             return_when=asyncio.FIRST_COMPLETED,
         )
 
-        # 如果用户手动终止，则cancel主任务
+        # 如果用户手动终止，则取消主任务
         if kill_event.is_set():
-            _logger.warning("[Scheduler] 用户取消执行，正在终止...")
-            main_task.cancel()
-            if self.task.state.executorStatus in [ExecutorStatus.RUNNING, ExecutorStatus.WAITING]:
-                self.task.state.executorStatus = ExecutorStatus.CANCELLED
-            try:
-                await main_task
-                _logger.info("[Scheduler] 工作流执行已被终止")
-            except Exception:
-                _logger.exception("[Scheduler] 终止工作流时发生错误")
+            await self._handle_task_cancellation(main_task)
 
         # 更新Task，发送结束消息
-        _logger.info("[Scheduler] 发送结束消息")
-        await self.queue.push_output(self.task, event_type=EventType.DONE.value, data={})
+        await self._push_done_message()
         # 关闭Queue
         await self.queue.close()
-
-        return
 
 
     async def _run_qa(self) -> None:
@@ -417,24 +559,88 @@ class Scheduler:
         self.task = agent_exec.task
 
 
-    async def _save_task(self) -> None:
-        """保存Task"""
-        # 构造RecordContent
+    async def _save_data(self) -> None:
+        """保存当前Executor、Task、Record等的数据"""
+        task = self.task
+        user_sub = self.task.metadata.userSub
+        post_body = self.post_body
+
+        # 构造文档列表
         used_docs = []
-        order_to_id = {}
-        for docs in task.runtime.documents:
-            used_docs.append(
-                RecordGroupDocument(
-                    _id=docs["id"],
-                    author=docs.get("author", ""),
-                    order=docs.get("order", 0),
-                    name=docs["name"],
-                    abstract=docs.get("abstract", ""),
-                    extension=docs.get("extension", ""),
-                    size=docs.get("size", 0),
-                    associated="answer",
-                    created_at=docs.get("created_at", round(datetime.now(UTC).timestamp(), 3)),
-                ),
-            )
-            if docs.get("order") is not None:
-                order_to_id[docs["order"]] = docs["id"]
+        record_group = None  # TODO: 需要从适当的地方获取record_group
+
+        # 处理文档
+        if hasattr(task.runtime, "documents") and task.runtime.documents:
+            for docs in task.runtime.documents:
+                doc_dict = docs if isinstance(docs, dict) else (docs.model_dump() if hasattr(docs, "model_dump") else docs)
+                used_docs.append(doc_dict)
+
+        # 组装RecordContent
+        record_content = RecordContent(
+            question=task.runtime.question if hasattr(task.runtime, "question") else "",
+            answer=task.runtime.answer if hasattr(task.runtime, "answer") else "",
+            facts=task.runtime.facts if hasattr(task.runtime, "facts") else [],
+            data={},
+        )
+
+        try:
+            # 加密Record数据
+            encrypt_data, encrypt_config = Security.encrypt(record_content.model_dump_json(by_alias=True))
+        except Exception:
+            _logger.exception("[Scheduler] 问答对加密错误")
+            return
+
+        # 保存Flow信息
+        if task.state:
+            # 遍历查找数据，并添加
+            await TaskManager.save_flow_context(task.context)
+
+        # 整理Record数据
+        current_time = round(datetime.now(UTC).timestamp(), 2)
+        record = Record(
+            id=task.metadata.id,  # record_id
+            conversationId=task.metadata.conversationId,
+            taskId=task.metadata.id,
+            userSub=user_sub,
+            content=encrypt_data,
+            key=encrypt_config,
+            metadata=RecordMetadata(
+                timeCost=0,  # TODO: 需要从task中获取时间成本
+                inputTokens=0,  # TODO: 需要从task中获取token信息
+                outputTokens=0,  # TODO: 需要从task中获取token信息
+                feature={},
+            ),
+            createdAt=current_time,
+            flow=FlowHistory(
+                flow_id=task.state.flow_id if task.state else "",
+                flow_name=task.state.flow_name if task.state else "",
+                flow_status=task.state.flow_status if task.state else StepStatus.SUCCESS,
+                history_ids=[context.id for context in task.context],
+            ) if task.state else None,
+        )
+
+        # 修改文件状态
+        if record_group and post_body.conversation_id:
+            await DocumentManager.change_doc_status(user_sub, post_body.conversation_id, record_group)
+
+        # 保存Record
+        if post_body.conversation_id:
+            await RecordManager.insert_record_data(user_sub, post_body.conversation_id, record)
+
+        # 保存与答案关联的文件
+        if record_group and used_docs:
+            await DocumentManager.save_answer_doc(user_sub, record_group, used_docs)
+
+        if post_body.app and post_body.app.app_id:
+            # 更新最近使用的应用
+            await AppCenterManager.update_recent_app(user_sub, post_body.app.app_id)
+
+        # 若状态为成功，删除Task
+        if not task.state or task.state.flow_status in [StepStatus.SUCCESS, StepStatus.ERROR, StepStatus.CANCELLED]:
+            await TaskManager.delete_task_by_task_id(task.metadata.id)
+        else:
+            # 更新Task
+            await TaskManager.save_task(task.metadata.id, task.metadata)
+            await TaskManager.save_task_runtime(task.runtime)
+            if task.state:
+                await TaskManager.save_executor_checkpoint(task.state)
