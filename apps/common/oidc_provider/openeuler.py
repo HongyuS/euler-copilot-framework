@@ -87,10 +87,6 @@ class OpenEulerOIDCProvider(OIDCProviderBase):
             logger.info("[OpenEuler] 获取OIDC用户成功: %s", resp.text)
             result = resp.json()
 
-        if not result["phone_number_verified"]:
-            err = "Could not validate credentials."
-            raise RuntimeError(err)
-
         return {
             "user_sub": result["sub"],
         }
