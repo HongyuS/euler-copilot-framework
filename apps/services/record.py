@@ -9,9 +9,9 @@ from typing import Literal
 from sqlalchemy import and_, select
 
 from apps.common.postgres import postgres
-from apps.models import Conversation, ExecutorStatus
+from apps.models import Conversation
 from apps.models import Record as PgRecord
-from apps.schemas.record import Record
+from apps.schemas.record import Record, RecordComment, RecordMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -81,49 +81,28 @@ class RecordManager:
         """查询ConversationID的最后n条问答对"""
         async with postgres.session() as session:
             sql = select(PgRecord).where(
-                PgRecord.conversationId == conversation_id,
-                PgRecord.userSub == user_sub,
+                and_(
+                    PgRecord.conversationId == conversation_id,
+                    PgRecord.userSub == user_sub,
+                ),
             ).order_by(PgRecord.createdAt.desc() if order == "desc" else PgRecord.createdAt.asc())
             if total_pairs is not None:
                 sql = sql.limit(total_pairs)
             result = await session.scalars(sql)
-            # 得到conversation的全部record_group id
-            record_groups = await record_group_collection.aggregate(
-                [
-                    {"$match": {"conversation_id": conversation_id, "user_sub": user_sub}},
-                    {"$sort": {"created_at": sort_order}},
-                    {"$project": {"_id": 1}},
-                    {"$limit": total_pairs} if total_pairs is not None else {},
-                ],
-            )
+            pg_records = result.all()
 
             records = []
-            async for record_group_id in record_groups:
-                record = await record_group_collection.aggregate(
-                    [
-                        {"$match": {"_id": record_group_id["_id"]}},
-                        {"$project": {"records": 1}},
-                        {"$unwind": "$records"},
-                        {"$sort": {"records.created_at": -1}},
-                        {"$limit": 1},
-                    ],
+            for pg_record in pg_records:
+                record = Record(
+                    id=pg_record.id,
+                    conversationId=pg_record.conversationId,
+                    task_id=pg_record.taskId,
+                    user_sub=pg_record.userSub,
+                    content=pg_record.content,
+                    key=pg_record.key,
+                    createdAt=pg_record.createdAt.timestamp(),
+                    metadata=RecordMetadata(),
+                    comment=RecordComment(),
                 )
-                record = await record.to_list(length=1)
-                if not record:
-                    logger.info("[RecordManager] 问答组 %s 没有问答对", record_group_id)
-                    continue
-
-                records.append(Record.model_validate(record[0]["records"]))
+                records.append(record)
             return records
-
-
-    # @staticmethod
-    # async def update_record_flow_status_to_cancelled_by_task_ids(task_ids: list[str]) -> None:
-    #     """更新Record关联的Flow状态"""
-    #     try:
-    #             {"records.task_id": {"$in": task_ids}, "records.flow.flow_status": {"$nin": [ExecutorStatus.ERROR.value, ExecutorStatus.SUCCESS.value]}},
-    #             {"$set": {"records.$[elem].flow.flow_status": ExecutorStatus.CANCELLED}},
-    #             array_filters=[{"elem.flow.flow_id": {"$in": task_ids}}],
-    #         )
-    #     except Exception:
-    #         logger.exception("[RecordManager] 更新Record关联的Flow状态失败")
