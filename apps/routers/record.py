@@ -14,7 +14,7 @@ from apps.models import ExecutorHistory
 from apps.schemas.record import (
     RecordContent,
     RecordData,
-    RecordFlow,
+    RecordExecutor,
     RecordFlowStep,
     RecordMetadata,
 )
@@ -86,7 +86,7 @@ async def get_record(request: Request, conversationId: Annotated[uuid.UUID, Path
             # 获得Record关联的flow数据
             flow_step_list = await TaskManager.get_context_by_record_id(record_group.id, record.id)
             if flow_step_list:
-                tmp_record.flow = RecordFlow(
+                tmp_record.flow = RecordExecutor(
                     id=record.flow.flow_id,  # TODO: 此处前端应该用name
                     recordId=record.id,
                     flowId=record.flow.flow_id,
