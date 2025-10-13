@@ -155,7 +155,7 @@ kafka ： 一个数据库中间件， 分布式数据分流作用， 可以配�
 
 prometheus：性能监控， 配置需要监控的生产节点 ip list。
 
-直接通过yum install安装kafka和prometheus，可参照安装脚本 <https://portrait.gitee.com/openeuler/gala-docs/blob/master/deploy/download_offline_res.sh#>
+直接通过yum install安装kafka和prometheus，可参照安装脚本 <https://gitee.com/openeuler/gala-docs/blob/master/deploy/download_offline_res.sh>
 
 只需要参照其中 kafka 和 prometheus 的安装即可
 
