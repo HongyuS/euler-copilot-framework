@@ -163,7 +163,6 @@ sequenceDiagram
     API->>FSM: validate_flow_illegal()
     FSM->>FSM: 验证节点ID唯一性
     FSM->>FSM: 验证边的合法性
-    FSM->>FSM: 验证起始/终止节点
     FSM-->>API: 验证通过
     API->>FSM: validate_flow_connectivity()
     FSM->>FSM: BFS 检查连通性
@@ -234,13 +233,7 @@ flowchart TD
     CheckSelfLoop -->|是| Error4[抛出异常: 起止节点相同]
     CheckSelfLoop -->|否| CheckBranch{分支合法?}
     CheckBranch -->|否| Error5[抛出异常: 分支非法]
-    CheckBranch -->|是| CalcDegree[计算入度/出度]
-
-    CalcDegree --> CheckStartDeg{起始节点入度=0?}
-    CheckStartDeg -->|否| Error6[抛出异常: 起始节点有入边]
-    CheckStartDeg -->|是| CheckEndDeg{终止节点出度=0?}
-    CheckEndDeg -->|否| Error7[抛出异常: 终止节点有出边]
-    CheckEndDeg -->|是| ValidateConn[验证连通性]
+    CheckBranch -->|是| ValidateConn[验证连通性]
 
     ValidateConn --> BFS[BFS遍历图]
     BFS --> CheckReachable{所有节点可达?}
@@ -259,8 +252,6 @@ flowchart TD
     Error3 --> End
     Error4 --> End
     Error5 --> End
-    Error6 --> End
-    Error7 --> End
     Success --> End
 ```
 
@@ -473,7 +464,6 @@ Authorization: Bearer <token>
 | `validate_flow_connectivity` | 验证工作流连通性（BFS） | - |
 | `_validate_node_ids` | 验证节点ID唯一性 | `FlowNodeValidationError` |
 | `_validate_edges` | 验证边的合法性 | `FlowEdgeValidationError` |
-| `_validate_node_degrees` | 验证起始/终止节点的度数 | `FlowNodeValidationError` |
 
 ### 5.3 FlowLoader
 
@@ -588,7 +578,7 @@ flowchart LR
 
 | 异常类 | 触发条件 | 处理方式 |
 |--------|----------|----------|
-| `FlowNodeValidationError` | 节点ID重复、起始/终止节点不存在、度数错误 | 返回400错误 |
+| `FlowNodeValidationError` | 节点ID重复、起始/终止节点不存在 | 返回400错误 |
 | `FlowEdgeValidationError` | 边ID重复、自环、分支非法 | 返回400错误 |
 | `FlowBranchValidationError` | 分支字段缺失/为空、分支重复、非法字符 | 返回400错误 |
 | `ValueError` | 应用不存在、工作流不存在、配置错误 | 返回404/500错误 |

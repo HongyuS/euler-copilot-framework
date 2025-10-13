@@ -11,7 +11,7 @@ from .flow import Flow
 from .llm import LLMData, LLMProvider, LLMType
 from .mcp import MCPActivated, MCPInfo, MCPInstallStatus, MCPTools, MCPType
 from .node import NodeInfo
-from .record import FootNoteType, Record, RecordFootNote, RecordMetadata
+from .record import Record, RecordMetadata
 from .service import Service, ServiceACL, ServiceHashes
 from .session import Session, SessionActivity, SessionType
 from .tag import Tag
@@ -45,7 +45,6 @@ __all__ = [
     "ExecutorHistory",
     "ExecutorStatus",
     "Flow",
-    "FootNoteType",
     "LLMData",
     "LLMProvider",
     "LLMType",
@@ -58,7 +57,6 @@ __all__ = [
     "NodeInfo",
     "PermissionType",
     "Record",
-    "RecordFootNote",
     "RecordMetadata",
     "Service",
     "ServiceACL",

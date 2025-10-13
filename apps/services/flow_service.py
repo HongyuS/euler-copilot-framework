@@ -118,21 +118,16 @@ class FlowServiceManager:
         # 验证节点ID并获取起始和终止节点
         start_id, end_id = await FlowServiceManager._validate_node_ids(flow_item)
 
-        # 验证边的合法性并获取节点的入度和出度
-        in_deg, out_deg = await FlowServiceManager._validate_edges(flow_item.edges)
-
-        # 验证起始和终止节点的入度和出度
-        await FlowServiceManager._validate_node_degrees(str(start_id), str(end_id), in_deg, out_deg)
+        # 验证边的合法性
+        await FlowServiceManager._validate_edges(flow_item.edges)
 
         return start_id, end_id
 
     @staticmethod
-    async def _validate_edges(edges: list[EdgeItem]) -> tuple[dict[str, int], dict[str, int]]:
-        """验证边的合法性并计算节点的入度和出度；当边的ID重复、起始终止节点相同、分支重复或分支包含非法字符时抛出异常"""
+    async def _validate_edges(edges: list[EdgeItem]) -> None:
+        """验证边的合法性；当边的ID重复、起始终止节点相同、分支重复或分支包含非法字符时抛出异常"""
         ids = set()
         branches = {}
-        in_deg = {}
-        out_deg = {}
 
         for e in edges:
             # 验证分支ID是否包含非法字符
@@ -161,25 +156,6 @@ class FlowServiceManager:
                 raise FlowEdgeValidationError(err)
 
             branches[e.source_branch].add(e.branch_id)
-
-            in_deg[e.target_branch] = in_deg.get(e.target_branch, 0) + 1
-            out_deg[e.source_branch] = out_deg.get(e.source_branch, 0) + 1
-
-        return in_deg, out_deg
-
-    @staticmethod
-    async def _validate_node_degrees(
-        start_id: str, end_id: str, in_deg: dict[str, int], out_deg: dict[str, int],
-    ) -> None:
-        """验证起始和终止节点的入度和出度；当起始节点入度不为0或终止节点出度不为0时抛出异常"""
-        if start_id in in_deg and in_deg[start_id] != 0:
-            err = f"[FlowService] 起始节点{start_id}的入度不为0"
-            logger.error(err)
-            raise FlowNodeValidationError(err)
-        if end_id in out_deg and out_deg[end_id] != 0:
-            err = f"[FlowService] 终止节点{end_id}的出度不为0"
-            logger.error(err)
-            raise FlowNodeValidationError(err)
 
     @staticmethod
     async def validate_flow_connectivity(flow_item: FlowItem) -> bool:  # noqa: C901

@@ -10,7 +10,8 @@ from fastapi.responses import JSONResponse
 
 from apps.dependency.user import verify_personal_token, verify_session
 from apps.exceptions import InstancePermissionError
-from apps.models import AppType
+from apps.models import AppType, PermissionType
+from apps.schemas.agent import AgentAppMetadata
 from apps.schemas.appcenter import (
     AppFlowInfo,
     AppMcpServiceInfo,
@@ -28,6 +29,7 @@ from apps.schemas.appcenter import (
     GetRecentAppListRsp,
 )
 from apps.schemas.enum_var import AppFilterType
+from apps.schemas.flow import AppMetadata
 from apps.schemas.response_data import ResponseData
 from apps.services.appcenter import AppCenterManager
 from apps.services.mcp_service import MCPServiceManager
@@ -214,46 +216,83 @@ async def get_application(appId: Annotated[uuid.UUID, Path()]) -> JSONResponse: 
                 result={},
             ).model_dump(exclude_none=True, by_alias=True),
         )
-    workflows = [
-        AppFlowInfo(
-            id=flow.id,
-            name=flow.name,
-            description=flow.description,
-            debug=flow.debug,
+
+    # 根据 Metadata 类型组装对应的 GetAppPropertyMsg
+    if isinstance(app_data, AppMetadata):
+        # 处理工作流应用（FLOW类型）
+        workflows = [
+            AppFlowInfo(
+                id=flow.id,
+                name=flow.name,
+                description=flow.description,
+                debug=flow.debug,
+            )
+            for flow in app_data.flows
+        ]
+        result_msg = GetAppPropertyMsg(
+            appId=str(app_data.id),
+            appType=app_data.app_type,
+            published=app_data.published,
+            name=app_data.name,
+            description=app_data.description,
+            icon=app_data.icon,
+            links=app_data.links,
+            recommendedQuestions=app_data.first_questions,
+            dialogRounds=app_data.history_len,
+            permission=AppPermissionData(
+                visibility=app_data.permission.type if app_data.permission else PermissionType.PRIVATE,
+                authorizedUsers=app_data.permission.users if app_data.permission else [],
+            ),
+            workflows=workflows,
+            mcpService=[],
         )
-        for flow in app_data.flows
-    ]
-    mcp_service = []
-    if app_data.mcp_service:
-        for service in app_data.mcp_service:
-            mcp_collection = await MCPServiceManager.get_mcp_service(service)
-            mcp_service.append(AppMcpServiceInfo(
-                id=mcp_collection.id,
-                name=mcp_collection.name,
-                description=mcp_collection.description,
-            ))
+    elif isinstance(app_data, AgentAppMetadata):
+        # 处理智能体应用（AGENT类型）
+        mcp_service = []
+        if app_data.mcp_service:
+            for service in app_data.mcp_service:
+                mcp_collection = await MCPServiceManager.get_mcp_service(service)
+                # 当 mcp_collection 为 None 时忽略当前的 MCP Server
+                if mcp_collection is not None:
+                    mcp_service.append(AppMcpServiceInfo(
+                        id=uuid.UUID(service) if isinstance(service, str) else service,
+                        name=mcp_collection.name,
+                        description=mcp_collection.description,
+                    ))
+        result_msg = GetAppPropertyMsg(
+            appId=str(app_data.id),
+            appType=app_data.app_type,
+            published=app_data.published,
+            name=app_data.name,
+            description=app_data.description,
+            icon=app_data.icon,
+            links=[],
+            recommendedQuestions=[],
+            dialogRounds=app_data.history_len,
+            permission=AppPermissionData(
+                visibility=app_data.permission.type if app_data.permission else PermissionType.PRIVATE,
+                authorizedUsers=app_data.permission.users if app_data.permission else [],
+            ),
+            workflows=[],
+            mcpService=mcp_service,
+        )
+    else:
+        logger.error("[AppCenter] 未知的应用元数据类型: %s", type(app_data).__name__)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ResponseData(
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message="UNKNOWN_APP_TYPE",
+                result={},
+            ).model_dump(exclude_none=True, by_alias=True),
+        )
+
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=GetAppPropertyRsp(
             code=status.HTTP_200_OK,
             message="OK",
-            result=GetAppPropertyMsg(
-                appId=app_data.id,
-                appType=app_data.app_type,
-                published=app_data.published,
-                name=app_data.name,
-                description=app_data.description,
-                icon=app_data.icon,
-                links=app_data.links,
-                recommendedQuestions=app_data.first_questions,
-                dialogRounds=app_data.history_len,
-                permission=AppPermissionData(
-                    visibility=app_data.permission.type,
-                    authorizedUsers=app_data.permission.users,
-                ),
-                workflows=workflows,
-                mcpService=mcp_service,
-            ),
+            result=result_msg,
         ).model_dump(exclude_none=True, by_alias=True),
     )
 

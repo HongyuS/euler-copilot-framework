@@ -13,14 +13,12 @@ from apps.common.wordscheck import words_check
 from apps.dependency import verify_personal_token, verify_session
 from apps.models import ExecutorStatus
 from apps.scheduler.scheduler import Scheduler
-from apps.scheduler.scheduler.context import save_data
 from apps.schemas.request_data import RequestData
 from apps.schemas.response_data import ResponseData
 from apps.services.activity import Activity
 from apps.services.blacklist import QuestionBlacklistManager, UserBlacklistManager
 from apps.services.flow import FlowManager
 
-RECOMMEND_TRES = 5
 _logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/api",
@@ -30,7 +28,6 @@ router = APIRouter(
         Depends(verify_personal_token),
     ],
 )
-
 
 async def chat_generator(post_body: RequestData, user_sub: str, session_id: str) -> AsyncGenerator[str, None]:
     """进行实际问答，并从MQ中获取消息"""
@@ -44,15 +41,13 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
             await Activity.remove_active(user_sub)
             return
 
-        task = await init_task(post_body, user_sub, session_id)
-
         # 创建queue；由Scheduler进行关闭
         queue = MessageQueue()
         await queue.init()
 
         # 在单独Task中运行Scheduler，拉齐queue.get的时机
         scheduler = Scheduler()
-        await scheduler.init(task.metadata.id, queue, post_body, user_sub)
+        await scheduler.init(queue, post_body, user_sub)
         _logger.info(f"[Chat] 用户是否活跃: {await Activity.is_active(user_sub)}")
         scheduler_task = asyncio.create_task(scheduler.run())
 
@@ -79,9 +74,6 @@ async def chat_generator(post_body: RequestData, user_sub: str, session_id: str)
             _logger.info("[Chat] 答案包含敏感词！")
             await Activity.remove_active(user_sub)
             return
-
-        # 创建新Record，存入数据库
-        await save_data(task, user_sub, post_body)
 
         if post_body.app and post_body.app.flow_id:
             await FlowManager.update_flow_debug_by_app_and_flow_id(
