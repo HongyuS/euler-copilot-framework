@@ -25,7 +25,7 @@ sections:
           - label: 使用指导
             sections:
               - label: API Key 获取
-                href: ./quick_start/smart_shell/user_guide/API_key.md
+                href: ./quick_start/smart_shell/user_guide/api_key.md
               - label: 命令行助手使用
                 href: ./quick_start/smart_shell/user_guide/shell.md
   - label: 进阶使用
@@ -45,9 +45,9 @@ sections:
       - label: 知识库管理
         sections:
           - label: 部署指南
-            href: ./advance/knowledge_base/deploy_guide/witChainD_deployment.md
+            href: ./advance/knowledge_base/deploy_guide/knowledge_base_deployment.md
           - label: 使用指导
-            href: ./advance/knowledge_base/user_guide/witChainD_guidance.md
+            href: ./advance/knowledge_base/user_guide/knowledge_base_guidance.md
       - label: 工作流编排
         sections:
           - label: 部署指南

@@ -2,7 +2,7 @@
 
 ## 准备工作
 
-+ 提前安装 [EulerCopilot 命令行（智能 Shell）客户端](../../../quick_start/smart_shell/user_guide/shell.md))
++ 提前安装 [openEuler Intelligence 命令行（智能 Shell）客户端](../../../quick_start/smart_shell/user_guide/shell.md))
 
 + 被调优机器需要为 openEuler 22.03 LTS-SP3
 

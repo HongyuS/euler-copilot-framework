@@ -1,8 +1,8 @@
-# EulerCopilot
+# openEuler Intelligence
 
 ## 功能描述
 
-EulerCopilot 智能问答平台目前支持 Web 和智能 Shell 两个入口。
+openEuler Intelligence 智能问答平台目前支持 Web 和智能 Shell 两个入口。
 
 - Web 入口：操作简单，可咨询操作系统相关基础知识，openEuler 动态数据、openEuler 运维问题解决方案、openEuler 项目介绍与使用指导等等。
 - 智能 Shell 入口：自然语言和 openEuler 交互，启发式的运维。
@@ -45,4 +45,4 @@ EulerCopilot 智能问答平台目前支持 Web 和智能 Shell 两个入口。
 
 ### 开发指南
 
-- [EulerCopilot插件开发指南](./开发指南/EulerCopilot插件开发指南.md)
+- [openEuler Intelligence插件开发指南](./开发指南/EulerCopilot插件开发指南.md)

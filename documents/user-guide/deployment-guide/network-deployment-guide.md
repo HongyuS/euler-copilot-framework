@@ -2,7 +2,7 @@
 
 ## Introduction
 
-openEuler Copilot System is an intelligent Q&A tool. Using openEuler Copilot System can enhance the convenience of acquiring operating system knowledge and empower developers and operation personnel in the OS domain. As a tool for obtaining operating system knowledge, it enables productivity tools for operating systems (such as A-Ops / A-Tune / x2openEuler / EulerMaker / EulerDevOps / StratoVirt / iSulad), disrupts traditional command delivery methods, and evolves from traditional command delivery to natural semantics. Combined with the intelligent task planning capabilities, it lowers the threshold for developing and using operating system features.
+openEuler Intelligence System is an intelligent Q&A tool. Using openEuler Intelligence System can enhance the convenience of acquiring operating system knowledge and empower developers and operation personnel in the OS domain. As a tool for obtaining operating system knowledge, it enables productivity tools for operating systems (such as A-Ops / A-Tune / x2openEuler / EulerMaker / EulerDevOps / StratoVirt / iSulad), disrupts traditional command delivery methods, and evolves from traditional command delivery to natural semantics. Combined with the intelligent task planning capabilities, it lowers the threshold for developing and using operating system features.
 
 ### Main Component Overview
 
@@ -24,7 +24,7 @@ openEuler Copilot System is an intelligent Q&A tool. Using openEuler Copilot Sys
 |------------| -------------------------------------|--------------------------------------|
 | Operating System    | openEuler 22.03 LTS or above         | None                                   |
 | K3s        | >= v1.30.2, with Traefik Ingress Tool   | K3s provides a lightweight Kubernetes cluster, easy to deploy and manage |
-| Helm       | >= v3.15.3                           | Helm is a Kubernetes package management tool, aiming to quickly install, upgrade, and uninstall openEuler Copilot System services |
+| Helm       | >= v3.15.3                           | Helm is a Kubernetes package management tool, aiming to quickly install, upgrade, and uninstall openEuler Intelligence System services |
 | python     | >=3.9.9                              | Python 3.9.9 or higher versions provide the runtime environment for model download and installation |
 
 ### Hardware Requirements
@@ -49,9 +49,9 @@ Note:
 
 [Deployment Diagram](./pictures/Deployment_View.png)
 
-## Obtaining openEuler Copilot System
+## Obtaining openEuler Intelligence System
 
-- Download the latest deployment repository from the official Git repository of openEuler Copilot System [euler-copilot-framework](https://gitee.com/openeuler/euler-copilot-framework).
+- Download the latest deployment repository from the official Git repository of openEuler Intelligence System [euler-copilot-framework](https://gitee.com/openeuler/euler-copilot-framework).
 - If you are using Kubernetes, there is no need to install the k3s tool.
 
 ```bash
@@ -65,7 +65,7 @@ git clone https://gitee.com/openeuler/euler-copilot-framework.git
 
 ## Environment Preparation
 
-The device must be connected to the internet and meet the minimum software and hardware requirements for openEuler Copilot System. After confirming that the server, hardware, drivers, etc., are ready, proceed with the environment preparation. To ensure successful initialization, follow the instructions, enter our script deployment directory, and execute the provided operation steps and script paths sequentially.
+The device must be connected to the internet and meet the minimum software and hardware requirements for openEuler Intelligence System. After confirming that the server, hardware, drivers, etc., are ready, proceed with the environment preparation. To ensure successful initialization, follow the instructions, enter our script deployment directory, and execute the provided operation steps and script paths sequentially.
 
 ```bash
 # Enter the deployment script directory
@@ -93,9 +93,9 @@ cd /home/euler-copilot-framework/deploy/scripts && tree
 
 ## Installation
 
-Your environment is now ready, and you can proceed with the installation process of openEuler Copilot System.
+Your environment is now ready, and you can proceed with the installation process of openEuler Intelligence System.
 
-- Example download directory is home. Enter the Helm configuration file directory of the openEuler Copilot System repository.
+- Example download directory is home. Enter the Helm configuration file directory of the openEuler Intelligence System repository.
 
   ```bash
   cd /home/euler-copilot-framework && ll
@@ -268,7 +268,7 @@ Your environment is now ready, and you can proceed with the installation process
   
   [Deployment Diagram](./pictures/create_application_success_interface.png)
 
-### 3. Install openEuler Copilot System
+### 3. Install openEuler Intelligence System
 
 - Edit values.yaml
 
@@ -287,7 +287,7 @@ Your environment is now ready, and you can proceed with the installation process
   5. **OIDC Settings**: Complete the correct OIDC configuration in the framework chapter.
   6. **Plugin Deployment (Optional)**: If choosing to deploy plugins, configure the model for Function Call. Note that deploying sglang requires a GPU-supported environment; refer to the appendix for details.
 
-- Install openEuler Copilot System
+- Install openEuler Intelligence System
 
   ```bash
   helm install -n euler-copilot service .
@@ -366,7 +366,7 @@ Your environment is now ready, and you can proceed with the installation process
      ```
 ## Verification of Installation
 
-Congratulations, **openEuler Copilot System** has been successfully deployed! To start your experience, enter `https://your-EulerCopilot-domain` in your browser to access the web interface of openEuler Copilot System:
+Congratulations, **openEuler Intelligence System** has been successfully deployed! To start your experience, enter `https://your-EulerCopilot-domain` in your browser to access the web interface of openEuler Intelligence System:
 
 Upon first access, you need to click the **Register Now** button on the page to create a new account and complete the login process.
 

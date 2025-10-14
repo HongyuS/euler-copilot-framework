@@ -1,15 +1,15 @@
-# EulerCopilot插件开发指南
+# openEuler Intelligence插件开发指南
 
 最后更新日期：2024/10/09
 
 ## 插件基本目录结构
 
-一个第三方服务接入EulerCopilot时，需要提供的目录及文件如下：
+一个第三方服务接入openEuler Intelligence时，需要提供的目录及文件如下：
 
 ```text
 test_plugin    # 插件文件夹，该文件夹的名称即为插件ID；
 | -- plugin.json    # 插件的元数据，包含插件的描述、插件的鉴权信息等；
-| -- openapi.yaml    # （可选）插件的API定义信息，EulerCopilot可通过其中的API定义进行接口调用；
+| -- openapi.yaml    # （可选）插件的API定义信息，openEuler Intelligence可通过其中的API定义进行接口调用；
 | -- lib    # （可选）工具文件夹，可以存放用户自定义的Python工具；
 | | -- __init__.py    # 标识该文件夹是一个Python模块；
 | | -- example_tool.py    # Python代码形式的工具；
@@ -23,7 +23,7 @@ test_plugin    # 插件文件夹，该文件夹的名称即为插件ID；
 
 `plugin.json`为插件的元数据文件，其作用如下：
 
-- 提供插件的名称与描述。名称和描述供EulerCopilot前端展示，及LLM智能插件选择；
+- 提供插件的名称与描述。名称和描述供openEuler Intelligence前端展示，及LLM智能插件选择；
 - 提供插件的鉴权方式（可选）。
 - 提供插件的预定义问题（可选）。
 
@@ -47,7 +47,7 @@ test_plugin    # 插件文件夹，该文件夹的名称即为插件ID；
 
 ### 字段说明
 
-- ID：插件的ID，用于在EulerCopilot内唯一标识该插件。
+- ID：插件的ID，用于在openEuler Intelligence内唯一标识该插件。
 	- 要求：小写英文字母与符号的组合
 - name：插件的名字，用于提供给前端进行展示。
 	- 要求：任意字符串，长度小于15个字。
@@ -68,7 +68,7 @@ test_plugin    # 插件文件夹，该文件夹的名称即为插件ID；
 
 开发者可以使用[Swagger Editor](https://editor.swagger.io/)，结合[FastAPI自动文档生成](https://fastapi.tiangolo.com/features/)、[OpenAPI标准](https://swagger.io/specification/)等参考/工具进行文档编写。
 
-EulerCopilot使用的OpenAPI文档与OpenAPI 3.0.0文档标准有少量区别，详情请见下文。
+openEuler Intelligence使用的OpenAPI文档与OpenAPI 3.0.0文档标准有少量区别，详情请见下文。
 
 ### 基本格式
 
@@ -346,7 +346,7 @@ next_flow:
 - `steps[]`：Flow中的步骤定义：
   - 每个步骤（Step），包含单个工具（Call）的类型、必要参数等；
   - 每个步骤都有一个步骤名，“start”和“end”是特殊的步骤名。Flow将以start为入口点开始执行，到end步骤结束。
-- `next_flow[]`：由开发者手动指定的推荐Flow，将在Flow完成后以问题改写的方式展示在EulerCopilot前端界面。
+- `next_flow[]`：由开发者手动指定的推荐Flow，将在Flow完成后以问题改写的方式展示在openEuler Intelligence前端界面。
 
 #### Step字段
 

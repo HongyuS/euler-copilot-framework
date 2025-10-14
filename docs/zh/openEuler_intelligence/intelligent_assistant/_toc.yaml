@@ -25,7 +25,7 @@ sections:
           - label: 使用指导
             sections:
               - label: API Key 获取
-                href: ./quick_start/smart_shell/user_guide/API_key.md
+                href: ./quick_start/smart_shell/user_guide/api_key.md
               - label: 命令行助手使用
                 href: ./quick_start/smart_shell/user_guide/shell.md
   - label: 进阶使用
