@@ -25,24 +25,29 @@ apps/
 
 #### Comment Table Schema
 
-| 字段名 | 类型 | 说明 | 约束 |
-|--------|------|------|------|
-| id | BigInteger | 主键ID | Primary Key, Auto Increment |
-| recordId | UUID | 问答对ID | Foreign Key → framework_record.id, Indexed |
-| userSub | String(50) | 用户标识 | Foreign Key → framework_user.userSub |
-| commentType | Enum(CommentType) | 评论类型 | Not Null |
-| feedbackType | ARRAY(String) | 投诉类别列表 | Not Null |
-| feedbackLink | String(1000) | 投诉相关链接 | Not Null |
-| feedbackContent | String(1000) | 投诉详细内容 | Not Null |
-| createdAt | DateTime(TZ) | 创建时间 | Not Null, Default: UTC Now |
+```mermaid
+erDiagram
+    COMMENT {
+        bigint      id                "主键ID (Primary Key, Auto Increment)"
+        uuid        recordId          "问答对ID (Foreign Key → framework_record.id, Indexed)"
+        string      userSub           "用户标识 (Foreign Key → framework_user.userSub, max 50)"
+        CommentType commentType       "评论类型 (Not Null)"
+        string[]    feedbackType      "投诉类别列表 (Not Null)"
+        string      feedbackLink      "投诉相关链接 (Not Null, max 1000)"
+        string      feedbackContent   "投诉详细内容 (Not Null, max 1000)"
+        datetime    createdAt         "创建时间 (Not Null, Default: UTC Now, 带时区)"
+    }
+```
 
 #### CommentType Enum
 
-```python
-class CommentType(str, PyEnum):
-    LIKE = "liked"      # 点赞
-    DISLIKE = "disliked"  # 点踩
-    NONE = "none"       # 无评论
+```mermaid
+erDiagram
+    CommentType {
+        string liked      "点赞"
+        string disliked   "点踩"
+        string none       "无评论"
+    }
 ```
 
 ### 2. 业务逻辑层 (services/comment.py)
@@ -67,26 +72,28 @@ class CommentType(str, PyEnum):
 
 #### AddCommentData (请求模型)
 
-```python
-{
-    "record_id": str,                    # 问答记录ID
-    "comment": CommentType,              # 评论类型 (liked/disliked/none)
-    "dislike_reason": str,               # 点踩原因 (分号分隔, max 200字符)
-    "reason_link": str,                  # 相关链接 (max 200字符)
-    "reason_description": str            # 详细描述 (max 500字符)
-}
+```mermaid
+erDiagram
+    AddCommentData {
+        string   record_id           "问答记录ID"
+        CommentType comment          "评论类型 (liked/disliked/none)"
+        string   dislike_reason      "点踩原因 (分号分隔, max 200字符)"
+        string   reason_link         "相关链接 (max 200字符)"
+        string   reason_description  "详细描述 (max 500字符)"
+    }
 ```
 
 #### RecordComment (内部数据模型)
 
-```python
-{
-    "comment": CommentType,              # 评论类型
-    "feedback_type": list[str],          # 反馈类型列表 (别名: dislike_reason)
-    "feedback_link": str,                # 反馈链接 (别名: reason_link)
-    "feedback_content": str,             # 反馈内容 (别名: reason_description)
-    "feedback_time": float               # 反馈时间戳
-}
+```mermaid
+erDiagram
+    RecordComment {
+        CommentType comment          "评论类型"
+        string[] feedback_type       "反馈类型列表 (别名: dislike_reason)"
+        string   feedback_link       "反馈链接 (别名: reason_link)"
+        string   feedback_content    "反馈内容 (别名: reason_description)"
+        float    feedback_time       "反馈时间戳"
+    }
 ```
 
 ## 架构设计
@@ -513,25 +520,6 @@ curl -X POST "http://localhost:8000/api/comment" \
   }'
 ```
 
-**Python:**
-
-```python
-import requests
-
-response = requests.post(
-    "http://localhost:8000/api/comment",
-    json={
-        "record_id": "550e8400-e29b-41d4-a716-446655440000",
-        "comment": "disliked",
-        "dislike_reason": "答非所问;信息不准确;",
-        "reason_link": "https://example.com/issue/123",
-        "reason_description": "回答内容与问题不符"
-    },
-    headers={"Authorization": "Bearer <token>"},
-    cookies={"session": "<session_id>"}
-)
-```
-
 ## 关键特性
 
 ### 1. 幂等性设计
@@ -569,7 +557,7 @@ response = requests.post(
 
 ## 错误处理
 
-### 常见错误场景
+常见错误场景：
 
 | 错误场景 | HTTP状态码 | 处理方式 |
 |----------|-----------|----------|
@@ -580,55 +568,6 @@ response = requests.post(
 | 字段长度超限 | 422 | Pydantic验证失败 |
 | 数据库连接失败 | 500 | 异常传播至错误处理中间件 |
 | 外键约束违反 | 500 | 数据库异常 |
-
-### 异常传播链
-
-```mermaid
-flowchart LR
-    A[Router Layer] --> B{验证异常?}
-    B -->|是| C[422 Unprocessable Entity]
-    B -->|否| D[Service Layer]
-    D --> E{业务异常?}
-    E -->|是| F[400 Bad Request]
-    E -->|否| G[Database Layer]
-    G --> H{DB异常?}
-    H -->|是| I[500 Internal Server Error]
-    H -->|否| J[200 OK]
-```
-
-## 性能优化
-
-### 1. 数据库索引
-
-```sql
-CREATE INDEX idx_comment_record_id ON framework_comment(recordId);
-```
-
-- 优化基于 recordId 的查询性能
-- 支持快速定位单个记录的评论
-
-### 2. 异步IO
-
-- 使用 SQLAlchemy 异步会话：`async with postgres.session()`
-- 非阻塞数据库操作
-- 提高并发处理能力
-
-### 3. 连接池管理
-
-- PostgreSQL 连接池复用
-- 避免频繁建立/关闭连接的开销
-
-### 4. 查询优化
-
-```python
-# 使用 one_or_none() 替代 all()[0]
-result = (await session.scalars(
-    select(Comment).where(Comment.recordId == uuid.UUID(record_id))
-)).one_or_none()
-```
-
-- 提前终止查询（最多返回1条）
-- 减少数据传输量
 
 ## 安全考虑
 
@@ -646,174 +585,3 @@ result = (await session.scalars(
   - reason_description: 500字符
 - **类型校验**：Pydantic自动验证数据类型
 - **枚举约束**：CommentType限定为三个固定值
-
-### 3. SQL注入防护
-
-- 使用 SQLAlchemy ORM
-- 参数化查询
-- 无原生SQL拼接
-
-### 4. 数据完整性
-
-- 外键约束防止孤立记录
-- 事务保证原子性操作
-- NOT NULL约束防止空值
-
-## 扩展性设计
-
-### 1. 评论类型扩展
-
-当前支持三种类型，如需扩展：
-
-```python
-class CommentType(str, PyEnum):
-    LIKE = "liked"
-    DISLIKE = "disliked"
-    NONE = "none"
-    # 未来扩展
-    REPORT = "reported"      # 举报
-    FAVORITE = "favorited"   # 收藏
-```
-
-### 2. 反馈类型扩展
-
-feedbackType 使用数组类型，支持多选和动态扩展：
-
-```python
-# 前端定义的反馈类型选项
-FEEDBACK_OPTIONS = [
-    "答非所问",
-    "信息不准确",
-    "内容不完整",
-    "格式混乱",
-    "其他问题"
-]
-```
-
-### 3. 多语言支持
-
-在 RecordComment 中添加语言字段：
-
-```python
-class RecordComment(BaseModel):
-    comment: CommentType
-    language: str = "zh-CN"  # 新增字段
-    # ... 其他字段
-```
-
-### 4. 统计分析扩展
-
-可基于现有数据进行扩展：
-
-- 点赞率统计
-- 点踩原因分布
-- 时间趋势分析
-- 用户反馈热点
-
-## 部署注意事项
-
-### 1. 数据库迁移
-
-使用 Alembic 进行数据库版本管理：
-
-```bash
-# 生成迁移脚本
-alembic revision --autogenerate -m "create comment table"
-
-# 执行迁移
-alembic upgrade head
-```
-
-### 2. 环境变量配置
-
-```bash
-# PostgreSQL 连接配置
-DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/dbname
-
-# 日志级别
-LOG_LEVEL=INFO
-```
-
-### 3. 性能调优
-
-```python
-# 连接池配置
-pool_size = 20          # 连接池大小
-max_overflow = 10       # 最大溢出连接数
-pool_timeout = 30       # 连接超时时间
-pool_recycle = 3600     # 连接回收时间
-```
-
-## 未来优化方向
-
-### 1. 缓存策略
-
-- Redis 缓存热点评论数据
-- 减少数据库查询压力
-- 设置合理的缓存过期时间
-
-### 2. 批量操作支持
-
-- 支持批量查询评论
-- 支持批量更新评论
-- 减少网络往返次数
-
-### 3. 评论审核机制
-
-- 敏感词过滤
-- 内容审核工作流
-- 人工复审接口
-
-### 4. 数据分析增强
-
-- 实时统计面板
-- 评论情感分析
-- 用户行为画像
-
-## 常见问题 (FAQ)
-
-### Q1: 为什么使用 merge 而不是 add？
-
-**A:** `merge` 操作实现了 UPSERT 语义，可以自动判断是插入还是更新，简化了业务逻辑。
-
-### Q2: dislike_reason 为什么使用分号分隔？
-
-**A:** 前端传递多个原因时使用分号分隔的字符串格式，后端进行split转换为数组存储到数据库。
-
-### Q3: 为什么 update_comment 返回 None？
-
-**A:** 当前设计中更新操作无需返回值，失败时通过异常处理。未来可以改为返回布尔值或更新后的对象。
-
-### Q4: 如何防止恶意刷评论？
-
-**A:**
-
-- 身份认证确保用户真实性
-- 可增加频率限制（Rate Limiting）
-- 可增加同一用户对同一记录的评论次数限制
-
-### Q5: 评论数据如何归档？
-
-**A:**
-
-- 可按时间分区存储历史数据
-- 定期将旧数据迁移到冷存储
-- 保留索引供查询分析使用
-
-## 参考资料
-
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [SQLAlchemy Async Documentation](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html)
-- [Pydantic V2 Documentation](https://docs.pydantic.dev/latest/)
-- [PostgreSQL ARRAY Types](https://www.postgresql.org/docs/current/arrays.html)
-
-## 版本历史
-
-| 版本 | 日期 | 变更说明 |
-|------|------|----------|
-| 1.0.0 | 2025-10-13 | 初始版本，完成基础评论功能 |
-
----
-
-**文档维护者**: Euler Copilot Framework Team
-**最后更新**: 2025-10-13

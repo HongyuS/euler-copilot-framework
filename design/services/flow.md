@@ -602,82 +602,16 @@ flowchart TD
     Process -->|成功| Return200[返回200 OK]
 ```
 
-## 9. 性能优化
-
-### 9.1 并发处理
-
-- 使用 `async/await` 异步处理
-- 数据库查询使用连接池
-- 文件I/O使用 `aiofiles` 异步操作
-
-### 9.2 数据库优化
-
-- 创建复合索引: `idx_app_id_id`, `idx_app_id_name`
-- 批量查询减少数据库往返
-- 使用 `select().where().order_by()` 优化查询
-
-### 9.3 缓存策略
-
-- FlowLoader 通过 Pool 单例复用
-- 节点参数 schema 可缓存
-- 向量化数据独立存储和更新
-
-## 10. 安全性
-
-### 10.1 访问控制
-
-```mermaid
-flowchart TD
-    Request[用户请求] --> CheckSession{会话验证}
-    CheckSession -->|失败| Reject1[拒绝访问]
-    CheckSession -->|成功| CheckToken{Personal Token验证}
-    CheckToken -->|失败| Reject2[拒绝访问]
-    CheckToken -->|成功| CheckPerm{权限检查}
-    CheckPerm -->|读取| ValidateRead{验证读权限}
-    CheckPerm -->|写入/删除| ValidateWrite{验证写权限}
-    ValidateRead -->|有权限| AllowRead[允许读取]
-    ValidateRead -->|无权限| Reject3[拒绝访问]
-    ValidateWrite -->|是所有者| AllowWrite[允许写入]
-    ValidateWrite -->|非所有者| Reject4[拒绝访问]
-```
-
-### 10.2 数据验证
+## 9. 安全性
 
 - 输入参数使用 Pydantic 模型验证
 - 分支ID禁止包含"."等非法字符
 - 节点/边ID唯一性检查
 - YAML文件格式验证
 
-### 10.3 文件安全
+## 10. 配置示例
 
-- 文件路径使用 `anyio.Path` 安全处理
-- 限制文件访问在 `data_dir` 范围内
-- 文件hash值校验（AppHashes表）
-
-## 11. 扩展性
-
-### 11.1 支持的节点类型
-
-- **START**: 起始节点
-- **END**: 终止节点
-- **CHOICE**: 分支节点（多出边）
-- **Empty**: 空节点（工具被删除时的占位符）
-- **自定义节点**: 通过Service和NodeInfo扩展
-
-### 11.2 支持的边类型
-
-- **NORMAL**: 普通边
-- **其他自定义类型**: 通过 `EdgeType` 枚举扩展
-
-### 11.3 插件机制
-
-- 通过 `Pool().get_call()` 动态加载节点实现
-- Service机制支持用户自定义服务
-- 节点参数schema动态生成
-
-## 12. 配置示例
-
-### 12.1 YAML配置文件示例
+YAML配置文件示例：
 
 ```yaml
 name: 示例工作流
@@ -734,7 +668,7 @@ edges:
     edge_type: NORMAL
 ```
 
-## 13. 文件存储结构
+## 11. 文件存储结构
 
 ```text
 data_dir/
@@ -747,17 +681,3 @@ data_dir/
                 ├── {flow_id}.yaml    # 其他工作流
                 └── ...
 ```
-
-## 14. 总结
-
-FlowManager 模块提供了完整的工作流管理功能，具有以下特点:
-
-✅ **完整的CRUD操作**: 支持工作流的创建、读取、更新、删除
-✅ **严格的数据验证**: 多层验证确保工作流配置正确性
-✅ **连通性检查**: BFS算法验证图的连通性
-✅ **权限控制**: 完善的用户权限和访问控制
-✅ **异步处理**: 高性能的异步I/O操作
-✅ **扩展性强**: 支持自定义节点和边类型
-✅ **数据一致性**: 数据库与文件系统双重存储保证一致性
-
-该模块是 openEuler Intelligence 框架工作流引擎的核心组件，为上层应用提供了稳定可靠的工作流管理服务。
